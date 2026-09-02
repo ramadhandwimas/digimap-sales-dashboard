@@ -24,11 +24,11 @@ async function token(email:string,privateKey:string){
 
 export async function getSheetRanges(id:string,ranges:string[],email:string,privateKey:string){const access=await token(email,privateKey);const url=new URL(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values:batchGet`);ranges.forEach(range=>url.searchParams.append("ranges",range));url.searchParams.set("valueRenderOption","UNFORMATTED_VALUE");const response=await fetch(url,{headers:{authorization:`Bearer ${access}`},cache:"no-store"});if(!response.ok)throw new Error(`Google Sheets gagal (${response.status})`);const json=await response.json()as{valueRanges?:Array<{values?:unknown[][]}>};return(json.valueRanges??[]).map(x=>x.values??[])}
 
-export async function clearAndWrite(id:string,clearRange:string,writeRange:string,values:unknown[][],email:string,privateKey:string){
+export async function clearAndWrite(id:string,clearRange:string,writeRange:string,values:unknown[][],email:string,privateKey:string,valueInputOption:"RAW"|"USER_ENTERED"="USER_ENTERED"){
   const access=await token(email,privateKey),headers={authorization:`Bearer ${access}`,"content-type":"application/json"}
   const cleared=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(clearRange)}:clear`,{method:"POST",headers,body:"{}"})
   if(!cleared.ok)throw new Error(`Gagal membersihkan data lama (${cleared.status})`)
-  const written=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(writeRange)}?valueInputOption=USER_ENTERED`,{method:"PUT",headers,body:JSON.stringify({range:writeRange,majorDimension:"ROWS",values})})
+  const written=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(writeRange)}?valueInputOption=${valueInputOption}`,{method:"PUT",headers,body:JSON.stringify({range:writeRange,majorDimension:"ROWS",values})})
   if(!written.ok)throw new Error(`Gagal mengunggah SPW (${written.status})`)
   return written.json()
 }

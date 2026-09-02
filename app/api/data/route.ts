@@ -17,7 +17,7 @@ function aggregate(rows:Row[],person:Staff,target:Target):StaffMetric{const mine
 function daily(rows:Row[]):DailyMetric[]{return[...new Set(rows.filter(valid).map(r=>r.date))].sort().map(date=>{const day=rows.filter(r=>r.date===date&&valid(r)),invoices=new Set(day.map(r=>r.invoice).filter(Boolean)),sum=(type:string)=>day.filter(r=>kind(r)===type).reduce((a,r)=>a+r.amount,0),qty=day.reduce((a,r)=>a+r.qty,0),lob=(p:string)=>day.filter(r=>product(r)===p).reduce((a,r)=>a+r.qty,0),vas=(terms:string[])=>day.filter(r=>kind(r)==="vas"&&terms.some(q=>`${r.article} ${r.brand} ${r.vendor}`.toUpperCase().includes(q))).reduce((a,r)=>a+r.amount,0),amount=day.reduce((a,r)=>a+r.amount,0);return{date,amount,device:sum("device"),accessories:sum("accessories"),vas:sum("vas"),invoices:invoices.size,qty,upt:invoices.size?qty/invoices.size:0,atv:invoices.size?amount/invoices.size:0,mac:lob("mac"),ipad:lob("ipad"),iphone:lob("iphone"),watch:lob("watch"),airpods:lob("airpods"),qoala:vas(["QOALA","KLA"]),telkomsel:vas(["TELKOMSEL","TSL"]),indosat:vas(["INDOSAT","IDT"]),xl:vas(["XL","XXL"])}})}
 function demo(period:string):M238Payload{const target={period,amount:15500000000,device:13369511827,accessories:1159401355,vas:971086818},staff=[{id:"22000134",name:"Wijaya",position:"Store Trainer",share:.06},{id:"25021585",name:"Andhea Fitri",position:"Sales Assistant",share:.11}],zero=(x:Staff):StaffMetric=>({id:x.id,name:x.name,share:x.share,amount:0,device:0,accessories:0,vas:0,qty:0,invoices:0,upt:0,atv:0,targets:{amount:target.amount*x.share,device:target.device*x.share,accessories:target.accessories*x.share,vas:target.vas*x.share},incentive:{mac:0,iphone:0,ipad:0,watch:0,qoala:0,accessories:0,total:0}});return{mode:"demo",generatedAt:new Date().toISOString(),latestDate:`${period}-01`,period,staff,target,dailyStaff:staff.map(zero),monthlyStaff:staff.map(zero),daily:[],summary:{amount:0,device:0,accessories:0,vas:0,invoices:0,qty:0,upt:0,atv:0,estimate:0,point:0,timegone:0}}}
 
-const CACHE_TTL=5*60*1000
+const CACHE_TTL=60*1000
 const responseCache=new Map<string,{expiresAt:number;data:M238Payload}>()
 const pendingRequests=new Map<string,Promise<M238Payload>>()
 
@@ -42,7 +42,7 @@ export async function GET(req:NextRequest){
   const period=req.nextUrl.searchParams.get("period")||new Date().toISOString().slice(0,7),force=req.nextUrl.searchParams.get("refresh")==="1",email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY
   if(!email||!key)return NextResponse.json(demo(period))
   const cacheKey=`${email}:${period}`,cached=responseCache.get(cacheKey)
-  if(!force&&cached&&cached.expiresAt>Date.now())return NextResponse.json(cached.data,{headers:{"cache-control":"public, max-age=60, s-maxage=300, stale-while-revalidate=600","x-dashboard-cache":"hit"}})
+  if(!force&&cached&&cached.expiresAt>Date.now())return NextResponse.json(cached.data,{headers:{"cache-control":"public, max-age=15, s-maxage=60, stale-while-revalidate=120","x-dashboard-cache":"hit"}})
   try{
     let request=pendingRequests.get(cacheKey)
     if(!request||force){
@@ -51,7 +51,7 @@ export async function GET(req:NextRequest){
     }
     const data=await request
     responseCache.set(cacheKey,{data,expiresAt:Date.now()+CACHE_TTL})
-    return NextResponse.json(data,{headers:{"cache-control":force?"no-store":"public, max-age=60, s-maxage=300, stale-while-revalidate=600","x-dashboard-cache":"miss"}})
+    return NextResponse.json(data,{headers:{"cache-control":force?"no-store":"public, max-age=15, s-maxage=60, stale-while-revalidate=120","x-dashboard-cache":"miss"}})
   }catch(error){
     return NextResponse.json({...demo(period),error:error instanceof Error?error.message:"Gagal membaca master Sheet"},{status:200,headers:{"cache-control":"no-store"}})
   }finally{
