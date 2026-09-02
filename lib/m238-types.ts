@@ -1,0 +1,5 @@
+export type Staff={id:string;name:string;position:string;share:number}
+export type Target={period:string;amount:number;device:number;accessories:number;vas:number}
+export type StaffMetric={id:string;name:string;share:number;amount:number;device:number;accessories:number;vas:number;qty:number;invoices:number;upt:number;atv:number;targets:{amount:number;device:number;accessories:number;vas:number};incentive:{mac:number;iphone:number;ipad:number;watch:number;qoala:number;accessories:number;total:number}}
+export type DailyMetric={date:string;amount:number;device:number;accessories:number;vas:number;invoices:number;qty:number;upt:number;atv:number;mac:number;ipad:number;iphone:number;watch:number;airpods:number;qoala:number;telkomsel:number;indosat:number;xl:number}
+export type M238Payload={mode:"live"|"demo";generatedAt:string;latestDate:string;period:string;staff:Staff[];target:Target;dailyStaff:StaffMetric[];monthlyStaff:StaffMetric[];daily:DailyMetric[];summary:{amount:number;device:number;accessories:number;vas:number;invoices:number;qty:number;upt:number;atv:number;estimate:number;point:number;timegone:number}}
