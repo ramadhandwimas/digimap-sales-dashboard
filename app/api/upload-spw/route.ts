@@ -12,9 +12,7 @@ export async function POST(req:NextRequest){
     const report=parseSpwWorkbook(await file.arrayBuffer())
     if(report.rows.length>65536)return NextResponse.json({error:"File SPW melebihi kapasitas 65.536 baris."},{status:400})
     const tailStart=report.rows.length+1,clearTail=tailStart<=65536?`'RAW SalesPerson'!R${tailStart}:T65536`:null
-    // USER_ENTERED membuat angka/tanggal dari Excel diperlakukan seperti paste ke Google Sheets,
-    // sehingga rumus master dapat membaca tipe nilainya dengan benar.
     await clearAndWrite(SHEET_ID,clearTail,"'RAW SalesPerson'!R1",report.rows,email,key,"USER_ENTERED")
-    return NextResponse.json({ok:true,rows:report.rows.length,sheet:report.sheetName,numbers:report.numbers,message:`SPW berhasil di-upload (${report.rows.length} baris).`})
+    return NextResponse.json({ok:true,rows:report.rows.length,sheet:report.sheetName,numbers:report.numbers,expectedSales:report.expectedTotal,validatedTotals:report.validatedTotals,message:`SPW berhasil dikonversi ke format Google Sheets. ${report.rows.length} baris, total report Rp ${Math.round(report.expectedTotal).toLocaleString("id-ID")}.`})
   }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Upload gagal"},{status:500})}
 }
