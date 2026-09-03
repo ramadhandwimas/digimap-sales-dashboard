@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import * as XLSX from "xlsx";
-import {clearAndWrite} from "@/lib/google-sheets";
+import {clearAndWrite,getSheetRanges} from "@/lib/google-sheets";
 const ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 
 type Cell=string|number|boolean;
@@ -41,7 +41,15 @@ export async function POST(req:NextRequest){
     if(!report)return NextResponse.json({error:"File SOH kosong"},{status:400});
     if(report.score<300)return NextResponse.json({error:"Format SOH tidak dikenali. Pastikan file adalah Stock Position Report asli."},{status:400});
     if(report.rows.length>10000)return NextResponse.json({error:"Data SOH melebihi 10.000 baris"},{status:400});
+
     await clearAndWrite(ID,"'RAW StockPosition'!F:N","'RAW StockPosition'!F1",report.rows,e,k,"USER_ENTERED");
-    return NextResponse.json({ok:true,rows:report.rows.length,sheet:report.name,message:`SOH berhasil dikonversi ke format Google Sheets (${report.rows.length} baris).`});
+
+    // Verifikasi dari hasil baca Google Sheets. Untuk baris produk, L/M/N harus menjadi
+    // number native Google Sheets: price, qty, total.
+    const [written]=await getSheetRanges(ID,[`'RAW StockPosition'!L1:N${Math.max(1,report.rows.length)}`],e,k);
+    const numericProductRows=written.filter(row=>typeof row[0]==="number"&&typeof row[1]==="number"&&typeof row[2]==="number").length;
+    if(numericProductRows===0)return NextResponse.json({error:"SOH sudah ditulis tetapi Google Sheets belum mengenali kolom Price/Qty/Total sebagai angka. Upload dibatalkan untuk mencegah data stok salah."},{status:422});
+
+    return NextResponse.json({ok:true,rows:report.rows.length,sheet:report.name,numericProductRows,storage:"google-sheets-native-values",message:`SOH berhasil. File Excel sudah dikonversi dan diverifikasi sebagai nilai Google Sheets (${report.rows.length} baris).`});
   }catch(err){return NextResponse.json({error:err instanceof Error?err.message:"Upload SOH gagal"},{status:500})}
 }
