@@ -2,6 +2,8 @@
 
 Dashboard mempunyai tiga halaman: **Daily Sales**, **Daily Summary**, dan **Staff Performance**. Master data adalah Google Sheet `Master Dashboard SPW Dwimas` dengan ID `160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0`.
 
+> Production branch: `m238-rework-dashboard`.
+
 ## Sumber data
 
 - `RAW SalesPerson!AB:AR`: Daily Sales terbaru.
