@@ -1,60 +1,60 @@
-import {NextRequest,NextResponse} from "next/server"
-import {getSheetRanges} from "@/lib/google-sheets"
-import type {DailyMetric,M238Payload,Staff,StaffMetric,Target} from "@/lib/m238-types"
+import {NextRequest,NextResponse} from "next/server";
+import {getSheetRanges} from "@/lib/google-sheets";
+import type {DailyMetric,LobMetric,M238Payload,Staff,StaffMetric,Target,VasMetric} from "@/lib/m238-types";
 
-const SHEET_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0",STORE="M238"
-const n=(v:unknown)=>typeof v==="number"?v:Number(String(v??"").replace(/[^0-9.-]/g,""))||0
-const s=(v:unknown)=>String(v??"").trim(),up=(v:unknown)=>s(v).toUpperCase()
+const SHEET_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0",STORE="M238";
+const n=(v:unknown)=>typeof v==="number"?v:Number(String(v??"").replace(/[^0-9.-]/g,""))||0;
+const s=(v:unknown)=>String(v??"").trim(),up=(v:unknown)=>s(v).toUpperCase();
 function iso(v:unknown){const x=s(v);if(/^\d{2}-\d{2}-\d{4}$/.test(x)){const[d,m,y]=x.split("-");return`${y}-${m}-${d}`}if(/^\d{4}-\d{2}-\d{2}/.test(x))return x.slice(0,10);if(typeof v==="number")return new Date(Date.UTC(1899,11,30)+v*86400000).toISOString().slice(0,10);return""}
 function monthLabel(period:string){return new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(`${period}-01T00:00:00Z`))}
-type Row={date:string;id:string;name:string;invoice:string;article:string;description:string;type:string;qty:number;amount:number;category:string;brand:string;core:string;scheme:string;vendor:string}
-function parse(r:unknown[]):Row{return{date:iso(r[0]),id:s(r[1]),name:s(r[2]),invoice:s(r[3]),article:s(r[4]),description:s(r[5]),type:s(r[6]),qty:n(r[7]),amount:n(r[8]),category:up(r[9]),brand:up(r[10]),core:up(r[11]),scheme:up(r[12]),vendor:up(r[13])}}
-function valid(r:Row){return r.id&&r.date&&r.scheme!=="VOUCHER"&&!up(r.description).includes("VOUCHER")}
-function kind(r:Row){const text=`${r.category} ${up(r.type)} ${up(r.description)}`;if(r.scheme==="VAS")return"vas";if(r.scheme==="ACCESSORIES")return"accessories";if(r.scheme==="DEVICES")return"device";if(/IPHONE|IPAD|MAC|APPLE WATCH/.test(text))return"device";return"other"}
-function product(r:Row){const t=`${r.category} ${up(r.type)} ${up(r.description)}`;if(t.includes("MAC"))return"mac";if(t.includes("IPHONE"))return"iphone";if(t.includes("IPAD"))return"ipad";if(t.includes("APPLE WATCH")||/\bAW\b/.test(t))return"watch";if(t.includes("AIRPODS"))return"airpods";return"other"}
-function accIncentive(price:number){if(price<=599000)return 5000;if(price<=2000000)return 10000;if(price<=4000000)return 20000;if(price<=6000000)return 40000;return 80000}
-function aggregate(rows:Row[],person:Staff,target:Target):StaffMetric{const mine=rows.filter(r=>r.id===person.id&&valid(r)),invoices=new Set(mine.map(r=>r.invoice).filter(Boolean)),sum=(type:string)=>mine.filter(r=>kind(r)===type).reduce((a,r)=>a+r.amount,0),amount=mine.reduce((a,r)=>a+r.amount,0),qty=mine.reduce((a,r)=>a+r.qty,0),units=(p:string)=>mine.filter(r=>kind(r)==="device"&&product(r)===p).reduce((a,r)=>a+r.qty,0),qoala=mine.filter(r=>kind(r)==="vas"&&(r.brand.includes("QOALA")||r.article.toUpperCase().startsWith("KLA"))).reduce((a,r)=>a+(r.amount>=1315000?50000:15000)*Math.max(1,r.qty),0),acc=mine.filter(r=>kind(r)==="accessories").reduce((a,r)=>a+accIncentive(r.amount/Math.max(1,r.qty))*Math.max(1,r.qty),0),share=person.share;const incentive={mac:units("mac")*30000,iphone:units("iphone")*15000,ipad:units("ipad")*10000,watch:units("watch")*10000,qoala,accessories:acc,total:0};incentive.total=incentive.mac+incentive.iphone+incentive.ipad+incentive.watch+incentive.qoala+incentive.accessories;return{id:person.id,name:person.name,share,amount,device:sum("device"),accessories:sum("accessories"),vas:sum("vas"),qty,invoices:invoices.size,upt:invoices.size?qty/invoices.size:0,atv:invoices.size?amount/invoices.size:0,targets:{amount:target.amount*share,device:target.device*share,accessories:target.accessories*share,vas:target.vas*share},incentive}}
-function daily(rows:Row[]):DailyMetric[]{return[...new Set(rows.filter(valid).map(r=>r.date))].sort().map(date=>{const day=rows.filter(r=>r.date===date&&valid(r)),invoices=new Set(day.map(r=>r.invoice).filter(Boolean)),sum=(type:string)=>day.filter(r=>kind(r)===type).reduce((a,r)=>a+r.amount,0),qty=day.reduce((a,r)=>a+r.qty,0),lob=(p:string)=>day.filter(r=>product(r)===p).reduce((a,r)=>a+r.qty,0),vas=(terms:string[])=>day.filter(r=>kind(r)==="vas"&&terms.some(q=>`${r.article} ${r.brand} ${r.vendor}`.toUpperCase().includes(q))).reduce((a,r)=>a+r.amount,0),amount=day.reduce((a,r)=>a+r.amount,0);return{date,amount,device:sum("device"),accessories:sum("accessories"),vas:sum("vas"),invoices:invoices.size,qty,upt:invoices.size?qty/invoices.size:0,atv:invoices.size?amount/invoices.size:0,mac:lob("mac"),ipad:lob("ipad"),iphone:lob("iphone"),watch:lob("watch"),airpods:lob("airpods"),qoala:vas(["QOALA","KLA"]),telkomsel:vas(["TELKOMSEL","TSL"]),indosat:vas(["INDOSAT","IDT"]),xl:vas(["XL","XXL"])}})}
-function demo(period:string):M238Payload{const target={period,amount:15500000000,device:13369511827,accessories:1159401355,vas:971086818},staff=[{id:"22000134",name:"Wijaya",position:"Store Trainer",share:.06},{id:"25021585",name:"Andhea Fitri",position:"Sales Assistant",share:.11}],zero=(x:Staff):StaffMetric=>({id:x.id,name:x.name,share:x.share,amount:0,device:0,accessories:0,vas:0,qty:0,invoices:0,upt:0,atv:0,targets:{amount:target.amount*x.share,device:target.device*x.share,accessories:target.accessories*x.share,vas:target.vas*x.share},incentive:{mac:0,iphone:0,ipad:0,watch:0,qoala:0,accessories:0,total:0}});return{mode:"demo",generatedAt:new Date().toISOString(),latestDate:`${period}-01`,period,staff,target,dailyStaff:staff.map(zero),monthlyStaff:staff.map(zero),daily:[],summary:{amount:0,device:0,accessories:0,vas:0,invoices:0,qty:0,upt:0,atv:0,estimate:0,point:0,timegone:0}}}
+function monthShort(period:string){return new Intl.DateTimeFormat("id-ID",{month:"short"}).format(new Date(`${period}-01T00:00:00Z`))}
 
-const CACHE_TTL=60*1000
-const responseCache=new Map<string,{expiresAt:number;data:M238Payload}>()
-const pendingRequests=new Map<string,Promise<M238Payload>>()
+type Row={date:string;id:string;name:string;invoice:string;article:string;description:string;type:string;qty:number;amount:number;category:string;brand:string;core:string;scheme:string;vendor:string};
+function parse(r:unknown[]):Row{return{date:iso(r[0]),id:s(r[1]),name:s(r[2]),invoice:s(r[3]),article:s(r[4]),description:s(r[5]),type:s(r[6]),qty:n(r[7]),amount:n(r[8]),category:up(r[9]),brand:up(r[10]),core:up(r[11]),scheme:up(r[12]),vendor:up(r[13])}}
+function valid(r:Row){return !!(r.id&&r.date)&&r.scheme!=="VOUCHER"&&!up(r.description).includes("VOUCHER")}
+function kind(r:Row){const text=`${r.category} ${up(r.type)} ${up(r.description)}`;if(r.scheme==="VAS")return"vas";if(r.scheme==="ACCESSORIES")return"accessories";if(r.scheme==="DEVICES")return"device";if(/IPHONE|IPAD|MAC|APPLE WATCH|AIRPODS/.test(text))return"device";return"other"}
+function product(r:Row){const t=`${r.category} ${up(r.type)} ${up(r.description)}`;if(t.includes("AIRPODS"))return"airpods";if(t.includes("MAC"))return"mac";if(t.includes("IPHONE"))return"iphone";if(t.includes("IPAD"))return"ipad";if(t.includes("APPLE WATCH")||/\bAW\b/.test(t))return"watch";return"other"}
+function vasType(r:Row){const t=`${r.article} ${r.brand} ${r.vendor} ${r.description}`.toUpperCase();if(t.includes("QOALA")||t.includes("KLA"))return"qoala";if(t.includes("TELKOMSEL")||t.includes("TSL"))return"telkomsel";if(t.includes("INDOSAT")||t.includes("IDT"))return"indosat";if(/(^|\s)XL(\s|$)|XXL/.test(t))return"xl";return""}
+function accIncentive(price:number){if(price<=599000)return 5000;if(price<=2000000)return 10000;if(price<=4000000)return 20000;if(price<=6000000)return 40000;return 80000}
+function emptyVas():VasMetric{return{qoala:{qty:0,value:0},telkomsel:{qty:0,value:0},xl:{qty:0,value:0},indosat:{qty:0,value:0}}}
+
+function aggregate(rows:Row[],person:Staff,target:Target,share=person.share,status="IN"):StaffMetric{
+  const mine=rows.filter(r=>r.id===person.id&&valid(r)),invoices=new Set(mine.map(r=>r.invoice).filter(Boolean));
+  const sum=(type:string)=>mine.filter(r=>kind(r)===type).reduce((a,r)=>a+r.amount,0),amount=mine.reduce((a,r)=>a+r.amount,0),qty=mine.reduce((a,r)=>a+r.qty,0);
+  const lob:LobMetric={iphone:0,mac:0,ipad:0,watch:0,airpods:0};
+  for(const r of mine){const p=product(r);if(p in lob)lob[p as keyof LobMetric]+=r.qty}
+  const vasDetail=emptyVas();for(const r of mine.filter(r=>kind(r)==="vas")){const v=vasType(r);if(v){vasDetail[v as keyof VasMetric].qty+=r.qty;vasDetail[v as keyof VasMetric].value+=r.amount}}
+  const qoalaIncentive=mine.filter(r=>kind(r)==="vas"&&vasType(r)==="qoala").reduce((a,r)=>a+(r.amount/Math.max(1,r.qty)>=1315000?50000:15000)*Math.max(1,r.qty),0);
+  const acc=mine.filter(r=>kind(r)==="accessories").reduce((a,r)=>a+accIncentive(r.amount/Math.max(1,r.qty))*Math.max(1,r.qty),0);
+  const incentive={mac:lob.mac*30000,iphone:lob.iphone*15000,ipad:lob.ipad*10000,watch:lob.watch*10000,qoala:qoalaIncentive,accessories:acc,total:0};incentive.total=incentive.mac+incentive.iphone+incentive.ipad+incentive.watch+incentive.qoala+incentive.accessories;
+  return{id:person.id,name:person.name,position:person.position,share,status,amount,device:sum("device"),accessories:sum("accessories"),vas:sum("vas"),qty,invoices:invoices.size,upt:invoices.size?qty/invoices.size:0,atv:invoices.size?amount/invoices.size:0,targets:{amount:target.amount*share,device:target.device*share,accessories:target.accessories*share,vas:target.vas*share},lob,vasDetail,incentive}
+}
+
+function daily(rows:Row[]):DailyMetric[]{return[...new Set(rows.filter(valid).map(r=>r.date))].sort().map(date=>{const day=rows.filter(r=>r.date===date&&valid(r)),invoices=new Set(day.map(r=>r.invoice).filter(Boolean)),sum=(type:string)=>day.filter(r=>kind(r)===type).reduce((a,r)=>a+r.amount,0),qty=day.reduce((a,r)=>a+r.qty,0),lob=(p:string)=>day.filter(r=>product(r)===p).reduce((a,r)=>a+r.qty,0),vas=(term:string)=>day.filter(r=>kind(r)==="vas"&&vasType(r)===term).reduce((a,r)=>a+r.amount,0),amount=day.reduce((a,r)=>a+r.amount,0);return{date,amount,device:sum("device"),accessories:sum("accessories"),vas:sum("vas"),invoices:invoices.size,qty,upt:invoices.size?qty/invoices.size:0,atv:invoices.size?amount/invoices.size:0,mac:lob("mac"),ipad:lob("ipad"),iphone:lob("iphone"),watch:lob("watch"),airpods:lob("airpods"),qoala:vas("qoala"),telkomsel:vas("telkomsel"),indosat:vas("indosat"),xl:vas("xl")}})}
+
+function demo(period:string):M238Payload{const target={period,amount:0,device:0,accessories:0,vas:0},staff:Staff[]=[],months=(year:number)=>Array.from({length:12},(_,i)=>({period:`${year}-${String(i+1).padStart(2,"0")}`,label:monthShort(`${year}-${String(i+1).padStart(2,"0")}`),amount:0}));return{mode:"demo",generatedAt:new Date().toISOString(),latestDate:`${period}-01`,period,staff,target,dailyStaff:[],monthlyStaff:[],daily:[],annual:{lastYear:months(2025),thisYear:months(2026),lastYearTotal:0,thisYearTotal:0,mtm:{current:0,previous:0,growth:0}},feedback:[],cxMember:[],summary:{amount:0,device:0,accessories:0,vas:0,invoices:0,qty:0,upt:0,atv:0,estimate:0,point:0,timegone:0}}}
+
+const CACHE_TTL=60*1000,responseCache=new Map<string,{expiresAt:number;data:M238Payload}>(),pendingRequests=new Map<string,Promise<M238Payload>>();
 
 async function buildPayload(period:string,email:string,key:string):Promise<M238Payload>{
-  const[configRows,dateRows,rawDateRows]=await getSheetRanges(SHEET_ID,["Config!A1:AG55","'Data Copas'!A2:A40576","'RAW SalesPerson'!AB2:AB65536"],email,key)
-  const label=monthLabel(period).toLowerCase(),targetRow=configRows.find(r=>s(r[16]).toLowerCase()===label),target:Target={period,amount:n(targetRow?.[17]),device:n(targetRow?.[18]),accessories:n(targetRow?.[19]),vas:n(targetRow?.[20])}
-  const staff:Staff[]=configRows.slice(27,45).filter(r=>s(r[7])===STORE&&s(r[8])&&s(r[9])&&!/SUPERVISOR|ONLINE/i.test(s(r[10]))).map(r=>({id:s(r[8]),name:s(r[9]),position:s(r[10]),share:n(r[11])}))
-  const matching:number[]=[]
-  dateRows.forEach((r,i)=>{if(iso(r[0]).startsWith(period))matching.push(i+2)})
-  const rawDates=rawDateRows.map(r=>iso(r[0])).filter(Boolean),latestDate=rawDates.sort().at(-1)||`${period}-01`,dailyMatches:number[]=[]
-  rawDateRows.forEach((r,i)=>{if(iso(r[0])===latestDate)dailyMatches.push(i+2)})
+  const[configRows,dateRows,rawDateRows,allDates,allAmounts,allSchemes]=await getSheetRanges(SHEET_ID,["Config!A1:AZ120","'Data Copas'!A2:A50000","'RAW SalesPerson'!AB2:AB65536","'Data Copas'!A2:A50000","'Data Copas'!I2:I50000","'Data Copas'!S2:S50000"],email,key);
+  const label=monthLabel(period).toLowerCase(),targetRow=configRows.find(r=>s(r[16]).toLowerCase()===label),target:Target={period,amount:n(targetRow?.[17]),device:n(targetRow?.[18]),accessories:n(targetRow?.[19]),vas:n(targetRow?.[20])};
+  const staff:Staff[]=configRows.slice(27,55).filter(r=>s(r[7])===STORE&&s(r[8])&&s(r[9])&&!/SUPERVISOR|ONLINE|CASHIER/i.test(s(r[10]))).map(r=>({id:s(r[8]),name:s(r[9]),position:s(r[10]),share:n(r[11])}));
+  const matching:number[]=[];dateRows.forEach((r,i)=>{if(iso(r[0]).startsWith(period))matching.push(i+2)});
+  const rawDates=rawDateRows.map(r=>iso(r[0])).filter(Boolean),latestDate=rawDates.sort().at(-1)||`${period}-01`,dailyMatches:number[]=[];rawDateRows.forEach((r,i)=>{if(iso(r[0])===latestDate)dailyMatches.push(i+2)});
+  const detailRanges:string[]=[],monthRangeIndex=matching.length?detailRanges.push(`'Data Copas'!A${matching[0]}:S${matching.at(-1)}`)-1:-1,dailyRangeIndex=dailyMatches.length?detailRanges.push(`'RAW SalesPerson'!AB${dailyMatches[0]}:AR${dailyMatches.at(-1)}`)-1:-1;
+  const detailRows=detailRanges.length?await getSheetRanges(SHEET_ID,detailRanges,email,key):[],monthRows=monthRangeIndex>=0?detailRows[monthRangeIndex]:[],todayRows=dailyRangeIndex>=0?detailRows[dailyRangeIndex]:[],parsed=monthRows.map(parse).filter(r=>r.date.startsWith(period)),current=todayRows.map(parse);
+  const monthlyStaff=staff.map(p=>aggregate(parsed,p,target));
+  const weekDay=new Intl.DateTimeFormat("id-ID",{weekday:"long",timeZone:"Asia/Jakarta"}).format(new Date(`${latestDate}T00:00:00Z`)).toLowerCase(),dailyTargetRow=configRows.find(r=>s(r[22]).toLowerCase()===weekDay),dailyTarget:Target={period:latestDate,amount:n(dailyTargetRow?.[23]),device:n(dailyTargetRow?.[23]),accessories:n(dailyTargetRow?.[24]),vas:n(dailyTargetRow?.[25])};
+  const dayNumber=Math.max(1,Number(latestDate.slice(8,10))||1),scheduleRows=configRows.slice(69,100),scheduleIndex=10+(dayNumber-1),statusById=new Map(scheduleRows.filter(r=>s(r[7])).map(r=>[s(r[7]),up(r[scheduleIndex])||"IN"]));
+  const unavailable=(status:string)=>/OFF|CUTI|TRAINING/.test(status),active=staff.filter(p=>!unavailable(statusById.get(p.id)||"IN")),dailyShare=active.length?1/active.length:0;
+  const dailyStaff=active.map(p=>aggregate(current,p,dailyTarget,dailyShare,statusById.get(p.id)||"IN"));
+  const days=daily(parsed),total=days.reduce((a,d)=>({amount:a.amount+d.amount,device:a.device+d.device,accessories:a.accessories+d.accessories,vas:a.vas+d.vas,invoices:a.invoices+d.invoices,qty:a.qty+d.qty}),{amount:0,device:0,accessories:0,vas:0,invoices:0,qty:0}),lastDay=Math.max(1,...days.map(d=>Number(d.date.slice(8,10)))),dim=new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate(),point=Math.min(target.device?total.device/target.device*60:0,60)+Math.min(target.accessories?total.accessories/target.accessories*30:0,30)+Math.min(target.vas?total.vas/target.vas*10:0,10);
 
-  const detailRanges:string[]=[],monthRangeIndex=matching.length?detailRanges.push(`'Data Copas'!A${matching[0]}:S${matching.at(-1)}`)-1:-1,dailyRangeIndex=dailyMatches.length?detailRanges.push(`'RAW SalesPerson'!AB${dailyMatches[0]}:AR${dailyMatches.at(-1)}`)-1:-1
-  const detailRows=detailRanges.length?await getSheetRanges(SHEET_ID,detailRanges,email,key):[]
-  const monthRows=monthRangeIndex>=0?detailRows[monthRangeIndex]:[],todayRows=dailyRangeIndex>=0?detailRows[dailyRangeIndex]:[]
-  const parsed=monthRows.map(parse).filter(r=>r.date.startsWith(period)),current=todayRows.map(parse),monthlyStaff=staff.map(p=>aggregate(parsed,p,target))
-  const weekDay=new Intl.DateTimeFormat("id-ID",{weekday:"long",timeZone:"Asia/Jakarta"}).format(new Date(`${latestDate}T00:00:00Z`)).toLowerCase(),dailyTargetRow=configRows.find(r=>s(r[22]).toLowerCase()===weekDay),dailyTarget={period:latestDate,amount:n(dailyTargetRow?.[23]),device:n(dailyTargetRow?.[23]),accessories:n(dailyTargetRow?.[24]),vas:n(dailyTargetRow?.[25])},dailyStaff=staff.map(p=>aggregate(current,p,dailyTarget)),days=daily(parsed),total=days.reduce((a,d)=>({amount:a.amount+d.amount,device:a.device+d.device,accessories:a.accessories+d.accessories,vas:a.vas+d.vas,invoices:a.invoices+d.invoices,qty:a.qty+d.qty}),{amount:0,device:0,accessories:0,vas:0,invoices:0,qty:0}),lastDay=Math.max(1,...days.map(d=>Number(d.date.slice(8,10)))),dim=new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate(),point=Math.min(target.device?total.device/target.device*60:0,60)+Math.min(target.accessories?total.accessories/target.accessories*30:0,30)+Math.min(target.vas?total.vas/target.vas*10:0,10)
-  return{mode:"live",generatedAt:new Date().toISOString(),latestDate,period,staff,target,dailyStaff,monthlyStaff,daily:days,summary:{...total,upt:total.invoices?total.qty/total.invoices:0,atv:total.invoices?total.amount/total.invoices:0,estimate:total.amount/lastDay*dim,point,timegone:lastDay/dim*100}}
+  const annualMap=new Map<string,number>();for(let i=0;i<allDates.length;i++){const date=iso(allDates[i]?.[0]),scheme=up(allSchemes[i]?.[0]);if(!date||scheme==="VOUCHER")continue;const month=date.slice(0,7);if(month.startsWith("2025-")||month.startsWith("2026-"))annualMap.set(month,(annualMap.get(month)||0)+n(allAmounts[i]?.[0]))}
+  const series=(year:number)=>Array.from({length:12},(_,i)=>{const p=`${year}-${String(i+1).padStart(2,"0")}`;return{period:p,label:monthShort(p),amount:annualMap.get(p)||0}}),lastYear=series(2025),thisYear=series(2026),lastYearTotal=lastYear.reduce((a,x)=>a+x.amount,0),thisYearTotal=thisYear.reduce((a,x)=>a+x.amount,0),current=annualMap.get(period)||0,prevDate=new Date(`${period}-01T00:00:00Z`);prevDate.setUTCMonth(prevDate.getUTCMonth()-1);const prevPeriod=prevDate.toISOString().slice(0,7),previous=annualMap.get(prevPeriod)||0,growth=previous?(current-previous)/previous*100:0;
+
+  return{mode:"live",generatedAt:new Date().toISOString(),latestDate,period,staff,target,dailyStaff,monthlyStaff,daily:days,annual:{lastYear,thisYear,lastYearTotal,thisYearTotal,mtm:{current,previous,growth}},feedback:[],cxMember:[],summary:{...total,upt:total.invoices?total.qty/total.invoices:0,atv:total.invoices?total.amount/total.invoices:0,estimate:total.amount/lastDay*dim,point,timegone:lastDay/dim*100}}
 }
 
-export async function GET(req:NextRequest){
-  const period=req.nextUrl.searchParams.get("period")||new Date().toISOString().slice(0,7),force=req.nextUrl.searchParams.get("refresh")==="1",email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY
-  if(!email||!key)return NextResponse.json(demo(period))
-  const cacheKey=`${email}:${period}`,cached=responseCache.get(cacheKey)
-  if(!force&&cached&&cached.expiresAt>Date.now())return NextResponse.json(cached.data,{headers:{"cache-control":"public, max-age=15, s-maxage=60, stale-while-revalidate=120","x-dashboard-cache":"hit"}})
-  try{
-    let request=pendingRequests.get(cacheKey)
-    if(!request||force){
-      request=buildPayload(period,email,key)
-      pendingRequests.set(cacheKey,request)
-    }
-    const data=await request
-    responseCache.set(cacheKey,{data,expiresAt:Date.now()+CACHE_TTL})
-    return NextResponse.json(data,{headers:{"cache-control":force?"no-store":"public, max-age=15, s-maxage=60, stale-while-revalidate=120","x-dashboard-cache":"miss"}})
-  }catch(error){
-    return NextResponse.json({...demo(period),error:error instanceof Error?error.message:"Gagal membaca master Sheet"},{status:200,headers:{"cache-control":"no-store"}})
-  }finally{
-    pendingRequests.delete(cacheKey)
-  }
-}
+export async function GET(req:NextRequest){const period=req.nextUrl.searchParams.get("period")||new Date().toISOString().slice(0,7),force=req.nextUrl.searchParams.get("refresh")==="1",email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)return NextResponse.json(demo(period));const cacheKey=`${email}:${period}`,cached=responseCache.get(cacheKey);if(!force&&cached&&cached.expiresAt>Date.now())return NextResponse.json(cached.data,{headers:{"cache-control":"public, max-age=15, s-maxage=60, stale-while-revalidate=120","x-dashboard-cache":"hit"}});try{let request=pendingRequests.get(cacheKey);if(!request||force){request=buildPayload(period,email,key);pendingRequests.set(cacheKey,request)}const data=await request;responseCache.set(cacheKey,{data,expiresAt:Date.now()+CACHE_TTL});return NextResponse.json(data,{headers:{"cache-control":force?"no-store":"public, max-age=15, s-maxage=60, stale-while-revalidate=120","x-dashboard-cache":"miss"}})}catch(error){return NextResponse.json({...demo(period),error:error instanceof Error?error.message:"Gagal membaca master Sheet"},{status:200,headers:{"cache-control":"no-store"}})}finally{pendingRequests.delete(cacheKey)}}
