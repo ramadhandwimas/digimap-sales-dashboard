@@ -1,10 +1,5 @@
-import DashboardV3 from "@/components/dashboard-v3"
-import DashboardEnhancements from "@/components/dashboard-enhancements"
-import DashboardFetchGuard from "@/components/dashboard-fetch-guard"
+import Jakarta1Dashboard from "@/components/jakarta1-dashboard";
 
-export default function Home() {
-  return <DashboardFetchGuard>
-    <DashboardV3 />
-    <DashboardEnhancements />
-  </DashboardFetchGuard>
+export default function Home(){
+  return <Jakarta1Dashboard/>;
 }
