@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ThemePicker from "@/components/theme-picker";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,8 +17,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id">
-      <body className="antialiased">{children}</body>
+    <html lang="id" suppressHydrationWarning>
+      <body className="antialiased">{children}<ThemePicker/></body>
     </html>
   );
 }
