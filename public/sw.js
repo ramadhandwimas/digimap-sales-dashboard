@@ -1,8 +1,8 @@
-const CACHE="m238-pwa-v1";
-const SHELL=["/","/daily-summary","/manifest.webmanifest"];
+const CACHE="m238-pwa-v2";
+const STATIC_ASSETS=["/manifest.webmanifest"];
 
 self.addEventListener("install",event=>{
-  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).catch(()=>undefined));
+  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(STATIC_ASSETS)).catch(()=>undefined));
   self.skipWaiting();
 });
 
@@ -15,21 +15,21 @@ self.addEventListener("fetch",event=>{
   const req=event.request;
   if(req.method!=="GET")return;
   const url=new URL(req.url);
-  if(url.origin!==self.location.origin||url.pathname.startsWith("/api/"))return;
+  if(url.origin!==self.location.origin)return;
 
-  if(req.mode==="navigate"){
-    event.respondWith(fetch(req).then(res=>{
-      const copy=res.clone();
-      caches.open(CACHE).then(cache=>cache.put(req,copy));
-      return res;
-    }).catch(()=>caches.match(req).then(hit=>hit||caches.match("/"))));
-    return;
-  }
+  // Dashboard pages and every API request always go straight to network.
+  // This keeps Google Sheets / Daily Sales / Feedback / CX data live and avoids
+  // service-worker work on the heaviest requests.
+  if(req.mode==="navigate"||url.pathname.startsWith("/api/"))return;
 
-  if(url.pathname.startsWith("/_next/static/")||url.pathname.startsWith("/pwa-icon/")){
+  // Cache only lightweight PWA assets. Next.js chunks/styles use the browser's
+  // normal HTTP cache, which is faster and simpler on iOS Safari.
+  if(url.pathname==="/manifest.webmanifest"||url.pathname.startsWith("/pwa-icon/")){
     event.respondWith(caches.match(req).then(hit=>hit||fetch(req).then(res=>{
-      const copy=res.clone();
-      caches.open(CACHE).then(cache=>cache.put(req,copy));
+      if(res.ok){
+        const copy=res.clone();
+        event.waitUntil(caches.open(CACHE).then(cache=>cache.put(req,copy)).catch(()=>undefined));
+      }
       return res;
     })));
   }
