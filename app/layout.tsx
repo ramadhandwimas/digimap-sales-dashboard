@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import ThemePicker from "@/components/theme-picker";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,7 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id" suppressHydrationWarning>
-      <body className="antialiased">{children}<ThemePicker/></body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
