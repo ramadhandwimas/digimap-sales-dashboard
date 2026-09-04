@@ -1,5 +1,5 @@
-import Jakarta1Dashboard from "@/components/jakarta1-dashboard";
+import Jakarta1DashboardFinal from "@/components/jakarta1-dashboard-final";
 
 export default function Home(){
-  return <Jakarta1Dashboard/>;
+  return <Jakarta1DashboardFinal/>;
 }
