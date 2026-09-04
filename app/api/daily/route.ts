@@ -1,7 +1,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {appendSheetValues,ensureSheet,getSheetRanges} from "@/lib/google-sheets";
 
-const SHEET_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0",STORE="M238",SNAPSHOT="Dashboard Schedule Snapshot";
+const SHEET_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0",STORE="M238",SNAPSHOT="Dashboard Schedule Snapshot",TARGET_SNAPSHOT="Dashboard Daily Target Snapshot";
 const n=(v:unknown)=>typeof v==="number"?v:Number(String(v??"").replace(/[^0-9.-]/g,""))||0;
 const s=(v:unknown)=>String(v??"").trim(),up=(v:unknown)=>s(v).toUpperCase();
 function iso(v:unknown){const x=s(v);if(/^\d{2}-\d{2}-\d{4}$/.test(x)){const[d,m,y]=x.split("-");return`${y}-${m}-${d}`}if(/^\d{4}-\d{2}-\d{2}/.test(x))return x.slice(0,10);if(typeof v==="number")return new Date(Date.UTC(1899,11,30)+v*86400000).toISOString().slice(0,10);return""}
@@ -16,6 +16,20 @@ function product(r:Row){if(r.brand!=="APPLE")return"other";if(r.scheme==="ACCESS
 function vasType(r:Row){const t=`${r.article} ${r.brand} ${r.vendor} ${r.description}`.toUpperCase();if(t.includes("QOALA")||t.includes("KLA"))return"qoala";if(t.includes("TELKOMSEL")||t.includes("TSL"))return"telkomsel";if(t.includes("INDOSAT")||t.includes("IDT"))return"indosat";if(/(^|\s)XL(\s|$)|XXL/.test(t))return"xl";return""}
 
 type StaffBase={id:string;name:string;position:string;share:number;status:string};
+type DailyTarget={amount:number;accessories:number;vas:number};
+
+async function targetForDate(date:string,configRows:unknown[][],email:string,key:string):Promise<{target:DailyTarget;locked:boolean}>{
+ await ensureSheet(SHEET_ID,TARGET_SNAPSHOT,["Date","Amount","Accessories","VAS","Created At"],email,key);
+ const existing=(await getSheetRanges(SHEET_ID,[`'${TARGET_SNAPSHOT}'!A2:E3000`],email,key))[0]??[];
+ const saved=existing.find(r=>iso(r[0])===date);
+ if(saved)return{target:{amount:n(saved[1]),accessories:n(saved[2]),vas:n(saved[3])},locked:true};
+ const dailyTargetRow=configRows.find(r=>s(r[22]).toLowerCase()===weekday(date));
+ const target={amount:n(dailyTargetRow?.[23]),accessories:n(dailyTargetRow?.[24]),vas:n(dailyTargetRow?.[25])};
+ const shouldLock=date<=todayJakarta()&&(target.amount>0||target.accessories>0||target.vas>0);
+ if(shouldLock)await appendSheetValues(SHEET_ID,`'${TARGET_SNAPSHOT}'!A:E`,[[date,target.amount,target.accessories,target.vas,new Date().toISOString()]],email,key);
+ return{target,locked:shouldLock};
+}
+
 async function scheduleFor(date:string,configRows:unknown[][],email:string,key:string):Promise<StaffBase[]>{
  await ensureSheet(SHEET_ID,SNAPSHOT,["Date","Sales ID","Sales Name","Position","Share","Status","Created At"],email,key);
  const existing=(await getSheetRanges(SHEET_ID,[`'${SNAPSHOT}'!A2:G3000`],email,key))[0]??[];
@@ -34,13 +48,13 @@ export async function GET(req:NextRequest){
  const date=req.nextUrl.searchParams.get("date")||todayJakarta();
  try{
   const[configRows,rawDates]=await getSheetRanges(SHEET_ID,["Config!A1:AZ120","'RAW SalesPerson'!AB2:AB65536"],email,key);
-  const scheduled=await scheduleFor(date,configRows,email,key),unavailable=(x:string)=>/OFF|CUTI|TRAINING/.test(x),active=scheduled.filter(p=>!unavailable(p.status));
+  const[scheduled,targetResult]=await Promise.all([scheduleFor(date,configRows,email,key),targetForDate(date,configRows,email,key)]),unavailable=(x:string)=>/OFF|CUTI|TRAINING/.test(x),active=scheduled.filter(p=>!unavailable(p.status));
   const matches:number[]=[];rawDates.forEach((r,i)=>{if(iso(r[0])===date)matches.push(i+2)});
   const raw=matches.length?(await getSheetRanges(SHEET_ID,[`'RAW SalesPerson'!AB${matches[0]}:AR${matches.at(-1)}`],email,key))[0]??[]:[],rows=raw.map(parse).filter(r=>r.date===date&&valid(r));
-  const dailyTargetRow=configRows.find(r=>s(r[22]).toLowerCase()===weekday(date)),target={amount:n(dailyTargetRow?.[23]),accessories:n(dailyTargetRow?.[24]),vas:n(dailyTargetRow?.[25])};
+  const target=targetResult.target;
   const shareTotal=active.reduce((a,p)=>a+Math.max(0,p.share),0);
   const staff=active.map(p=>{const mine=rows.filter(r=>r.id===p.id),invoices=new Set(mine.map(r=>r.invoice).filter(Boolean)),sum=(k:string)=>mine.filter(r=>kind(r)===k).reduce((a,r)=>a+r.amount,0),qty=mine.reduce((a,r)=>a+r.qty,0),amount=mine.reduce((a,r)=>a+r.amount,0),w=shareTotal?Math.max(0,p.share)/shareTotal:0,lob={iphone:0,mac:0,ipad:0,watch:0,airpods:0},vasDetail={qoala:{qty:0,value:0},telkomsel:{qty:0,value:0},xl:{qty:0,value:0},indosat:{qty:0,value:0}};for(const r of mine){const pr=product(r);if(pr in lob)lob[pr as keyof typeof lob]+=r.qty;const vt=vasType(r);if(vt){vasDetail[vt as keyof typeof vasDetail].qty+=r.qty;vasDetail[vt as keyof typeof vasDetail].value+=r.amount}}return{...p,amount,accessories:sum("accessories"),vas:sum("vas"),qty,invoices:invoices.size,upt:invoices.size?qty/invoices.size:0,atv:invoices.size?amount/invoices.size:0,targets:{amount:target.amount*w,accessories:target.accessories*w,vas:target.vas*w},lob,vasDetail}});
   const total=staff.reduce((a,r)=>({amount:a.amount+r.amount,target:a.target+r.targets.amount,accessories:a.accessories+r.accessories,accTarget:a.accTarget+r.targets.accessories,vas:a.vas+r.vas,vasTarget:a.vasTarget+r.targets.vas,qty:a.qty+r.qty,invoices:a.invoices+r.invoices}),{amount:0,target:0,accessories:0,accTarget:0,vas:0,vasTarget:0,qty:0,invoices:0});
-  return NextResponse.json({date,staff,total:{...total,upt:total.invoices?total.qty/total.invoices:0},snapshotLocked:date<=todayJakarta()},{headers:{"cache-control":"no-store"}});
+  return NextResponse.json({date,staff,total:{...total,upt:total.invoices?total.qty/total.invoices:0},snapshotLocked:date<=todayJakarta(),targetSnapshotLocked:targetResult.locked},{headers:{"cache-control":"no-store"}});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Gagal membaca daily sales"},{status:500})}
 }

@@ -44,7 +44,88 @@ function MonthlyLob({rows}:{rows:StaffMetric[]}){const t=rows.reduce((a,r)=>({ip
 function MonthlyVas({rows}:{rows:StaffMetric[]}){const keys=["qoala","telkomsel","xl","indosat"] as const,t=keys.map(k=>rows.reduce((a,r)=>({qty:a.qty+r.vasDetail[k].qty,value:a.value+r.vasDetail[k].value}),{qty:0,value:0}));return <section className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950"><SectionTitle title="Achievement VAS" sub="Value dan qty per staff"/><Table><TableHeader><TableRow><TableHead>Nama</TableHead>{["Qoala","Telkomsel","XL","Indosat"].map(x=><TableHead key={x} className="text-right">{x}</TableHead>)}</TableRow></TableHeader><TableBody>{rows.map(r=><TableRow key={r.id}><TableCell><b>{r.name}</b></TableCell>{keys.map(k=><TableCell key={k} className="text-right"><b>{r.vasDetail[k].qty}</b><div className="text-xs text-slate-400">{money.format(r.vasDetail[k].value)}</div></TableCell>)}</TableRow>)}{rows.length>0&&<TableRow className="bg-slate-50 font-black dark:bg-slate-900"><TableCell>TOTAL</TableCell>{t.map((x,i)=><TableCell key={i} className="text-right"><b>{x.qty}</b><div className="text-xs">{money.format(x.value)}</div></TableCell>)}</TableRow>}</TableBody></Table></section>}
 function Incentive({data,period,setPeriod}:{data:M238Payload|null;period:string;setPeriod:(v:string)=>void}){const rows=data?.monthlyStaff??[],total=rows.reduce((a,r)=>a+r.incentive.total,0);return <div className="space-y-5"><div><h1 className="text-3xl font-black">Estimasi Incentive Staff</h1><p className="mt-1 text-sm text-slate-500">Breakdown seluruh staff M238.</p></div><PeriodFilter period={period} setPeriod={setPeriod}/><section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Card label="Total Est. Incentive" value={money.format(total)} sub={`${rows.length} staff`} tone="green"/><Card label="Device" value={money.format(rows.reduce((a,r)=>a+r.incentive.mac+r.incentive.iphone+r.incentive.ipad+r.incentive.watch,0))} sub="Mac, iPhone, iPad, Watch"/><Card label="Accessories" value={money.format(rows.reduce((a,r)=>a+r.incentive.accessories,0))} sub="Per item berdasarkan tier" tone="violet"/><Card label="Qoala" value={money.format(rows.reduce((a,r)=>a+r.incentive.qoala,0))} sub="Estimasi incentive Qoala" tone="amber"/></section><section className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950"><SectionTitle title="Breakdown Incentive" sub="Estimasi per staff"/><Table><TableHeader><TableRow><TableHead>Nama</TableHead><TableHead className="text-right">Mac</TableHead><TableHead className="text-right">iPhone</TableHead><TableHead className="text-right">iPad</TableHead><TableHead className="text-right">Watch</TableHead><TableHead className="text-right">Accessories</TableHead><TableHead className="text-right">Qoala</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader><TableBody>{rows.map(r=><TableRow key={r.id}><TableCell><b>{r.name}</b><div className="text-xs text-slate-400">{r.position}</div></TableCell><TableCell className="text-right">{money.format(r.incentive.mac)}</TableCell><TableCell className="text-right">{money.format(r.incentive.iphone)}</TableCell><TableCell className="text-right">{money.format(r.incentive.ipad)}</TableCell><TableCell className="text-right">{money.format(r.incentive.watch)}</TableCell><TableCell className="text-right">{money.format(r.incentive.accessories)}</TableCell><TableCell className="text-right">{money.format(r.incentive.qoala)}</TableCell><TableCell className="text-right font-black">{money.format(r.incentive.total)}</TableCell></TableRow>)}</TableBody></Table></section></div>}
 
-function Feedback({period}:{period:string}){const[date,setDate]=useState(today()),[records,setRecords]=useState<FeedbackRecord[]>([]),[daily,setDaily]=useState<DailyPayload|null>(null),[selected,setSelected]=useState(""),[category,setCategory]=useState("external"),[text,setText]=useState(""),[saving,setSaving]=useState(false);const load=useCallback(async()=>{const[d,f]=await Promise.all([fetch(`/api/daily?date=${date}&t=${Date.now()}`,{cache:"no-store"}).then(r=>r.json()),fetch(`/api/feedback?period=${date.slice(0,7)}&date=${date}`).then(r=>r.json())]);setDaily(d);setRecords(f.rows??[])},[date]);useEffect(()=>{void load()},[load]);const need=(daily?.staff??[]).filter(r=>r.targets.amount>0&&ach(r.amount,r.targets.amount)<100&&!records.some(f=>f.staffId===r.id&&f.date===date));const save=async()=>{const p=(daily?.staff??[]).find(x=>x.id===selected);if(!p||!text.trim())return;setSaving(true);await fetch("/api/feedback",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({date,staffId:p.id,name:p.name,category,feedback:text})});setText("");setSelected("");await load();setSaving(false)};return <div className="space-y-5"><div><h1 className="text-3xl font-black">Feedback</h1><p className="mt-1 text-sm text-slate-500">Mengikuti staff yang benar-benar in-charge pada tanggal terpilih. Schedule tanggal yang sudah dibuka akan dikunci sebagai snapshot.</p></div><section className="rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950"><label><span className="mb-1.5 block text-xs font-bold uppercase tracking-[.12em] text-slate-400">Tanggal</span><input type="date" value={date} onChange={e=>setDate(e.target.value)} className="h-11 w-full max-w-xs rounded-xl border bg-white px-3 dark:bg-slate-900"/></label></section><section className="grid gap-5 xl:grid-cols-[1fr_1.2fr]"><div className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950"><SectionTitle title="Need Feedback" sub={`${need.length} staff belum mengisi`}/><div className="divide-y">{need.map(r=><button key={r.id} onClick={()=>setSelected(r.id)} className={`flex w-full items-center justify-between p-4 text-left ${selected===r.id?"bg-blue-50":""}`}><div><b>{r.name}</b><p className="text-xs text-slate-400">{pct(ach(r.amount,r.targets.amount))} achievement</p></div><span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-600">Need Feedback</span></button>)}{!need.length&&<p className="p-8 text-center text-sm text-slate-400">Tidak ada staff yang membutuhkan feedback.</p>}</div></div><div className="rounded-2xl border bg-white p-5 shadow-sm dark:bg-slate-950"><h3 className="font-extrabold">Input Feedback</h3><div className="mt-4 space-y-4"><Filter label="Nama Staff" value={selected} onChange={setSelected}><option value="">Pilih staff</option>{need.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</Filter><Filter label="Category" value={category} onChange={setCategory}><option value="external">Faktor External</option><option value="promo">Promo yang Berjalan</option><option value="performance">Staff yang Tidak Perform</option><option value="stock">Ketersediaan Stok</option></Filter><textarea value={text} onChange={e=>setText(e.target.value)} rows={5} className="w-full rounded-xl border p-3 dark:bg-slate-900" placeholder="Tuliskan reason…"/><button disabled={saving||!selected||!text.trim()} onClick={()=>void save()} className="w-full rounded-xl bg-blue-600 px-4 py-3 font-bold text-white disabled:opacity-50">{saving?"Menyimpan…":"Simpan Feedback"}</button></div></div></section><section className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950"><SectionTitle title="Feedback Tersimpan" sub="Histori berdasarkan tanggal"/><div className="divide-y">{records.map((r,i)=><div key={`${r.timestamp}-${i}`} className="p-4"><div className="flex justify-between gap-3"><b>{r.name}</b><span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-600">{r.category}</span></div><p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{r.professional}</p></div>)}{!records.length&&<p className="p-8 text-center text-sm text-slate-400">Belum ada feedback.</p>}</div></section></div>}
+function Feedback({period}:{period:string}){
+ const[date,setDate]=useState(today()),[records,setRecords]=useState<FeedbackRecord[]>([]),[summary,setSummary]=useState(""),[daily,setDaily]=useState<DailyPayload|null>(null),[selected,setSelected]=useState(""),[category,setCategory]=useState("external"),[text,setText]=useState(""),[saving,setSaving]=useState(false),[message,setMessage]=useState("");
+ const load=useCallback(async()=>{
+  const[d,f]=await Promise.all([
+   fetch(`/api/daily?date=${date}&t=${Date.now()}`,{cache:"no-store"}).then(r=>r.json()),
+   fetch(`/api/feedback?period=${date.slice(0,7)}&date=${date}`,{cache:"no-store"}).then(r=>r.json())
+  ]);
+  setDaily(d);
+  setRecords(f.rows??[]);
+  setSummary(f.summary??"");
+ },[date]);
+ useEffect(()=>{void load()},[load]);
+ const need=(daily?.staff??[]).filter(r=>r.targets.amount>0&&ach(r.amount,r.targets.amount)<100&&!records.some(f=>f.staffId===r.id&&f.date===date));
+ const save=async()=>{
+  const person=(daily?.staff??[]).find(x=>x.id===selected);
+  if(!person||!text.trim())return;
+  setSaving(true);
+  setMessage("");
+  try{
+   const response=await fetch("/api/feedback",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({date,staffId:person.id,name:person.name,category,feedback:text})});
+   const result=await response.json();
+   if(!response.ok)throw new Error(result.error||"Feedback gagal disimpan.");
+   setText("");
+   setSelected("");
+   await load();
+  }catch(error){
+   setMessage(error instanceof Error?error.message:"Feedback gagal disimpan.");
+  }finally{
+   setSaving(false);
+  }
+ };
+ return <div className="space-y-5">
+  <div>
+   <h1 className="text-3xl font-black">Feedback</h1>
+   <p className="mt-1 text-sm text-slate-500">Target dan schedule dikunci sesuai tanggal. Staff yang sudah mencapai target harian otomatis tidak perlu mengisi feedback.</p>
+  </div>
+  <section className="rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950">
+   <label>
+    <span className="mb-1.5 block text-xs font-bold uppercase tracking-[.12em] text-slate-400">Tanggal</span>
+    <input type="date" value={date} onChange={e=>{setDate(e.target.value);setSelected("");setMessage("")}} className="h-11 w-full max-w-xs rounded-xl border bg-white px-3 dark:bg-slate-900"/>
+   </label>
+  </section>
+  <section className="grid gap-5 xl:grid-cols-[1fr_1.2fr]">
+   <div className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950">
+    <SectionTitle title="Need Feedback" sub={need.length?`${need.length} staff belum mengisi`:"Semua staff sudah complete"}/>
+    <div className="divide-y">
+     {need.map(r=><button key={r.id} onClick={()=>setSelected(r.id)} className={`flex w-full items-center justify-between p-4 text-left ${selected===r.id?"bg-blue-50 dark:bg-blue-950/30":""}`}>
+      <div><b>{r.name}</b><p className="text-xs text-slate-400">{pct(ach(r.amount,r.targets.amount))} achievement • target {money.format(r.targets.amount)}</p></div>
+      <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-600">Need Feedback</span>
+     </button>)}
+     {!need.length&&<p className="p-8 text-center text-sm text-slate-400">Tidak ada staff yang membutuhkan feedback.</p>}
+    </div>
+   </div>
+   <div className="rounded-2xl border bg-white p-5 shadow-sm dark:bg-slate-950">
+    <h3 className="font-extrabold">Input Feedback</h3>
+    <div className="mt-4 space-y-4">
+     <Filter label="Nama Staff" value={selected} onChange={setSelected}><option value="">Pilih staff</option>{need.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</Filter>
+     <Filter label="Category" value={category} onChange={setCategory}><option value="external">Faktor External</option><option value="promo">Promo yang Berjalan</option><option value="bnpl">BNPL</option><option value="stock">Ketersediaan Stok</option></Filter>
+     <textarea value={text} onChange={e=>setText(e.target.value)} rows={5} className="w-full rounded-xl border p-3 dark:bg-slate-900" placeholder="Tuliskan kendala, kondisi pelanggan, dan tindak lanjut…"/>
+     {message&&<p className="rounded-xl bg-rose-50 p-3 text-sm font-semibold text-rose-700">{message}</p>}
+     <button disabled={saving||!selected||!text.trim()} onClick={()=>void save()} className="w-full rounded-xl bg-blue-600 px-4 py-3 font-bold text-white disabled:opacity-50">{saving?"Menyimpan…":"Simpan Feedback"}</button>
+    </div>
+   </div>
+  </section>
+  <section className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950">
+   <SectionTitle title="Feedback Tersimpan" sub="Histori berdasarkan tanggal"/>
+   <div className="divide-y">
+    {records.map((record,index)=><div key={`${record.timestamp}-${index}`} className="p-4">
+     <div className="flex justify-between gap-3"><b>{record.name}</b><span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-600">{record.category==="bnpl"?"BNPL":record.category}</span></div>
+     <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{record.professional}</p>
+    </div>)}
+    {!records.length&&<p className="p-8 text-center text-sm text-slate-400">Belum ada feedback.</p>}
+   </div>
+  </section>
+  <section className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950">
+   <SectionTitle title="Rangkuman Feedback All Staff" sub={summary?"Ringkasan profesional dari seluruh feedback pada tanggal terpilih":"Menunggu feedback staff"}/>
+   <div className="p-5">
+    {summary?<p className="whitespace-pre-line text-sm leading-7 text-slate-700 dark:text-slate-200">{summary}</p>:<p className="py-5 text-center text-sm text-slate-400">Belum ada rangkuman feedback pada tanggal ini.</p>}
+   </div>
+  </section>
+ </div>
+}
 
 function CxMember({data,period}:{data:M238Payload|null;period:string}){const[date,setDate]=useState(today()),[rows,setRows]=useState<CxMemberRecord[]>([]),[staffId,setStaffId]=useState(""),[cx,setCx]=useState(0),[member,setMember]=useState(0),[saving,setSaving]=useState(false);const load=useCallback(async()=>{const r=await fetch(`/api/cx-member?period=${date.slice(0,7)}&date=${date}`),j=await r.json();setRows(j.rows??[])},[date]);useEffect(()=>{void load()},[load]);const save=async()=>{const p=data?.staff.find(x=>x.id===staffId);if(!p)return;setSaving(true);await fetch("/api/cx-member",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({date,staffId:p.id,name:p.name,cx,member})});setCx(0);setMember(0);await load();setSaving(false)};return <div className="space-y-5"><div><h1 className="text-3xl font-black">NPS/CX & Member</h1><p className="mt-1 text-sm text-slate-500">Input harian dan histori per staff.</p></div><section className="grid gap-4 sm:grid-cols-2"><Card label="CX" value={num.format(rows.reduce((a,x)=>a+x.cx,0))} sub={date}/><Card label="New Member" value={num.format(rows.reduce((a,x)=>a+x.member,0))} sub={date} tone="green"/></section><section className="grid gap-5 xl:grid-cols-[.9fr_1.3fr]"><div className="rounded-2xl border bg-white p-5 shadow-sm dark:bg-slate-950"><div className="space-y-4"><input type="date" value={date} onChange={e=>setDate(e.target.value)} className="h-11 w-full rounded-xl border px-3 dark:bg-slate-900"/><Filter label="Nama Staff" value={staffId} onChange={setStaffId}><option value="">Pilih staff</option>{data?.staff.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</Filter><div className="grid grid-cols-2 gap-3"><input type="number" min={0} value={cx} onChange={e=>setCx(Number(e.target.value))} className="h-11 rounded-xl border px-3 dark:bg-slate-900" placeholder="CX"/><input type="number" min={0} value={member} onChange={e=>setMember(Number(e.target.value))} className="h-11 rounded-xl border px-3 dark:bg-slate-900" placeholder="Member"/></div><button disabled={!staffId||saving} onClick={()=>void save()} className="w-full rounded-xl bg-blue-600 px-4 py-3 font-bold text-white disabled:opacity-50">Simpan</button></div></div><section className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950"><SectionTitle title="List Harian" sub="CX dan New Member"/><Table><TableHeader><TableRow><TableHead>Nama</TableHead><TableHead className="text-right">CX</TableHead><TableHead className="text-right">Member</TableHead></TableRow></TableHeader><TableBody>{rows.map((r,i)=><TableRow key={`${r.timestamp}-${i}`}><TableCell><b>{r.name}</b></TableCell><TableCell className="text-right">{r.cx}</TableCell><TableCell className="text-right">{r.member}</TableCell></TableRow>)}</TableBody></Table></section></section></div>}
 function DataUpload({upload,saveInvoice,fileRef,invoice,setInvoice,saving,uploadStatus,message}:{upload:()=>Promise<void>;saveInvoice:()=>Promise<void>;fileRef:React.RefObject<HTMLInputElement|null>;invoice:string;setInvoice:(v:string)=>void;saving:boolean;uploadStatus:string;message:string}){return <div className="space-y-5"><div><h1 className="text-3xl font-black">Data Upload</h1></div><section className="grid gap-5 lg:grid-cols-2"><div className="rounded-2xl border bg-white p-5 shadow-sm dark:bg-slate-950"><FileSpreadsheet className="size-5 text-blue-600"/><h3 className="mt-2 font-extrabold">Upload SPW</h3><input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="mt-5 block w-full rounded-xl border p-3 text-sm"/><button disabled={saving} onClick={()=>void upload()} className="mt-3 w-full rounded-xl bg-blue-600 px-4 py-3 font-bold text-white">{uploadStatus||"Upload SPW"}</button></div><div className="rounded-2xl border bg-white p-5 shadow-sm dark:bg-slate-950"><WalletCards className="size-5 text-violet-600"/><h3 className="mt-2 font-extrabold">No Invoice Exchange</h3><input value={invoice} onChange={e=>setInvoice(e.target.value)} className="mt-5 h-12 w-full rounded-xl border px-3 dark:bg-slate-900" placeholder="Nomor invoice"/><button disabled={saving||!invoice.trim()} onClick={()=>void saveInvoice()} className="mt-3 w-full rounded-xl bg-violet-600 px-4 py-3 font-bold text-white">Simpan Invoice</button></div></section>{message&&<div className="rounded-xl bg-blue-50 p-4 text-sm font-semibold text-blue-700">{message}</div>}</div>}
