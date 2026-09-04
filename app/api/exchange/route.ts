@@ -1,4 +1,0 @@
-import {NextRequest,NextResponse} from "next/server"
-import {appendSheetValues} from "@/lib/google-sheets"
-const SHEET_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0"
-export async function POST(req:NextRequest){const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)return NextResponse.json({error:"Koneksi Google Sheets belum dikonfigurasi."},{status:503});try{const{invoice}=await req.json() as{invoice?:string},value=String(invoice??"").trim();if(!/^\d{5,}$/.test(value))return NextResponse.json({error:"Nomor invoice belum valid."},{status:400});await appendSheetValues(SHEET_ID,"'RAW SalesPerson'!Y:Y",[[value]],email,key);return NextResponse.json({ok:true,invoice:value})}catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Penyimpanan gagal"},{status:500})}}

@@ -1,54 +1,32 @@
-# M238 Digimap Pondok Indah Mall 2 Dashboard
+# Jakarta 1 Sales Dashboard
 
-Dashboard mempunyai tiga halaman: **Daily Sales**, **Daily Summary**, dan **Staff Performance**. Master data adalah Google Sheet `Master Dashboard SPW Dwimas` dengan ID `160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0`.
+Dashboard area Jakarta 1 untuk memantau pencapaian store, daily summary, performa staff, promo, estimasi incentive, product focus, NPS/CX, dan reason daily.
 
-> Production branch: `m238-rework-dashboard`.
+> Branch deployment: `jakarta-1-area-dashboard`
 
-## Sumber data
+## Pemisahan data
 
-- `RAW SalesPerson!AB:AR`: Daily Sales terbaru.
-- `Data Copas!A:S`: transaksi bulanan, Daily Summary, dan Staff Performance.
-- `Config!H:L`: nama, posisi, dan persentase target staff.
-- `Config!Q:U`: target bulanan amount, device, accessories, dan VAS.
-- Upload SPW mengganti isi `RAW SalesPerson!R2:T70000`.
-- Invoice exchange ditambahkan ke `RAW SalesPerson!Y:Y`.
+Project ini berdiri sendiri dan tidak membaca atau menulis ke master dashboard M238. Kode store `M238` tetap tampil karena merupakan salah satu store di Area Jakarta 1, tetapi datanya dibaca dari Data Compile area bersama store lainnya.
 
-## 1. Siapkan Google Cloud
+Sumber yang digunakan:
 
-1. Buka https://console.cloud.google.com/ dan buat project baru.
-2. Buka **APIs & Services → Library → Google Sheets API → Enable**.
-3. Buka **IAM & Admin → Service Accounts → Create Service Account**.
-4. Buka service account tersebut lalu pilih **Keys → Add key → Create new key → JSON**.
-5. Simpan nilai `client_email` dan `private_key` dari file JSON.
+- Data Compile 2025: `1NnRW70VyrtV8c89_M08gTnOGbtzeldSy8gL-gm4GjJ0`
+- Data Compile 2026: `151Qfrz3RZnDMgZjKOPt5s_aS-zscSiOTCWodbUDWM1k`
+- SPW & SOH Jakarta 1: `1BjLDXdi_5BgZCUUJAKba-xYRFf0RDmRTT0FW1be03WE`
+- Feedback Jakarta 1: tab `Jakarta 1 Feedback` di SPW & SOH Jakarta 1
 
-## 2. Beri akses master Sheet
+Target store belum diaktifkan sampai data target tersedia di master data SPW & SOH Jakarta 1.
 
-Bagikan Google Sheet master kepada alamat `client_email` sebagai **Editor**. Akses Editor diperlukan karena dashboard dapat mengunggah SPW dan menyimpan nomor invoice exchange.
+## Menjalankan lokal
 
-## 3. Upload ke GitHub
+1. Salin `.env.example` menjadi `.env.local`.
+2. Isi kredensial service account Google.
+3. Bagikan ketiga Google Sheet kepada service account. Akses Editor diperlukan untuk menyimpan feedback.
+4. Jalankan `npm install` lalu `npm run dev`.
 
-1. Buat repository baru, misalnya `m238-digimap-pim2-dashboard`.
-2. Upload seluruh isi project ini ke repository tersebut.
-3. Jangan upload file JSON service account atau `.env`.
+## Environment Vercel
 
-## 4. Deploy ke Vercel
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+- `GOOGLE_PRIVATE_KEY`
 
-1. Masuk ke https://vercel.com/ dan pilih **Add New → Project**.
-2. Hubungkan GitHub dan pilih repository dashboard.
-3. Tambahkan Environment Variables:
-   - `GOOGLE_SERVICE_ACCOUNT_EMAIL`: isi `client_email`.
-   - `GOOGLE_PRIVATE_KEY`: isi lengkap `private_key`, termasuk BEGIN/END PRIVATE KEY.
-4. Klik **Deploy**.
-
-## Perhitungan
-
-- Target staff = target store × `%T` dari Config.
-- Achievement = actual ÷ target.
-- Variance = actual − target.
-- UPT = total qty ÷ invoice unik.
-- ATV = total amount ÷ invoice unik.
-- Point = minimum achievement Device × 60 + Accessories × 30 + VAS × 10; maksimal 100 point.
-- Incentive device: MacBook Rp30.000, iPhone Rp15.000, iPad Rp10.000, Apple Watch Rp10.000 per unit.
-- Incentive accessories mengikuti tier harga pada dashboard.
-
-Dashboard memperbarui data otomatis setiap dua jam dan juga dapat diperbarui manual.
+Build command Vercel: `npm run build:vercel`.
