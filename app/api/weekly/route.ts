@@ -471,12 +471,12 @@ export async function GET(req: NextRequest) {
     weeklyTargetRows = configRows.filter(
       (row) => s(row[27]).toUpperCase() === weekKey,
     ),
-    weeklyTargetRow =
-      weeklyTargetRows.find(
-        (row) => s(row[26]).toLowerCase() === startMonth.toLowerCase(),
-      ) ?? weeklyTargetRows.at(-1),
-    focusRow =
-      configRows.find((row) => s(row[16]).toUpperCase() === weekKey) ?? [],
+    weeklyTargetRow = weeklyTargetRows.find(
+      (row) => s(row[26]).toLowerCase() === startMonth.toLowerCase(),
+    ),
+    focusRow = weeklyTargetRow
+      ? (configRows.find((row) => s(row[16]).toUpperCase() === weekKey) ?? [])
+      : [],
     lobTargets: Record<string, number> = {
       MAC: n(weeklyTargetRow?.[28]),
       IPHONE: n(weeklyTargetRow?.[29]),
