@@ -53,13 +53,15 @@ function Feedback({period}:{period:string}){
   ]);
   setDaily(d);
   setRecords(f.rows??[]);
- setSummary(f.summary??"");
+  setSummary(f.summary??"");
  },[date]);
  useEffect(()=>{void load()},[load]);
  const staffRows=daily?.staff??[],submitted=new Set(records.filter(record=>record.date===date).map(record=>record.staffId));
  const need=staffRows.filter(row=>row.targets.amount>0&&ach(row.amount,row.targets.amount)<100&&!submitted.has(row.id));
+ const openFeedback=(staffId:string)=>{setSelected(staffId);setCategory("external");setText("");setMessage("")};
+ const closeFeedback=()=>{setSelected("");setText("");setMessage("")};
  const save=async()=>{
-  const person=(daily?.staff??[]).find(x=>x.id===selected);
+  const person=staffRows.find(row=>row.id===selected);
   if(!person||!text.trim())return;
   setSaving(true);
   setMessage("");
@@ -67,8 +69,7 @@ function Feedback({period}:{period:string}){
    const response=await fetch("/api/feedback",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({date,staffId:person.id,name:person.name,category,feedback:text})});
    const result=await response.json();
    if(!response.ok)throw new Error(result.error||"Feedback gagal disimpan.");
-   setText("");
-   setSelected("");
+   closeFeedback();
    await load();
   }catch(error){
    setMessage(error instanceof Error?error.message:"Feedback gagal disimpan.");
@@ -79,50 +80,38 @@ function Feedback({period}:{period:string}){
  return <div className="space-y-5">
   <div>
    <h1 className="text-3xl font-black">Feedback</h1>
-   <p className="mt-1 text-sm text-slate-500">Semua staff in-charge tetap ditampilkan. Staff yang mencapai target tidak perlu mengisi feedback.</p>
+   <p className="mt-1 text-sm text-slate-500">Pilih Isi Feedback langsung di samping nama staff yang belum mencapai target.</p>
   </div>
   <section className="rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950">
    <label>
     <span className="mb-1.5 block text-xs font-bold uppercase tracking-[.12em] text-slate-400">Tanggal</span>
-    <input type="date" value={date} onChange={e=>{setDate(e.target.value);setSelected("");setMessage("")}} className="h-11 w-full max-w-xs rounded-xl border bg-white px-3 dark:bg-slate-900"/>
+    <input type="date" value={date} onChange={event=>{setDate(event.target.value);closeFeedback()}} className="h-11 w-full max-w-xs rounded-xl border bg-white px-3 dark:bg-slate-900"/>
    </label>
   </section>
-  <section className="grid gap-5 xl:grid-cols-[1fr_1.2fr]">
-   <div className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950">
-    <SectionTitle title="Status Feedback Staff" sub={need.length?`${need.length} staff perlu mengisi feedback`:"Tidak ada feedback yang tertunda"}/>
-    <div className="divide-y">
-     {staffRows.map(row=>{const targetAvailable=row.targets.amount>0,achieved=targetAvailable&&ach(row.amount,row.targets.amount)>=100,done=submitted.has(row.id);return <div key={row.id} className={`flex items-center justify-between gap-3 p-4 ${selected===row.id?"bg-blue-50 dark:bg-blue-950/30":""}`}>
-      <div><b>{row.name}</b><p className="mt-1 text-xs text-slate-400">{pct(ach(row.amount,row.targets.amount))} achievement • {money.format(row.amount)} / {money.format(row.targets.amount)}</p></div>
-      {achieved?<span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-600">Achieve</span>:done?<span className="shrink-0 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600">Feedback Terisi</span>:targetAvailable?<button onClick={()=>setSelected(row.id)} className="shrink-0 rounded-xl bg-rose-600 px-3 py-2 text-xs font-bold text-white">Isi Feedback</button>:<span className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">Target Belum Ada</span>}
-     </div>})}
-     {!staffRows.length&&<p className="p-8 text-center text-sm text-slate-400">Tidak ada staff in-charge pada tanggal ini.</p>}
-    </div>
-   </div>
-   <div className="rounded-2xl border bg-white p-5 shadow-sm dark:bg-slate-950">
-    <h3 className="font-extrabold">Input Feedback</h3>
-    <div className="mt-4 space-y-4">
-     <Filter label="Nama Staff" value={selected} onChange={setSelected}><option value="">Pilih staff</option>{need.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</Filter>
-     <Filter label="Category" value={category} onChange={setCategory}><option value="external">Faktor External</option><option value="promo">Promo yang Berjalan</option><option value="bnpl">BNPL</option><option value="stock">Ketersediaan Stok</option></Filter>
-     <textarea value={text} onChange={e=>setText(e.target.value)} rows={5} className="w-full rounded-xl border p-3 dark:bg-slate-900" placeholder="Tuliskan kendala, kondisi pelanggan, dan tindak lanjut…"/>
-     {message&&<p className="rounded-xl bg-rose-50 p-3 text-sm font-semibold text-rose-700">{message}</p>}
-     <button disabled={saving||!selected||!text.trim()} onClick={()=>void save()} className="w-full rounded-xl bg-blue-600 px-4 py-3 font-bold text-white disabled:opacity-50">{saving?"Menyimpan…":"Simpan Feedback"}</button>
-    </div>
-   </div>
-  </section>
   <section className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950">
-   <SectionTitle title="Feedback Tersimpan" sub="Histori berdasarkan tanggal"/>
+   <SectionTitle title="Status Feedback Staff" sub={need.length?`${need.length} staff perlu mengisi feedback`:"Tidak ada feedback yang tertunda"}/>
    <div className="divide-y">
-    {records.map((record,index)=><div key={`${record.timestamp}-${index}`} className="p-4">
-     <div className="flex justify-between gap-3"><b>{record.name}</b><span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-600">{record.category==="bnpl"?"BNPL":record.category}</span></div>
-     <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{record.professional}</p>
-    </div>)}
-    {!records.length&&<p className="p-8 text-center text-sm text-slate-400">Belum ada feedback.</p>}
+    {staffRows.map(row=>{const targetAvailable=row.targets.amount>0,achieved=targetAvailable&&ach(row.amount,row.targets.amount)>=100,done=submitted.has(row.id),isOpen=selected===row.id;return <div key={row.id} className={isOpen?"bg-blue-50/70 dark:bg-blue-950/20":""}>
+     <div className="flex items-center justify-between gap-3 p-4">
+      <div><b>{row.name}</b><p className="mt-1 text-xs text-slate-400">{pct(ach(row.amount,row.targets.amount))} achievement • {money.format(row.amount)} / {money.format(row.targets.amount)}</p></div>
+      {achieved?<span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-600">Achieve</span>:done?<span className="shrink-0 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600">Feedback Terisi</span>:targetAvailable?<button onClick={()=>openFeedback(row.id)} className="shrink-0 rounded-xl bg-rose-600 px-3 py-2 text-xs font-bold text-white">Isi Feedback</button>:<span className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">Target Belum Ada</span>}
+     </div>
+     {!achieved&&!done&&targetAvailable&&isOpen&&<div className="border-t px-4 py-4">
+      <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
+       <Filter label="Kategori Kendala" value={category} onChange={setCategory}><option value="external">Faktor External</option><option value="promo">Promo yang Berjalan</option><option value="bnpl">BNPL</option><option value="stock">Ketersediaan Stok</option></Filter>
+       <label><span className="mb-1.5 block text-xs font-bold uppercase tracking-[.12em] text-slate-400">Reason Staff</span><textarea value={text} onChange={event=>setText(event.target.value)} rows={4} className="w-full rounded-xl border bg-white p-3 dark:bg-slate-900" placeholder="Tuliskan kendala, kondisi pelanggan, dan tindak lanjut…"/></label>
+      </div>
+      {message&&<p className="mt-3 rounded-xl bg-rose-50 p-3 text-sm font-semibold text-rose-700">{message}</p>}
+      <div className="mt-3 flex justify-end gap-2"><button onClick={closeFeedback} className="rounded-xl border bg-white px-4 py-2.5 text-sm font-bold dark:bg-slate-900">Batal</button><button disabled={saving||!text.trim()} onClick={()=>void save()} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving?"Menyimpan…":"Simpan Feedback"}</button></div>
+     </div>}
+    </div>})}
+    {!staffRows.length&&<p className="p-8 text-center text-sm text-slate-400">Tidak ada staff in-charge pada tanggal ini.</p>}
    </div>
   </section>
   <section className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950">
-   <SectionTitle title="Rangkuman Feedback All Staff" sub={summary?"Ringkasan profesional dari seluruh feedback pada tanggal terpilih":"Menunggu feedback staff"}/>
+   <SectionTitle title="Feedback Store untuk Management" sub={summary?"Reason kendala M238 yang sudah digabungkan":"Menunggu feedback staff"}/>
    <div className="p-5">
-    {summary?<p className="whitespace-pre-line text-sm leading-7 text-slate-700 dark:text-slate-200">{summary}</p>:<p className="py-5 text-center text-sm text-slate-400">Belum ada rangkuman feedback pada tanggal ini.</p>}
+    {summary?<p className="whitespace-pre-line text-sm leading-7 text-slate-700 dark:text-slate-200">{summary}</p>:<p className="py-5 text-center text-sm text-slate-400">Belum ada reason kendala store pada tanggal ini.</p>}
    </div>
   </section>
  </div>
