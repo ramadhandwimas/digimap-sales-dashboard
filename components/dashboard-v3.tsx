@@ -53,10 +53,11 @@ function Feedback({period}:{period:string}){
   ]);
   setDaily(d);
   setRecords(f.rows??[]);
-  setSummary(f.summary??"");
+ setSummary(f.summary??"");
  },[date]);
  useEffect(()=>{void load()},[load]);
- const need=(daily?.staff??[]).filter(r=>r.targets.amount>0&&ach(r.amount,r.targets.amount)<100&&!records.some(f=>f.staffId===r.id&&f.date===date));
+ const staffRows=daily?.staff??[],submitted=new Set(records.filter(record=>record.date===date).map(record=>record.staffId));
+ const need=staffRows.filter(row=>row.targets.amount>0&&ach(row.amount,row.targets.amount)<100&&!submitted.has(row.id));
  const save=async()=>{
   const person=(daily?.staff??[]).find(x=>x.id===selected);
   if(!person||!text.trim())return;
@@ -78,7 +79,7 @@ function Feedback({period}:{period:string}){
  return <div className="space-y-5">
   <div>
    <h1 className="text-3xl font-black">Feedback</h1>
-   <p className="mt-1 text-sm text-slate-500">Target dan schedule dikunci sesuai tanggal. Staff yang sudah mencapai target harian otomatis tidak perlu mengisi feedback.</p>
+   <p className="mt-1 text-sm text-slate-500">Semua staff in-charge tetap ditampilkan. Staff yang mencapai target tidak perlu mengisi feedback.</p>
   </div>
   <section className="rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950">
    <label>
@@ -88,13 +89,13 @@ function Feedback({period}:{period:string}){
   </section>
   <section className="grid gap-5 xl:grid-cols-[1fr_1.2fr]">
    <div className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950">
-    <SectionTitle title="Need Feedback" sub={need.length?`${need.length} staff belum mengisi`:"Semua staff sudah complete"}/>
+    <SectionTitle title="Status Feedback Staff" sub={need.length?`${need.length} staff perlu mengisi feedback`:"Tidak ada feedback yang tertunda"}/>
     <div className="divide-y">
-     {need.map(r=><button key={r.id} onClick={()=>setSelected(r.id)} className={`flex w-full items-center justify-between p-4 text-left ${selected===r.id?"bg-blue-50 dark:bg-blue-950/30":""}`}>
-      <div><b>{r.name}</b><p className="text-xs text-slate-400">{pct(ach(r.amount,r.targets.amount))} achievement • target {money.format(r.targets.amount)}</p></div>
-      <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-600">Need Feedback</span>
-     </button>)}
-     {!need.length&&<p className="p-8 text-center text-sm text-slate-400">Tidak ada staff yang membutuhkan feedback.</p>}
+     {staffRows.map(row=>{const targetAvailable=row.targets.amount>0,achieved=targetAvailable&&ach(row.amount,row.targets.amount)>=100,done=submitted.has(row.id);return <div key={row.id} className={`flex items-center justify-between gap-3 p-4 ${selected===row.id?"bg-blue-50 dark:bg-blue-950/30":""}`}>
+      <div><b>{row.name}</b><p className="mt-1 text-xs text-slate-400">{pct(ach(row.amount,row.targets.amount))} achievement • {money.format(row.amount)} / {money.format(row.targets.amount)}</p></div>
+      {achieved?<span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-600">Achieve</span>:done?<span className="shrink-0 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600">Feedback Terisi</span>:targetAvailable?<button onClick={()=>setSelected(row.id)} className="shrink-0 rounded-xl bg-rose-600 px-3 py-2 text-xs font-bold text-white">Isi Feedback</button>:<span className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">Target Belum Ada</span>}
+     </div>})}
+     {!staffRows.length&&<p className="p-8 text-center text-sm text-slate-400">Tidak ada staff in-charge pada tanggal ini.</p>}
     </div>
    </div>
    <div className="rounded-2xl border bg-white p-5 shadow-sm dark:bg-slate-950">
