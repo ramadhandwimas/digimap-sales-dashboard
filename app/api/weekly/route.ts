@@ -11,11 +11,13 @@ type Side = {
   lob: Record<string, Record<string, Agg>>;
 };
 type LobAnalysis = {
-  comparison: string;
-  reason: string;
-  feedbackReason: string;
+  review: string;
   actionPlan: string;
+  target: number;
+  achievement: number;
+  gap: number;
 };
+type TypeTarget = { target: number; focus: boolean };
 const total = (values: Record<string, Agg> = {}) =>
   Object.values(values).reduce(
     (sum, value) => ({
@@ -31,6 +33,20 @@ const lobNames: Record<string, string> = {
   IPAD: "iPad",
   "APPLE WATCH": "Watch",
 };
+const monthNames = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
+];
 const iso = (value: unknown) => {
   if (typeof value === "number")
     return new Date(Date.UTC(1899, 11, 30) + value * 86400000)
@@ -114,7 +130,7 @@ function frequentFeedback(raws: string[]) {
     .slice(0, 3)
     .map((item) => item.text);
 }
-function feedbackReason(lob: string, raws: string[]) {
+function storeContext(lob: string, raws: string[]) {
   const specific = raws.filter((raw) => feedbackLob[lob]?.test(raw)),
     themes = frequentFeedback(specific);
   if (
@@ -126,11 +142,12 @@ function feedbackReason(lob: string, raws: string[]) {
     )
   )
     themes.unshift(
-      "terdapat customer yang menunggu launching iPhone 18 dan kondisi ini bukan lost sales",
+      "ada customer yang masih menunggu launching iPhone 18 dan belum kami hitung sebagai lost sales",
     );
-  return themes.length
-    ? `Berdasarkan feedback team, kendala ${lobNames[lob]} yang muncul adalah ${[...new Set(themes)].slice(0, 3).join(", serta ")}.`
-    : `Belum ada feedback team yang menyebut kendala spesifik ${lobNames[lob]} pada week ini.`;
+  const unique = [...new Set(themes)].slice(0, 2);
+  return unique.length
+    ? `Kondisi di floor week ini, ${unique.join(", dan ")}.`
+    : "";
 }
 const lobActions: Record<string, { up: string; down: string }> = {
   AIRPODS: {
@@ -160,6 +177,7 @@ function analyze(
   current: Record<string, Agg> = {},
   labelA: string,
   labelB: string,
+  target = 0,
   feedback: string[] = [],
 ): LobAnalysis {
   const a = total(previous),
@@ -181,47 +199,134 @@ function analyze(
     down = types
       .filter((item) => item.diff < 0)
       .sort((x, y) => x.diff - y.diff)[0],
-    teamFeedback = feedbackReason(lob, feedback);
+    context = storeContext(lob, feedback),
+    achievement = target ? (b.qty / target) * 100 : 0,
+    gap = b.qty - target;
   if (!a.qty && !b.qty)
     return {
-      comparison: `Belum ada penjualan ${name} pada ${labelA} dan ${labelB}.`,
-      reason: "Belum ada pergerakan tipe produk yang dapat dianalisa.",
-      feedbackReason: teamFeedback,
+      review: target
+        ? `Penjualan ${name} belum berjalan pada ${labelA} dan ${labelB}. Secara target masih minus ${target} unit dari target ${target} unit.`
+        : `Penjualan ${name} belum berjalan pada ${labelA} dan ${labelB}. Target ${labelB} juga belum diisi di Config.`,
       actionPlan:
         lobActions[lob]?.down ?? "Monitoring opportunity pada week berikutnya.",
+      target,
+      achievement,
+      gap,
     };
   const movement = !a.qty
-      ? `mulai mencatat ${b.qty} unit`
+      ? `mulai mencatat penjualan ${b.qty} unit`
       : qtyDiff > 0
-        ? `naik ${Math.abs(qtyGrowth).toFixed(0)}% menjadi ${b.qty} unit`
+        ? `naik ${Math.abs(qtyGrowth).toFixed(0)}% dengan total ${b.qty} unit`
         : qtyDiff < 0
-          ? `turun ${Math.abs(qtyGrowth).toFixed(0)}% menjadi ${b.qty} unit`
-          : `stabil di ${b.qty} unit`,
-    unitSummary =
-      qtyDiff > 0
-        ? `plus ${qtyDiff} unit`
-        : qtyDiff < 0
-          ? `minus ${Math.abs(qtyDiff)} unit`
-          : "tidak berubah secara qty",
-    comparison = `Penjualan ${name} pada ${labelB} ${movement} dibanding ${labelA}. Secara total ${unitSummary}${a.amount ? ` dengan pertumbuhan amount ${amountDiff >= 0 ? "+" : ""}${amountGrowth.toFixed(0)}%` : ""}.`;
-  let why = "Perubahan qty tersebar pada beberapa tipe produk.";
+          ? `turun ${Math.abs(qtyGrowth).toFixed(0)}% dengan total ${b.qty} unit`
+          : `stabil dengan total ${b.qty} unit`,
+    targetText = target
+      ? gap >= 0
+        ? `Secara target sudah plus ${gap} unit dari target ${target} unit dengan achievement ${achievement.toFixed(0)}%.`
+        : `Secara target masih minus ${Math.abs(gap)} unit dari target ${target} unit dengan achievement ${achievement.toFixed(0)}%.`
+      : `Target ${labelB} belum diisi di Config.`,
+    amountText = a.amount
+      ? ` Secara amount ${amountGrowth >= 0 ? "naik" : "turun"} ${Math.abs(amountGrowth).toFixed(0)}%.`
+      : "";
+  let why = "Pergerakan penjualan tersebar di beberapa type.";
   if (qtyDiff < 0 && down)
-    why = `Penurunan terutama terjadi pada ${down.type} yang turun ${Math.abs(down.diff)} unit${up ? `, sementara kenaikan ${up.type} sebesar ${up.diff} unit belum dapat menutup penurunan tersebut` : ""}.`;
+    why = `Penurunan paling besar terjadi pada ${down.type} sebanyak ${Math.abs(down.diff)} unit${up ? `, sementara ${up.type} naik ${up.diff} unit tetapi belum menutup penurunannya` : ""}.`;
   else if (qtyDiff > 0 && up)
-    why = `Kenaikan terutama didukung oleh ${up.type} yang bertambah ${up.diff} unit${down ? `, meskipun ${down.type} turun ${Math.abs(down.diff)} unit` : ""}.`;
+    why = `Kenaikan paling besar didukung oleh ${up.type} sebanyak ${up.diff} unit${down ? `, walaupun ${down.type} masih turun ${Math.abs(down.diff)} unit` : ""}.`;
   else if (!qtyDiff)
     why =
       up && down
-        ? `Kenaikan ${up.type} sebesar ${up.diff} unit tertahan oleh penurunan ${down.type} sebesar ${Math.abs(down.diff)} unit, sehingga total penjualan stabil.`
-        : "Total penjualan stabil dibanding week sebelumnya.";
+        ? `${up.type} naik ${up.diff} unit, tetapi tertahan oleh penurunan ${down.type} sebanyak ${Math.abs(down.diff)} unit sehingga total penjualan masih sama.`
+        : "Total penjualan masih sama dengan week sebelumnya.";
   return {
-    comparison,
-    reason: why,
-    feedbackReason: teamFeedback,
+    review:
+      `Penjualan ${name} week ini ${movement}, dibanding ${labelA} sebanyak ${a.qty} unit.${amountText} ${targetText} ${why}${context ? ` ${context}` : ""}`
+        .replace(/\s+/g, " ")
+        .trim(),
     actionPlan:
-      lobActions[lob]?.[qtyDiff >= 0 ? "up" : "down"] ??
+      lobActions[lob]?.[gap >= 0 && qtyDiff >= 0 ? "up" : "down"] ??
       "Monitoring pergerakan produk dan maksimalkan opportunity pada week berikutnya.",
+    target,
+    achievement,
+    gap,
   };
+}
+
+const focusDefinitions = [
+  {
+    lob: "MAC",
+    label: "MacBook Neo",
+    column: 17,
+    match: /\bMBN\b|MacBook Neo|Mac Neo/i,
+  },
+  {
+    lob: "IPHONE",
+    label: "iPhone 15",
+    column: 18,
+    match: /iPhone\s*15(?!\d)/i,
+  },
+  { lob: "IPAD", label: "iPad 11", column: 19, match: /iPad\s*11(?!\d)/i },
+  {
+    lob: "APPLE WATCH",
+    label: "Apple Watch SE 3",
+    column: 20,
+    match: /(?:Apple Watch|Watch|AW)\s*SE\s*3/i,
+  },
+];
+
+function allocateTypeTargets(
+  lob: string,
+  target: number,
+  previous: Record<string, Agg> = {},
+  current: Record<string, Agg> = {},
+  focusRow: unknown[] = [],
+): Record<string, TypeTarget> {
+  const types = [
+      ...new Set([...Object.keys(current), ...Object.keys(previous)]),
+    ],
+    result: Record<string, TypeTarget> = {},
+    focus = focusDefinitions.find((item) => item.lob === lob),
+    focusTarget = focus ? n(focusRow[focus.column]) : 0,
+    focusType = focus
+      ? (types.find((type) => focus.match.test(type)) ?? focus.label)
+      : "";
+  if (focusType && focusTarget > 0)
+    result[focusType] = { target: focusTarget, focus: true };
+
+  const remaining = Math.max(0, target - focusTarget),
+    candidates = types.filter((type) => type !== focusType);
+  if (!candidates.length || remaining <= 0) {
+    for (const type of candidates) result[type] = { target: 0, focus: false };
+    return result;
+  }
+
+  const weights = candidates.map(
+      (type) => previous[type]?.qty || current[type]?.qty || 0,
+    ),
+    weightTotal = weights.reduce((sum, value) => sum + value, 0),
+    raw = candidates.map((type, index) => ({
+      type,
+      value: weightTotal
+        ? (remaining * weights[index]) / weightTotal
+        : remaining / candidates.length,
+    })),
+    allocated = raw.map((item) => ({
+      ...item,
+      target: Math.floor(item.value),
+    }));
+  let leftover =
+    remaining - allocated.reduce((sum, item) => sum + item.target, 0);
+  allocated
+    .sort((a, b) => b.value - b.target - (a.value - a.target))
+    .forEach((item) => {
+      if (leftover > 0) {
+        item.target += 1;
+        leftover -= 1;
+      }
+    });
+  for (const item of allocated)
+    result[item.type] = { target: item.target, focus: false };
+  return result;
 }
 
 export async function GET(req: NextRequest) {
@@ -233,9 +338,13 @@ export async function GET(req: NextRequest) {
       { status: 503 },
     );
 
-  const [rows, feedbackRows] = await getSheetRanges(
+  const [rows, feedbackRows, configRows] = await getSheetRanges(
     ID,
-    ["'Data Copas'!A2:S50000", "'Dashboard Feedback'!A2:G5000"],
+    [
+      "'Data Copas'!A2:S50000",
+      "'Dashboard Feedback'!A2:G5000",
+      "Config!A1:AG120",
+    ],
     email,
     key,
   );
@@ -355,6 +464,42 @@ export async function GET(req: NextRequest) {
     feedbackSummary = commonThemes.length
       ? `Kendala yang paling sering disampaikan team pada ${labelB} (${periodB.start} s.d. ${periodB.end}) adalah ${commonThemes.join(", serta ")}.`
       : `Belum ada feedback team yang tersimpan pada ${labelB} (${periodB.start} s.d. ${periodB.end}).`;
+  const weekKey = `W${weekB}`,
+    startMonth = periodB.start
+      ? `${monthNames[Number(periodB.start.slice(5, 7)) - 1]} ${periodB.start.slice(0, 4)}`
+      : "",
+    weeklyTargetRows = configRows.filter(
+      (row) => s(row[27]).toUpperCase() === weekKey,
+    ),
+    weeklyTargetRow =
+      weeklyTargetRows.find(
+        (row) => s(row[26]).toLowerCase() === startMonth.toLowerCase(),
+      ) ?? weeklyTargetRows.at(-1),
+    focusRow =
+      configRows.find((row) => s(row[16]).toUpperCase() === weekKey) ?? [],
+    lobTargets: Record<string, number> = {
+      MAC: n(weeklyTargetRow?.[28]),
+      IPHONE: n(weeklyTargetRow?.[29]),
+      IPAD: n(weeklyTargetRow?.[30]),
+      "APPLE WATCH": n(weeklyTargetRow?.[31]),
+      AIRPODS: n(weeklyTargetRow?.[32]),
+    },
+    typeTargets = Object.fromEntries(
+      Object.keys(lobNames).map((lob) => [
+        lob,
+        allocateTypeTargets(
+          lob,
+          lobTargets[lob],
+          out.a.lob[lob],
+          out.b.lob[lob],
+          focusRow,
+        ),
+      ]),
+    ),
+    targetGrandTotal = Object.values(lobTargets).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
   const analysis = Object.fromEntries(
     Object.keys(lobNames).map((lob) => [
       lob,
@@ -364,6 +509,7 @@ export async function GET(req: NextRequest) {
         out.b.lob[lob],
         labelA,
         labelB,
+        lobTargets[lob],
         weekFeedback,
       ),
     ]),
@@ -382,6 +528,14 @@ export async function GET(req: NextRequest) {
       ...out,
       feedbackCount: weekFeedback.length,
       feedbackSummary,
+      targets: {
+        configured: Boolean(weeklyTargetRow),
+        sourceWeek: weekKey,
+        sourceMonth: s(weeklyTargetRow?.[26]),
+        lob: lobTargets,
+        types: typeTargets,
+        grandTotal: targetGrandTotal,
+      },
       analysis,
     },
     { headers: { "Cache-Control": "no-store" } },

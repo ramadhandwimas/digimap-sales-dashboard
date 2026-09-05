@@ -21,12 +21,22 @@ type WeeklySide = {
   lob: Record<string, Record<string, Agg>>;
 };
 type LobAnalysis = {
-  comparison: string;
-  reason: string;
-  feedbackReason: string;
+  review: string;
   actionPlan: string;
+  target: number;
+  achievement: number;
+  gap: number;
 };
 type WeekPeriod = { start: string; end: string };
+type TypeTarget = { target: number; focus: boolean };
+type WeeklyTargets = {
+  configured: boolean;
+  sourceWeek: string;
+  sourceMonth: string;
+  lob: Record<string, number>;
+  types: Record<string, Record<string, TypeTarget>>;
+  grandTotal: number;
+};
 type WeeklyPayload = {
   weekA: number;
   weekB: number;
@@ -39,6 +49,7 @@ type WeeklyPayload = {
   feedbackSummary: string;
   a: WeeklySide;
   b: WeeklySide;
+  targets: WeeklyTargets;
   analysis: Record<string, LobAnalysis>;
 };
 export default function OperationsPage({
@@ -321,6 +332,7 @@ function Weekly() {
         { qty: 0, amount: 0 },
       ),
     lobs = ["AIRPODS", "IPHONE", "MAC", "IPAD", "APPLE WATCH"],
+    targetLobs = ["AIRPODS", "APPLE WATCH", "IPAD", "IPHONE", "MAC"],
     names: Record<string, string> = {
       AIRPODS: "AirPods",
       IPHONE: "iPhone",
@@ -384,8 +396,8 @@ function Weekly() {
                 : "Otomatis mengikuti week berjalan"}
             </p>
             <p className="mt-1 text-xs font-semibold text-slate-400">
-              Periode Minggu–Sabtu: {data?.periodA?.start ?? "-"} s.d. {" "}
-              {data?.periodA?.end ?? "-"} vs {data?.periodB?.start ?? "-"} s.d. {" "}
+              Periode Minggu–Sabtu: {data?.periodA?.start ?? "-"} s.d.{" "}
+              {data?.periodA?.end ?? "-"} vs {data?.periodB?.start ?? "-"} s.d.{" "}
               {data?.periodB?.end ?? "-"}
             </p>
           </div>
@@ -486,22 +498,28 @@ function Weekly() {
           </table>
         </div>
         <div className="mt-6 border-t pt-5">
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h3 className="font-black">Target LOB Weekly</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Pencapaian {data?.labelB ?? "week berjalan"} dibanding target
+                Config. Target berlabel Fokus mengikuti LOB Fokus weekly.
+              </p>
+            </div>
+            <span className="rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-300">
+              {data?.targets?.configured
+                ? `${data.targets.sourceMonth} • ${data.targets.sourceWeek}`
+                : "Target belum tersedia"}
+            </span>
+          </div>
+          <WeeklyTargetTable data={data} lobs={targetLobs} names={names} />
+        </div>
+        <div className="mt-6 border-t pt-5">
           <h3 className="font-black">Reason Weekly per LOB</h3>
           <p className="mt-1 text-sm text-slate-500">
-            Comparison, pola kendala team dari menu Feedback, dan action plan
-            per LOB.
+            Review dibuat dari hasil compare, pencapaian target, pergerakan
+            type, dan kondisi store pada week tersebut.
           </p>
-          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <b>Rangkuman Feedback Team — {data?.labelB ?? "Week berjalan"}</b>
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-amber-700 dark:bg-slate-900 dark:text-amber-300">
-                {data?.feedbackCount ?? 0} feedback
-              </span>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-200">
-              {data?.feedbackSummary ?? "Menunggu data feedback week berjalan."}
-            </p>
-          </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             {lobs.map((lob) => {
               const item = data?.analysis?.[lob];
@@ -513,22 +531,9 @@ function Weekly() {
                   <h4 className="font-black text-blue-600">{names[lob]}</h4>
                   <div className="mt-3 space-y-3 text-sm leading-6">
                     <div>
-                      <b>Comparison</b>
+                      <b>Weekly Review</b>
                       <p className="mt-1 text-slate-600 dark:text-slate-300">
-                        {item?.comparison ?? "Menunggu data comparison week."}
-                      </p>
-                    </div>
-                    <div>
-                      <b>Reason / Kenapa Naik-Turun</b>
-                      <p className="mt-1 text-slate-600 dark:text-slate-300">
-                        {item?.reason ?? "Menunggu analisa pergerakan produk."}
-                      </p>
-                    </div>
-                    <div>
-                      <b>Feedback Team Week Ini</b>
-                      <p className="mt-1 text-slate-600 dark:text-slate-300">
-                        {item?.feedbackReason ??
-                          "Menunggu rangkuman feedback team."}
+                        {item?.review ?? "Menunggu data comparison week."}
                       </p>
                     </div>
                     <div className="rounded-xl bg-blue-50 p-3 dark:bg-blue-950/30">
@@ -546,6 +551,140 @@ function Weekly() {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+function WeeklyTargetTable({
+  data,
+  lobs,
+  names,
+}: {
+  data: WeeklyPayload | null;
+  lobs: string[];
+  names: Record<string, string>;
+}) {
+  const pct = (actual: number, target: number) =>
+      target ? `${((actual / target) * 100).toFixed(0)}%` : "-",
+    grandActual = lobs.reduce(
+      (sum, lob) => {
+        const values = Object.values(data?.b?.lob?.[lob] ?? {});
+        return values.reduce(
+          (acc, value) => ({
+            qty: acc.qty + value.qty,
+            amount: acc.amount + value.amount,
+          }),
+          sum,
+        );
+      },
+      { qty: 0, amount: 0 },
+    ),
+    grandTarget = data?.targets?.grandTotal ?? 0;
+  return (
+    <div className="overflow-x-auto rounded-2xl border">
+      <table className="w-full min-w-[900px] text-sm">
+        <thead className="bg-slate-50 dark:bg-slate-900">
+          <tr>
+            <th className="p-3 text-left">Product Category</th>
+            <th className="text-left">Type</th>
+            <th>{data?.labelB ?? "Week"} Qty</th>
+            <th>{data?.labelB ?? "Week"} Amount</th>
+            <th>Target {data?.targets?.sourceWeek ?? ""}</th>
+            <th>Gap</th>
+            <th>Achievement</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lobs.flatMap((lob) => {
+            const current = data?.b?.lob?.[lob] ?? {},
+              targetTypes = data?.targets?.types?.[lob] ?? {},
+              types = [
+                ...new Set([
+                  ...Object.keys(current),
+                  ...Object.keys(targetTypes),
+                ]),
+              ],
+              lobActual = Object.values(current).reduce(
+                (sum, value) => ({
+                  qty: sum.qty + value.qty,
+                  amount: sum.amount + value.amount,
+                }),
+                { qty: 0, amount: 0 },
+              ),
+              lobTarget = data?.targets?.lob?.[lob] ?? 0;
+            return [
+              ...types.map((type, index) => {
+                const actual = current[type] ?? { qty: 0, amount: 0 },
+                  targetInfo = targetTypes[type] ?? { target: 0, focus: false },
+                  gap = actual.qty - targetInfo.target;
+                return (
+                  <tr
+                    className={`border-t ${targetInfo.focus ? "bg-amber-50/70 dark:bg-amber-950/20" : ""}`}
+                    key={`${lob}-${type}-target`}
+                  >
+                    <td className="p-3 font-black">
+                      {index === 0 ? names[lob] : ""}
+                    </td>
+                    <td className="font-semibold">
+                      {type}
+                      {targetInfo.focus ? (
+                        <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                          Fokus
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="text-center">{actual.qty}</td>
+                    <td>{money.format(actual.amount)}</td>
+                    <td className="text-center font-bold">
+                      {targetInfo.target || "-"}
+                    </td>
+                    <td
+                      className={`text-center font-bold ${gap >= 0 ? "text-emerald-600" : "text-rose-600"}`}
+                    >
+                      {targetInfo.target ? `${gap >= 0 ? "+" : ""}${gap}` : "-"}
+                    </td>
+                    <td className="text-center">
+                      {pct(actual.qty, targetInfo.target)}
+                    </td>
+                  </tr>
+                );
+              }),
+              <tr
+                className="border-t bg-cyan-100 font-black text-slate-950 dark:bg-cyan-950/50 dark:text-slate-100"
+                key={`${lob}-target-total`}
+              >
+                <td className="p-3">{names[lob]} Total</td>
+                <td />
+                <td className="text-center">{lobActual.qty}</td>
+                <td>{money.format(lobActual.amount)}</td>
+                <td className="text-center">{lobTarget || "-"}</td>
+                <td
+                  className={`text-center ${lobActual.qty - lobTarget >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"}`}
+                >
+                  {lobTarget
+                    ? `${lobActual.qty - lobTarget >= 0 ? "+" : ""}${lobActual.qty - lobTarget}`
+                    : "-"}
+                </td>
+                <td className="text-center">{pct(lobActual.qty, lobTarget)}</td>
+              </tr>,
+            ];
+          })}
+          <tr className="border-t-2 border-cyan-400 bg-cyan-200 font-black text-slate-950 dark:bg-cyan-900 dark:text-white">
+            <td className="p-3">Grand Total</td>
+            <td />
+            <td className="text-center">{grandActual.qty}</td>
+            <td>{money.format(grandActual.amount)}</td>
+            <td className="text-center">{grandTarget || "-"}</td>
+            <td
+              className={`text-center ${grandActual.qty - grandTarget >= 0 ? "text-emerald-800 dark:text-emerald-300" : "text-rose-800 dark:text-rose-300"}`}
+            >
+              {grandTarget
+                ? `${grandActual.qty - grandTarget >= 0 ? "+" : ""}${grandActual.qty - grandTarget}`
+                : "-"}
+            </td>
+            <td className="text-center">{pct(grandActual.qty, grandTarget)}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }
