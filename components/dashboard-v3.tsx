@@ -58,6 +58,8 @@ function Feedback({period}:{period:string}){
  useEffect(()=>{void load()},[load]);
  const staffRows=daily?.staff??[],submitted=new Set(records.filter(record=>record.date===date).map(record=>record.staffId));
  const need=staffRows.filter(row=>row.targets.amount>0&&ach(row.amount,row.targets.amount)<100&&!submitted.has(row.id));
+ const total=daily?.total,storeAchievement=ach(total?.amount??0,total?.target??0),belowTarget=staffRows.filter(row=>row.targets.amount>0&&ach(row.amount,row.targets.amount)<100).length;
+ const categoryLabel:{[key:string]:string}={external:"Faktor External",promo:"Promo yang Berjalan",bnpl:"BNPL",stock:"Ketersediaan Stok",performance:"Performa Staff"};
  const openFeedback=(staffId:string)=>{setSelected(staffId);setCategory("external");setText("");setMessage("")};
  const closeFeedback=()=>{setSelected("");setText("");setMessage("")};
  const save=async()=>{
@@ -109,9 +111,24 @@ function Feedback({period}:{period:string}){
    </div>
   </section>
   <section className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950">
-   <SectionTitle title="Feedback Store untuk Management" sub={summary?"Reason kendala M238 yang sudah digabungkan":"Menunggu feedback staff"}/>
+   <SectionTitle title="Feedback Staff Tersimpan" sub={`${records.length} feedback pada tanggal terpilih`}/>
+   <div className="divide-y">
+    {records.length?records.map(record=><article key={`${record.date}-${record.staffId}`} className="p-5">
+     <div className="flex flex-wrap items-center justify-between gap-2"><b>{record.name}</b><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-200">{categoryLabel[record.category]??record.category}</span></div>
+     <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{record.professional}</p>
+    </article>):<p className="p-8 text-center text-sm text-slate-400">Belum ada feedback staff pada tanggal ini.</p>}
+   </div>
+  </section>
+  <section className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950">
+   <SectionTitle title="Data Compile Reason Store" sub={summary?"Fakta penjualan, kendala utama, dan action plan untuk management":"Menunggu feedback staff"}/>
    <div className="p-5">
-    {summary?<p className="whitespace-pre-line text-sm leading-7 text-slate-700 dark:text-slate-200">{summary}</p>:<p className="py-5 text-center text-sm text-slate-400">Belum ada reason kendala store pada tanggal ini.</p>}
+    <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+     <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">Target Store</p><b className="mt-2 block">{money.format(total?.target??0)}</b></div>
+     <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">Achievement Store</p><b className="mt-2 block">{money.format(total?.amount??0)}</b></div>
+     <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">Achievement</p><b className={`mt-2 block ${storeAchievement>=100?"text-emerald-600":"text-rose-600"}`}>{pct(storeAchievement)} · {storeAchievement>=100?"Achieve":"Belum Achieve"}</b></div>
+     <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">Feedback Masuk</p><b className="mt-2 block">{records.length} dari {belowTarget} staff</b></div>
+    </div>
+    {summary?<p className="whitespace-pre-line rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-sm leading-7 text-slate-700 dark:border-blue-900 dark:bg-blue-950/20 dark:text-slate-200">{summary}</p>:<p className="py-5 text-center text-sm text-slate-400">Belum ada data compile reason store pada tanggal ini.</p>}
    </div>
   </section>
  </div>
