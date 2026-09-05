@@ -32,8 +32,8 @@ const actionRules:Array<{pattern:RegExp;action:string}>=[
  {pattern:/provider|\bvas\b|qoala|telkomsel|indosat|\bxl\b/i,action:"Team akan menawarkan VAS pada setiap transaksi yang relevan dan memperbaiki cara handling objection customer."},
  {pattern:/bnpl|cicilan|paylater|kredivo|akulaku/i,action:"Team akan memberikan simulasi BNPL dengan pilihan tenor yang mudah dipahami dan sesuai kemampuan customer."},
  {pattern:/promo|diskon|potongan/i,action:"Kami akan briefing promo sebelum shift agar seluruh team menyampaikan promo yang tepat sesuai kebutuhan customer."},
- {pattern:/aksesori|accessor|\bacc\b|adapter|cable|keyboard/i,action:"Terapkan rekomendasi aksesori berdasarkan device yang dipilih untuk meningkatkan attachment dan nilai transaksi tanpa mengabaikan kebutuhan pelanggan."},
- {pattern:/kasir|operasional|administrasi|back office/i,action:"Atur pembagian PIC operasional agar coverage area penjualan tetap terjaga pada jam dengan peluang transaksi tertinggi."}
+ {pattern:/aksesori|accessor|\bacc\b|adapter|cable|keyboard/i,action:"Team akan menawarkan aksesori yang sesuai dengan device pilihan customer untuk meningkatkan attachment dan nilai transaksi."},
+ {pattern:/kasir|operasional|administrasi|back office/i,action:"Kami akan mengatur pembagian PIC operasional agar coverage area penjualan tetap terjaga pada jam utama."}
 ];
 const fallbackReasons:{[key:string]:string}={external:"Traffic dan kesiapan pembelian customer hari ini masih belum maksimal.",promo:"Promo yang berjalan belum maksimal membantu closing customer.",bnpl:"Penawaran BNPL belum maksimal mendorong customer untuk closing.",performance:"Produktivitas penjualan team pada shift hari ini masih perlu ditingkatkan.",stock:"Beberapa produk yang dibutuhkan customer belum tersedia."};
 function rankedMatches<T extends{pattern:RegExp}>(rows:Row[],rules:T[]){return rules.map((rule,index)=>({rule,index,count:rows.filter(row=>rule.pattern.test(row.raw)).length})).filter(item=>item.count>0).sort((a,b)=>b.count-a.count||a.index-b.index).slice(0,4).map(item=>item.rule)}
