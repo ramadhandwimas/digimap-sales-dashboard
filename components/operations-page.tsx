@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Download } from "lucide-react";
 const money = new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
@@ -58,8 +59,10 @@ export default function OperationsPage({
   mode: "bnpl" | "soh" | "weekly";
 }) {
   return (
-    <main className="min-h-screen bg-slate-50 p-4 text-slate-950 dark:bg-slate-900 dark:text-slate-100 sm:p-7">
-      <a href="/" className="text-sm font-bold text-blue-600">
+    <main
+      className={`min-h-screen bg-slate-50 p-4 text-slate-950 dark:bg-slate-900 dark:text-slate-100 sm:p-7 ${mode === "weekly" ? "weekly-report-page" : ""}`}
+    >
+      <a href="/" className="no-print text-sm font-bold text-blue-600">
         ← Kembali ke Dashboard
       </a>
       {mode === "bnpl" ? <Bnpl /> : mode === "soh" ? <Soh /> : <Weekly />}
@@ -313,6 +316,14 @@ function Weekly() {
       setFrom("");
       setTo("");
     },
+    downloadPdf = () => {
+      const previousTitle = document.title;
+      document.title = `Weekly Report M238 - ${data?.labelA ?? ""} vs ${data?.labelB ?? ""}`;
+      window.print();
+      window.setTimeout(() => {
+        document.title = previousTitle;
+      }, 1000);
+    },
     compare = (x = 0, y = 0) =>
       x ? `${(((y - x) / x) * 100).toFixed(0)}%` : y ? "NEW" : "0%",
     merge = (left: Record<string, Agg> = {}, right: Record<string, Agg> = {}) =>
@@ -344,12 +355,21 @@ function Weekly() {
     lb = (data?.labelB ?? "Week berjalan").replace("Week ", "W");
   return (
     <div className="mt-6 space-y-5">
-      <div>
-        <h1 className="text-3xl font-black">Weekly Report M238</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Default mengikuti dua week terbaru, tetapi histori week tetap dapat
-          dipilih.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black">Weekly Report M238</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Default mengikuti dua week terbaru, tetapi histori week tetap dapat
+            dipilih.
+          </p>
+        </div>
+        <button
+          onClick={downloadPdf}
+          className="no-print flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm hover:bg-blue-700"
+        >
+          <Download className="size-4" />
+          Unduh PDF
+        </button>
       </div>
       <section className={box}>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
