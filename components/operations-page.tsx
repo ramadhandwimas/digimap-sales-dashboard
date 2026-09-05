@@ -1,6 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Download } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ExportMenu } from "@/components/export-menu";
+import {
+  exportReportPdf,
+  exportReportPng,
+  exportReportXlsx,
+  type ExportSheet,
+} from "@/lib/dashboard-export";
 const money = new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
@@ -275,7 +281,8 @@ function Soh() {
   );
 }
 function Weekly() {
-  const [data, setData] = useState<WeeklyPayload | null>(null),
+  const reportRef = useRef<HTMLDivElement>(null),
+    [data, setData] = useState<WeeklyPayload | null>(null),
     [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
     [manual, setManual] = useState(false);
@@ -316,14 +323,6 @@ function Weekly() {
       setFrom("");
       setTo("");
     },
-    downloadPdf = () => {
-      const previousTitle = document.title;
-      document.title = `Weekly Report M238 - ${data?.labelA ?? ""} vs ${data?.labelB ?? ""}`;
-      window.print();
-      window.setTimeout(() => {
-        document.title = previousTitle;
-      }, 1000);
-    },
     compare = (x = 0, y = 0) =>
       x ? `${(((y - x) / x) * 100).toFixed(0)}%` : y ? "NEW" : "0%",
     merge = (left: Record<string, Agg> = {}, right: Record<string, Agg> = {}) =>
@@ -352,9 +351,139 @@ function Weekly() {
       "APPLE WATCH": "Watch",
     },
     la = (data?.labelA ?? "Week sebelumnya").replace("Week ", "W"),
-    lb = (data?.labelB ?? "Week berjalan").replace("Week ", "W");
+    lb = (data?.labelB ?? "Week berjalan").replace("Week ", "W"),
+    exportName = `M238-Weekly-${la}-vs-${lb}`,
+    reportElement = () => {
+      if (!reportRef.current) throw new Error("Tampilan weekly belum siap.");
+      return reportRef.current;
+    },
+    downloadXls = async () => {
+      if (!data) throw new Error("Data weekly masih dimuat.");
+      const comparisonRows = (
+          left: Record<string, Agg>,
+          right: Record<string, Agg>,
+        ) =>
+          merge(left, right).map((row) => [
+            row.k,
+            row.x.qty,
+            row.x.amount,
+            row.y.qty,
+            row.y.amount,
+            compare(row.x.qty, row.y.qty),
+            compare(row.x.amount, row.y.amount),
+          ]),
+        lobRows = lobs.flatMap((lob) =>
+          merge(data.a.lob[lob], data.b.lob[lob]).map((row) => [
+            names[lob],
+            row.k,
+            row.x.qty,
+            row.x.amount,
+            row.y.qty,
+            row.y.amount,
+            compare(row.x.qty, row.y.qty),
+            compare(row.x.amount, row.y.amount),
+          ]),
+        ),
+        targetRows = targetLobs.flatMap((lob) => {
+          const current = data.b.lob[lob] ?? {},
+            targets = data.targets.types[lob] ?? {},
+            types = [
+              ...new Set([...Object.keys(current), ...Object.keys(targets)]),
+            ];
+          return types.map((type) => {
+            const actual = current[type] ?? { qty: 0, amount: 0 },
+              target = targets[type] ?? { target: 0, focus: false };
+            return [
+              names[lob],
+              type,
+              actual.qty,
+              actual.amount,
+              target.target,
+              actual.qty - target.target,
+              target.target ? actual.qty / target.target : 0,
+              target.focus ? "Fokus" : "",
+            ];
+          });
+        }),
+        sheets: ExportSheet[] = [
+          {
+            name: "Sales Summary",
+            rows: [
+              [
+                "Category",
+                `${la} Qty`,
+                `${la} Amount`,
+                `${lb} Qty`,
+                `${lb} Amount`,
+                "Qty %",
+                "Amount %",
+              ],
+              ...comparisonRows(data.a.scheme, data.b.scheme),
+            ],
+          },
+          {
+            name: "VAS",
+            rows: [
+              [
+                "VAS",
+                `${la} Qty`,
+                `${la} Amount`,
+                `${lb} Qty`,
+                `${lb} Amount`,
+                "Qty %",
+                "Amount %",
+              ],
+              ...comparisonRows(data.a.vas, data.b.vas),
+            ],
+          },
+          {
+            name: "Weekly LOB",
+            rows: [
+              [
+                "Product Category",
+                "Type",
+                `${la} Qty`,
+                `${la} Amount`,
+                `${lb} Qty`,
+                `${lb} Amount`,
+                "Qty %",
+                "Amount %",
+              ],
+              ...lobRows,
+            ],
+          },
+          {
+            name: "Target LOB",
+            rows: [
+              [
+                "Product Category",
+                "Type",
+                `${lb} Qty`,
+                `${lb} Amount`,
+                "Target",
+                "Gap",
+                "Achievement",
+                "Fokus",
+              ],
+              ...targetRows,
+            ],
+          },
+          {
+            name: "Reason Weekly",
+            rows: [
+              ["LOB", "Weekly Review", "Action Plan"],
+              ...lobs.map((lob) => [
+                names[lob],
+                data.analysis[lob]?.review ?? "",
+                data.analysis[lob]?.actionPlan ?? "",
+              ]),
+            ],
+          },
+        ];
+      await exportReportXlsx(sheets, exportName);
+    };
   return (
-    <div className="mt-6 space-y-5">
+    <div ref={reportRef} className="mt-6 space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black">Weekly Report M238</h1>
@@ -363,13 +492,11 @@ function Weekly() {
             dipilih.
           </p>
         </div>
-        <button
-          onClick={downloadPdf}
-          className="no-print flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm hover:bg-blue-700"
-        >
-          <Download className="size-4" />
-          Unduh PDF
-        </button>
+        <ExportMenu
+          onXls={downloadXls}
+          onPdf={() => exportReportPdf(reportElement(), exportName)}
+          onPicture={() => exportReportPng(reportElement(), exportName)}
+        />
       </div>
       <section className={box}>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end">

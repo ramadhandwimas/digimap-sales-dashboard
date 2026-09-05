@@ -5,6 +5,7 @@ import {
   ChartNoAxesCombined,
   ChevronDown,
   ChevronRight,
+  ClipboardCheck,
   ClipboardList,
   Cloud,
   CreditCard,
@@ -25,6 +26,7 @@ import {
   WalletCards,
   WandSparkles,
 } from "lucide-react";
+import { ExportMenu } from "@/components/export-menu";
 import {
   Table,
   TableBody,
@@ -39,6 +41,12 @@ import type {
   M238Payload,
   StaffMetric,
 } from "@/lib/m238-types";
+import {
+  exportReportPdf,
+  exportReportPng,
+  exportReportXlsx,
+  type ExportSheet,
+} from "@/lib/dashboard-export";
 
 const money = new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -429,6 +437,20 @@ export default function DashboardV3() {
             icon: ChartNoAxesCombined,
             href: "/weekly",
           },
+          {
+            key: "checklist-spv",
+            label: "Checklist Store - SPV",
+            icon: ClipboardCheck,
+            href: "https://forms.cloud.microsoft/pages/responsepage.aspx?id=iAw5Rakbn0eYpYaKADRxVqklIyFb72JDrV7GtVMqEcNUMUdNM1Q1VU4zTU9PTlpVTERHVUpZUk9BQS4u&route=shorturl",
+            external: true,
+          },
+          {
+            key: "checklist-staff",
+            label: "Checklist Store - Staff",
+            icon: ClipboardCheck,
+            href: "https://forms.cloud.microsoft/pages/responsepage.aspx?id=iAw5Rakbn0eYpYaKADRxVqklIyFb72JDrV7GtVMqEcNUQVpVV1hBVTdHTDVDWVlMRkE0V0lRVDQySS4u&route=shorturl",
+            external: true,
+          },
         ],
       },
       {
@@ -528,9 +550,15 @@ export default function DashboardV3() {
                           <button
                             key={item.key}
                             onClick={() => {
-                              if ("href" in item)
-                                window.location.href = item.href;
-                              else setTab(item.key);
+                              if ("href" in item) {
+                                if ("external" in item && item.external)
+                                  window.open(
+                                    item.href,
+                                    "_blank",
+                                    "noopener,noreferrer",
+                                  );
+                                else window.location.href = item.href;
+                              } else setTab(item.key);
                             }}
                             className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold lg:pl-7 ${tab === item.key ? "bg-white/20 shadow-sm" : "text-white/80 hover:bg-white/10"}`}
                           >
@@ -858,12 +886,111 @@ function useDaily(date: string) {
   return { daily, loading, load };
 }
 function DailySales() {
-  const date = today(),
+  const reportRef = useRef<HTMLDivElement>(null),
+    date = today(),
     { daily, loading, load } = useDaily(date),
     rows = daily?.staff ?? [],
-    t = daily?.total;
+    t = daily?.total,
+    exportName = `M238-Daily-Sales-${date}`,
+    reportElement = () => {
+      if (!reportRef.current)
+        throw new Error("Tampilan daily sales belum siap.");
+      return reportRef.current;
+    },
+    downloadXls = async () => {
+      const sheets: ExportSheet[] = [
+        {
+          name: "Daily Summary",
+          rows: [
+            ["Tanggal", date],
+            ["Metric", "Target", "Achievement", "Achievement %"],
+            [
+              "Sales",
+              t?.target ?? 0,
+              t?.amount ?? 0,
+              ach(t?.amount ?? 0, t?.target ?? 0) / 100,
+            ],
+            [
+              "Accessories",
+              t?.accTarget ?? 0,
+              t?.accessories ?? 0,
+              ach(t?.accessories ?? 0, t?.accTarget ?? 0) / 100,
+            ],
+            [
+              "VAS",
+              t?.vasTarget ?? 0,
+              t?.vas ?? 0,
+              ach(t?.vas ?? 0, t?.vasTarget ?? 0) / 100,
+            ],
+            ["UPT", "", t?.upt ?? 0, ""],
+          ],
+        },
+        {
+          name: "Daily Staff",
+          rows: [
+            [
+              "NIK",
+              "Nama",
+              "Position",
+              "Status",
+              "Target",
+              "Achievement",
+              "Achievement %",
+              "Accessories",
+              "VAS",
+              "Qty",
+              "Transactions",
+              "UPT",
+              "ATV",
+              "iPhone",
+              "MacBook",
+              "iPad",
+              "Watch",
+              "AirPods",
+              "Qoala Qty",
+              "Qoala Value",
+              "Telkomsel Qty",
+              "Telkomsel Value",
+              "XL Qty",
+              "XL Value",
+              "Indosat Qty",
+              "Indosat Value",
+            ],
+            ...rows.map((row) => [
+              row.id,
+              row.name,
+              row.position,
+              row.status,
+              row.targets.amount,
+              row.amount,
+              ach(row.amount, row.targets.amount) / 100,
+              row.accessories,
+              row.vas,
+              row.qty,
+              row.invoices,
+              row.upt,
+              row.atv,
+              row.lob.iphone,
+              row.lob.mac,
+              row.lob.ipad,
+              row.lob.watch,
+              row.lob.airpods,
+              row.vasDetail.qoala.qty,
+              row.vasDetail.qoala.value,
+              row.vasDetail.telkomsel.qty,
+              row.vasDetail.telkomsel.value,
+              row.vasDetail.xl.qty,
+              row.vasDetail.xl.value,
+              row.vasDetail.indosat.qty,
+              row.vasDetail.indosat.value,
+            ]),
+          ],
+        },
+      ];
+      await exportReportXlsx(sheets, exportName);
+    };
   return (
-    <div className="space-y-5">
+    <div ref={reportRef} className="space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black">Daily Sales</h1>
@@ -871,12 +998,20 @@ function DailySales() {
             Seluruh data mengikuti hari berjalan: {date}.
           </p>
         </div>
-        <button
-          onClick={() => void load()}
-          className="rounded-xl border bg-white p-2.5"
-        >
-          <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-        </button>
+        <div className="export-hide flex items-center gap-2">
+          <button
+            onClick={() => void load()}
+            title="Perbarui data"
+            className="rounded-xl border bg-white p-3 dark:bg-slate-950"
+          >
+            <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+          <ExportMenu
+            onXls={downloadXls}
+            onPdf={() => exportReportPdf(reportElement(), exportName)}
+            onPicture={() => exportReportPng(reportElement(), exportName)}
+          />
+        </div>
       </div>
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card
