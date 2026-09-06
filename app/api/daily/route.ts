@@ -77,12 +77,13 @@ export async function GET(req:NextRequest){
   const shareTotal=active.reduce((a,p)=>a+Math.max(0,p.share),0);
   const liveStaff:DailyStaff[]=active.map(p=>{const w=shareTotal?Math.max(0,p.share)/shareTotal:0;return aggregatePerson(p,rows.filter(r=>r.id===p.id),{amount:target.amount*w,accessories:target.accessories*w,vas:target.vas*w})});
 
-  // Digimap.co.id is valid store achievement but intentionally has no staff target/share.
-  const scheduledIds=new Set(active.map(p=>p.id));
-  const onlineGroups=new Map<string,Row[]>();
-  for(const r of rows){if(scheduledIds.has(r.id)||!isDigimapOnline(r.name))continue;const key=r.id||"DIGIMAP.CO.ID";const group=onlineGroups.get(key)||[];group.push(r);onlineGroups.set(key,group)}
-  const onlineStaff:DailyStaff[]=[...onlineGroups.entries()].map(([id,mine])=>aggregatePerson({id,name:mine[0]?.name||"Digimap.co.id",position:"Online Sales",share:0,status:"ONLINE"},mine,{amount:0,accessories:0,vas:0}));
-  const currentStaff=[...liveStaff,...onlineStaff];
+  // Any seller found in uploaded sales must appear even when OFF or outside today's schedule.
+  // Those extra sellers intentionally receive zero target so store achievement stays accurate without changing target allocation.
+  const activeIds=new Set(active.map(p=>p.id)),scheduledById=new Map(scheduled.map(p=>[p.id,p]));
+  const extraGroups=new Map<string,Row[]>();
+  for(const r of rows){if(activeIds.has(r.id))continue;const group=extraGroups.get(r.id)||[];group.push(r);extraGroups.set(r.id,group)}
+  const extraStaff:DailyStaff[]=[...extraGroups.entries()].map(([id,mine])=>{const scheduledPerson=scheduledById.get(id),online=isDigimapOnline(mine[0]?.name||"");return aggregatePerson({id,name:mine[0]?.name||scheduledPerson?.name||id,position:online?"Online Sales":scheduledPerson?.position||"Sales (non-schedule)",share:0,status:online?"ONLINE":scheduledPerson?.status||"EXTRA"},mine,{amount:0,accessories:0,vas:0})});
+  const currentStaff=[...liveStaff,...extraStaff];
 
   const isPast=date<todayJakarta(),sourceAvailable=matches.length>0||compiledMatches.length>0,useSaved=isPast&&!sourceAvailable&&salesSnapshot.dated.length>0,staff=useSaved?snapshotStaff(salesSnapshot.dated):currentStaff;
   if(!useSaved&&date<=todayJakarta())await saveSalesSnapshot(date,staff,salesSnapshot.all,email,key);
