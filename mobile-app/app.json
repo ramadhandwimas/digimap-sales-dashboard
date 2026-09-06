@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "M238 Dashboard",
+    "slug": "m238-dashboard-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dwimas.m238dashboard"
+    },
+    "android": {
+      "package": "com.dwimas.m238dashboard"
+    }
+  }
+}
