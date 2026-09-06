@@ -93,32 +93,63 @@ function textFallbackCanvas(element: HTMLElement) {
   return canvas;
 }
 
+function isDailySales(element: HTMLElement) {
+  return element.querySelector("h1")?.textContent?.trim() === "Daily Sales";
+}
+
+function resolveCaptureTarget(element: HTMLElement) {
+  if (!isDailySales(element)) return element;
+  const shell = element.closest("main")?.parentElement as HTMLElement | null;
+  return shell || document.body;
+}
+
 async function captureReport(element: HTMLElement) {
   const { default: html2canvas } = await import("html2canvas");
+  const target = resolveCaptureTarget(element);
+  const dailyMode = target !== element;
   const captureId = `m238-export-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  element.setAttribute("data-export-id", captureId);
+  target.setAttribute("data-export-id", captureId);
   try {
     try {
-      return await html2canvas(element, {
+      return await html2canvas(target, {
         backgroundColor: "#f8fafc",
         logging: false,
         scale: Math.min(2, window.devicePixelRatio || 1),
         useCORS: true,
-        width: element.scrollWidth,
-        height: element.scrollHeight,
-        windowWidth: Math.max(element.scrollWidth, 1280),
-        windowHeight: element.scrollHeight,
+        width: target.scrollWidth,
+        height: target.scrollHeight,
+        windowWidth: Math.max(target.scrollWidth, 1536),
+        windowHeight: target.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
         ignoreElements: (node) => node.classList?.contains("export-hide"),
         onclone: (doc) => {
           const clone = doc.querySelector<HTMLElement>(`[data-export-id="${captureId}"]`);
-          if (clone) sanitizeClone(doc, clone);
+          if (!clone) return;
+          sanitizeClone(doc, clone);
+          if (dailyMode) {
+            const aside = clone.querySelector<HTMLElement>("aside");
+            const main = clone.querySelector<HTMLElement>("main");
+            const fullHeight = Math.max(clone.scrollHeight, main?.scrollHeight || 0);
+            clone.style.minHeight = `${fullHeight}px`;
+            if (aside) {
+              aside.style.position = "static";
+              aside.style.top = "auto";
+              aside.style.height = `${fullHeight}px`;
+              aside.style.minHeight = `${fullHeight}px`;
+            }
+            if (main) {
+              main.style.minHeight = `${fullHeight}px`;
+              main.style.backgroundColor = "#f8fafc";
+            }
+          }
         },
       });
     } catch {
       return textFallbackCanvas(element);
     }
   } finally {
-    element.removeAttribute("data-export-id");
+    target.removeAttribute("data-export-id");
   }
 }
 
