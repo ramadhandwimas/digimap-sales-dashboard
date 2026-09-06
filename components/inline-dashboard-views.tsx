@@ -28,7 +28,7 @@ function NativeView({view}:{view:ViewKey}){
  return <><OperationsPage mode="weekly"/><WeeklyCopyEnhancer/></>;
 }
 
-function buttonLabel(button:HTMLButtonElement){return(button.querySelector("span")?.textContent||button.textContent||"").trim()}
+function buttonLabel(button:HTMLButtonElement){return(button.dataset.menuLabel||button.querySelector("span:last-child")?.textContent||button.textContent||"").trim()}
 
 function syncNavigation(label:string|null){
  const main=document.querySelector("main.min-w-0"),breadcrumb=main?.querySelector("header b") as HTMLElement|null;if(breadcrumb&&label)breadcrumb.textContent=label;
@@ -43,7 +43,7 @@ export default function InlineDashboardViews(){
   const inject=()=>{
    if(document.querySelector("[data-weekly-reason-menu]"))return;
    const reporting=Array.from(document.querySelectorAll<HTMLButtonElement>("aside nav button")).find(b=>buttonLabel(b)==="Reporting"),group=reporting?.parentElement,list=group?.querySelector(".mt-1") as HTMLElement|null;if(!list)return;
-   const button=document.createElement("button");button.dataset.weeklyReasonMenu="1";button.className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold lg:pl-7 text-white/80 hover:bg-white/10";button.innerHTML='<span class="inline-block size-3.5 shrink-0">↳</span><span>Weekly Reason</span>';list.appendChild(button);
+   const button=document.createElement("button");button.dataset.weeklyReasonMenu="1";button.dataset.menuLabel="Weekly Reason";button.className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold lg:pl-7 text-white/80 hover:bg-white/10";button.innerHTML='<span class="inline-block size-3.5 shrink-0" aria-hidden="true">↳</span><span>Weekly Reason</span>';list.appendChild(button);
   };
   inject();const obs=new MutationObserver(inject);obs.observe(document.body,{childList:true,subtree:true});return()=>obs.disconnect();
  },[]);
