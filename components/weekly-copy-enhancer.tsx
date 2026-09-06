@@ -11,34 +11,30 @@ const plans:Record<string,string>={
 
 export default function WeeklyCopyEnhancer(){
  useEffect(()=>{
+  let scheduled=false;
   const enhance=()=>{
+   scheduled=false;
    const reason=[...document.querySelectorAll("h3")].find(x=>x.textContent?.trim()==="Reason Weekly per LOB");
    if(!reason)return;
-   const wrap=reason.parentElement;
-   if(!wrap)return;
+   const wrap=reason.parentElement;if(!wrap)return;
    const desc=reason.nextElementSibling as HTMLElement|null;
-   if(desc&&!desc.dataset.reasonEnhanced){
-    desc.dataset.reasonEnhanced="1";
-    desc.textContent="Review dibuat dari hasil compare, target, pergerakan type, Product Focus Weekly, serta feedback staff pada periode week agar reason tetap sesuai kondisi store.";
-   }
+   const wanted="Review dibuat dari hasil compare, target, pergerakan type, Product Focus Weekly, serta feedback staff pada periode week agar reason tetap sesuai kondisi store.";
+   if(desc&&desc.textContent!==wanted)desc.textContent=wanted;
    for(const article of wrap.querySelectorAll("article")){
     const name=article.querySelector("h4")?.textContent?.trim()||"";
     const label=[...article.querySelectorAll("b")].find(x=>x.textContent?.trim()==="Action Plan");
     const p=label?.parentElement?.querySelector("p") as HTMLElement|null;
-    if(p&&plans[name])p.textContent=plans[name];
+    if(p&&plans[name]&&p.textContent!==plans[name])p.textContent=plans[name];
     const reviewLabel=[...article.querySelectorAll("b")].find(x=>x.textContent?.trim()==="Weekly Review");
     const review=reviewLabel?.parentElement?.querySelector("p") as HTMLElement|null;
-    if(review&&!review.dataset.feedbackNote){
-      review.dataset.feedbackNote="1";
-      const note=document.createElement("span");
-      note.className="mt-2 block text-xs font-semibold text-slate-500";
-      note.textContent="Reason juga mempertimbangkan feedback staff pada periode weekly dan kondisi type Product Focus pada Target LOB Weekly.";
-      review.appendChild(note);
+    if(review&&!review.querySelector("[data-feedback-note]")){
+      const note=document.createElement("span");note.dataset.feedbackNote="1";note.className="mt-2 block text-xs font-semibold text-slate-500";
+      note.textContent="Reason juga mempertimbangkan feedback staff pada periode weekly dan kondisi type Product Focus pada Target LOB Weekly.";review.appendChild(note);
     }
    }
   };
-  enhance();
-  const obs=new MutationObserver(enhance);obs.observe(document.body,{childList:true,subtree:true});
+  const queue=()=>{if(scheduled)return;scheduled=true;requestAnimationFrame(enhance)};
+  queue();const obs=new MutationObserver(queue);obs.observe(document.body,{childList:true,subtree:true});
   return()=>obs.disconnect();
  },[]);
  return null;
