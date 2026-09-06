@@ -3,6 +3,7 @@ import DashboardEnhancements from "@/components/dashboard-enhancements"
 import DashboardFetchGuard from "@/components/dashboard-fetch-guard"
 import InlineDashboardViews from "@/components/inline-dashboard-views"
 import StaffPerformanceRange from "@/components/staff-performance-range"
+import CvrEnhancer from "@/components/cvr-enhancer"
 
 export default function Home() {
   return <DashboardFetchGuard>
@@ -10,5 +11,6 @@ export default function Home() {
     <DashboardEnhancements />
     <InlineDashboardViews />
     <StaffPerformanceRange />
+    <CvrEnhancer />
   </DashboardFetchGuard>
 }
