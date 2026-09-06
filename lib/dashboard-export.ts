@@ -12,19 +12,62 @@ const safeName = (value: string) =>
     .replace(/[^a-zA-Z0-9-_]+/g, "-")
     .replace(/^-+|-+$/g, "") || "m238-report";
 
+const unsupportedColor = /(oklab|oklch|lab|lch|color)\(/i;
+const colorProps = [
+  "color",
+  "backgroundColor",
+  "borderTopColor",
+  "borderRightColor",
+  "borderBottomColor",
+  "borderLeftColor",
+  "outlineColor",
+  "textDecorationColor",
+  "columnRuleColor",
+] as const;
+
+function sanitizeClone(doc: Document, root: HTMLElement) {
+  const nodes = [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))];
+  for (const node of nodes) {
+    const style = doc.defaultView?.getComputedStyle(node);
+    if (!style) continue;
+    for (const prop of colorProps) {
+      const value = style[prop];
+      if (value && unsupportedColor.test(value)) {
+        if (prop === "backgroundColor") node.style.backgroundColor = "transparent";
+        else if (prop === "color") node.style.color = "#0f172a";
+        else node.style[prop] = "transparent";
+      }
+    }
+    const shadow = style.boxShadow;
+    if (shadow && unsupportedColor.test(shadow)) node.style.boxShadow = "none";
+    const textShadow = style.textShadow;
+    if (textShadow && unsupportedColor.test(textShadow)) node.style.textShadow = "none";
+  }
+}
+
 async function captureReport(element: HTMLElement) {
   const { default: html2canvas } = await import("html2canvas");
-  return html2canvas(element, {
-    backgroundColor: "#f8fafc",
-    logging: false,
-    scale: Math.min(2, window.devicePixelRatio || 1),
-    useCORS: true,
-    width: element.scrollWidth,
-    height: element.scrollHeight,
-    windowWidth: element.scrollWidth,
-    windowHeight: element.scrollHeight,
-    ignoreElements: (node) => node.classList?.contains("export-hide"),
-  });
+  const captureId = `m238-export-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  element.setAttribute("data-export-id", captureId);
+  try {
+    return await html2canvas(element, {
+      backgroundColor: "#f8fafc",
+      logging: false,
+      scale: Math.min(2, window.devicePixelRatio || 1),
+      useCORS: true,
+      width: element.scrollWidth,
+      height: element.scrollHeight,
+      windowWidth: element.scrollWidth,
+      windowHeight: element.scrollHeight,
+      ignoreElements: (node) => node.classList?.contains("export-hide"),
+      onclone: (doc) => {
+        const clone = doc.querySelector<HTMLElement>(`[data-export-id="${captureId}"]`);
+        if (clone) sanitizeClone(doc, clone);
+      },
+    });
+  } finally {
+    element.removeAttribute("data-export-id");
+  }
 }
 
 export async function exportReportPng(element: HTMLElement, filename: string) {
