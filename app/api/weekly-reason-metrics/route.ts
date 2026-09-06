@@ -6,11 +6,9 @@ const MASTER_ID="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk";
 const s=(v:unknown)=>String(v??"").trim();
 const n=(v:unknown)=>typeof v==="number"?v:Number(s(v).replace(/[^0-9.-]/g,""))||0;
 const iso=(v:unknown)=>{if(typeof v==="number")return new Date(Date.UTC(1899,11,30)+v*86400000).toISOString().slice(0,10);const x=s(v);if(/^\d{4}-\d{2}-\d{2}/.test(x))return x.slice(0,10);const m=x.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);return m?`${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`:""};
-const mondayWindow=(anchor:string)=>{const d=new Date(`${anchor}T00:00:00Z`),offset=(d.getUTCDay()+6)%7,start=new Date(d.getTime()-offset*86400000),end=new Date(start.getTime()+6*86400000);return{start:start.toISOString().slice(0,10),end:end.toISOString().slice(0,10)}};
 
 type Product={article:string;description:string;type:string;lob:string;prevQty:number;currQty:number;stockQty:number};
-
-type Side={label:string;period:{start:string;end:string};traffic:number;transactions:number;qty:number;upt:number;sales:number;products:Record<string,{article:string;description:string;type:string;qty:number}>};
+type Side={label:string;period:{start:string;end:string};traffic:number;transactions:number;qty:number;upt:number;sales:number;products:Record<string,{article:string;description:string;type:string;lob:string;qty:number}>};
 
 function lobKey(category:string){const c=category.toUpperCase();if(c==="IPHONE")return"IPHONE";if(c==="IPAD")return"IPAD";if(c==="AIRPODS")return"AIRPODS";if(c==="APPLE WATCH")return"APPLE WATCH";if(c.includes("MAC"))return"MAC";return""}
 
@@ -26,10 +24,16 @@ export async function GET(req:NextRequest){
   ]);
   const storeRows=rows.filter(r=>s(r[15])==="M238"&&s(r[18])==="2026"&&(s(r[14])===from||s(r[14])===to));
   const makeSide=(label:string):Side=>{
-   const rr=storeRows.filter(r=>s(r[14])===label),dates=rr.map(r=>iso(r[0])).filter(Boolean).sort();
-   const period=dates.length?mondayWindow(dates[0]):{start:"",end:""};
+   const rr=storeRows.filter(r=>s(r[14])===label),weekDates=[...new Set(rr.map(r=>iso(r[0])).filter(Boolean))].sort();
+   const period=weekDates.length?{start:weekDates[0],end:weekDates[weekDates.length-1]}:{start:"",end:""};
    const invoices=new Set<string>();let qty=0,sales=0;const products:Side["products"]={};
-   for(const r of rr){const invoice=s(r[3]),q=n(r[7]),amount=n(r[8]),scheme=s(r[12]).toUpperCase(),lob=lobKey(s(r[9]));if(invoice)invoices.add(invoice);if(q>0)qty+=q;if(["DEVICES","ACCESSORIES","VAS"].includes(scheme))sales+=amount;if(lob&&q){const article=s(r[4]),description=s(r[5]),type=s(r[6])||description,k=`${lob}|${article||description}`;const p=products[k]??{article,description,type,lob,qty:0};p.qty+=q;products[k]=p}}
+   for(const r of rr){
+    const invoice=s(r[3]),q=n(r[7]),amount=n(r[8]),scheme=s(r[12]).toUpperCase(),lob=lobKey(s(r[9]));
+    if(invoice)invoices.add(invoice);
+    if(q>0)qty+=q;
+    if(["DEVICES","ACCESSORIES","VAS"].includes(scheme))sales+=amount;
+    if(lob&&q){const article=s(r[4]),description=s(r[5]),type=s(r[6])||description,k=`${lob}|${article||description}`;const p=products[k]??{article,description,type,lob,qty:0};p.qty+=q;products[k]=p}
+   }
    const traffic=trafficRows.reduce((a,r)=>{const d=iso(r[0]);return a+(d&&period.start&&d>=period.start&&d<=period.end?n(r[1]):0)},0),transactions=invoices.size;
    return{label,period,traffic,transactions,qty,upt:transactions?qty/transactions:0,sales,products};
   };
