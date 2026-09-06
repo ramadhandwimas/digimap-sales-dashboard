@@ -17,6 +17,7 @@ function valid(r:Row){return!!(r.id&&r.date)&&r.scheme!=="VOUCHER"&&!up(r.descri
 function kind(r:Row){const text=`${r.category} ${up(r.type)} ${up(r.description)}`;if(r.scheme==="VAS")return"vas";if(r.scheme==="ACCESSORIES")return"accessories";if(r.scheme==="DEVICES")return"device";if(/IPHONE|IPAD|MAC|APPLE WATCH|AIRPODS/.test(text))return"device";return"other"}
 function product(r:Row){if(r.brand!=="APPLE")return"other";if(r.scheme==="ACCESSORIES")return r.category==="AIRPODS"?"airpods":"other";if(r.scheme!=="DEVICES")return"other";if(r.category==="IPHONE")return"iphone";if(r.category==="MAC")return"mac";if(r.category==="IPAD")return"ipad";if(r.category==="APPLE WATCH")return"watch";return"other"}
 function vasType(r:Row){const t=`${r.article} ${r.brand} ${r.vendor} ${r.description}`.toUpperCase();if(t.includes("QOALA")||t.includes("KLA"))return"qoala";if(t.includes("TELKOMSEL")||t.includes("TSL"))return"telkomsel";if(t.includes("INDOSAT")||t.includes("IDT"))return"indosat";if(/(^|\s)XL(\s|$)|XXL/.test(t))return"xl";return""}
+function isDigimapOnline(name:string){return /DIGIMAP\s*\.?\s*CO\s*\.?\s*ID/i.test(name)}
 
 type StaffBase={id:string;name:string;position:string;share:number;status:string};
 type DailyTarget={amount:number;accessories:number;vas:number};
@@ -58,6 +59,12 @@ async function scheduleFor(date:string,configRows:unknown[][],email:string,key:s
  return result;
 }
 
+function aggregatePerson(base:StaffBase,mine:Row[],targets:DailyTarget):DailyStaff{
+ const invoices=new Set(mine.map(r=>r.invoice).filter(Boolean)),sum=(k:string)=>mine.filter(r=>kind(r)===k).reduce((a,r)=>a+r.amount,0),qty=mine.reduce((a,r)=>a+r.qty,0),amount=mine.reduce((a,r)=>a+r.amount,0),lob={iphone:0,mac:0,ipad:0,watch:0,airpods:0},vasDetail={qoala:{qty:0,value:0},telkomsel:{qty:0,value:0},xl:{qty:0,value:0},indosat:{qty:0,value:0}};
+ for(const r of mine){const pr=product(r);if(pr in lob)lob[pr as keyof typeof lob]+=r.qty;const vt=vasType(r);if(vt){vasDetail[vt as keyof typeof vasDetail].qty+=r.qty;vasDetail[vt as keyof typeof vasDetail].value+=r.amount}}
+ return{...base,amount,accessories:sum("accessories"),vas:sum("vas"),qty,invoices:invoices.size,upt:invoices.size?qty/invoices.size:0,atv:invoices.size?amount/invoices.size:0,targets,lob,vasDetail};
+}
+
 export async function GET(req:NextRequest){
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)return NextResponse.json({error:"Koneksi Google Sheets belum tersedia"},{status:500});
  const date=req.nextUrl.searchParams.get("date")||todayJakarta();
@@ -68,8 +75,16 @@ export async function GET(req:NextRequest){
   const sourceRange=matches.length?`'RAW SalesPerson'!AB${matches[0]}:AR${matches.at(-1)}`:compiledMatches.length?`'Data Copas'!A${compiledMatches[0]}:S${compiledMatches.at(-1)}`:"",raw=sourceRange?(await getSheetRanges(SOURCE_ID,[sourceRange],email,key))[0]??[]:[],rows=raw.map(parse).filter(r=>r.date===date&&valid(r));
   const target=targetResult.target;
   const shareTotal=active.reduce((a,p)=>a+Math.max(0,p.share),0);
-  const liveStaff:DailyStaff[]=active.map(p=>{const mine=rows.filter(r=>r.id===p.id),invoices=new Set(mine.map(r=>r.invoice).filter(Boolean)),sum=(k:string)=>mine.filter(r=>kind(r)===k).reduce((a,r)=>a+r.amount,0),qty=mine.reduce((a,r)=>a+r.qty,0),amount=mine.reduce((a,r)=>a+r.amount,0),w=shareTotal?Math.max(0,p.share)/shareTotal:0,lob={iphone:0,mac:0,ipad:0,watch:0,airpods:0},vasDetail={qoala:{qty:0,value:0},telkomsel:{qty:0,value:0},xl:{qty:0,value:0},indosat:{qty:0,value:0}};for(const r of mine){const pr=product(r);if(pr in lob)lob[pr as keyof typeof lob]+=r.qty;const vt=vasType(r);if(vt){vasDetail[vt as keyof typeof vasDetail].qty+=r.qty;vasDetail[vt as keyof typeof vasDetail].value+=r.amount}}return{...p,amount,accessories:sum("accessories"),vas:sum("vas"),qty,invoices:invoices.size,upt:invoices.size?qty/invoices.size:0,atv:invoices.size?amount/invoices.size:0,targets:{amount:target.amount*w,accessories:target.accessories*w,vas:target.vas*w},lob,vasDetail}});
-  const isPast=date<todayJakarta(),sourceAvailable=matches.length>0||compiledMatches.length>0,useSaved=isPast&&!sourceAvailable&&salesSnapshot.dated.length>0,staff=useSaved?snapshotStaff(salesSnapshot.dated):liveStaff;
+  const liveStaff:DailyStaff[]=active.map(p=>{const w=shareTotal?Math.max(0,p.share)/shareTotal:0;return aggregatePerson(p,rows.filter(r=>r.id===p.id),{amount:target.amount*w,accessories:target.accessories*w,vas:target.vas*w})});
+
+  // Digimap.co.id is valid store achievement but intentionally has no staff target/share.
+  const scheduledIds=new Set(active.map(p=>p.id));
+  const onlineGroups=new Map<string,Row[]>();
+  for(const r of rows){if(scheduledIds.has(r.id)||!isDigimapOnline(r.name))continue;const key=r.id||"DIGIMAP.CO.ID";const group=onlineGroups.get(key)||[];group.push(r);onlineGroups.set(key,group)}
+  const onlineStaff:DailyStaff[]=[...onlineGroups.entries()].map(([id,mine])=>aggregatePerson({id,name:mine[0]?.name||"Digimap.co.id",position:"Online Sales",share:0,status:"ONLINE"},mine,{amount:0,accessories:0,vas:0}));
+  const currentStaff=[...liveStaff,...onlineStaff];
+
+  const isPast=date<todayJakarta(),sourceAvailable=matches.length>0||compiledMatches.length>0,useSaved=isPast&&!sourceAvailable&&salesSnapshot.dated.length>0,staff=useSaved?snapshotStaff(salesSnapshot.dated):currentStaff;
   if(!useSaved&&date<=todayJakarta())await saveSalesSnapshot(date,staff,salesSnapshot.all,email,key);
   const total=staff.reduce((a,r)=>({amount:a.amount+r.amount,target:a.target+r.targets.amount,accessories:a.accessories+r.accessories,accTarget:a.accTarget+r.targets.accessories,vas:a.vas+r.vas,vasTarget:a.vasTarget+r.targets.vas,qty:a.qty+r.qty,invoices:a.invoices+r.invoices}),{amount:0,target:0,accessories:0,accTarget:0,vas:0,vasTarget:0,qty:0,invoices:0});
   return NextResponse.json({date,staff,total:{...total,upt:total.invoices?total.qty/total.invoices:0},snapshotLocked:date<=todayJakarta(),targetSnapshotLocked:targetResult.locked,salesSnapshotLocked:date<=todayJakarta()&&(useSaved||staff.length>0),storage:"MASTER DATA M238"},{headers:{"cache-control":"no-store"}});
