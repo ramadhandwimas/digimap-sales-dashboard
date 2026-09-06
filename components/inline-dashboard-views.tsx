@@ -25,10 +25,35 @@ function NativeView({view}:{view:ViewKey}){
  return <><OperationsPage mode="weekly"/><WeeklyCopyEnhancer/></>;
 }
 
-function syncHeader(label:string|null){
+function buttonLabel(button:HTMLButtonElement){
+ return (button.querySelector("span")?.textContent||button.textContent||"").trim();
+}
+
+function syncNavigation(label:string|null){
  const main=document.querySelector("main.min-w-0");
  const breadcrumb=main?.querySelector("header b") as HTMLElement|null;
  if(breadcrumb&&label)breadcrumb.textContent=label;
+
+ // Native views are rendered inside the main dashboard without changing DashboardV3's tab state.
+ // Keep the visible sidebar selection in sync so the previous menu (e.g. Daily Sales)
+ // does not stay highlighted while Daily Summary/BNPL/SOH/CX/Weekly is open.
+ const buttons=Array.from(document.querySelectorAll<HTMLButtonElement>("aside nav button"));
+ for(const button of buttons){
+  const current=buttonLabel(button);
+  const isItem=Object.prototype.hasOwnProperty.call(routes,current)||[
+   "Overview","Daily Sales","Staff Performance","Est. Incentive","Feedback","Settings","Data Upload"
+  ].includes(current);
+  if(!isItem)continue;
+  if(label&&current===label){
+   button.classList.add("bg-white/20","shadow-sm");
+   button.classList.remove("text-white/80");
+   button.setAttribute("aria-current","page");
+  }else{
+   button.classList.remove("bg-white/20","shadow-sm");
+   button.classList.add("text-white/80");
+   button.removeAttribute("aria-current");
+  }
+ }
 }
 
 export default function InlineDashboardViews(){
@@ -36,13 +61,13 @@ export default function InlineDashboardViews(){
 
  useEffect(()=>{
   const click=(event:MouseEvent)=>{
-   const button=(event.target as Element|null)?.closest("button");
+   const button=(event.target as Element|null)?.closest("button") as HTMLButtonElement|null;
    if(!button)return;
-   const label=(button.querySelector("span")?.textContent||button.textContent||"").trim();
+   const label=buttonLabel(button);
    const key=routes[label];
    if(key){
     event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
-    syncHeader(label);
+    syncNavigation(label);
     setActive({key,label});
     return;
    }
@@ -70,7 +95,7 @@ export default function InlineDashboardViews(){
   return()=>{obs.disconnect();for(const child of Array.from(root.children)){if(child!==h)(child as HTMLElement).style.display=""}}
  },[active]);
 
- useEffect(()=>{if(active)syncHeader(active.label)},[active]);
+ useEffect(()=>{if(active)syncNavigation(active.label)},[active]);
 
  if(!host||!active)return null;
  return createPortal(
