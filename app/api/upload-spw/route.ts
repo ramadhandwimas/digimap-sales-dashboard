@@ -1,8 +1,9 @@
 import {NextRequest,NextResponse} from "next/server"
 import {clearAndWrite,getSheetRanges} from "@/lib/google-sheets"
 import {parseSpwWorkbook} from "@/lib/spw-upload"
-const SHEET_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0"
 
+const DASHBOARD_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0"
+const MASTER_ID="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk"
 const sleep=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms))
 
 export async function POST(req:NextRequest){
@@ -15,41 +16,32 @@ export async function POST(req:NextRequest){
 
     const report=parseSpwWorkbook(await file.arrayBuffer())
     if(report.rows.length>65536)return NextResponse.json({error:"File SPW melebihi kapasitas 65.536 baris."},{status:400})
-
-    const tailStart=report.rows.length+1
-    const clearTail=tailStart<=65536?`'RAW SalesPerson'!R${tailStart}:T65536`:null
-
-    // R:T harus mempertahankan struktur asli SPW: teks tetap teks dan amount tetap number.
-    // RAW mencegah Google Sheets mengubah sendiri tanggal, invoice, article, atau format angka,
-    // karena formula A:Q membaca posisi dan tipe nilai R:S:T secara langsung.
-    await clearAndWrite(SHEET_ID,clearTail,"'RAW SalesPerson'!R1",report.rows,email,key,"RAW")
-
     const maxRow=Math.max(1,report.rows.length)
-    const [written]=await getSheetRanges(SHEET_ID,[`'RAW SalesPerson'!R1:T${maxRow}`],email,key)
-    const dates=written.filter(row=>typeof row[0]==="string"&&/^\d{2}-\d{2}-\d{4}$/.test(String(row[0]))).length
-    const staff=written.filter(row=>typeof row[0]==="string"&&/^\d{6,}\s*\/\s*\S+/.test(String(row[0]))).length
-    const sheetSales=written.reduce((sum,row)=>sum+(typeof row[2]==="number"&&Number.isFinite(row[2])?Number(row[2]):0),0)
 
-    if(!dates||!staff)return NextResponse.json({error:"Data sudah ditulis ke Google Sheets, tetapi pola R:S:T tidak terbaca sebagai SPW. Upload dihentikan agar hasil A:Q dan AB:AR tidak acak."},{status:422})
-    if(report.validatedTotals&&Math.abs(sheetSales-report.expectedTotal)>1){
-      return NextResponse.json({error:`Total R:S:T Rp ${Math.round(sheetSales).toLocaleString("id-ID")} berbeda dari total report Rp ${Math.round(report.expectedTotal).toLocaleString("id-ID")}. Upload tidak dianggap berhasil.`},{status:422})
-    }
+    // Tahap 1: simpan hasil konversi ke MASTER DATA M238 sebagai native Google Sheets values.
+    await clearAndWrite(MASTER_ID,"'SPW'!A1:C65536","'SPW'!A1",report.rows,email,key,"RAW")
+    const [masterRows]=await getSheetRanges(MASTER_ID,[`'SPW'!A1:C${maxRow}`],email,key)
+    const dates=masterRows.filter(row=>typeof row[0]==="string"&&/^\d{2}-\d{2}-\d{4}$/.test(String(row[0]))).length
+    const staff=masterRows.filter(row=>typeof row[0]==="string"&&/^\d{6,}\s*\/\s*\S+/.test(String(row[0]))).length
+    const masterSales=masterRows.reduce((sum,row)=>sum+(typeof row[2]==="number"&&Number.isFinite(row[2])?Number(row[2]):0),0)
+    if(!dates||!staff)return NextResponse.json({error:"MASTER DATA M238 menerima file, tetapi pola SPW tidak valid. Data dashboard lama tidak diubah."},{status:422})
+    if(report.validatedTotals&&Math.abs(masterSales-report.expectedTotal)>1)return NextResponse.json({error:`Total MASTER DATA M238 Rp ${Math.round(masterSales).toLocaleString("id-ID")} berbeda dari report Rp ${Math.round(report.expectedTotal).toLocaleString("id-ID")}. Dashboard lama tidak diubah.`},{status:422})
 
-    // Tunggu formula A:Q dan QUERY AB:AR menghitung ulang, lalu cek output final.
+    // Tahap transisi aman: mirror nilai master ke RAW SalesPerson R:S:T.
+    // Ini menjaga formula A:Q dan QUERY AB:AR tetap bekerja sebelum IMPORTRANGE diaktifkan permanen.
+    await clearAndWrite(DASHBOARD_ID,"'RAW SalesPerson'!R1:T65536","'RAW SalesPerson'!R1",masterRows,email,key,"RAW")
+
     let derivedRows:unknown[][]=[]
-    for(let attempt=0;attempt<3;attempt++){
-      await sleep(450)
-      const result=await getSheetRanges(SHEET_ID,[`'RAW SalesPerson'!AB2:AJ${Math.min(65536,maxRow+10)}`],email,key)
+    for(let attempt=0;attempt<4;attempt++){
+      await sleep(500)
+      const result=await getSheetRanges(DASHBOARD_ID,[`'RAW SalesPerson'!AB2:AJ${Math.min(65536,maxRow+20)}`],email,key)
       derivedRows=result[0]??[]
       if(derivedRows.some(row=>row[0]&&row[1]&&typeof row[8]==="number"))break
     }
     const derivedSales=derivedRows.reduce((sum,row)=>sum+(row[0]&&row[1]&&typeof row[8]==="number"?Number(row[8]):0),0)
     const derivedCount=derivedRows.filter(row=>row[0]&&row[1]&&typeof row[8]==="number").length
+    if(masterSales>0&&(!derivedCount||Math.abs(derivedSales-masterSales)>1))return NextResponse.json({error:`MASTER DATA M238 sudah benar Rp ${Math.round(masterSales).toLocaleString("id-ID")}, tetapi hasil AB:AR masih Rp ${Math.round(derivedSales).toLocaleString("id-ID")}. Upload tidak ditandai berhasil agar dashboard tidak memakai data salah.`},{status:422})
 
-    if(sheetSales>0&&(!derivedCount||Math.abs(derivedSales-sheetSales)>1)){
-      return NextResponse.json({error:`R:S:T sudah terbaca Rp ${Math.round(sheetSales).toLocaleString("id-ID")}, tetapi hasil AB:AR Rp ${Math.round(derivedSales).toLocaleString("id-ID")} belum sama. Sistem tidak menandai upload berhasil agar dashboard tidak memakai data yang salah.`},{status:422})
-    }
-
-    return NextResponse.json({ok:true,rows:report.rows.length,sheet:report.sheetName,numbers:report.numbers,expectedSales:report.expectedTotal,sheetSales,derivedSales,derivedCount,validatedTotals:report.validatedTotals,storage:"google-sheets-native-values",message:`SPW berhasil dikonversi ke nilai Google Sheets. R:S:T dan hasil AB:AR sudah diverifikasi, total Rp ${Math.round(derivedSales).toLocaleString("id-ID")}.`})
+    return NextResponse.json({ok:true,rows:report.rows.length,sheet:report.sheetName,masterSheet:"MASTER DATA M238 / SPW",masterSales,derivedSales,derivedCount,storage:"master-google-sheets-native-values",message:`SPW berhasil dikonversi ke MASTER DATA M238 dan diverifikasi sampai AB:AR. Total Rp ${Math.round(derivedSales).toLocaleString("id-ID")}.`})
   }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Upload gagal"},{status:500})}
 }
