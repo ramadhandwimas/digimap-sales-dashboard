@@ -52,3 +52,5 @@ Bagikan Google Sheet master kepada alamat `client_email` sebagai **Editor**. Aks
 - Incentive accessories mengikuti tier harga pada dashboard.
 
 Dashboard memperbarui data otomatis setiap dua jam dan juga dapat diperbarui manual.
+
+<!-- Vercel production redeploy trigger after Pro upgrade -->
