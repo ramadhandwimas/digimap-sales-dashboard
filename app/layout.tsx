@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import IdleLogout from "@/components/idle-logout";
 
 export const metadata: Metadata = {
   title: "M238 Digimap Pondok Indah Mall 2",
@@ -17,7 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id" suppressHydrationWarning>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased"><IdleLogout/>{children}</body>
     </html>
   );
 }
