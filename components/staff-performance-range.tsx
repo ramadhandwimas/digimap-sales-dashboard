@@ -1,0 +1,113 @@
+"use client";
+
+import {useCallback,useEffect,useMemo,useState} from "react";
+import {createPortal} from "react-dom";
+
+const money=new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0});
+const num=new Intl.NumberFormat("id-ID");
+const pct=(v:number)=>`${new Intl.NumberFormat("id-ID",{maximumFractionDigits:1}).format(v)}%`;
+const ach=(v:number,t:number)=>t?(v/t)*100:0;
+const today=()=>new Intl.DateTimeFormat("sv-SE",{year:"numeric",month:"2-digit",day:"2-digit",timeZone:"Asia/Jakarta"}).format(new Date());
+const monthStart=()=>`${today().slice(0,7)}-01`;
+
+type Lob={iphone:number;mac:number;ipad:number;watch:number;airpods:number};
+type DailyStaff={id:string;name:string;position:string;status:string;amount:number;accessories:number;vas:number;qty:number;invoices:number;targets:{amount:number;accessories:number;vas:number};lob:Lob};
+type DailyPayload={date:string;staff:DailyStaff[];error?:string};
+type Agg=DailyStaff&{days:number;upt:number;atv:number};
+
+function datesBetween(from:string,to:string){
+ const out:string[]=[];
+ if(!from||!to||from>to)return out;
+ const a=new Date(`${from}T00:00:00Z`),b=new Date(`${to}T00:00:00Z`);
+ while(a<=b&&out.length<31){out.push(a.toISOString().slice(0,10));a.setUTCDate(a.getUTCDate()+1)}
+ return out;
+}
+
+async function loadRange(dates:string[]){
+ const result:DailyPayload[]=[];
+ for(let i=0;i<dates.length;i+=5){
+  const chunk=dates.slice(i,i+5);
+  const rows=await Promise.all(chunk.map(async date=>{
+   const r=await fetch(`/api/daily?date=${date}&t=${Date.now()}`,{cache:"no-store"});
+   const j=await r.json();
+   if(!r.ok)throw new Error(j.error||`Gagal membaca ${date}`);
+   return j as DailyPayload;
+  }));
+  result.push(...rows);
+ }
+ return result;
+}
+
+function aggregate(payloads:DailyPayload[]):Agg[]{
+ const map=new Map<string,Agg>();
+ for(const day of payloads){
+  for(const r of day.staff||[]){
+   if(r.status==="ONLINE"||/ONLINE SALES/i.test(r.position||""))continue;
+   const prev=map.get(r.id)??{...r,amount:0,accessories:0,vas:0,qty:0,invoices:0,targets:{amount:0,accessories:0,vas:0},lob:{iphone:0,mac:0,ipad:0,watch:0,airpods:0},days:0,upt:0,atv:0};
+   prev.name=r.name;prev.position=r.position;prev.status=r.status;
+   prev.amount+=r.amount||0;prev.accessories+=r.accessories||0;prev.vas+=r.vas||0;prev.qty+=r.qty||0;prev.invoices+=r.invoices||0;
+   prev.targets.amount+=r.targets?.amount||0;prev.targets.accessories+=r.targets?.accessories||0;prev.targets.vas+=r.targets?.vas||0;
+   prev.lob.iphone+=r.lob?.iphone||0;prev.lob.mac+=r.lob?.mac||0;prev.lob.ipad+=r.lob?.ipad||0;prev.lob.watch+=r.lob?.watch||0;prev.lob.airpods+=r.lob?.airpods||0;
+   prev.days+=1;prev.upt=prev.invoices?prev.qty/prev.invoices:0;prev.atv=prev.invoices?prev.amount/prev.invoices:0;
+   map.set(r.id,prev);
+  }
+ }
+ return [...map.values()].sort((a,b)=>b.amount-a.amount);
+}
+
+function RangePanel(){
+ const[from,setFrom]=useState(monthStart()),[to,setTo]=useState(today()),[staff,setStaff]=useState("ALL"),[payloads,setPayloads]=useState<DailyPayload[]>([]),[loading,setLoading]=useState(false),[error,setError]=useState("");
+ const dates=useMemo(()=>datesBetween(from,to),[from,to]);
+ const refresh=useCallback(async()=>{
+  if(!dates.length){setError("Range tanggal tidak valid.");return}
+  const diff=(new Date(`${to}T00:00:00Z`).getTime()-new Date(`${from}T00:00:00Z`).getTime())/86400000+1;
+  if(diff>31){setError("Maksimal range 31 hari agar dashboard tetap ringan.");return}
+  setLoading(true);setError("");
+  try{setPayloads(await loadRange(dates))}catch(e){setError(e instanceof Error?e.message:"Gagal membaca range tanggal")}
+  finally{setLoading(false)}
+ },[dates,from,to]);
+ useEffect(()=>{void refresh()},[refresh]);
+ const rows=useMemo(()=>aggregate(payloads),[payloads]),visible=staff==="ALL"?rows:rows.filter(r=>r.id===staff);
+ const daily=useMemo(()=>payloads.map(p=>{
+  const source=(p.staff||[]).filter(r=>r.status!=="ONLINE"&&!/ONLINE SALES/i.test(r.position||"")&&(staff==="ALL"||r.id===staff));
+  const target=source.reduce((a,r)=>a+(r.targets?.amount||0),0),amount=source.reduce((a,r)=>a+(r.amount||0),0),qty=source.reduce((a,r)=>a+(r.qty||0),0),inv=source.reduce((a,r)=>a+(r.invoices||0),0);
+  return{date:p.date,target,amount,qty,inv,upt:inv?qty/inv:0,atv:inv?amount/inv:0};
+ }),[payloads,staff]);
+ return <section className="rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950">
+  <div className="mb-4">
+   <h2 className="font-extrabold">Filter Range Penjualan Daily</h2>
+   <p className="mt-1 text-sm text-slate-500">Cek performa staff berdasarkan tanggal yang dipilih, maksimal 31 hari.</p>
+  </div>
+  <div className="grid gap-3 md:grid-cols-3">
+   <label><span className="mb-1.5 block text-xs font-bold uppercase tracking-[.12em] text-slate-400">Dari Tanggal</span><input type="date" value={from} max={to} onChange={e=>setFrom(e.target.value)} className="h-11 w-full rounded-xl border bg-white px-3 dark:bg-slate-900"/></label>
+   <label><span className="mb-1.5 block text-xs font-bold uppercase tracking-[.12em] text-slate-400">Sampai Tanggal</span><input type="date" value={to} min={from} max={today()} onChange={e=>setTo(e.target.value)} className="h-11 w-full rounded-xl border bg-white px-3 dark:bg-slate-900"/></label>
+   <label><span className="mb-1.5 block text-xs font-bold uppercase tracking-[.12em] text-slate-400">Staff</span><select value={staff} onChange={e=>setStaff(e.target.value)} className="h-11 w-full rounded-xl border bg-white px-3 dark:bg-slate-900"><option value="ALL">Semua Staff</option>{rows.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
+  </div>
+  <div className="mt-3 flex items-center justify-between gap-3"><p className="text-xs text-slate-500">{from} s/d {to} • {dates.length} hari</p><button onClick={()=>void refresh()} disabled={loading} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{loading?"Memuat…":"Terapkan Range"}</button></div>
+  {error&&<p className="mt-3 rounded-xl bg-rose-50 p-3 text-sm font-semibold text-rose-700">{error}</p>}
+  {!error&&<>
+   <div className="mt-5 overflow-x-auto rounded-xl border">
+    <table className="w-full min-w-[1000px] text-sm"><thead className="bg-slate-50 dark:bg-slate-900"><tr>{["Nama","Hari Aktif","Target","Achievement","%","ACC","VAS","UPT","ATV","iPhone","Mac","iPad","Watch","AirPods"].map(x=><th key={x} className="px-3 py-3 text-left text-xs font-bold text-slate-500">{x}</th>)}</tr></thead><tbody>{visible.map(r=><tr key={r.id} className="border-t"><td className="px-3 py-3"><b>{r.name}</b><div className="text-xs text-slate-400">{r.position}</div></td><td className="px-3 py-3">{r.days}</td><td className="px-3 py-3">{money.format(r.targets.amount)}</td><td className="px-3 py-3 font-bold">{money.format(r.amount)}</td><td className="px-3 py-3">{pct(ach(r.amount,r.targets.amount))}</td><td className="px-3 py-3">{money.format(r.accessories)}</td><td className="px-3 py-3">{money.format(r.vas)}</td><td className="px-3 py-3">{r.upt.toFixed(1)}</td><td className="px-3 py-3">{money.format(r.atv)}</td><td className="px-3 py-3">{num.format(r.lob.iphone)}</td><td className="px-3 py-3">{num.format(r.lob.mac)}</td><td className="px-3 py-3">{num.format(r.lob.ipad)}</td><td className="px-3 py-3">{num.format(r.lob.watch)}</td><td className="px-3 py-3">{num.format(r.lob.airpods)}</td></tr>)}</tbody></table>
+   </div>
+   <div className="mt-5"><h3 className="font-extrabold">Detail Penjualan Harian</h3><p className="mt-1 text-xs text-slate-500">{staff==="ALL"?"Total seluruh staff per hari":"Detail harian staff terpilih"}</p></div>
+   <div className="mt-3 overflow-x-auto rounded-xl border"><table className="w-full min-w-[720px] text-sm"><thead className="bg-slate-50 dark:bg-slate-900"><tr>{["Tanggal","Target","Achievement","%","Qty","Transaksi","UPT","ATV"].map(x=><th key={x} className="px-3 py-3 text-left text-xs font-bold text-slate-500">{x}</th>)}</tr></thead><tbody>{daily.map(r=><tr key={r.date} className="border-t"><td className="px-3 py-3 font-semibold">{r.date}</td><td className="px-3 py-3">{money.format(r.target)}</td><td className="px-3 py-3 font-bold">{money.format(r.amount)}</td><td className="px-3 py-3">{pct(ach(r.amount,r.target))}</td><td className="px-3 py-3">{r.qty}</td><td className="px-3 py-3">{r.inv}</td><td className="px-3 py-3">{r.upt.toFixed(1)}</td><td className="px-3 py-3">{money.format(r.atv)}</td></tr>)}</tbody></table></div>
+  </>}
+ </section>
+}
+
+export default function StaffPerformanceRange(){
+ const[host,setHost]=useState<HTMLElement|null>(null);
+ useEffect(()=>{
+  const sync=()=>{
+   const headings=[...document.querySelectorAll("main h1")];
+   const heading=headings.find(h=>h.textContent?.trim()==="Staff Performance") as HTMLElement|undefined;
+   if(!heading){setHost(null);return}
+   const root=heading.closest("div.space-y-5") as HTMLElement|null;if(!root)return;
+   let h=root.querySelector("[data-staff-range-host]") as HTMLElement|null;
+   if(!h){h=document.createElement("div");h.dataset.staffRangeHost="1";const intro=heading.parentElement;intro?.insertAdjacentElement("afterend",h)}
+   setHost(h);
+  };
+  sync();const obs=new MutationObserver(sync);obs.observe(document.body,{childList:true,subtree:true});return()=>obs.disconnect();
+ },[]);
+ return host?createPortal(<RangePanel/>,host):null;
+}
