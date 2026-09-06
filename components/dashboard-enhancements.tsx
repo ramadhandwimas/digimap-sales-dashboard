@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { Clock3, TrendingDown, TrendingUp } from "lucide-react";
 
 type AnnualRow = { period: string; label: string; amount: number };
@@ -13,18 +14,53 @@ type OverviewData = {
  generatedAt:string;latestDate:string;
 };
 type CompareData={period:string;cutoffDay:number;current:number;mtm:number;lfl:number;mtmGrowth:number;lflGrowth:number;previousPeriod:string;lastYearPeriod:string};
+type DailyRow={id:string;name:string;accessories:number;vas:number;targets?:{accessories?:number;vas?:number}};
+type DailyData={staff:DailyRow[];total:{accessories:number;vas:number;accTarget?:number;vasTarget?:number}};
 const money=new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0});
 const pct=new Intl.NumberFormat("id-ID",{maximumFractionDigits:1});
 const achievement=(v:number,t:number)=>t?v/t*100:0;
 const jakartaDateTime=(v:string)=>v?new Intl.DateTimeFormat("id-ID",{timeZone:"Asia/Jakarta",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(new Date(v)).replaceAll(".",":"):"—";
 const currentPeriod=()=>new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Jakarta",year:"numeric",month:"2-digit"}).format(new Date()).slice(0,7);
+const today=()=>new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Jakarta",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
 
 function Growth({value}:{value:number}){const good=value>=0;return <span className={`inline-flex items-center gap-1 font-black ${good?"text-emerald-600":"text-rose-600"}`}>{good?<TrendingUp className="size-4"/>:<TrendingDown className="size-4"/>}{good?"+":""}{pct.format(value)}%</span>}
 function CompareCard({label,current,base,growth,sub}:{label:string;current:number;base:number;growth:number;sub:string}){const diff=current-base;return <div className="rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950"><p className="text-sm font-extrabold">{label}</p><div className="mt-3 grid grid-cols-2 gap-3"><div><p className="text-[11px] text-slate-400">This Month</p><b className="text-sm">{money.format(current)}</b></div><div><p className="text-[11px] text-slate-400">Compare</p><b className="text-sm">{money.format(base)}</b></div></div><div className="mt-3 flex items-center justify-between gap-3 border-t pt-3 text-xs"><span className={diff>=0?"text-emerald-600":"text-rose-600"}>{diff>=0?"+":""}{money.format(diff)}</span><Growth value={growth}/></div><p className="mt-2 text-[11px] text-slate-400">{sub}</p></div>}
 function OverviewHeroCard({label,value,target}:{label:string;value:number;target:number}){const a=achievement(value,target);return <div className="min-w-0 rounded-2xl border border-white/20 bg-white/10 p-3"><p className="text-[11px] text-blue-100">{label}</p><p className="mt-1 break-words text-base font-black leading-tight sm:text-lg">{money.format(value)}</p><div className="mt-2 border-t border-white/15 pt-2 text-[11px] text-blue-100"><div className="flex items-center justify-between gap-2"><span>Target {money.format(target)}</span><b className="text-white">{pct.format(a)}%</b></div></div></div>}
 
+const routeByLabel:Record<string,string>={
+ "Daily Summary":"/daily-summary",
+ "BNPL & Trade-In":"/bnpl",
+ "SOH":"/soh",
+ "NPS/CX & Member":"/cx",
+ "Weekly Report":"/weekly",
+ "Data Upload":"/data-tools",
+};
+
 export default function DashboardEnhancements(){
- const[period,setPeriod]=useState(currentPeriod()),[salesOverviewTarget,setSalesOverviewTarget]=useState<HTMLElement|null>(null),[revenueTarget,setRevenueTarget]=useState<HTMLElement|null>(null),[yearTarget,setYearTarget]=useState<HTMLElement|null>(null),[salesTarget,setSalesTarget]=useState<HTMLElement|null>(null),[overview,setOverview]=useState<OverviewData|null>(null),[compare,setCompare]=useState<CompareData|null>(null),[salesUpdate,setSalesUpdate]=useState<SalesUpdate|null>(null);
+ const router=useRouter();
+ const[period,setPeriod]=useState(currentPeriod()),[salesOverviewTarget,setSalesOverviewTarget]=useState<HTMLElement|null>(null),[revenueTarget,setRevenueTarget]=useState<HTMLElement|null>(null),[yearTarget,setYearTarget]=useState<HTMLElement|null>(null),[salesTarget,setSalesTarget]=useState<HTMLElement|null>(null),[overview,setOverview]=useState<OverviewData|null>(null),[compare,setCompare]=useState<CompareData|null>(null),[salesUpdate,setSalesUpdate]=useState<SalesUpdate|null>(null),[dailyDetail,setDailyDetail]=useState<DailyData|null>(null);
+
+ useEffect(()=>{
+  Object.values(routeByLabel).forEach(path=>router.prefetch(path));
+  const onClick=(event:MouseEvent)=>{
+    const target=event.target as Element|null;
+    const button=target?.closest("button");
+    if(!button)return;
+    const label=(button.querySelector("span")?.textContent||button.textContent||"").trim();
+    const route=routeByLabel[label];
+    if(!route)return;
+    event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
+    router.push(route);
+  };
+  document.addEventListener("click",onClick,true);
+  return()=>document.removeEventListener("click",onClick,true);
+ },[router]);
+
+ useEffect(()=>{
+  const load=()=>fetch(`/api/daily?date=${today()}&t=${Date.now()}`,{cache:"no-store"}).then(r=>r.json()).then(j=>setDailyDetail(j)).catch(()=>{});
+  void load();const t=setInterval(load,60000);return()=>clearInterval(t);
+ },[]);
+
  useEffect(()=>{
   const sync=()=>{
    const labels=[...document.querySelectorAll("label")];
@@ -47,10 +83,37 @@ export default function DashboardEnhancements(){
 
    const heading=[...document.querySelectorAll("h2")].find(x=>x.textContent?.trim()==="Revenue Analytics");
    if(heading){const card=heading.closest(".rounded-2xl");const content=card?.querySelector(":scope > .space-y-6") as HTMLElement|null;if(content){const first=content.firstElementChild as HTMLElement|null;if(first?.className.includes("sm:grid-cols-3"))first.style.display="none";let rh=content.querySelector("[data-revenue-compare]") as HTMLElement|null;if(!rh){rh=document.createElement("div");rh.dataset.revenueCompare="1";content.prepend(rh)}if(rh!==revenueTarget)setRevenueTarget(rh);const old=[...content.querySelectorAll("h3")].filter(x=>x.textContent?.includes("2025")||x.textContent?.includes("2026"));old.forEach(x=>{if(x.parentElement)x.parentElement.style.display="none"});let yh=content.querySelector("[data-year-compare]") as HTMLElement|null;if(!yh){yh=document.createElement("div");yh.dataset.yearCompare="1";content.appendChild(yh)}if(yh!==yearTarget)setYearTarget(yh)}}
+
    const dailyH1=[...document.querySelectorAll("h1")].find(x=>x.textContent?.trim()==="Daily Sales");if(dailyH1){const parent=dailyH1.parentElement as HTMLElement|null;if(parent){let host=parent.querySelector("[data-sales-update]") as HTMLElement|null;if(!host){host=document.createElement("div");host.dataset.salesUpdate="1";host.className="mt-2";parent.appendChild(host)}if(host!==salesTarget)setSalesTarget(host)}}
+
+   const dailyStaffHeading=[...document.querySelectorAll("h2")].find(x=>x.textContent?.trim()==="Daily Sales Staff");
+   const dailySection=dailyStaffHeading?.closest("section") as HTMLElement|null;
+   if(dailySection&&dailyDetail){
+     const header=dailySection.querySelector("thead tr");
+     const targetTh=[...dailySection.querySelectorAll("thead th")].find(x=>x.textContent?.trim()==="Target");
+     if(header&&targetTh&&!header.querySelector("[data-daily-acc]")){
+       const acc=document.createElement("th");acc.dataset.dailyAcc="1";acc.className="h-10 px-2 text-right align-middle font-medium text-muted-foreground";acc.textContent="ACC";
+       const vas=document.createElement("th");vas.dataset.dailyVas="1";vas.className=acc.className;vas.textContent="VAS";
+       targetTh.insertAdjacentElement("afterend",vas);targetTh.insertAdjacentElement("afterend",acc);
+     }
+     const byName=new Map((dailyDetail.staff||[]).map(r=>[String(r.name||"").trim(),r]));
+     for(const tr of dailySection.querySelectorAll("tbody tr")){
+       if(tr.querySelector("[data-daily-acc-cell]"))continue;
+       const cells=tr.querySelectorAll("td");if(cells.length<3)continue;
+       const first=cells[0];const name=(first.querySelector("b")?.textContent||first.textContent||"").trim();
+       const isTotal=name==="TOTAL";const row=byName.get(name);
+       if(!isTotal&&!row)continue;
+       const accValue=isTotal?(dailyDetail.total?.accessories||0):(row?.accessories||0);
+       const vasValue=isTotal?(dailyDetail.total?.vas||0):(row?.vas||0);
+       const anchor=cells[2];
+       const acc=document.createElement("td");acc.dataset.dailyAccCell="1";acc.className="p-2 align-middle text-right";acc.textContent=money.format(accValue);
+       const vas=document.createElement("td");vas.dataset.dailyVasCell="1";vas.className=acc.className;vas.textContent=money.format(vasValue);
+       anchor.insertAdjacentElement("afterend",vas);anchor.insertAdjacentElement("afterend",acc);
+     }
+   }
   };
   sync();const obs=new MutationObserver(sync);obs.observe(document.body,{childList:true,subtree:true});return()=>obs.disconnect();
- },[salesOverviewTarget,revenueTarget,yearTarget,salesTarget,period]);
+ },[salesOverviewTarget,revenueTarget,yearTarget,salesTarget,period,dailyDetail]);
  useEffect(()=>{let alive=true;Promise.all([fetch(`/api/data?period=${period}`,{cache:"no-store"}).then(r=>r.json()),fetch(`/api/overview-compare?period=${period}`,{cache:"no-store"}).then(r=>r.json())]).then(([d,c])=>{if(!alive)return;setOverview(d);setCompare(c);if(d.generatedAt)setSalesUpdate({generatedAt:d.generatedAt,latestDate:d.latestDate||""})}).catch(()=>{});return()=>{alive=false}},[period]);
  useEffect(()=>{const load=()=>fetch(`/api/data?period=${currentPeriod()}`,{cache:"no-store"}).then(r=>r.json()).then(j=>{if(j.generatedAt)setSalesUpdate({generatedAt:j.generatedAt,latestDate:j.latestDate||""})}).catch(()=>{});const t=setInterval(load,60000);return()=>clearInterval(t)},[]);
  const annual=overview?.annual||null,pairs=useMemo(()=>{if(!annual)return[];const last=new Map(annual.lastYear.map(x=>[x.period.slice(5,7),x]));return annual.thisYear.map(y=>{const x=last.get(y.period.slice(5,7)),v25=x?.amount??0,v26=y.amount??0;return{label:y.label,v25,v26,diff:v26-v25,growth:v25?(v26-v25)/v25*100:0}})},[annual]);
