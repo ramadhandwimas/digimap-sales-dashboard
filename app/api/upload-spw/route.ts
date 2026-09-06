@@ -28,7 +28,7 @@ export async function POST(req:NextRequest){
     for(let attempt=0;attempt<4;attempt++){await sleep(500);const result=await getSheetRanges(DASHBOARD_ID,[`'RAW SalesPerson'!AB2:AJ${Math.min(65536,maxRow+20)}`],email,key);derivedRows=result[0]??[];if(derivedRows.some(row=>row[0]&&row[1]&&typeof row[8]==="number"))break}
     const derivedSales=derivedRows.reduce((sum,row)=>sum+(row[0]&&row[1]&&typeof row[8]==="number"?Number(row[8]):0),0),derivedCount=derivedRows.filter(row=>row[0]&&row[1]&&typeof row[8]==="number").length
     if(masterSales>0&&(!derivedCount||Math.abs(derivedSales-masterSales)>1))return NextResponse.json({error:`MASTER DATA M238 sudah benar Rp ${Math.round(masterSales).toLocaleString("id-ID")}, tetapi hasil AB:AR masih Rp ${Math.round(derivedSales).toLocaleString("id-ID")}. Upload tidak ditandai berhasil agar dashboard tidak memakai data salah.`},{status:422})
-    const ts=new Date().toISOString();await appendSheetValues(MASTER_ID,"'UPLOAD LOG'!A:H",[[ts,"SPW",file.name,report.rows.length,masterSales,derivedSales,"SUCCESS",report.sheetName]],email,key,"RAW")
+    const ts=new Date().toISOString();await appendSheetValues(MASTER_ID,"'UPLOAD LOG'!A:H",[[ts,"SPW",file.name,report.rows.length,masterSales,derivedSales,"SUCCESS",report.sheetName]],email,key)
     return NextResponse.json({ok:true,rows:report.rows.length,sheet:report.sheetName,uploadedAt:ts,masterSheet:"MASTER DATA M238 / SPW",masterSales,derivedSales,derivedCount,storage:"master-google-sheets-native-values",message:`SPW berhasil dikonversi ke MASTER DATA M238 dan diverifikasi sampai AB:AR. Total Rp ${Math.round(derivedSales).toLocaleString("id-ID")}.`})
   }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Upload gagal"},{status:500})}
 }
