@@ -18,14 +18,22 @@ export default function LoginPage() {
       const response = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ nik, password }),
+          body: JSON.stringify({ nik: nik.trim(), password }),
         }),
-        result = await response.json();
+        result = await response.json().catch(() => ({ error: "Login gagal. Silakan coba lagi." }));
       if (!response.ok) throw new Error(result.error || "Login gagal.");
-      const next = new URLSearchParams(window.location.search).get("next");
-      window.location.href = next?.startsWith("/") ? next : "/";
+
+      // Safari iOS dapat melempar DOMException pada redirect ke nilai `next`
+      // tertentu. Setelah login selalu masuk ke root dashboard agar stabil di
+      // iPhone maupun desktop; navigasi menu dilakukan dari dashboard.
+      window.location.replace("/");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Login gagal.");
+      const message = cause instanceof Error ? cause.message : "Login gagal.";
+      setError(
+        /expected pattern|string did not match/i.test(message)
+          ? "Login berhasil diproses, tetapi browser gagal membuka dashboard. Silakan coba lagi."
+          : message,
+      );
       setLoading(false);
     }
   };
