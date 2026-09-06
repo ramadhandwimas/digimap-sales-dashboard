@@ -1,7 +1,9 @@
 import {NextRequest,NextResponse} from "next/server";
 import * as XLSX from "xlsx";
 import {clearAndWrite,getSheetRanges} from "@/lib/google-sheets";
-const ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
+
+const DASHBOARD_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
+const MASTER_ID="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk";
 
 type Cell=string|number|boolean;
 function cleanText(v:unknown){return String(v??"").replace(/\u00a0/g," ").replace(/[\u0000-\u001f\u007f]+/g," ").replace(/\s+/g," ").trim()}
@@ -29,6 +31,7 @@ function score(rows:Cell[][]){
   const productRows=rows.filter(r=>typeof r[6]==="number"&&typeof r[7]==="number"&&typeof r[8]==="number").length;
   return (stockTitle?1000:0)+(store?300:0)+productRows*3+Math.min(rows.length,500);
 }
+
 export async function POST(req:NextRequest){
   const e=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,k=process.env.GOOGLE_PRIVATE_KEY;
   if(!e||!k)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});
@@ -42,14 +45,15 @@ export async function POST(req:NextRequest){
     if(report.score<300)return NextResponse.json({error:"Format SOH tidak dikenali. Pastikan file adalah Stock Position Report asli."},{status:400});
     if(report.rows.length>10000)return NextResponse.json({error:"Data SOH melebihi 10.000 baris"},{status:400});
 
-    await clearAndWrite(ID,"'RAW StockPosition'!F:N","'RAW StockPosition'!F1",report.rows,e,k,"USER_ENTERED");
+    // Simpan dulu ke MASTER DATA M238 sebagai native Google Sheets values.
+    await clearAndWrite(MASTER_ID,"'SOH'!A1:I10000","'SOH'!A1",report.rows,e,k,"RAW");
+    const [masterRows]=await getSheetRanges(MASTER_ID,[`'SOH'!A1:I${Math.max(1,report.rows.length)}`],e,k);
+    const numericProductRows=masterRows.filter(row=>typeof row[6]==="number"&&typeof row[7]==="number"&&typeof row[8]==="number").length;
+    if(numericProductRows===0)return NextResponse.json({error:"MASTER DATA M238 menerima file SOH, tetapi Price/Qty/Total tidak terbaca sebagai angka. Data dashboard lama tidak diubah."},{status:422});
 
-    // Verifikasi dari hasil baca Google Sheets. Untuk baris produk, L/M/N harus menjadi
-    // number native Google Sheets: price, qty, total.
-    const [written]=await getSheetRanges(ID,[`'RAW StockPosition'!L1:N${Math.max(1,report.rows.length)}`],e,k);
-    const numericProductRows=written.filter(row=>typeof row[0]==="number"&&typeof row[1]==="number"&&typeof row[2]==="number").length;
-    if(numericProductRows===0)return NextResponse.json({error:"SOH sudah ditulis tetapi Google Sheets belum mengenali kolom Price/Qty/Total sebagai angka. Upload dibatalkan untuk mencegah data stok salah."},{status:422});
+    // Tahap transisi aman: mirror hasil master ke RAW StockPosition F:N.
+    await clearAndWrite(DASHBOARD_ID,"'RAW StockPosition'!F:N","'RAW StockPosition'!F1",masterRows,e,k,"RAW");
 
-    return NextResponse.json({ok:true,rows:report.rows.length,sheet:report.name,numericProductRows,storage:"google-sheets-native-values",message:`SOH berhasil. File Excel sudah dikonversi dan diverifikasi sebagai nilai Google Sheets (${report.rows.length} baris).`});
+    return NextResponse.json({ok:true,rows:report.rows.length,sheet:report.name,numericProductRows,masterSheet:"MASTER DATA M238 / SOH",storage:"master-google-sheets-native-values",message:`SOH berhasil dikonversi ke MASTER DATA M238 lalu disinkronkan ke dashboard (${report.rows.length} baris).`});
   }catch(err){return NextResponse.json({error:err instanceof Error?err.message:"Upload SOH gagal"},{status:500})}
 }
