@@ -1,1 +1,2 @@
-import OperationsPage from "@/components/operations-page";export default function Page(){return <OperationsPage mode="soh"/>}
+import SohTabsPage from "@/components/soh-tabs-page";
+export default function Page(){return <SohTabsPage/>}
