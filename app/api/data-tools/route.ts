@@ -1,27 +1,8 @@
-import {NextRequest,NextResponse} from "next/server";import {appendSheetValues,clearAndWrite,getSheetRanges} from "@/lib/google-sheets";
-const ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
-export async function POST(req:NextRequest){
-  const e=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,k=process.env.GOOGLE_PRIVATE_KEY;
-  if(!e||!k)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});
-  const b=await req.json(),action=String(b.action||"");
-  try{
-    if(action==="cutoff-spw"){
-      const[r]=await getSheetRanges(ID,["'RAW SalesPerson'!AB2:AR65536"],e,k),rows=r.filter(x=>x.some(v=>String(v??"").trim()));
-      if(!rows.length)return NextResponse.json({error:"Belum ada data SPW yang dapat di-cut off"},{status:400});
-      await appendSheetValues(ID,"'Data Copas'!A:Q",rows,e,k);
-      return NextResponse.json({ok:true,rows:rows.length,message:`Cut Off SPW berhasil. ${rows.length} baris ditambahkan ke Data Copas.`});
-    }
-    if(action==="clear-spw"||action==="clear-soh"){
-      const pin=process.env.ADMIN_PASSCODE;
-      if(!pin)return NextResponse.json({error:"ADMIN_PASSCODE belum dipasang di Vercel"},{status:503});
-      if(String(b.passcode||"")!==pin)return NextResponse.json({error:"Passcode admin salah"},{status:403});
-      if(action==="clear-spw"){
-        await clearAndWrite(ID,"'RAW SalesPerson'!R:T","'RAW SalesPerson'!R1",[["","",""]],e,k,"RAW");
-        return NextResponse.json({ok:true,message:"Clear SPW berhasil. RAW SalesPerson R–T sudah dibersihkan."});
-      }
-      await clearAndWrite(ID,"'RAW StockPosition'!F:N","'RAW StockPosition'!F1",[["","","","","","","","",""]],e,k,"RAW");
-      return NextResponse.json({ok:true,message:"Clear SOH berhasil. RAW StockPosition F–N sudah dibersihkan."});
-    }
-    return NextResponse.json({error:"Action tidak dikenal"},{status:400});
-  }catch(err){return NextResponse.json({error:err instanceof Error?err.message:"Operasi gagal"},{status:500})}
-}
+import {NextRequest,NextResponse} from "next/server";
+import {appendSheetValues,clearAndWrite,getSheetRanges} from "@/lib/google-sheets";
+const DASHBOARD_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0",MASTER_ID="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk",MASTER_URL=`https://docs.google.com/spreadsheets/d/${MASTER_ID}/edit`;
+export async function POST(req:NextRequest){const e=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,k=process.env.GOOGLE_PRIVATE_KEY;if(!e||!k)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});const b=await req.json(),action=String(b.action||"");try{
+ if(action==="cutoff-spw"){const[r]=await getSheetRanges(DASHBOARD_ID,["'RAW SalesPerson'!AB2:AR65536"],e,k),rows=r.filter(x=>x.some(v=>String(v??"").trim()));if(!rows.length)return NextResponse.json({error:"Belum ada data SPW yang dapat di-cut off"},{status:400});await appendSheetValues(DASHBOARD_ID,"'Data Copas'!A:Q",rows,e,k);return NextResponse.json({ok:true,rows:rows.length,message:`Cut Off SPW berhasil. ${rows.length} baris ditambahkan ke Data Copas.`})}
+ if(["clear-spw","clear-soh","open-master"].includes(action)){const pin=process.env.ADMIN_PASSCODE;if(!pin)return NextResponse.json({error:"ADMIN_PASSCODE belum dipasang di Vercel"},{status:503});if(String(b.passcode||"")!==pin)return NextResponse.json({error:"Passcode admin salah"},{status:403});if(action==="open-master")return NextResponse.json({ok:true,url:MASTER_URL});if(action==="clear-spw"){await Promise.all([clearAndWrite(MASTER_ID,"'SPW'!A:C","'SPW'!A1",[["","",""]],e,k,"RAW"),clearAndWrite(DASHBOARD_ID,"'RAW SalesPerson'!R:T","'RAW SalesPerson'!R1",[["","",""]],e,k,"RAW")]);return NextResponse.json({ok:true,message:"Clear SPW berhasil. MASTER DATA M238 / SPW dan mirror RAW SalesPerson R–T sudah dibersihkan."})}await Promise.all([clearAndWrite(MASTER_ID,"'SOH'!A:I","'SOH'!A1",[["","","","","","","","",""]],e,k,"RAW"),clearAndWrite(DASHBOARD_ID,"'RAW StockPosition'!F:N","'RAW StockPosition'!F1",[["","","","","","","","",""]],e,k,"RAW")]);return NextResponse.json({ok:true,message:"Clear SOH berhasil. MASTER DATA M238 / SOH dan mirror RAW StockPosition F–N sudah dibersihkan."})}
+ return NextResponse.json({error:"Action tidak dikenal"},{status:400});
+ }catch(err){return NextResponse.json({error:err instanceof Error?err.message:"Operasi gagal"},{status:500})}}
