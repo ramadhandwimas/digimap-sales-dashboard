@@ -1,1 +1,2 @@
-import OperationsPage from "@/components/operations-page";export default function Page(){return <OperationsPage mode="bnpl"/>}
+import BnplTrackingPage from "@/components/bnpl-tracking-page";
+export default function Page(){return <BnplTrackingPage/>}
