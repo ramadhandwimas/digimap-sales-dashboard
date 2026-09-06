@@ -53,42 +53,149 @@ function sanitizeClone(doc: Document, root: HTMLElement) {
   }
 }
 
-function textFallbackCanvas(element: HTMLElement) {
-  const text = (element.innerText || "M238 Daily Sales")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const width = 1600,
-    margin = 56,
-    lineHeight = 30,
-    maxChars = 92,
-    wrapped: string[] = [];
-  for (const source of text) {
-    let line = source;
-    while (line.length > maxChars) {
-      let cut = line.lastIndexOf(" ", maxChars);
-      if (cut < 30) cut = maxChars;
-      wrapped.push(line.slice(0, cut));
-      line = line.slice(cut).trim();
-    }
-    wrapped.push(line);
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r = 12,
+) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
+
+function mappedTextColor(node: HTMLElement) {
+  const cls = node.className?.toString() || "";
+  if (node.closest("aside")) return "#ffffff";
+  if (cls.includes("text-slate-400")) return "#94a3b8";
+  if (cls.includes("text-slate-500")) return "#64748b";
+  if (cls.includes("text-slate-600")) return "#475569";
+  if (cls.includes("text-blue-600")) return "#2563eb";
+  if (cls.includes("text-emerald-600")) return "#059669";
+  if (cls.includes("text-violet-600")) return "#7c3aed";
+  if (cls.includes("text-rose-600")) return "#e11d48";
+  if (cls.includes("text-white")) return "#ffffff";
+  return "#0f172a";
+}
+
+function mappedBackground(node: HTMLElement) {
+  const cls = node.className?.toString() || "";
+  if (node.tagName === "ASIDE") return "#0b73b7";
+  if (node.tagName === "MAIN") return "#f8fafc";
+  if (cls.includes("bg-blue-600")) return "#2563eb";
+  if (cls.includes("bg-blue-50")) return "#eff6ff";
+  if (cls.includes("bg-emerald-50")) return "#ecfdf5";
+  if (cls.includes("bg-violet-50")) return "#f5f3ff";
+  if (cls.includes("bg-amber-50")) return "#fffbeb";
+  if (cls.includes("bg-rose-50")) return "#fff1f2";
+  if (cls.includes("bg-slate-50")) return "#f8fafc";
+  if (cls.includes("bg-slate-100")) return "#f1f5f9";
+  if (cls.includes("bg-white/20")) return "rgba(255,255,255,.20)";
+  if (cls.includes("bg-white/15")) return "rgba(255,255,255,.15)";
+  if (cls.includes("bg-white/10")) return "rgba(255,255,255,.10)";
+  if (cls.includes("bg-white/5")) return "rgba(255,255,255,.05)";
+  if (cls.includes("bg-white") || node.tagName === "SECTION" || node.tagName === "ARTICLE")
+    return "#ffffff";
+  return "";
+}
+
+function drawWrappedText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+) {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (!words.length) return;
+  let line = "",
+    yy = y;
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (line && ctx.measureText(test).width > maxWidth) {
+      ctx.fillText(line, x, yy);
+      line = word;
+      yy += lineHeight;
+    } else line = test;
   }
-  const height = Math.max(900, margin * 2 + wrapped.length * lineHeight),
+  if (line) ctx.fillText(line, x, yy);
+}
+
+function layoutFallbackCanvas(target: HTMLElement) {
+  const rootRect = target.getBoundingClientRect(),
+    width = Math.max(1280, target.scrollWidth),
+    height = Math.max(900, target.scrollHeight),
     canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas export tidak tersedia di browser ini.");
+
   ctx.fillStyle = "#f8fafc";
   ctx.fillRect(0, 0, width, height);
-  ctx.fillStyle = "#0f172a";
-  ctx.font = "700 34px Arial, sans-serif";
-  ctx.fillText("M238 Daily Sales", margin, margin + 8);
-  ctx.font = "20px Arial, sans-serif";
-  let y = margin + 60;
-  for (const line of wrapped) {
-    ctx.fillText(line, margin, y);
-    y += lineHeight;
+
+  const nodes = [target, ...Array.from(target.querySelectorAll<HTMLElement>("*"))];
+  for (const node of nodes) {
+    if (node.classList?.contains("export-hide")) continue;
+    const style = window.getComputedStyle(node);
+    if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0)
+      continue;
+    const rect = node.getBoundingClientRect(),
+      x = rect.left - rootRect.left,
+      y = rect.top - rootRect.top,
+      w = rect.width,
+      h = rect.height;
+    if (w <= 0 || h <= 0 || x + w < 0 || y + h < 0 || x > width || y > height) continue;
+
+    const bg = mappedBackground(node);
+    if (bg) {
+      ctx.save();
+      roundRect(ctx, x, y, w, h, node.tagName === "SECTION" || node.tagName === "ARTICLE" ? 14 : 6);
+      ctx.fillStyle = bg;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    const cls = node.className?.toString() || "";
+    if (cls.includes("border") || node.tagName === "TD" || node.tagName === "TH" || node.tagName === "TR") {
+      ctx.save();
+      ctx.strokeStyle = "#dbe4ef";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
+      ctx.restore();
+    }
+
+    const directText = Array.from(node.childNodes)
+      .filter((child) => child.nodeType === Node.TEXT_NODE)
+      .map((child) => child.textContent?.replace(/\s+/g, " ").trim() || "")
+      .filter(Boolean)
+      .join(" ");
+    if (!directText) continue;
+
+    const fontSize = Math.max(10, Math.min(34, parseFloat(style.fontSize) || 14)),
+      weight = Number(style.fontWeight) || (style.fontWeight === "bold" ? 700 : 400),
+      paddingLeft = parseFloat(style.paddingLeft) || 0,
+      paddingRight = parseFloat(style.paddingRight) || 0,
+      paddingTop = parseFloat(style.paddingTop) || 0,
+      lineHeight = Math.max(fontSize * 1.2, parseFloat(style.lineHeight) || fontSize * 1.3),
+      tx = x + paddingLeft,
+      ty = y + paddingTop + fontSize,
+      maxTextWidth = Math.max(20, w - paddingLeft - paddingRight - 4);
+
+    ctx.save();
+    ctx.fillStyle = mappedTextColor(node);
+    ctx.font = `${weight >= 600 ? 700 : 400} ${fontSize}px Arial, sans-serif`;
+    ctx.textBaseline = "alphabetic";
+    drawWrappedText(ctx, directText, tx, ty, maxTextWidth, lineHeight);
+    ctx.restore();
   }
   return canvas;
 }
@@ -146,7 +253,7 @@ async function captureReport(element: HTMLElement) {
         },
       });
     } catch {
-      return textFallbackCanvas(element);
+      return layoutFallbackCanvas(target);
     }
   } finally {
     target.removeAttribute("data-export-id");
