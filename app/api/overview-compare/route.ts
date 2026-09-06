@@ -1,7 +1,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getSheetRanges} from "@/lib/google-sheets";
 
-const SHEET_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHP8Ym2mHPyHhlFpKWf1bpxEP0";
+const SHEET_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const n=(v:unknown)=>typeof v==="number"?v:Number(String(v??"").replace(/[^0-9.-]/g,""))||0;
 const s=(v:unknown)=>String(v??"").trim();
 const up=(v:unknown)=>s(v).toUpperCase();
