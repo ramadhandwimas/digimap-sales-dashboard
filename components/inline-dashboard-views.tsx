@@ -6,7 +6,7 @@ import BnplTrackingPage from "@/components/bnpl-tracking-page";
 import SohTabsPage from "@/components/soh-tabs-page";
 import OperationsPage from "@/components/operations-page";
 import WeeklyCopyEnhancer from "@/components/weekly-copy-enhancer";
-import WeeklyReasonPage from "@/components/weekly-reason-page";
+import WeeklyReasonPage from "@/components/weekly-reason-live-page";
 import CxPage from "@/app/cx/page";
 
 type ViewKey="daily-summary"|"bnpl"|"soh"|"weekly"|"weekly-reason"|"cx";
