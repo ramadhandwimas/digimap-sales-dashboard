@@ -4,262 +4,50 @@ import { createPortal } from "react-dom";
 import { Clock3, TrendingDown, TrendingUp } from "lucide-react";
 
 type AnnualRow = { period: string; label: string; amount: number };
-type AnnualData = {
-  lastYear: AnnualRow[];
-  thisYear: AnnualRow[];
-  lastYearTotal: number;
-  thisYearTotal: number;
-};
+type AnnualData = {lastYear: AnnualRow[];thisYear: AnnualRow[];lastYearTotal: number;thisYearTotal: number};
 type SalesUpdate = { generatedAt: string; latestDate: string };
-const money = new Intl.NumberFormat("id-ID", {
-  style: "currency",
-  currency: "IDR",
-  maximumFractionDigits: 0,
-});
-const pct = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 });
-const jakartaDateTime = (v: string) =>
-  v
-    ? new Intl.DateTimeFormat("id-ID", {
-        timeZone: "Asia/Jakarta",
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      })
-        .format(new Date(v))
-        .replace(".", ":")
-        .replace(".", ":")
-    : "—";
+type OverviewData = {
+ target:{amount:number;device:number;accessories:number;vas:number};
+ summary:{amount:number;device:number;accessories:number;vas:number};
+ annual:AnnualData;
+ generatedAt:string;latestDate:string;
+};
+type CompareData={period:string;cutoffDay:number;current:number;mtm:number;lfl:number;mtmGrowth:number;lflGrowth:number;previousPeriod:string;lastYearPeriod:string};
+const money=new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0});
+const pct=new Intl.NumberFormat("id-ID",{maximumFractionDigits:1});
+const achievement=(v:number,t:number)=>t?v/t*100:0;
+const jakartaDateTime=(v:string)=>v?new Intl.DateTimeFormat("id-ID",{timeZone:"Asia/Jakarta",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(new Date(v)).replaceAll(".",":"):"—";
+const currentPeriod=()=>new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Jakarta",year:"numeric",month:"2-digit"}).format(new Date()).slice(0,7);
 
-export default function DashboardEnhancements() {
-  const [compareTarget, setCompareTarget] = useState<HTMLElement | null>(null),
-    [salesTarget, setSalesTarget] = useState<HTMLElement | null>(null),
-    [annual, setAnnual] = useState<AnnualData | null>(null),
-    [salesUpdate, setSalesUpdate] = useState<SalesUpdate | null>(null);
-  useEffect(() => {
-    const setup = () => {
-      const heading = [...document.querySelectorAll("h2")].find(
-        (x) => x.textContent?.trim() === "Revenue Analytics",
-      );
-      if (!heading) return false;
-      const card = heading.closest(".rounded-2xl");
-      if (!(card instanceof HTMLElement)) return false;
-      const content = card.querySelector(":scope > .space-y-6");
-      if (!(content instanceof HTMLElement)) return false;
-      const old = [...content.querySelectorAll("h3")].filter(
-        (x) =>
-          x.textContent?.includes("2025") || x.textContent?.includes("2026"),
-      );
-      old.forEach((x) => {
-        const p = x.parentElement;
-        if (p) p.style.display = "none";
-      });
-      let host = content.querySelector(
-        "[data-year-compare]",
-      ) as HTMLElement | null;
-      if (!host) {
-        host = document.createElement("div");
-        host.dataset.yearCompare = "true";
-        content.appendChild(host);
-      }
-      setCompareTarget(host);
-      return true;
-    };
-    if (!setup()) {
-      const obs = new MutationObserver(() => {
-        if (setup()) obs.disconnect();
-      });
-      obs.observe(document.body, { childList: true, subtree: true });
-      return () => obs.disconnect();
-    }
-  }, []);
-  useEffect(() => {
-    const setup = () => {
-      const heading = [...document.querySelectorAll("h1")].find(
-        (x) => x.textContent?.trim() === "Daily Sales",
-      );
-      if (!heading) return;
-      const parent = heading.parentElement;
-      if (!(parent instanceof HTMLElement)) return;
-      let host = parent.querySelector(
-        "[data-sales-update]",
-      ) as HTMLElement | null;
-      if (!host) {
-        host = document.createElement("div");
-        host.dataset.salesUpdate = "true";
-        host.className = "mt-2";
-        parent.appendChild(host);
-      }
-      if (host !== salesTarget) setSalesTarget(host);
-    };
-    setup();
-    const obs = new MutationObserver(setup);
-    obs.observe(document.body, { childList: true, subtree: true });
-    return () => obs.disconnect();
-  }, [salesTarget]);
-  useEffect(() => {
-    const period = new Intl.DateTimeFormat("sv-SE", {
-      timeZone: "Asia/Jakarta",
-      year: "numeric",
-      month: "2-digit",
-    })
-      .format(new Date())
-      .slice(0, 7);
-    const load = () =>
-      fetch(`/api/data?period=${period}`)
-        .then((r) => r.json())
-        .then((j) => {
-          if (j.generatedAt)
-            setSalesUpdate({
-              generatedAt: j.generatedAt,
-              latestDate: j.latestDate || "",
-            });
-        })
-        .catch(() => {});
-    void load();
-    const t = setInterval(load, 60000);
-    return () => clearInterval(t);
-  }, []);
-  useEffect(() => {
-    const period =
-      new URLSearchParams(window.location.search).get("period") ||
-      new Intl.DateTimeFormat("sv-SE", {
-        timeZone: "Asia/Jakarta",
-        year: "numeric",
-        month: "2-digit",
-      })
-        .format(new Date())
-        .slice(0, 7);
-    fetch(`/api/data?period=${period}`)
-      .then((r) => r.json())
-      .then((j) => setAnnual(j.annual || null))
-      .catch(() => {});
-  }, []);
-  const pairs = useMemo(() => {
-    if (!annual) return [];
-    const last = new Map(annual.lastYear.map((x) => [x.period.slice(5, 7), x]));
-    return annual.thisYear.map((y) => {
-      const key = y.period.slice(5, 7),
-        x = last.get(key),
-        v25 = x?.amount ?? 0,
-        v26 = y.amount ?? 0,
-        growth = v25 ? ((v26 - v25) / v25) * 100 : 0,
-        diff = v26 - v25;
-      return { label: y.label, v25, v26, growth, diff };
-    });
-  }, [annual]);
-  const totalGrowth = annual?.lastYearTotal
-      ? ((annual.thisYearTotal - annual.lastYearTotal) / annual.lastYearTotal) *
-        100
-      : 0,
-    totalDiff = (annual?.thisYearTotal ?? 0) - (annual?.lastYearTotal ?? 0);
-  return (
-    <>
-      {salesTarget &&
-        createPortal(
-          <div className="inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm dark:bg-slate-950 dark:text-slate-300">
-            <Clock3 className="size-4 text-blue-600" />
-            <span>
-              Update sales terakhir:{" "}
-              <b>{jakartaDateTime(salesUpdate?.generatedAt || "")} WIB</b>
-              {salesUpdate?.latestDate
-                ? ` • Data ${salesUpdate.latestDate}`
-                : ""}
-            </span>
-          </div>,
-          salesTarget,
-        )}
-      {compareTarget &&
-        createPortal(
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-extrabold">2025 vs 2026</h3>
-              <p className="mt-1 text-sm text-slate-500">
-                Perbandingan revenue per bulan. Growth menunjukkan lebih/kurang
-                dibanding bulan yang sama tahun 2025.
-              </p>
-            </div>
-            <div className="overflow-x-auto rounded-xl border">
-              <table className="w-full min-w-[680px] text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-900">
-                  <tr>
-                    <th className="px-3 py-3 text-left">Bulan</th>
-                    <th className="px-3 py-3 text-right">2025</th>
-                    <th className="px-3 py-3 text-right">2026</th>
-                    <th className="px-3 py-3 text-right">Selisih</th>
-                    <th className="px-3 py-3 text-right">Growth</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pairs.map((r) => (
-                    <tr key={r.label} className="border-t">
-                      <td className="px-3 py-3 font-bold">{r.label}</td>
-                      <td className="px-3 py-3 text-right">
-                        {money.format(r.v25)}
-                      </td>
-                      <td className="px-3 py-3 text-right font-bold">
-                        {money.format(r.v26)}
-                      </td>
-                      <td
-                        className={`px-3 py-3 text-right font-semibold ${r.diff >= 0 ? "text-emerald-600" : "text-rose-600"}`}
-                      >
-                        {r.diff >= 0 ? "+" : ""}
-                        {money.format(r.diff)}
-                      </td>
-                      <td
-                        className={`px-3 py-3 text-right font-black ${r.growth >= 0 ? "text-emerald-600" : "text-rose-600"}`}
-                      >
-                        <span className="inline-flex items-center justify-end gap-1">
-                          {r.growth >= 0 ? (
-                            <TrendingUp className="size-4" />
-                          ) : (
-                            <TrendingDown className="size-4" />
-                          )}
-                          {r.growth >= 0 ? "+" : ""}
-                          {pct.format(r.growth)}%
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 bg-slate-50 font-black dark:bg-slate-900">
-                    <td className="px-3 py-3">TOTAL</td>
-                    <td className="px-3 py-3 text-right">
-                      {money.format(annual?.lastYearTotal ?? 0)}
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      {money.format(annual?.thisYearTotal ?? 0)}
-                    </td>
-                    <td
-                      className={`px-3 py-3 text-right ${totalDiff >= 0 ? "text-emerald-600" : "text-rose-600"}`}
-                    >
-                      {totalDiff >= 0 ? "+" : ""}
-                      {money.format(totalDiff)}
-                    </td>
-                    <td
-                      className={`px-3 py-3 text-right ${totalGrowth >= 0 ? "text-emerald-600" : "text-rose-600"}`}
-                    >
-                      {totalGrowth >= 0 ? "+" : ""}
-                      {pct.format(totalGrowth)}%
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-            <div
-              className={`rounded-xl p-4 text-sm font-bold ${totalGrowth >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}
-            >
-              {totalGrowth >= 0
-                ? `2026 lebih tinggi ${pct.format(totalGrowth)}% dibanding 2025 (${money.format(Math.abs(totalDiff))}).`
-                : `2026 masih kurang ${pct.format(Math.abs(totalGrowth))}% dibanding 2025 (${money.format(Math.abs(totalDiff))}).`}
-            </div>
-          </div>,
-          compareTarget,
-        )}
-    </>
-  );
+function Growth({value}:{value:number}){const good=value>=0;return <span className={`inline-flex items-center gap-1 font-black ${good?"text-emerald-600":"text-rose-600"}`}>{good?<TrendingUp className="size-4"/>:<TrendingDown className="size-4"/>}{good?"+":""}{pct.format(value)}%</span>}
+function TargetCard({label,value,target}:{label:string;value:number;target:number}){const a=achievement(value,target);return <div className="rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950"><p className="text-xs font-black uppercase tracking-wide text-slate-400">{label}</p><p className="mt-2 text-xl font-black">{money.format(value)}</p><div className="mt-3 flex items-center justify-between gap-3 border-t border-dashed pt-3 text-xs"><span className="text-slate-500">Target {money.format(target)}</span><b className={a>=100?"text-emerald-600":"text-rose-600"}>{pct.format(a)}%</b></div></div>}
+function CompareCard({label,current,base,growth,sub}:{label:string;current:number;base:number;growth:number;sub:string}){const diff=current-base;return <div className="rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950"><p className="text-sm font-extrabold">{label}</p><div className="mt-3 grid grid-cols-2 gap-3"><div><p className="text-[11px] text-slate-400">This Month</p><b className="text-sm">{money.format(current)}</b></div><div><p className="text-[11px] text-slate-400">Compare</p><b className="text-sm">{money.format(base)}</b></div></div><div className="mt-3 flex items-center justify-between gap-3 border-t pt-3 text-xs"><span className={diff>=0?"text-emerald-600":"text-rose-600"}>{diff>=0?"+":""}{money.format(diff)}</span><Growth value={growth}/></div><p className="mt-2 text-[11px] text-slate-400">{sub}</p></div>}
+
+export default function DashboardEnhancements(){
+ const[period,setPeriod]=useState(currentPeriod()),[overviewTarget,setOverviewTarget]=useState<HTMLElement|null>(null),[revenueTarget,setRevenueTarget]=useState<HTMLElement|null>(null),[yearTarget,setYearTarget]=useState<HTMLElement|null>(null),[salesTarget,setSalesTarget]=useState<HTMLElement|null>(null),[overview,setOverview]=useState<OverviewData|null>(null),[compare,setCompare]=useState<CompareData|null>(null),[salesUpdate,setSalesUpdate]=useState<SalesUpdate|null>(null);
+ useEffect(()=>{
+  const sync=()=>{
+   const labels=[...document.querySelectorAll("label")];
+   const monthLabel=labels.find(x=>x.querySelector("span")?.textContent?.trim()==="Filter Bulan");
+   const select=monthLabel?.querySelector("select") as HTMLSelectElement|null;
+   if(select&&select.value&&select.value!==period)setPeriod(select.value);
+   if(select&&!select.dataset.m238EnhanceBound){select.dataset.m238EnhanceBound="1";select.addEventListener("change",()=>setPeriod(select.value))}
+   const dashboardH1=[...document.querySelectorAll("h1")].find(x=>x.textContent?.trim()==="Dashboard");
+   if(dashboardH1){const root=dashboardH1.parentElement?.parentElement as HTMLElement|null;const filter=root?.querySelector("section.mb-5") as HTMLElement|null;if(filter){let host=filter.nextElementSibling?.getAttribute("data-overview-target")==="1"?filter.nextElementSibling as HTMLElement:null;if(!host){host=document.createElement("div");host.dataset.overviewTarget="1";host.className="mb-5";filter.insertAdjacentElement("afterend",host)}if(host!==overviewTarget)setOverviewTarget(host)}}
+   const heading=[...document.querySelectorAll("h2")].find(x=>x.textContent?.trim()==="Revenue Analytics");
+   if(heading){const card=heading.closest(".rounded-2xl");const content=card?.querySelector(":scope > .space-y-6") as HTMLElement|null;if(content){const first=content.firstElementChild as HTMLElement|null;if(first?.className.includes("sm:grid-cols-3"))first.style.display="none";let rh=content.querySelector("[data-revenue-compare]") as HTMLElement|null;if(!rh){rh=document.createElement("div");rh.dataset.revenueCompare="1";content.prepend(rh)}if(rh!==revenueTarget)setRevenueTarget(rh);const old=[...content.querySelectorAll("h3")].filter(x=>x.textContent?.includes("2025")||x.textContent?.includes("2026"));old.forEach(x=>{if(x.parentElement)x.parentElement.style.display="none"});let yh=content.querySelector("[data-year-compare]") as HTMLElement|null;if(!yh){yh=document.createElement("div");yh.dataset.yearCompare="1";content.appendChild(yh)}if(yh!==yearTarget)setYearTarget(yh)}}
+   const dailyH1=[...document.querySelectorAll("h1")].find(x=>x.textContent?.trim()==="Daily Sales");if(dailyH1){const parent=dailyH1.parentElement as HTMLElement|null;if(parent){let host=parent.querySelector("[data-sales-update]") as HTMLElement|null;if(!host){host=document.createElement("div");host.dataset.salesUpdate="1";host.className="mt-2";parent.appendChild(host)}if(host!==salesTarget)setSalesTarget(host)}}
+  };
+  sync();const obs=new MutationObserver(sync);obs.observe(document.body,{childList:true,subtree:true});return()=>obs.disconnect();
+ },[overviewTarget,revenueTarget,yearTarget,salesTarget,period]);
+ useEffect(()=>{let alive=true;Promise.all([fetch(`/api/data?period=${period}`,{cache:"no-store"}).then(r=>r.json()),fetch(`/api/overview-compare?period=${period}`,{cache:"no-store"}).then(r=>r.json())]).then(([d,c])=>{if(!alive)return;setOverview(d);setCompare(c);if(d.generatedAt)setSalesUpdate({generatedAt:d.generatedAt,latestDate:d.latestDate||""})}).catch(()=>{});return()=>{alive=false}},[period]);
+ useEffect(()=>{const load=()=>fetch(`/api/data?period=${currentPeriod()}`,{cache:"no-store"}).then(r=>r.json()).then(j=>{if(j.generatedAt)setSalesUpdate({generatedAt:j.generatedAt,latestDate:j.latestDate||""})}).catch(()=>{});const t=setInterval(load,60000);return()=>clearInterval(t)},[]);
+ const annual=overview?.annual||null,pairs=useMemo(()=>{if(!annual)return[];const last=new Map(annual.lastYear.map(x=>[x.period.slice(5,7),x]));return annual.thisYear.map(y=>{const x=last.get(y.period.slice(5,7)),v25=x?.amount??0,v26=y.amount??0;return{label:y.label,v25,v26,diff:v26-v25,growth:v25?(v26-v25)/v25*100:0}})},[annual]);
+ const totalGrowth=annual?.lastYearTotal?((annual.thisYearTotal-annual.lastYearTotal)/annual.lastYearTotal)*100:0,totalDiff=(annual?.thisYearTotal??0)-(annual?.lastYearTotal??0),s=overview?.summary,t=overview?.target;
+ return <>
+  {salesTarget&&createPortal(<div className="inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm dark:bg-slate-950 dark:text-slate-300"><Clock3 className="size-4 text-blue-600"/><span>Update sales terakhir: <b>{jakartaDateTime(salesUpdate?.generatedAt||"")} WIB</b>{salesUpdate?.latestDate?` • Data ${salesUpdate.latestDate}`:""}</span></div>,salesTarget)}
+  {overviewTarget&&createPortal(<section><div className="mb-3"><h2 className="font-extrabold">MTD vs Target</h2><p className="mt-1 text-sm text-slate-500">Amount, Device, Accessories dan VAS dibanding target bulan terpilih.</p></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><TargetCard label="MTD Amount" value={s?.amount??0} target={t?.amount??0}/><TargetCard label="Device" value={s?.device??0} target={t?.device??0}/><TargetCard label="Accessories" value={s?.accessories??0} target={t?.accessories??0}/><TargetCard label="VAS" value={s?.vas??0} target={t?.vas??0}/></div></section>,overviewTarget)}
+  {revenueTarget&&compare&&createPortal(<div><h3 className="font-extrabold">Revenue Analytics H-1</h3><p className="mt-1 text-sm text-slate-500">This Month dibanding MTM dan LFL sampai tanggal H-1 yang sama.</p><div className="mt-4 grid gap-3 sm:grid-cols-2"><CompareCard label="This Month vs MTM" current={compare.current} base={compare.mtm} growth={compare.mtmGrowth} sub={`s/d tanggal ${compare.cutoffDay} • ${compare.previousPeriod}`}/><CompareCard label="This Month vs Last Year" current={compare.current} base={compare.lfl} growth={compare.lflGrowth} sub={`s/d tanggal ${compare.cutoffDay} • ${compare.lastYearPeriod}`}/></div></div>,revenueTarget)}
+  {yearTarget&&createPortal(<div className="space-y-4"><div><h3 className="font-extrabold">2025 vs 2026</h3><p className="mt-1 text-sm text-slate-500">Perbandingan revenue per bulan dan growth terhadap bulan yang sama tahun 2025.</p></div><div className="overflow-x-auto rounded-xl border"><table className="w-full min-w-[680px] text-sm"><thead className="bg-slate-50 dark:bg-slate-900"><tr><th className="px-3 py-3 text-left">Bulan</th><th className="px-3 py-3 text-right">2025</th><th className="px-3 py-3 text-right">2026</th><th className="px-3 py-3 text-right">Selisih</th><th className="px-3 py-3 text-right">Growth</th></tr></thead><tbody>{pairs.map(r=><tr key={r.label} className="border-t"><td className="px-3 py-3 font-bold">{r.label}</td><td className="px-3 py-3 text-right">{money.format(r.v25)}</td><td className="px-3 py-3 text-right font-bold">{money.format(r.v26)}</td><td className={`px-3 py-3 text-right font-semibold ${r.diff>=0?"text-emerald-600":"text-rose-600"}`}>{r.diff>=0?"+":""}{money.format(r.diff)}</td><td className="px-3 py-3 text-right"><Growth value={r.growth}/></td></tr>)}</tbody><tfoot><tr className="border-t-2 bg-slate-50 font-black dark:bg-slate-900"><td className="px-3 py-3">TOTAL</td><td className="px-3 py-3 text-right">{money.format(annual?.lastYearTotal??0)}</td><td className="px-3 py-3 text-right">{money.format(annual?.thisYearTotal??0)}</td><td className={`px-3 py-3 text-right ${totalDiff>=0?"text-emerald-600":"text-rose-600"}`}>{totalDiff>=0?"+":""}{money.format(totalDiff)}</td><td className="px-3 py-3 text-right"><Growth value={totalGrowth}/></td></tr></tfoot></table></div></div>,yearTarget)}
+ </>;
 }
