@@ -22,12 +22,13 @@ export async function GET(req:NextRequest){
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});
  try{
   const rowsByStore=await getSheetRanges(SALES_2026,STORE_CODES.map(c=>`'${c}'!A:O`),email,key);
-  const detail=new Map<string,{key:string;label:string;start:string;end:string;store:string;category:string;type:string;qty:number;amount:number}>(),vas=new Map<string,{key:string;label:string;start:string;end:string;store:string;category:string;qty:number;amount:number}>();
+  const detail=new Map<string,{key:string;label:string;start:string;end:string;store:string;category:string;type:string;qty:number;amount:number}>(),vas=new Map<string,{key:string;label:string;start:string;end:string;store:string;category:string;qty:number;amount:number}>(),summary=new Map<string,{key:string;label:string;start:string;end:string;store:string;group:string;qty:number;amount:number}>();
   for(let i=0;i<STORE_CODES.length;i++)for(const row of (rowsByStore[i]??[] as Row[]).slice(1)){
-   const d=dateKey(row[1]);if(!d.startsWith("2026-"))continue;const code=STORE_CODES[i],cat=String(row[6]??"").toUpperCase(),group=String(row[8]??"").toUpperCase(),desc=String(row[10]??"").toUpperCase(),qty=n(row[11]),amount=n(row[13]),w=weekInfo(d);
+   const d=dateKey(row[1]);if(!d.startsWith("2026-"))continue;const code=STORE_CODES[i],cat=String(row[6]??"").toUpperCase(),group=String(row[8]??"").trim().toUpperCase(),desc=String(row[10]??"").toUpperCase(),qty=n(row[11]),amount=n(row[13]),w=weekInfo(d);
+   if(["DEVICES","ACCESSORIES","VAS"].includes(group)){const sk=`${w.key}|${code}|${group}`,sx=summary.get(sk)??{...w,store:code,group,qty:0,amount:0};sx.qty+=qty;sx.amount+=amount;summary.set(sk,sx)}
    const category=lob(cat,desc);if(group==="DEVICES"&&category!=="Other"){const type=prettyType(cat,desc),k=`${w.key}|${code}|${category}|${type}`,x=detail.get(k)??{...w,store:code,category,type,qty:0,amount:0};x.qty+=qty;x.amount+=amount;detail.set(k,x)}
    if(group==="VAS"){const category=vasType(cat,desc),k=`${w.key}|${code}|${category}`,x=vas.get(k)??{...w,store:code,category,qty:0,amount:0};x.qty+=qty;x.amount+=amount;vas.set(k,x)}
   }
-  return NextResponse.json({year:"2026",source:"Data Compile 2026 Jakarta 1",sourceId:SALES_2026,stores:STORE_CODES,detail:[...detail.values()],vas:[...vas.values()],generatedAt:new Date().toISOString()},{headers:{"cache-control":"no-store, max-age=0"}})
+  return NextResponse.json({year:"2026",source:"Data Compile 2026 Jakarta 1",sourceId:SALES_2026,stores:STORE_CODES,summary:[...summary.values()],detail:[...detail.values()],vas:[...vas.values()],generatedAt:new Date().toISOString()},{headers:{"cache-control":"no-store, max-age=0"}})
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Gagal membaca detail weekly Jakarta 1"},{status:500,headers:{"cache-control":"no-store"}})}
 }
