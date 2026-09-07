@@ -12,7 +12,7 @@ type Row=unknown[];
 function n(v:unknown){if(typeof v==="number")return Number.isFinite(v)?v:0;const s=String(v??"").trim();if(!s)return 0;const x=Number(s.replace(/\s/g,"").replace(/\.(?=\d{3}(?:\D|$))/g,"").replace(",",".").replace(/[^0-9.-]/g,""));return Number.isFinite(x)?x:0}
 function dateKey(v:unknown){if(typeof v==="number"&&v>20000){const d=new Date(Date.UTC(1899,11,30)+v*86400000);return d.toISOString().slice(0,10)}const s=String(v??"").trim();let m=s.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);if(m)return `${m[3]}-${m[2]}-${m[1]}`;m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[1]}-${m[2]}-${m[3]}`:""}
 function parseStaffMaster(rows:Row[]){const out:Record<string,{id:string;name:string;store:string}>={};for(const row of rows.slice(1)){const store=String(row[0]??"").trim();if(!STORE_CODES.includes(store as any))continue;const id=String(row[1]??"").replace(/\.0$/,"").trim(),name=String(row[2]??"").trim();if(name){const key=id||`${store}|${name.toUpperCase()}`;out[key]={id:key,name,store}}}return out}
-function accRate(price:number){return price<1315000?15000:30000}
+function accessoryRate(price:number){if(price<600000)return 5000;if(price<=2000000)return 10000;if(price<=4000000)return 20000;if(price<=6000000)return 40000;return 80000}
 function qoalaRate(price:number){return price<1315000?15000:50000}
 
 export async function GET(req:NextRequest){
@@ -43,11 +43,11 @@ export async function GET(req:NextRequest){
         else if(cat==="MAC"||cat.includes("MACBOOK"))a.incentive.macbook+=qty*30000;
         else if(cat.includes("IPAD"))a.incentive.ipad+=qty*10000;
         else if(cat.includes("WATCH"))a.incentive.watch+=qty*10000;
-        if(group==="ACCESSORIES"&&qty>0)a.incentive.accessories+=accRate(unitPrice)*qty;
-        if((cat.includes("PROTEKSI")||desc.includes("QOALA"))&&qty>0)a.incentive.qoala+=qoalaRate(unitPrice)*qty;
+        if(group==="ACCESSORIES"&&qty>0)a.incentive.accessories+=accessoryRate(unitPrice)*qty;
+        if((cat.includes("PROTEKSI")||desc.includes("QOALA"))&&qty>0){a.incentive.qoala+=qoalaRate(unitPrice)*qty}
       }
     }
     const rows=Object.values(agg).map((x:any)=>({...x,incentive:{...x.incentive,total:x.incentive.iphone+x.incentive.macbook+x.incentive.ipad+x.incentive.watch+x.incentive.accessories+x.incentive.qoala}}));
-    return NextResponse.json({period,rows,rules:{iphone:15000,macbook:30000,ipad:10000,watch:10000,accessories:{below1315000:15000,atOrAbove1315000:30000},qoala:{below1315000:15000,atOrAbove1315000:50000},priceBasis:"Harga Normal per unit"}},{headers:{"cache-control":"no-store"}});
+    return NextResponse.json({period,rows,rules:{device:{macbook:30000,iphone:15000,ipad:10000,watch:10000},accessories:[{max:599999,incentive:5000},{min:600000,max:2000000,incentive:10000},{min:2000001,max:4000000,incentive:20000},{min:4000001,max:6000000,incentive:40000},{min:6000001,incentive:80000}],qoala:{below1315000:15000,atOrAbove1315000:50000},priceBasis:"Harga Normal per unit"}},{headers:{"cache-control":"no-store"}});
   }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Gagal audit staff Jakarta 1"},{status:500})}
 }
