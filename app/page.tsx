@@ -4,6 +4,7 @@ import DashboardFetchGuard from "@/components/dashboard-fetch-guard"
 import InlineDashboardViews from "@/components/inline-dashboard-views"
 import StaffPerformanceRange from "@/components/staff-performance-range"
 import CvrEnhancer from "@/components/cvr-enhancer"
+import M238AppleUI from "@/components/m238-apple-ui"
 
 export default function Home() {
   return <DashboardFetchGuard>
@@ -12,5 +13,6 @@ export default function Home() {
     <InlineDashboardViews />
     <StaffPerformanceRange />
     <CvrEnhancer />
+    <M238AppleUI />
   </DashboardFetchGuard>
 }
