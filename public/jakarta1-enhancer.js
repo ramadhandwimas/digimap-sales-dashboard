@@ -15,9 +15,21 @@
     grid.className='grid gap-3 md:grid-cols-2';
     year.style.display='block';week.style.display='block';from.style.display='block';to.style.display='block';
     year.style.order='1';week.style.order='2';from.style.order='3';to.style.order='4';
-    const weekSelect=week.querySelector('select');if(weekSelect&&!weekSelect.querySelector('option[value="ALL"]')){const opt=document.createElement('option');opt.value='ALL';opt.textContent='Semua Week';weekSelect.insertBefore(opt,weekSelect.firstChild)}
-    section.dataset.j1WeekOnly='0';
-    if(h.nextElementSibling)h.nextElementSibling.textContent='Gunakan Filter Tahun + Week untuk periode mingguan, atau Filter Range untuk periode bebas lintas bulan, misalnya 2 Januari sampai 31 Agustus.';
+    const weekSelect=week.querySelector('select');
+    if(weekSelect){
+      const all=weekSelect.querySelector('option[value="ALL"]');if(all)all.textContent='Pilih Week';
+      if(!week.dataset.j1WeekToggle){
+        week.dataset.j1WeekToggle='1';
+        const title=week.querySelector('span');if(title)title.textContent='Filter Week';
+        const box=document.createElement('div');box.className='mb-2 flex items-center justify-between rounded-xl border bg-slate-50 px-3 py-2';box.dataset.j1WeekToggleBox='1';
+        const label=document.createElement('span');label.className='text-xs font-black uppercase text-slate-500';label.textContent='Gunakan Week';
+        const btn=document.createElement('button');btn.type='button';btn.className='rounded-full bg-slate-200 px-3 py-1 text-xs font-black text-slate-600';btn.textContent='OFF';btn.dataset.on='0';
+        const sync=()=>{const on=btn.dataset.on==='1';weekSelect.disabled=!on;weekSelect.classList.toggle('opacity-50',!on);from.querySelector('input').disabled=on;to.querySelector('input').disabled=on;from.classList.toggle('opacity-50',on);to.classList.toggle('opacity-50',on);btn.textContent=on?'ON':'OFF';btn.className=`rounded-full px-3 py-1 text-xs font-black ${on?'bg-emerald-100 text-emerald-700':'bg-slate-200 text-slate-600'}`};
+        btn.onclick=()=>{const on=btn.dataset.on==='1';btn.dataset.on=on?'0':'1';if(on){weekSelect.value='ALL';weekSelect.dispatchEvent(new Event('change',{bubbles:true}))}sync()};
+        box.append(label,btn);week.insertBefore(box,weekSelect);sync();
+      }
+    }
+    if(h.nextElementSibling)h.nextElementSibling.textContent='Filter Tahun tetap aktif. Filter Week bersifat opsional (ON/OFF). Jika Week OFF, gunakan range tanggal bebas lintas bulan, misalnya 2 Januari sampai 31 Agustus.';
   }
 
   async function staff(){const root=byHeading('Staff Performance');if(!root)return;const table=root.querySelector('table');if(!table)return;const rows=await audit(currentPeriod(root)),map=mapRows(rows),heads=[...table.querySelectorAll('thead th')];if(!heads.some(h=>txt(h)==='AirPods')){const w=heads.find(h=>txt(h)==='Apple Watch');if(w){const th=document.createElement('th');th.className=w.className;th.textContent='AirPods';w.insertAdjacentElement('afterend',th)}}for(const tr of table.querySelectorAll('tbody tr')){const cells=[...tr.querySelectorAll('td')];if(cells.length<8)continue;const r=map.get(`${txt(cells[1])}|${txt(cells[0]).toUpperCase()}`),watch=cells[7];let air=[...tr.querySelectorAll('td')].find(c=>c.dataset.j1Airpods==='1');if(!air){air=document.createElement('td');air.className=watch.className;air.dataset.j1Airpods='1';watch.insertAdjacentElement('afterend',air)}const val=number.format(r?.airpods||0);if(txt(air)!==val)air.textContent=val}
