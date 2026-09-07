@@ -6,138 +6,25 @@ const STORE = "M238";
 const s = (v: unknown) => String(v ?? "").trim();
 const up = (v: unknown) => s(v).toUpperCase();
 const n = (v: unknown) => typeof v === "number" ? v : Number(String(v ?? "").replace(/\./g, "").replace(/,/g, ".").replace(/[^0-9.-]/g, "")) || 0;
-const iso = (v: unknown) => {
-  const x = s(v);
-  if (/^\d{2}-\d{2}-\d{4}$/.test(x)) { const [d,m,y]=x.split("-"); return `${y}-${m}-${d}`; }
-  if (/^\d{4}-\d{2}-\d{2}/.test(x)) return x.slice(0,10);
-  if (typeof v === "number") return new Date(Date.UTC(1899,11,30)+v*86400000).toISOString().slice(0,10);
-  return "";
+const iso = (v: unknown) => { const x=s(v); if(/^\d{2}-\d{2}-\d{4}$/.test(x)){const[d,m,y]=x.split("-");return`${y}-${m}-${d}`} if(/^\d{4}-\d{2}-\d{2}/.test(x))return x.slice(0,10); if(typeof v==="number")return new Date(Date.UTC(1899,11,30)+v*86400000).toISOString().slice(0,10); return"" };
+
+type Tot={qty:number;value:number}; type StaffProduct={name:string;products:Record<string,Tot>;total:Tot;deviceTotal:Tot}; type BrandDetail={name:string;article:string;qty:number;value:number}; type BrandRow={code:string;name:string;qty:number;value:number;details:BrandDetail[]}; type SupplierRow={supplier:string;qty:number;value:number;brands:BrandRow[];staff:Array<{name:string;qty:number;value:number}>};
+const PRODUCT_ORDER=["iPhone 17 Pro Max","iPhone 17 Pro","iPhone 17","iPhone Air","iPhone 16","iPhone 15","iPad 11","MacBook Neo","Watch SE 3"] as const;
+
+const SUPPLIERS:Record<string,Array<[string,string,string[]]>>={
+ Hastag:[["KTS","Kate Spade",["KATESPADE","KATE SPADE"]],["MUUM","Mutuall",["MUTUALL","MUTURAL"]],["FLTFT","Flaunt",["FLAUNT"]]],
+ Dino:[["AMN","A.ELEMENTS",["A.ELEMENTS","AELEMENTS"]],["GE4","Gear4",["GEAR4"]],["MOK","MICROPACK",["MICROPACK"]],["MPI","MOPHIE",["MOPHIE"]],["ZAG","ZAAG",["ZAAG","ZAGG"]],["IFG","Ifrog",["IFROG","IFROGZ"]],["VBT","Verbatim",["VERBATIM"]],["AAV","AVANA",["AVANA"]],["INC","INCASE",["INCASE"]],["INP","INCIPIO",["INCIPIO"]],["ITS","ITSKIN",["ITSKIN"]],["RIV","RIVACASE",["RIVACASE"]],["TCA","TUCANO",["TUCANO"]],["UAQ","UAG",["UAG"]],["CRR","Care",["CARE"]]],
+ IGA:[["ADP","ADIDAS",["ADIDAS"]],["ECS","ELEMENCASE",["ELEMENCASE"]],["GSH","GOSH",["GOSH"]],["INT","INTELIAMOR",["INTELIAMOR"]],["LFP","LIFEPROOF",["LIFEPROOF"]],["MDN","Master Dynamic",["MASTER DYNAMIC"]],["NIP","PINIT",["PINIT"]],["OTB","OTTERBOX",["OTTERBOX"]],["RPC","Raptic",["RAPTIC"]],["SD0","Sudio",["SUDIO"]],["ST1","STM",["STM"]],["RSQ","Rollingsquare",["ROLLING SQUARE","ROLLINGSQUARE"]],["ARU","ARC Pulse",["ARC PULSE"]],["RAT","Kratos",["KRATOS"]]],
+ IBacks:[["IBS","Ibacks",["IBACKS"]]], Handal:[["CTU","CASESTUDI",["CASESTUDI"]],["IUV","ILUV",["ILUV"]],["MHO","MACHINO",["MACHINO"]],["UNQ","UNIQ",["UNIQ"]]], Omega:[["LYC","Lycus",["LYCUS"]],["OMZ","Optimuz",["OPTIMUZ"]]],
 };
+const fresh=():Tot=>({qty:0,value:0}); const add=(t:Tot,q:number,v:number)=>{t.qty+=q;t.value+=v};
+function productName(type:string,desc:string,category:string){const x=`${type} ${desc} ${category}`.toUpperCase().replace(/\s+/g," ");if(/IPHONE\s*17\s*PRO\s*MAX/.test(x))return"iPhone 17 Pro Max";if(/IPHONE\s*17\s*PRO/.test(x))return"iPhone 17 Pro";if(/IPHONE\s*17(?!\s*PRO)/.test(x))return"iPhone 17";if(/IPHONE\s*AIR/.test(x))return"iPhone Air";if(/IPHONE\s*16/.test(x))return"iPhone 16";if(/IPHONE\s*15/.test(x))return"iPhone 15";if(/\bIPAD\s*(?:11|11TH)\b/.test(x))return"iPad 11";if(/\bMBN\b|MACBOOK\s*NEO|MAC\s*NEO/.test(x))return"MacBook Neo";if(/\bAW\s*SE\s*3\b|APPLE\s*WATCH\s*SE\s*3|WATCH\s*SE\s*3/.test(x))return"Watch SE 3";return""}
+function supplierFromVendor(vendor:string){const v=vendor.toUpperCase();if(v.includes("HASTAG"))return"Hastag";if(v==="DINO"||v.includes(" DINO"))return"Dino";if(v==="IGA")return"IGA";if(v.includes("IBACKS"))return"IBacks";if(v.includes("HANDAL"))return"Handal";if(v.includes("OMEGA"))return"Omega";return""}
+function brandMatch(article:string,brand:string,vendor:string){const supplier=supplierFromVendor(vendor);if(!supplier)return null;const a=article.toUpperCase().replace(/[^A-Z0-9]/g,"");const b=brand.toUpperCase().replace(/[^A-Z0-9]/g,"");for(const[code,name,aliases] of SUPPLIERS[supplier]){const c=code.toUpperCase().replace(/[^A-Z0-9]/g,"");if(!a.startsWith(c))continue;const brandOk=!b||aliases.some(x=>b===x.toUpperCase().replace(/[^A-Z0-9]/g,""));if(brandOk)return{supplier,code,name}}return null}
+function vasProvider(article:string,brand:string,vendor:string,desc:string){const a=up(article),b=up(brand),v=up(vendor),d=up(desc);if(b==="QOALA"||a.startsWith("KLA")||v.includes("QOALA"))return"Qoala";if(b==="TELKOMSEL"||a.startsWith("TSL")||v.includes("TELKOMSEL"))return"Telkomsel";if(b==="XXL"||b==="XL"||a.startsWith("XXL")||v==="XL")return"XL";if(b.includes("INDOSAT")||a.startsWith("IDT")||v.includes("INDOSAT")||d.includes("INDOSAT"))return"Indosat";return""}
+function weekOrder(label:string){const m=label.match(/Week\s*(\d+)\s*Q(\d+)/i);return m?Number(m[2])*100+Number(m[1]):-1} function monthLabel(p:string){if(!/^\d{4}-\d{2}$/.test(p))return p;const[y,m]=p.split("-").map(Number);return new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(Date.UTC(y,m-1,1)))} function dateLabel(d:string){if(!d)return"";return new Intl.DateTimeFormat("id-ID",{day:"numeric",month:"short",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(`${d}T00:00:00Z`))}
 
-type Tot = { qty:number; value:number };
-type StaffProduct = { name:string; products:Record<string,Tot>; total:Tot; deviceTotal:Tot };
-type BrandDetail = { name:string; article:string; qty:number; value:number };
-type BrandRow = { code:string; name:string; qty:number; value:number; details:BrandDetail[] };
-type SupplierRow = { supplier:string; qty:number; value:number; brands:BrandRow[]; staff:Array<{name:string;qty:number;value:number}> };
-
-const PRODUCT_ORDER = [
-  "iPhone 17 Pro Max","iPhone 17 Pro","iPhone 17","iPhone Air","iPhone 16","iPhone 15","iPad 11","MacBook Neo","Watch SE 3",
-] as const;
-
-const SUPPLIERS: Record<string, Array<[string,string,string[]]>> = {
-  Hastag: [
-    ["KTS","Kate Spade",["KATESPADE","KATE SPADE"]],["MUU","Mutuall",["MUTUALL"]],["FLTFT","Flaunt",["FLAUNT"]],
-  ],
-  Dino: [
-    ["AMN","A.ELEMENTS",["A.ELEMENTS","AELEMENTS"]],["GE4","Gear4",["GEAR4"]],["MOK","MICROPACK",["MICROPACK"]],["MPI","MOPHIE",["MOPHIE"]],
-    ["ZAG","ZAAG",["ZAAG","ZAGG"]],["IFG","Ifrog",["IFROG","IFROGZ"]],["VBT","Verbatim",["VERBATIM"]],["AAV","AVANA",["AVANA"]],
-    ["INC","INCASE",["INCASE"]],["INP","INCIPIO",["INCIPIO"]],["ITS","ITSKIN",["ITSKIN"]],["RIV","RIVACASE",["RIVACASE"]],
-    ["TCA","TUCANO",["TUCANO"]],["UAQ","UAG",["UAG"]],["CRR","Care",["CARE"]],
-  ],
-  IGA: [
-    ["ADP","ADIDAS",["ADIDAS"]],["ECS","ELEMENCASE",["ELEMENCASE"]],["GSH","GOSH",["GOSH"]],["INT","INTELIAMOR",["INTELIAMOR"]],
-    ["LFP","LIFEPROOF",["LIFEPROOF"]],["MDN","Master Dynamic",["MASTER DYNAMIC"]],["NIP","PINIT",["PINIT"]],["OTB","OTTERBOX",["OTTERBOX"]],
-    ["RPC","Raptic",["RAPTIC"]],["SD0","Sudio",["SUDIO"]],["ST1","STM",["STM"]],["RSQ","Rollingsquare",["ROLLING SQUARE","ROLLINGSQUARE"]],
-    ["ARU","ARC Pulse",["ARC PULSE"]],["RAT","Kratos",["KRATOS"]],
-  ],
-  IBacks: [["IBS","Ibacks",["IBACKS"]]],
-  Handal: [["CTU","CASESTUDI",["CASESTUDI"]],["IUV","ILUV",["ILUV"]],["MHO","MACHINO",["MACHINO"]],["UNQ","UNIQ",["UNIQ"]]],
-  Omega: [["LYC","Lycus",["LYCUS"]],["OMZ","Optimuz",["OPTIMUZ"]]],
-};
-
-function fresh():Tot { return {qty:0,value:0}; }
-function add(t:Tot,qty:number,value:number){t.qty+=qty;t.value+=value;}
-function productName(type:string,desc:string,category:string){
-  const x=`${type} ${desc} ${category}`.toUpperCase().replace(/\s+/g," ");
-  if (/IPHONE\s*17\s*PRO\s*MAX/.test(x)) return "iPhone 17 Pro Max";
-  if (/IPHONE\s*17\s*PRO/.test(x)) return "iPhone 17 Pro";
-  if (/IPHONE\s*17(?!\s*PRO)/.test(x)) return "iPhone 17";
-  if (/IPHONE\s*AIR/.test(x)) return "iPhone Air";
-  if (/IPHONE\s*16/.test(x)) return "iPhone 16";
-  if (/IPHONE\s*15/.test(x)) return "iPhone 15";
-  if (/\bIPAD\s*(?:11|11TH)\b/.test(x)) return "iPad 11";
-  if (/\bMBN\b|MACBOOK\s*NEO|MAC\s*NEO/.test(x)) return "MacBook Neo";
-  if (/\bAW\s*SE\s*3\b|APPLE\s*WATCH\s*SE\s*3|WATCH\s*SE\s*3/.test(x)) return "Watch SE 3";
-  return "";
-}
-function supplierFromVendor(vendor:string){
-  const v=vendor.toUpperCase();
-  if (v.includes("HASTAG")) return "Hastag";
-  if (v==="DINO" || v.includes(" DINO")) return "Dino";
-  if (v==="IGA") return "IGA";
-  if (v.includes("IBACKS")) return "IBacks";
-  if (v.includes("HANDAL")) return "Handal";
-  if (v.includes("OMEGA")) return "Omega";
-  return "";
-}
-function brandMatch(article:string,brand:string,vendor:string){
-  const supplier=supplierFromVendor(vendor); if(!supplier) return null;
-  const a=article.toUpperCase().replace(/\s+/g,""); const b=brand.toUpperCase().trim();
-  for(const [code,name,aliases] of SUPPLIERS[supplier]){
-    const prefix=a.startsWith(code.toUpperCase());
-    const exactBrand=aliases.some(x=>b===x || b.replace(/[^A-Z0-9]/g,"")===x.replace(/[^A-Z0-9]/g,""));
-    if(prefix||exactBrand) return {supplier,code,name};
-  }
-  return null;
-}
-function vasProvider(article:string,brand:string,vendor:string,desc:string){
-  const a=article.toUpperCase(),b=brand.toUpperCase(),v=vendor.toUpperCase(),d=desc.toUpperCase();
-  if (b==="QOALA" || a.startsWith("KLA") || v.includes("QOALA")) return "Qoala";
-  if (b==="TELKOMSEL" || a.startsWith("TSL") || v.includes("TELKOMSEL")) return "Telkomsel";
-  if (b==="XXL" || b==="XL" || a.startsWith("XXL") || v==="XL") return "XL";
-  if (b.includes("INDOSAT") || a.startsWith("IDT") || v.includes("INDOSAT") || d.includes("INDOSAT")) return "Indosat";
-  return "";
-}
-function weekOrder(label:string){const m=label.match(/Week\s*(\d+)\s*Q(\d+)/i);return m?Number(m[2])*100+Number(m[1]):-1;}
-function monthLabel(p:string){if(!/^\d{4}-\d{2}$/.test(p))return p;const[y,m]=p.split("-").map(Number);return new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(Date.UTC(y,m-1,1)));}
-function dateLabel(d:string){if(!d)return"";return new Intl.DateTimeFormat("id-ID",{day:"numeric",month:"short",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(`${d}T00:00:00Z`));}
-
-export async function GET(req:NextRequest){
-  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
-  if(!email||!key)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});
-  try{
-    const [dataRows,configRows]=await getSheetRanges(ID,["'Data Copas'!A2:S50000","Config!A1:AZ120"],email,key);
-    const all=dataRows.filter(r=>s(r[15]).toUpperCase()===STORE&&s(r[18])==="2026");
-    const roster=configRows.slice(27,55).filter(r=>s(r[7])===STORE&&s(r[8])&&s(r[9])&&!/SUPERVISOR|ONLINE/i.test(s(r[10]))).map(r=>({id:s(r[8]),name:s(r[9])}));
-    const availableWeeks=[...new Set(all.map(r=>s(r[14])).filter(v=>/Week\s*\d+\s*Q\d+/i.test(v)))].sort((a,b)=>weekOrder(a)-weekOrder(b));
-    const availableMonths=[...new Set(all.map(r=>iso(r[0]).slice(0,7)).filter(v=>/^2026-\d{2}$/.test(v)))].sort();
-    const mode=(req.nextUrl.searchParams.get("mode")||"week") as "week"|"month"|"range";
-    const requestedWeek=req.nextUrl.searchParams.get("week")||"";
-    const week=availableWeeks.includes(requestedWeek)?requestedWeek:(availableWeeks.at(-1)||"");
-    const requestedMonth=req.nextUrl.searchParams.get("month")||availableMonths.at(-1)||"2026-09";
-    const month=availableMonths.includes(requestedMonth)?requestedMonth:(availableMonths.at(-1)||requestedMonth);
-    const from=req.nextUrl.searchParams.get("from")||`${month}-01`;
-    const to=req.nextUrl.searchParams.get("to")||`${month}-31`;
-    const selected=all.filter(r=>{if(mode==="week")return s(r[14])===week;const d=iso(r[0]);if(mode==="month")return d.startsWith(month);return d>=from&&d<=to;});
-    const periodLabel=mode==="week"?week:mode==="month"?monthLabel(month):`${dateLabel(from)} – ${dateLabel(to)}`;
-
-    const staff=new Map<string,StaffProduct>();
-    for(const r of roster)staff.set(r.name,{name:r.name,products:{},total:fresh(),deviceTotal:fresh()});
-    const productTotals:Record<string,Tot>=Object.fromEntries(PRODUCT_ORDER.map(k=>[k,fresh()]));
-    const supplierMap=new Map<string,Map<string,{code:string;name:string;total:Tot;details:Map<string,BrandDetail>;staff:Map<string,Tot>}>>();
-    const vasTotals:Record<string,Tot>={Qoala:fresh(),Telkomsel:fresh(),XL:fresh(),Indosat:fresh()};
-    const vasStaff:Record<string,Map<string,Tot>>={Qoala:new Map(),Telkomsel:new Map(),XL:new Map(),Indosat:new Map()};
-    const deviceByStaff=new Map<string,Tot>();
-
-    for(const row of selected){
-      const staffName=s(row[2])||"Tanpa Nama",article=s(row[4]),desc=s(row[5]),type=s(row[6]),category=s(row[9]),brand=s(row[10]),scheme=up(row[12]),vendor=s(row[13]);
-      const qty=n(row[7]),value=n(row[8]);if(qty===0&&value===0)continue;
-      if(scheme==="DEVICES"){
-        const dev=deviceByStaff.get(staffName)||fresh();add(dev,qty,value);deviceByStaff.set(staffName,dev);
-        const rec=staff.get(staffName)||{name:staffName,products:{},total:fresh(),deviceTotal:fresh()};rec.deviceTotal=dev;staff.set(staffName,rec);
-        const p=productName(type,desc,category);if(p){rec.products[p] ||= fresh();add(rec.products[p],qty,value);add(rec.total,qty,value);add(productTotals[p],qty,value);}
-      }
-      if(scheme==="ACCESSORIES"){
-        const hit=brandMatch(article,brand,vendor);if(hit){if(!supplierMap.has(hit.supplier))supplierMap.set(hit.supplier,new Map());const brands=supplierMap.get(hit.supplier)!;const rec=brands.get(hit.code)||{code:hit.code,name:hit.name,total:fresh(),details:new Map<string,BrandDetail>(),staff:new Map<string,Tot>()};const detailKey=`${article}|${type||desc}`;const old=rec.details.get(detailKey)||{name:type||desc||article,article,qty:0,value:0};old.qty+=qty;old.value+=value;rec.details.set(detailKey,old);add(rec.total,qty,value);const st=rec.staff.get(staffName)||fresh();add(st,qty,value);rec.staff.set(staffName,st);brands.set(hit.code,rec);}
-      }
-      if(scheme==="VAS"){
-        const provider=vasProvider(article,brand,vendor,desc);if(provider){add(vasTotals[provider],qty,value);const st=vasStaff[provider].get(staffName)||fresh();add(st,qty,value);vasStaff[provider].set(staffName,st);}
-      }
-    }
-    for(const rec of staff.values())rec.deviceTotal=deviceByStaff.get(rec.name)||fresh();
-    const suppliers:SupplierRow[]=Object.keys(SUPPLIERS).map(supplier=>{const brands=[...(supplierMap.get(supplier)?.values()||[])].map(r=>({code:r.code,name:r.name,qty:r.total.qty,value:r.total.value,details:[...r.details.values()].sort((a,b)=>b.qty-a.qty),staff:r.staff})).sort((a,b)=>b.qty-a.qty);const st=new Map<string,Tot>();for(const b of brands)for(const [name,t] of b.staff){const x=st.get(name)||fresh();add(x,t.qty,t.value);st.set(name,x)}return{supplier,qty:brands.reduce((x,r)=>x+r.qty,0),value:brands.reduce((x,r)=>x+r.value,0),brands:brands.map(({staff:_,...rest})=>rest),staff:[...st.entries()].map(([name,t])=>({name,...t})).sort((a,b)=>b.qty-a.qty)}});
-    const providerNames=["Qoala","Telkomsel","XL","Indosat"] as const;
-    const providers=providerNames.map(name=>({name,qty:vasTotals[name].qty,value:vasTotals[name].value,staff:roster.map(r=>{const t=vasStaff[name].get(r.name)||fresh(),dev=deviceByStaff.get(r.name)||fresh();return{name:r.name,qty:t.qty,value:t.value,deviceQty:dev.qty,deviceValue:dev.value,ar:dev.qty?t.qty/dev.qty*100:0}})}));
-    return NextResponse.json({mode,periodLabel,week,month,from,to,availableWeeks,availableMonths,lob:{products:PRODUCT_ORDER.map(name=>({name,...productTotals[name]})),staff:[...staff.values()].sort((a,b)=>b.total.qty-a.total.qty||a.name.localeCompare(b.name)),total:Object.values(productTotals).reduce((t,r)=>({qty:t.qty+r.qty,value:t.value+r.value}),fresh())},thirdParty:{suppliers,total:suppliers.reduce((t,r)=>({qty:t.qty+r.qty,value:t.value+r.value}),fresh())},vas:{providers,total:Object.values(vasTotals).reduce((t,r)=>({qty:t.qty+r.qty,value:t.value+r.value}),fresh())}},{headers:{"Cache-Control":"no-store"}});
-  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Gagal membaca Target Fokus"},{status:500})}
-}
+export async function GET(req:NextRequest){const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});try{const[dataRows,configRows]=await getSheetRanges(ID,["'Data Copas'!A2:S50000","Config!A1:AZ120"],email,key);const all=dataRows.filter(r=>s(r[15]).toUpperCase()===STORE&&s(r[18])==="2026");const roster=configRows.slice(27,55).filter(r=>s(r[7])===STORE&&s(r[8])&&s(r[9])&&!/SUPERVISOR|ONLINE/i.test(s(r[10]))).map(r=>({id:s(r[8]),name:s(r[9])}));const availableWeeks=[...new Set(all.map(r=>s(r[14])).filter(v=>/Week\s*\d+\s*Q\d+/i.test(v)))].sort((a,b)=>weekOrder(a)-weekOrder(b));const availableMonths=[...new Set(all.map(r=>iso(r[0]).slice(0,7)).filter(v=>/^2026-\d{2}$/.test(v)))].sort();const mode=(req.nextUrl.searchParams.get("mode")||"week") as "week"|"month"|"range";const requestedWeek=req.nextUrl.searchParams.get("week")||"";const week=availableWeeks.includes(requestedWeek)?requestedWeek:(availableWeeks.at(-1)||"");const requestedMonth=req.nextUrl.searchParams.get("month")||availableMonths.at(-1)||"2026-09";const month=availableMonths.includes(requestedMonth)?requestedMonth:(availableMonths.at(-1)||requestedMonth);const from=req.nextUrl.searchParams.get("from")||`${month}-01`,to=req.nextUrl.searchParams.get("to")||`${month}-31`;const selected=all.filter(r=>{if(mode==="week")return s(r[14])===week;const d=iso(r[0]);if(mode==="month")return d.startsWith(month);return d>=from&&d<=to});const periodLabel=mode==="week"?week:mode==="month"?monthLabel(month):`${dateLabel(from)} – ${dateLabel(to)}`;
+const staff=new Map<string,StaffProduct>();for(const r of roster)staff.set(r.name,{name:r.name,products:{},total:fresh(),deviceTotal:fresh()});const productTotals:Record<string,Tot>=Object.fromEntries(PRODUCT_ORDER.map(k=>[k,fresh()]));const supplierMap=new Map<string,Map<string,{code:string;name:string;total:Tot;details:Map<string,BrandDetail>;staff:Map<string,Tot>}>>();const vasTotals:Record<string,Tot>={Qoala:fresh(),Telkomsel:fresh(),XL:fresh(),Indosat:fresh()};const vasStaff:Record<string,Map<string,Tot>>={Qoala:new Map(),Telkomsel:new Map(),XL:new Map(),Indosat:new Map()};const deviceByStaff=new Map<string,Tot>();
+for(const row of selected){const staffName=s(row[2])||"Tanpa Nama",article=s(row[4]),desc=s(row[5]),type=s(row[6]),category=s(row[9]),brand=s(row[10]),scheme=up(row[12]),vendor=s(row[13]),qty=n(row[7]),value=n(row[8]);if(qty===0&&value===0)continue;if(scheme==="DEVICES"){const dev=deviceByStaff.get(staffName)||fresh();add(dev,qty,value);deviceByStaff.set(staffName,dev);const rec=staff.get(staffName)||{name:staffName,products:{},total:fresh(),deviceTotal:fresh()};rec.deviceTotal=dev;staff.set(staffName,rec);const p=productName(type,desc,category);if(p){rec.products[p]||=fresh();add(rec.products[p],qty,value);add(rec.total,qty,value);add(productTotals[p],qty,value)}}if(scheme==="ACCESSORIES"){const hit=brandMatch(article,brand,vendor);if(hit){if(!supplierMap.has(hit.supplier))supplierMap.set(hit.supplier,new Map());const brands=supplierMap.get(hit.supplier)!;const rec=brands.get(hit.code)||{code:hit.code,name:hit.name,total:fresh(),details:new Map<string,BrandDetail>(),staff:new Map<string,Tot>()};const detailKey=`${article}|${type||desc}`;const old=rec.details.get(detailKey)||{name:type||desc||article,article,qty:0,value:0};old.qty+=qty;old.value+=value;rec.details.set(detailKey,old);add(rec.total,qty,value);const st=rec.staff.get(staffName)||fresh();add(st,qty,value);rec.staff.set(staffName,st);brands.set(hit.code,rec)}}if(scheme==="VAS"){const provider=vasProvider(article,brand,vendor,desc);if(provider){add(vasTotals[provider],qty,value);const st=vasStaff[provider].get(staffName)||fresh();add(st,qty,value);vasStaff[provider].set(staffName,st)}}}
+for(const rec of staff.values())rec.deviceTotal=deviceByStaff.get(rec.name)||fresh();const suppliers:SupplierRow[]=Object.keys(SUPPLIERS).map(supplier=>{const brands=[...(supplierMap.get(supplier)?.values()||[])].map(r=>({code:r.code,name:r.name,qty:r.total.qty,value:r.total.value,details:[...r.details.values()].sort((a,b)=>b.qty-a.qty),staff:r.staff})).sort((a,b)=>b.qty-a.qty);const st=new Map<string,Tot>();for(const b of brands)for(const[name,t]of b.staff){const x=st.get(name)||fresh();add(x,t.qty,t.value);st.set(name,x)}return{supplier,qty:brands.reduce((x,r)=>x+r.qty,0),value:brands.reduce((x,r)=>x+r.value,0),brands:brands.map(({staff:_,...rest})=>rest),staff:[...st.entries()].map(([name,t])=>({name,...t})).sort((a,b)=>b.qty-a.qty)}});const providerNames=["Qoala","Telkomsel","XL","Indosat"] as const;const providers=providerNames.map(name=>({name,qty:vasTotals[name].qty,value:vasTotals[name].value,staff:roster.map(r=>{const t=vasStaff[name].get(r.name)||fresh(),dev=deviceByStaff.get(r.name)||fresh();return{name:r.name,qty:t.qty,value:t.value,deviceQty:dev.qty,deviceValue:dev.value,ar:dev.qty?t.qty/dev.qty*100:0}})}));return NextResponse.json({mode,periodLabel,week,month,from,to,availableWeeks,availableMonths,lob:{products:PRODUCT_ORDER.map(name=>({name,...productTotals[name]})),staff:[...staff.values()].sort((a,b)=>b.total.qty-a.total.qty||a.name.localeCompare(b.name)),total:Object.values(productTotals).reduce((t,r)=>({qty:t.qty+r.qty,value:t.value+r.value}),fresh())},thirdParty:{suppliers,total:suppliers.reduce((t,r)=>({qty:t.qty+r.qty,value:t.value+r.value}),fresh())},vas:{providers,total:Object.values(vasTotals).reduce((t,r)=>({qty:t.qty+r.qty,value:t.value+r.value}),fresh())}},{headers:{"Cache-Control":"no-store"}})}catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Gagal membaca Target Fokus"},{status:500})}}
