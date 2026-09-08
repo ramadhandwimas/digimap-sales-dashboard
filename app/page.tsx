@@ -8,8 +8,6 @@ import M238AppleUI from "@/components/m238-apple-ui"
 import M238RevisionSep8 from "@/components/m238-revision-sep8"
 import M238VasInlineFormat from "@/components/m238-vas-inline-format"
 import DailySalesAlerts from "@/components/daily-sales-alerts"
-import OverviewFilterResync from "@/components/overview-filter-resync"
-import M238SettingsEnhancer from "@/components/m238-settings-enhancer"
 import ManualTargetFocus from "@/components/manual-target-focus"
 
 export default function Home() {
@@ -23,8 +21,6 @@ export default function Home() {
     <M238RevisionSep8 />
     <M238VasInlineFormat />
     <DailySalesAlerts />
-    <OverviewFilterResync />
-    <M238SettingsEnhancer />
     <ManualTargetFocus />
   </DashboardFetchGuard>
 }
