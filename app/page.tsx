@@ -9,6 +9,7 @@ import M238RevisionSep8 from "@/components/m238-revision-sep8"
 import M238VasInlineFormat from "@/components/m238-vas-inline-format"
 import DailySalesAlerts from "@/components/daily-sales-alerts"
 import OverviewFilterResync from "@/components/overview-filter-resync"
+import ScheduleImageConverter from "@/components/schedule-image-converter"
 
 export default function Home() {
   return <DashboardFetchGuard>
@@ -22,5 +23,6 @@ export default function Home() {
     <M238VasInlineFormat />
     <DailySalesAlerts />
     <OverviewFilterResync />
+    <ScheduleImageConverter />
   </DashboardFetchGuard>
 }
