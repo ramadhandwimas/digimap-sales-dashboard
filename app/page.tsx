@@ -1,10 +1,7 @@
 import DashboardV3 from "@/components/dashboard-v3"
-import DashboardEnhancements from "@/components/dashboard-enhancements"
 import DashboardFetchGuard from "@/components/dashboard-fetch-guard"
 import InlineDashboardViews from "@/components/inline-dashboard-views"
-import CvrEnhancer from "@/components/cvr-enhancer"
 import M238AppleUI from "@/components/m238-apple-ui"
-import M238VasInlineFormat from "@/components/m238-vas-inline-format"
 import DailySalesAlerts from "@/components/daily-sales-alerts"
 import M238SettingsEnhancer from "@/components/m238-settings-enhancer"
 import ManualTargetFocus from "@/components/manual-target-focus"
@@ -12,11 +9,8 @@ import ManualTargetFocus from "@/components/manual-target-focus"
 export default function Home() {
   return <DashboardFetchGuard>
     <DashboardV3 />
-    <DashboardEnhancements />
     <InlineDashboardViews />
-    <CvrEnhancer />
     <M238AppleUI />
-    <M238VasInlineFormat />
     <DailySalesAlerts />
     <M238SettingsEnhancer />
     <ManualTargetFocus />
