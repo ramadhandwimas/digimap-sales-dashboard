@@ -2,15 +2,15 @@
 
 import {useEffect,useState,type ReactNode} from "react"
 
-const TIMEOUT_MS=15000
-const DATA_CACHE_KEY="m238-last-api-data"
-const DATA_CACHE_AT_KEY="m238-last-api-data-at"
+const TIMEOUT_MS=12000
 const DATA_TTL_MS=5*60*1000
 const DAILY_TTL_MS=60*1000
 
 type InflightEntry={promise:Promise<Response>}
-
 type MemoryCache={text:string;at:number}
+
+const dataCacheKey=(period:string)=>`m238-api-data:${period}`
+const dataCacheAtKey=(period:string)=>`m238-api-data-at:${period}`
 
 export default function DashboardFetchGuard({children}:{children:ReactNode}){
   const[ready,setReady]=useState(false)
@@ -31,18 +31,19 @@ export default function DashboardFetchGuard({children}:{children:ReactNode}){
       const method=(init?.method||(typeof input!=="string"&&!(input instanceof URL)?input.method:"GET")||"GET").toUpperCase()
       if(method!=="GET")return originalFetch(input,init)
 
-      const force=isDashboardData&&/[?&]refresh=1(?:&|$)/.test(url)
-      const normalizedKey=isDashboardData
-        ? `data:${new URL(url,window.location.origin).searchParams.get("period")||""}`
-        : `daily:${new URL(url,window.location.origin).searchParams.get("date")||""}`
+      const parsed=new URL(url,window.location.origin)
+      const period=parsed.searchParams.get("period")||""
+      const date=parsed.searchParams.get("date")||""
+      const force=isDashboardData&&parsed.searchParams.get("refresh")==="1"
+      const normalizedKey=isDashboardData?`data:${period}`:`daily:${date}`
       const ttl=isDashboardData?DATA_TTL_MS:DAILY_TTL_MS
 
       if(!force){
         const cached=memory.get(normalizedKey)
         if(cached&&Date.now()-cached.at<ttl)return jsonResponse(cached.text,"memory")
-        if(isDashboardData){
+        if(isDashboardData&&period){
           try{
-            const text=localStorage.getItem(DATA_CACHE_KEY),at=Number(localStorage.getItem(DATA_CACHE_AT_KEY)||0)
+            const text=localStorage.getItem(dataCacheKey(period)),at=Number(localStorage.getItem(dataCacheAtKey(period))||0)
             if(text&&at&&Date.now()-at<DATA_TTL_MS){
               memory.set(normalizedKey,{text,at})
               return jsonResponse(text,"local")
@@ -52,7 +53,7 @@ export default function DashboardFetchGuard({children}:{children:ReactNode}){
       }
 
       const active=inflight.get(normalizedKey)
-      if(active)return (await active.promise).clone()
+      if(active&&!force)return (await active.promise).clone()
 
       const controller=new AbortController()
       const timer=window.setTimeout(()=>controller.abort(),TIMEOUT_MS)
@@ -68,9 +69,9 @@ export default function DashboardFetchGuard({children}:{children:ReactNode}){
               const text=await response.clone().text(),at=Date.now()
               if(text&&text.length<2_500_000){
                 memory.set(normalizedKey,{text,at})
-                if(isDashboardData){
-                  localStorage.setItem(DATA_CACHE_KEY,text)
-                  localStorage.setItem(DATA_CACHE_AT_KEY,String(at))
+                if(isDashboardData&&period){
+                  localStorage.setItem(dataCacheKey(period),text)
+                  localStorage.setItem(dataCacheAtKey(period),String(at))
                 }
               }
             }catch{}
@@ -80,9 +81,9 @@ export default function DashboardFetchGuard({children}:{children:ReactNode}){
           if(controller.signal.aborted){
             const cached=memory.get(normalizedKey)
             if(cached)return jsonResponse(cached.text,"timeout-memory")
-            if(isDashboardData){
+            if(isDashboardData&&period){
               try{
-                const text=localStorage.getItem(DATA_CACHE_KEY)
+                const text=localStorage.getItem(dataCacheKey(period))
                 if(text)return jsonResponse(text,"timeout-local")
               }catch{}
             }
@@ -91,11 +92,11 @@ export default function DashboardFetchGuard({children}:{children:ReactNode}){
         }finally{
           window.clearTimeout(timer)
           externalSignal?.removeEventListener("abort",abortFromExternal)
-          inflight.delete(normalizedKey)
+          if(inflight.get(normalizedKey)?.promise===promise)inflight.delete(normalizedKey)
         }
       })()
 
-      inflight.set(normalizedKey,{promise})
+      if(!force)inflight.set(normalizedKey,{promise})
       return (await promise).clone()
     }
 
