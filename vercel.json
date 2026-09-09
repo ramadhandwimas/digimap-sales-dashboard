@@ -1,5 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "buildCommand": "npm run build:vercel"
+  "buildCommand": "npm run build:vercel",
+  "git": {
+    "deploymentEnabled": {
+      "jakarta1-production": true,
+      "m238-production": false,
+      "main": false
+    }
+  }
 }
