@@ -1,7 +1,7 @@
 "use client";
 import {useEffect,useState} from "react";
 import {createPortal} from "react-dom";
-import ProductFocus3PPPage from "@/components/product-focus-3pp-page";
+import ProductFocus3PPPage from "@/components/product-focus-3pp-live-page";
 
 export default function ProductFocus3PPEnhancer(){
  const[host,setHost]=useState<HTMLElement|null>(null);
