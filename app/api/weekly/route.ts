@@ -354,7 +354,7 @@ export async function GET(req: NextRequest) {
           .filter(
             (row) =>
               s(row[15]) === "M238" &&
-              s(row[18]) === "2026" &&
+              iso(row[0]).startsWith("2026-") &&
               /^Week \d+ Q\d+$/i.test(s(row[14])),
           )
           .map((row) => s(row[14])),
@@ -394,7 +394,7 @@ export async function GET(req: NextRequest) {
   };
 
   for (const row of rows) {
-    if (s(row[15]) !== "M238" || s(row[18]) !== "2026") continue;
+    if (s(row[15]) !== "M238" || !iso(row[0]).startsWith("2026-")) continue;
     const weekLabel = s(row[14]);
     const side =
       weekLabel === labelA ? out.a : weekLabel === labelB ? out.b : null;
@@ -443,7 +443,7 @@ export async function GET(req: NextRequest) {
   const storeRows = rows.filter(
       (row) =>
         s(row[15]) === "M238" &&
-        s(row[18]) === "2026" &&
+        iso(row[0]).startsWith("2026-") &&
         iso(row[0]) &&
         s(row[14]),
     ),
