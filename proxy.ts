@@ -18,6 +18,11 @@ export function proxy(request: NextRequest) {
   if (session) {
     if (pathname === "/login")
       return NextResponse.redirect(new URL("/", request.url));
+    if (pathname === "/api/weekly") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/api/weekly-stable";
+      return NextResponse.rewrite(url);
+    }
     return NextResponse.next();
   }
 
