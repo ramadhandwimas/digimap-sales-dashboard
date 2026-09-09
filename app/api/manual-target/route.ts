@@ -8,7 +8,7 @@ const HEADERS=["Scope","Period","Focus","Target","Updated At"];
 const s=(v:unknown)=>String(v??"").trim();
 const n=(v:unknown)=>typeof v==="number"?v:Number(s(v).replace(/%/g,"").replace(/,/g,"."))||0;
 function share(v:unknown){let x=n(v);if(x>1)x/=100;return Math.max(0,x)}
-function validScope(v:string){return v==="monthly"||v==="weekly"}
+function validScope(v:string){return v==="monthly"||v==="weekly"||v==="range"}
 function validGroup(v:string){return ["lob-focus","product-focus","vas-focus"].includes(v)}
 function safeKey(v:string){return v.replace(/[\r\n]/g," ").trim().slice(0,120)}
 function storedKey(group:string,key:string){return `${group}::${safeKey(key)}`}
