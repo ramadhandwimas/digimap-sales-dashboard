@@ -18,7 +18,12 @@ function kind(r:Row){const text=`${r.category} ${up(r.type)} ${up(r.description)
 function product(r:Row){const t=`${r.category} ${up(r.type)} ${up(r.description)}`;if(t.includes("MAC"))return"mac";if(t.includes("IPHONE"))return"iphone";if(t.includes("IPAD"))return"ipad";if(t.includes("APPLE WATCH")||/\bAW\b/.test(t))return"watch";if(t.includes("AIRPODS"))return"airpods";return"other"}
 function vasMatch(r:Row,terms:string[]){const text=`${r.article} ${r.brand} ${r.vendor} ${r.description}`.toUpperCase();return kind(r)==="vas"&&terms.some(q=>text.includes(q))}
 function positiveQty(r:Row){return Math.max(0,r.qty)}
-function lobMetric(rows:Row[],p:string):LobMetric{return rows.filter(r=>product(r)===p).reduce((a,r)=>({qty:a.qty+positiveQty(r),amount:a.amount+r.amount}),{qty:0,amount:0})}
+function lobEligible(r:Row,p:string){
+  if(product(r)!==p)return false
+  if(p==="airpods")return kind(r)==="accessories"&&(/APPLE/.test(r.brand)||/APPLE/.test(r.vendor)||/AIRPODS/.test(r.category))
+  return kind(r)==="device"
+}
+function lobMetric(rows:Row[],p:string):LobMetric{return rows.filter(r=>lobEligible(r,p)).reduce((a,r)=>({qty:a.qty+positiveQty(r),amount:a.amount+r.amount}),{qty:0,amount:0})}
 function vasMetric(rows:Row[],terms:string[]):VasMetric{return rows.filter(r=>vasMatch(r,terms)).reduce((a,r)=>({qty:a.qty+positiveQty(r),amount:a.amount+r.amount}),{qty:0,amount:0})}
 function accIncentive(unitPrice:number){return unitPrice<=1315000?15000:30000}
 
