@@ -1,5 +1,5 @@
-import DashboardV2 from "@/components/dashboard-v2"
+import DashboardV3 from "@/components/dashboard-v3"
 
 export default function Home() {
-  return <DashboardV2 />
+  return <DashboardV3 />
 }
