@@ -5,11 +5,11 @@ import InlineDashboardViews from "@/components/inline-dashboard-views"
 import StaffPerformanceRange from "@/components/staff-performance-range"
 import CvrEnhancer from "@/components/cvr-enhancer"
 import M238AppleUI from "@/components/m238-apple-ui"
-import M238RevisionSep8 from "@/components/m238-revision-sep8"
 import M238VasInlineFormat from "@/components/m238-vas-inline-format"
 import DailySalesAlerts from "@/components/daily-sales-alerts"
 import M238SettingsEnhancer from "@/components/m238-settings-enhancer"
 import ManualTargetFocus from "@/components/manual-target-focus"
+import StoreAchievementShell from "@/components/store-achievement-shell"
 
 export default function Home() {
   return <DashboardFetchGuard>
@@ -19,10 +19,10 @@ export default function Home() {
     <StaffPerformanceRange />
     <CvrEnhancer />
     <M238AppleUI />
-    <M238RevisionSep8 />
     <M238VasInlineFormat />
     <DailySalesAlerts />
     <M238SettingsEnhancer />
     <ManualTargetFocus />
+    <StoreAchievementShell />
   </DashboardFetchGuard>
 }
