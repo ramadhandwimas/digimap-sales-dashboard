@@ -29,45 +29,18 @@ export default function CvrEnhancer(){
 
  useEffect(()=>{
   let timer:ReturnType<typeof setTimeout>|null=null;
-  let running=false;
-  let lastKey="";
   const apply=async()=>{
-   if(running)return;
    const heading=[...document.querySelectorAll("h3")].find(x=>x.textContent?.trim()==="Daily Sales Store"),section=heading?.closest("section") as HTMLElement|null;if(!section)return;
    const labels=[...document.querySelectorAll("label")],fromInput=labels.find(x=>x.querySelector("span")?.textContent?.trim()==="Dari Tanggal")?.querySelector("input") as HTMLInputElement|null,toInput=labels.find(x=>x.querySelector("span")?.textContent?.trim()==="Sampai Tanggal")?.querySelector("input") as HTMLInputElement|null;if(!fromInput||!toInput)return;
    const from=fromInput.value,to=toInput.value;if(!from||!to)return;
-   const table=section.querySelector("table");if(!table)return;
-   const rawHeaders=[...table.querySelectorAll("thead th")] as HTMLElement[];
-   const invoiceIndex=rawHeaders.findIndex(x=>x.textContent?.trim()==="Invoice"),uptIndex=rawHeaders.findIndex(x=>x.textContent?.trim()==="UPT");
-   if(invoiceIndex<0||uptIndex<0)return;
-   const renderKey=`${from}|${to}|${table.querySelectorAll("tbody tr").length}|${invoiceIndex}|${uptIndex}`;
-   if(lastKey===renderKey&&table.querySelector('[data-cvr-col="1"]'))return;
-   running=true;
-   try{
-    const tr=await fetch(`/api/traffic?from=${from}&to=${to}&t=${Date.now()}`,{cache:"no-store"}).then(r=>r.json());
-    const map=new Map<string,number>((tr.daily||[]).map((x:Traffic)=>[displayDate(x.date),Number(x.traffic||0)]));
-    let headers=[...table.querySelectorAll("thead th")] as HTMLElement[];
-    let cvrIndex=headers.findIndex(x=>x.getAttribute("data-cvr-col")==="1");
-    if(cvrIndex<0){const cvrTh=document.createElement("th");cvrTh.dataset.cvrCol="1";cvrTh.className="h-10 px-2 text-right align-middle font-medium text-muted-foreground";cvrTh.textContent="CVR";headers[uptIndex].insertAdjacentElement("afterend",cvrTh);headers=[...table.querySelectorAll("thead th")] as HTMLElement[];cvrIndex=headers.findIndex(x=>x.getAttribute("data-cvr-col")==="1")}
-    const invIdx=headers.findIndex(x=>x.textContent?.trim()==="Invoice");
-    for(const row of table.querySelectorAll("tbody tr")){
-      let cells=[...row.querySelectorAll("td")] as HTMLElement[];if(!cells.length)continue;
-      const first=(cells[0].textContent||"").replace(/★ Best|↓ Lowest/g,"").trim(),isTotal=first==="TOTAL";
-      const invoice=Number((cells[invIdx]?.textContent||"0").replace(/[^0-9-]/g,""))||0;
-      const traffic=isTotal?Number(tr.total||0):Number(map.get(first)||0);
-      const text=`${pct.format(traffic?invoice/traffic*100:0)}%`;
-      let cell=row.querySelector('[data-cvr-cell="1"]') as HTMLElement|null;
-      if(!cell){cells=[...row.querySelectorAll("td")] as HTMLElement[];cell=document.createElement("td");cell.dataset.cvrCell="1";cell.className="p-2 align-middle text-right font-bold";const before=cells[cvrIndex];if(before)before.insertAdjacentElement("beforebegin",cell);else row.appendChild(cell)}
-      if(cell.textContent!==text)cell.textContent=text;
-    }
-    let badge=section.parentElement?.querySelector('[data-daily-summary-cvr="1"]') as HTMLElement|null;
-    if(!badge){const hero=[...document.querySelectorAll("h2")].find(x=>x.textContent?.trim()==="Daily Sales Store")?.closest("section") as HTMLElement|null;if(hero){badge=document.createElement("div");badge.dataset.dailySummaryCvr="1";badge.className="mt-3 inline-flex rounded-xl bg-white/15 px-3 py-2 text-sm font-black text-white";hero.querySelector("h2")?.parentElement?.appendChild(badge)}}
-    if(badge){const totalRow=[...table.querySelectorAll("tbody tr")].find(r=>r.querySelector("td")?.textContent?.trim()==="TOTAL"),cells=totalRow?[...totalRow.querySelectorAll("td")]:[],inv=Number((cells[invIdx]?.textContent||"0").replace(/[^0-9-]/g,""))||0,text=`CVR ${Number(tr.total||0)?pct.format(inv/Number(tr.total)*100):"0"}% • Traffic ${new Intl.NumberFormat("id-ID").format(Number(tr.total||0))}`;if(badge.textContent!==text)badge.textContent=text}
-    lastKey=renderKey;
-   }catch{}finally{running=false}
+   try{const tr=await fetch(`/api/traffic?from=${from}&to=${to}&t=${Date.now()}`,{cache:"no-store"}).then(r=>r.json()),map=new Map<string,number>((tr.daily||[]).map((x:Traffic)=>[displayDate(x.date),Number(x.traffic||0)]));
+    const table=section.querySelector("table");if(!table)return;const header=[...table.querySelectorAll("thead th")],uptIndex=header.findIndex(x=>x.textContent?.trim()==="UPT");if(uptIndex<0)return;
+    let cvrTh=header.find(x=>x.getAttribute("data-cvr-col")==="1") as HTMLElement|undefined;if(!cvrTh){cvrTh=document.createElement("th");cvrTh.dataset.cvrCol="1";cvrTh.className="h-10 px-2 text-right align-middle font-medium text-muted-foreground";cvrTh.textContent="CVR";header[uptIndex].insertAdjacentElement("afterend",cvrTh)}
+    for(const row of table.querySelectorAll("tbody tr")){if(row.querySelector("[data-cvr-cell]"))continue;const cells=[...row.querySelectorAll("td")] as HTMLElement[];if(cells.length<8)continue;const label=(cells[0].textContent||"").trim(),isTotal=label==="TOTAL",traffic=isTotal?Number(tr.total||0):Number(map.get(label)||0),invoice=Number((cells[6].textContent||"0").replace(/[^0-9-]/g,""))||0,cvr=traffic?invoice/traffic*100:0,cell=document.createElement("td");cell.dataset.cvrCell="1";cell.className="p-2 align-middle text-right font-bold";cell.textContent=`${pct.format(cvr)}%`;cells[8].insertAdjacentElement("beforebegin",cell)}
+    let badge=section.parentElement?.querySelector("[data-daily-summary-cvr]") as HTMLElement|null;if(!badge){const hero=[...document.querySelectorAll("h2")].find(x=>x.textContent?.trim()==="Daily Sales Store")?.closest("section") as HTMLElement|null;if(hero){badge=document.createElement("div");badge.dataset.dailySummaryCvr="1";badge.className="mt-3 inline-flex rounded-xl bg-white/15 px-3 py-2 text-sm font-black text-white";hero.querySelector("h2")?.parentElement?.appendChild(badge)}}if(badge){const totalInv=[...table.querySelectorAll("tbody tr")].find(r=>r.querySelector("td")?.textContent?.trim()==="TOTAL")?.querySelectorAll("td")[6]?.textContent||"0",inv=Number(totalInv.replace(/[^0-9-]/g,""))||0;badge.textContent=`CVR ${Number(tr.total||0)?pct.format(inv/Number(tr.total)*100):"0"}% • Traffic ${new Intl.NumberFormat("id-ID").format(Number(tr.total||0))}`}
+   }catch{}
   };
-  const schedule=()=>{if(timer)clearTimeout(timer);timer=setTimeout(()=>void apply(),180)};
-  schedule();const obs=new MutationObserver(mutations=>{if(running)return;if(mutations.some(m=>[...m.addedNodes,...m.removedNodes].some(n=>n instanceof HTMLElement&&!n.matches?.('[data-cvr-cell],[data-cvr-col],[data-daily-summary-cvr]'))))schedule()});obs.observe(document.body,{childList:true,subtree:true});document.addEventListener("change",schedule,true);return()=>{obs.disconnect();document.removeEventListener("change",schedule,true);if(timer)clearTimeout(timer)}
+  const schedule=()=>{if(timer)clearTimeout(timer);timer=setTimeout(()=>void apply(),120)};schedule();const obs=new MutationObserver(schedule);obs.observe(document.body,{childList:true,subtree:true});document.addEventListener("change",schedule,true);return()=>{obs.disconnect();document.removeEventListener("change",schedule,true);if(timer)clearTimeout(timer)}
  },[]);
 
  return overviewHost?createPortal(<div className="min-w-0 rounded-2xl border border-white/20 bg-white/10 p-3"><p className="text-[11px] text-blue-100">CVR</p><p className="mt-1 text-lg font-black">{pct.format(overviewCvr)}%</p><p className="mt-2 border-t border-white/15 pt-2 text-[11px] text-blue-100">Traffic {new Intl.NumberFormat("id-ID").format(overviewTraffic)}</p></div>,overviewHost):null;
