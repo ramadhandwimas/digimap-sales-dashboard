@@ -1,20 +1,24 @@
 "use client";
 import {useEffect,useState} from "react";
 import {createPortal} from "react-dom";
-import OverviewNative from "@/components/overview-native";
-import DailySummaryPage from "@/components/daily-summary-page";
-import BnplTrackingPage from "@/components/bnpl-tracking-page";
-import SohTabsPage from "@/components/soh-tabs-page";
-import OperationsPage from "@/components/operations-page";
+import dynamic from "next/dynamic";
+import PerformanceSkeleton from "@/components/performance-skeleton";
 import WeeklyCopyEnhancer from "@/components/weekly-copy-enhancer";
-import WeeklyReasonPage from "@/components/weekly-reason-live-page";
-import TargetFocusPage from "@/components/target-focus-page";
-import LobTargetFocusPage from "@/components/lob-target-focus-page";
-import ProductFocus3PPPage from "@/components/product-focus-3pp-page";
-import MadingPage from "@/components/mading-page";
-import IncentiveRangePage from "@/components/incentive-range-page";
-import CxPage from "@/app/cx/page";
-import DataToolsPage from "@/app/data-tools/page";
+
+const lazy=(loader:()=>Promise<any>,label:string)=>dynamic(loader,{loading:()=> <PerformanceSkeleton label={`Memuat ${label}…`}/>});
+const OverviewNative=lazy(()=>import("@/components/overview-native"),"Overview");
+const DailySummaryPage=lazy(()=>import("@/components/daily-summary-page"),"Daily Summary");
+const BnplTrackingPage=lazy(()=>import("@/components/bnpl-tracking-page"),"BNPL & Trade-In");
+const SohTabsPage=lazy(()=>import("@/components/soh-tabs-page"),"SOH");
+const OperationsPage=lazy(()=>import("@/components/operations-page"),"Weekly Report");
+const WeeklyReasonPage=lazy(()=>import("@/components/weekly-reason-live-page"),"Weekly Reason");
+const TargetFocusPage=lazy(()=>import("@/components/target-focus-page"),"VAS Fokus");
+const LobTargetFocusPage=lazy(()=>import("@/components/lob-target-focus-page"),"LOB Target Fokus");
+const ProductFocus3PPPage=lazy(()=>import("@/components/product-focus-3pp-page"),"Product Fokus 3PP");
+const MadingPage=lazy(()=>import("@/components/mading-page"),"Mading");
+const IncentiveRangePage=lazy(()=>import("@/components/incentive-range-page"),"Est. Incentive");
+const CxPage=lazy(()=>import("@/app/cx/page"),"NPS/CX & Member");
+const DataToolsPage=lazy(()=>import("@/app/data-tools/page"),"Data Upload");
 
 type ViewKey="overview"|"daily-summary"|"bnpl"|"soh"|"weekly"|"weekly-reason"|"cx"|"lob-focus"|"product-focus"|"vas-focus"|"data-upload"|"mading"|"incentive-range";
 const routes:Record<string,ViewKey>={"Overview":"overview","Daily Summary":"daily-summary","BNPL & Trade-In":"bnpl","SOH":"soh","Weekly Report":"weekly","Weekly Reason":"weekly-reason","NPS/CX & Member":"cx","LOB Target Fokus":"lob-focus","Product Fokus 3PP":"product-focus","VAS Fokus":"vas-focus","Data Upload":"data-upload","Mading":"mading","Est. Incentive":"incentive-range"};
