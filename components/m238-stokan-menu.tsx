@@ -2,7 +2,7 @@
 
 import {useEffect,useState} from "react";
 import {createPortal} from "react-dom";
-import StokanPage from "@/components/stokan-page";
+import StokanPage from "@/components/stokan-page-v2";
 
 function label(button:HTMLButtonElement){return(button.dataset.menuLabel||button.querySelector("span:last-child")?.textContent||button.textContent||"").trim()}
 
