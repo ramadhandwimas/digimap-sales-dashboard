@@ -10,6 +10,7 @@ import DailySalesAlerts from "@/components/daily-sales-alerts"
 import M238SettingsEnhancer from "@/components/m238-settings-enhancer"
 import ManualTargetFocus from "@/components/manual-target-focus"
 import StaffPerformanceLiveEnhancer from "@/components/staff-performance-live-enhancer"
+import WeeklyReportReasonLive from "@/components/weekly-report-reason-live"
 
 export default function Home() {
   return <DashboardFetchGuard>
@@ -24,5 +25,6 @@ export default function Home() {
     <M238SettingsEnhancer />
     <ManualTargetFocus />
     <StaffPerformanceLiveEnhancer />
+    <WeeklyReportReasonLive />
   </DashboardFetchGuard>
 }
