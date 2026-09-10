@@ -14,7 +14,7 @@ const groupItems:Record<Group,string[]>={
 const today=()=>new Intl.DateTimeFormat("sv-SE",{year:"numeric",month:"2-digit",day:"2-digit",timeZone:"Asia/Jakarta"}).format(new Date());
 function currentWeek(){const d=new Date(`${today()}T00:00:00+07:00`),th=new Date(d);th.setDate(d.getDate()+4-(d.getDay()||7));const y=th.getFullYear(),jan1=new Date(y,0,1),w=Math.ceil((((th.getTime()-jan1.getTime())/86400000)+1)/7);return `${y}-W${String(w).padStart(2,"0")}`}
 function defaultPeriod(scope:Scope){return scope==="monthly"?today().slice(0,7):currentWeek()}
-function groupFromTitle(title:string):Group|null{const t=title.toLowerCase();if(t.includes("lob target fokus"))return null;if(t.includes("product fokus 3pp"))return null;if(t.includes("vas fokus"))return"vas-focus";return null}
+function groupFromTitle(title:string):Group|null{const t=title.toLowerCase();if(t.includes("lob target fokus"))return null;if(t.includes("product fokus 3pp"))return null;if(t.includes("vas fokus"))return null;return null}
 function groupLabel(group:Group){return group==="lob-focus"?"LOB":group==="product-focus"?"3PP":"VAS"}
 export default function ManualTargetFocus(){
  const[host,setHost]=useState<HTMLElement|null>(null),[group,setGroup]=useState<Group|null>(null),[scope,setScope]=useState<Scope>("weekly"),[period,setPeriod]=useState(defaultPeriod("weekly")),[targets,setTargets]=useState<TargetMap>({}),[staff,setStaff]=useState<Staff[]>([]),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
