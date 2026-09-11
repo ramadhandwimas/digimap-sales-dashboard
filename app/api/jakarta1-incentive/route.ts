@@ -91,8 +91,15 @@ export async function GET(req:NextRequest){
  if(!/^(2025|2026)-(0[1-9]|1[0-2])$/.test(period))return NextResponse.json({error:"Periode tidak valid"},{status:400});
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});
  try{
-  const force=req.nextUrl.searchParams.has("refresh"),rows=await calculate(period,force,email,key),detailKey=req.nextUrl.searchParams.get("detailKey");
-  if(detailKey){const row=rows.find(r=>r.key===detailKey);if(!row)return NextResponse.json({error:"Detail staff tidak ditemukan"},{status:404});const{_transactions,...safe}=row;return NextResponse.json({period,row:safe},{headers:{"cache-control":"private, max-age=0, must-revalidate"}})}
+  const force=req.nextUrl.searchParams.has("refresh"),rows=await calculate(period,force,email,key),detailKey=req.nextUrl.searchParams.get("detailKey"),section=req.nextUrl.searchParams.get("section");
+  if(detailKey){
+   const row=rows.find(r=>r.key===detailKey);if(!row)return NextResponse.json({error:"Detail staff tidak ditemukan"},{status:404});
+   if(section==="device")return NextResponse.json({period,section,lines:row.deviceLines},{headers:{"cache-control":"private, max-age=0, must-revalidate"}});
+   if(section==="accessories")return NextResponse.json({period,section,lines:row.accessoryLines},{headers:{"cache-control":"private, max-age=0, must-revalidate"}});
+   if(section==="qoala")return NextResponse.json({period,section,lines:row.qoalaLines},{headers:{"cache-control":"private, max-age=0, must-revalidate"}});
+   const{deviceLines,accessoryLines,qoalaLines,_transactions,...safe}=row;
+   return NextResponse.json({period,row:safe},{headers:{"cache-control":"private, max-age=0, must-revalidate"}});
+  }
   const summaryRows=rows.map(({accessoryTiers,qoalaTiers,deviceLines,accessoryLines,qoalaLines,_transactions,...r})=>r);
   return NextResponse.json({period,stores:STORES,rows:summaryRows},{headers:{"cache-control":"private, max-age=0, must-revalidate"}});
  }catch(e){console.error("jakarta1-incentive",e);return NextResponse.json({error:"Data Est Incentive Jakarta 1 gagal dimuat. Silakan coba kembali."},{status:500})}
