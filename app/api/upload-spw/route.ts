@@ -26,10 +26,11 @@ export async function POST(req:NextRequest){
   await clearAndWrite(MASTER_ID,"'SPW'!A1:C65536","'SPW'!A1",report.rows,email,key,"RAW");spwSaved=true;
   try{
    await ensureSheets(MASTER_ID,[{title:NORMALIZED,headers:normalizedHeaders},{title:CACHE,headers:cacheHeaders},{title:CLASS_CACHE,headers:classificationHeaders}],email,key);
-   const[classRows]=await getSheetRanges(MASTER_ID,[`'${CLASS_CACHE}'!A2:I20000`],email,key);let classMap=classificationMapFromValues(classRows||[]),sourceRaw:unknown[][]=[],sourceCopas:unknown[][]=[],classificationRefreshed=false;
+   const[classResult,rawResult]=await Promise.all([getSheetRanges(MASTER_ID,[`'${CLASS_CACHE}'!A2:I20000`],email,key),getSheetRanges(SOURCE_ID,["'RAW SalesPerson'!AB2:AR50000"],email,key).catch(()=>[[]] as unknown[][][])]);
+   const classRows=classResult[0]||[];let classMap=classificationMapFromValues(classRows),sourceRaw=rawResult[0]||[],sourceCopas:unknown[][]=[],classificationRefreshed=false;
    let parsed=parseSpwToNormalized(report.rows,classMap,"M238");
    if(!classMap.size||parsed.unknownClassification>0){
-    const source=await getSheetRanges(SOURCE_ID,["'Data Copas'!A2:Q50000","'RAW SalesPerson'!AB2:AR50000"],email,key);sourceCopas=source[0]||[];sourceRaw=source[1]||[];const fresh=buildClassificationMap([sourceCopas,sourceRaw]);for(const[k,v]of fresh)classMap.set(k,v);classificationRefreshed=true;parsed=parseSpwToNormalized(report.rows,classMap,"M238");
+    const source=await getSheetRanges(SOURCE_ID,["'Data Copas'!A2:Q50000"],email,key);sourceCopas=source[0]||[];const fresh=buildClassificationMap([sourceCopas,sourceRaw]);for(const[k,v]of fresh)classMap.set(k,v);classificationRefreshed=true;parsed=parseSpwToNormalized(report.rows,classMap,"M238");
    }
    if(!parsed.rows.length)throw new Error("Tidak ada sales row valid yang dapat diproses dari SPW.");
    const uploadDates=new Set(parsed.rows.map(r=>r.date)),fastTotal=parsed.rows.reduce((a,r)=>a+r.amount,0);let validation=parsed.unknownClassification?"PENDING_CLASSIFICATION":"PENDING_RAW_SYNC";
