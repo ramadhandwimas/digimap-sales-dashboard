@@ -1,5 +1,5 @@
-import DailySummaryEnhancedPage from "@/components/daily-summary-enhanced-page";
+import DailySummaryPage from "@/components/daily-summary-page";
 
 export default function Page(){
-  return <DailySummaryEnhancedPage/>;
+  return <DailySummaryPage/>;
 }
