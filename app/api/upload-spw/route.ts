@@ -2,6 +2,7 @@ import {NextRequest,NextResponse} from "next/server";
 import {batchClearRanges,batchWriteRanges,ensureSheets,getGoogleSheetRequestCount,getSheetRanges} from "@/lib/google-sheets";
 import {parseSpwWorkbook} from "@/lib/spw-upload";
 import {aggregateDaily,buildClassificationMap,cacheHeaders,cacheValues,classificationHeaders,classificationMapFromValues,classificationValues,normalizedHeaders,normalizedValues,parseSpwToNormalized,rowClass,type FastSalesRow} from "@/lib/m238-fast-sales";
+import {buildSummaryFromFastSales,upsertDailySummaryRows} from "@/lib/m238-daily-summary-cache";
 
 const MASTER_ID="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk",SOURCE_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const NORMALIZED="SALES DASHBOARD DATA",CACHE="DAILY SALES CACHE",CLASS_CACHE="FAST SALES CLASSIFICATION";
@@ -14,7 +15,7 @@ function friendly(e:unknown){const raw=e instanceof Error?e.message:"Fast proces
 
 export async function POST(req:NextRequest){
  const started=Date.now(),apiStart=getGoogleSheetRequestCount();let reportRows=0,fileName="",sheetName="",masterSales=0,report:ReturnType<typeof parseSpwWorkbook>|undefined;
- const timing={parse:0,read:0,clear:0,write:0,cache:0,total:0};
+ const timing={parse:0,read:0,clear:0,write:0,cache:0,summary:0,total:0};
  try{
   const{email,key}=creds(),form=await req.formData(),file=form.get("file");if(!(file instanceof File))return NextResponse.json({error:"Pilih file Excel terlebih dahulu."},{status:400});
   fileName=file.name;if(!/\.xlsx?$/i.test(file.name))return NextResponse.json({error:"Gunakan file Excel dengan format .xlsx atau .xls."},{status:400});
@@ -34,9 +35,10 @@ export async function POST(req:NextRequest){
 
    const clears=["'SPW'!A1:C65536",`'${NORMALIZED}'!A2:Q50000`,`'${CACHE}'!A2:Z20000`];if(classificationRefreshed)clears.push(`'${CLASS_CACHE}'!A2:I20000`);t=Date.now();await batchClearRanges(MASTER_ID,clears,email,key);timing.clear=Date.now()-t;
    const writes=[{range:"'SPW'!A1",values:report.rows},{range:`'${NORMALIZED}'!A2`,values:parsed.rows.map(normalizedValues)},{range:`'${CACHE}'!A2`,values:cache.map(cacheValues)}];if(classificationRefreshed)writes.push({range:`'${CLASS_CACHE}'!A2`,values:classificationValues(classMap)});t=Date.now();await batchWriteRanges(MASTER_ID,writes,email,key,"RAW");timing.write=Date.now()-t;
+   let summaryWarning="";t=Date.now();try{const summary=await buildSummaryFromFastSales(parsed.rows,{email,key},"SPW");await upsertDailySummaryRows(summary,{email,key})}catch(error){summaryWarning=error instanceof Error?error.message:"Daily Summary cache gagal diperbarui";console.warn("M238_PERF",{op:"upload-spw-summary-cache",error:summaryWarning})}timing.summary=Date.now()-t;
    timing.total=Date.now()-started;const apiRequests=getGoogleSheetRequestCount()-apiStart;console.info("M238_PERF",{op:"upload-spw",timing,apiRequests,rows:report.rows.length,processed:parsed.rows.length,validation});
    const warning=validation==="MISMATCH"?"Fast processing mismatch detected":validation==="PENDING_CLASSIFICATION"?`${parsed.unknownClassification} article belum memiliki mapping classification existing`:null;
-   return NextResponse.json({ok:true,fast:{ok:true,validation,warning},rows:report.rows.length,processedRows:parsed.rows.length,newRows:parsed.rows.length,updatedRows:0,duplicateSkipped:parsed.duplicateSkipped,processingMs:timing.total,masterSales,debug,performance:{...timing,apiRequests},message:"SPW berhasil diupload dan Daily Sales sudah diperbarui."},{headers:{"cache-control":"no-store"}})
+   return NextResponse.json({ok:true,fast:{ok:true,validation,warning},dailySummaryCache:{ok:!summaryWarning,warning:summaryWarning||null},rows:report.rows.length,processedRows:parsed.rows.length,newRows:parsed.rows.length,updatedRows:0,duplicateSkipped:parsed.duplicateSkipped,processingMs:timing.total,masterSales,debug,performance:{...timing,apiRequests},message:"SPW berhasil diupload dan Daily Sales sudah diperbarui."},{headers:{"cache-control":"no-store"}})
   }catch(fastError){
    // Failure path preserves the existing SPW audit source without waiting for formula recalculation.
    if(report){let t2=Date.now();await batchClearRanges(MASTER_ID,["'SPW'!A1:C65536"],email,key).catch(()=>undefined);timing.clear+=Date.now()-t2;t2=Date.now();await batchWriteRanges(MASTER_ID,[{range:"'SPW'!A1",values:report.rows}],email,key,"RAW").catch(()=>undefined);timing.write+=Date.now()-t2}

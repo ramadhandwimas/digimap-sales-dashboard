@@ -1,5 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {appendSheetValues,clearAndWrite,getSheetRanges} from "@/lib/google-sheets";
+import {buildSummaryFromRawValues,upsertDailySummaryRows} from "@/lib/m238-daily-summary-cache";
 
 const DASHBOARD_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const RAW_SHEET="Raw Salesperson";
@@ -52,7 +53,8 @@ export async function POST(req:NextRequest){
    const duplicateCount=selected.filter(r=>existing.has(signature(r))).length;
    if(duplicateCount>0)return NextResponse.json({error:"Cut Off Gagal — data ini sudah pernah tersalin ke Data Copas.",duplicateCount},{status:409});
    await appendSheetValues(DASHBOARD_ID,`'${COPAS_SHEET}'!A:Q`,selected,email,key);
-   return NextResponse.json({ok:true,rows:selected.length,message:`Cut Off Berhasil — ${selected.length} baris ditambahkan.`});
+   let cacheWarning="";try{const summary=await buildSummaryFromRawValues(selected,{email,key},"CUT_OFF");await upsertDailySummaryRows(summary,{email,key})}catch(error){cacheWarning=error instanceof Error?error.message:"Daily Summary cache gagal diperbarui";console.warn("M238_PERF",{op:"cutoff-summary-cache",error:cacheWarning})}
+   return NextResponse.json({ok:true,rows:selected.length,dailySummaryCache:{ok:!cacheWarning,warning:cacheWarning||null},message:`Cut Off Berhasil — ${selected.length} baris ditambahkan.`});
   }
   if(action==="exchange"){
    const invoice=text(body.invoice),noExchange=text(body.noExchange);
