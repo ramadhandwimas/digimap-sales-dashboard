@@ -1,0 +1,1 @@
+Redeploy marker for Jakarta 1 SOH after configuring SOH_API_TOKEN in Vercel.
