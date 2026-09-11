@@ -10,16 +10,19 @@ type ReadCache={at:number;values:unknown[][][]}
 type MetaCache={at:number;titles:Set<string>}
 let tokenCache:TokenCache|undefined
 let tokenRequest:Promise<string>|undefined
+let sheetApiRequestCount=0
 const readCache=new Map<string,ReadCache>()
 const readInflight=new Map<string,Promise<unknown[][][]>>()
 const metaCache=new Map<string,MetaCache>()
+
+export function getGoogleSheetRequestCount(){return sheetApiRequestCount}
 
 function base64Url(input:string|Uint8Array){const raw=typeof input==="string"?new TextEncoder().encode(input):input;let binary="";raw.forEach(byte=>{binary+=String.fromCharCode(byte)});return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"")}
 function pemBuffer(pem:string){const clean=pem.replace(/\\n/g,"\n").replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g,"");const binary=atob(clean);const bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);return bytes.buffer}
 function sleep(ms:number){return new Promise(resolve=>setTimeout(resolve,ms))}
 function readKey(id:string,ranges:string[]){return `${id}::${ranges.join("||")}`}
 function clearReadCacheForSheet(id:string){for(const key of readCache.keys())if(key.startsWith(`${id}::`))readCache.delete(key)}
-async function requestWithRetry(input:RequestInfo|URL,init?:RequestInit){let response:Response|undefined;const waits=[1000,2000,4000,8000];for(let attempt=0;attempt<=waits.length;attempt++){response=await fetch(input,init);if(response.ok)return response;const retryable=response.status===429||response.status>=500;if(!retryable||attempt===waits.length)return response;await sleep(waits[attempt]+Math.floor(Math.random()*250))}return response!}
+async function requestWithRetry(input:RequestInfo|URL,init?:RequestInit){let response:Response|undefined;const waits=[1000,2000,4000,8000],url=String(input);for(let attempt=0;attempt<=waits.length;attempt++){if(url.includes("sheets.googleapis.com"))sheetApiRequestCount++;response=await fetch(input,init);if(response.ok)return response;const retryable=response.status===429||response.status>=500;if(!retryable||attempt===waits.length)return response;await sleep(waits[attempt]+Math.floor(Math.random()*250))}return response!}
 
 async function requestToken(email:string,privateKey:string){const now=Math.floor(Date.now()/1000);const header=base64Url(JSON.stringify({alg:"RS256",typ:"JWT"}));const claims=base64Url(JSON.stringify({iss:email,scope:SCOPE,aud:TOKEN_URL,exp:now+3600,iat:now}));const unsigned=`${header}.${claims}`;const key=await crypto.subtle.importKey("pkcs8",pemBuffer(privateKey),{name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["sign"]);const signature=await crypto.subtle.sign("RSASSA-PKCS1-v1_5",key,new TextEncoder().encode(unsigned));const assertion=`${unsigned}.${base64Url(new Uint8Array(signature))}`;const common={method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"}} as RequestInit;let response=await requestWithRetry(TOKEN_URL,{...common,body:new URLSearchParams({grant_type:"urn:ietf:params:oauth2:token-exchange",assertion})});if(!response.ok)response=await requestWithRetry(TOKEN_URL,{...common,body:new URLSearchParams({grant_type:"urn:ietf:params:oauth:grant-type:jwt-bearer",assertion})});if(!response.ok)throw new Error(`Google OAuth gagal (${response.status})`);return((await response.json())as{access_token:string}).access_token}
 
