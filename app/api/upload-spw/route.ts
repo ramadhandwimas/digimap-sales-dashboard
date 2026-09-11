@@ -1,10 +1,9 @@
 import {NextRequest,NextResponse} from "next/server";
-import {appendSheetValues,batchClearRanges,batchWriteRanges,clearAndWrite,ensureSheets,getSheetRanges} from "@/lib/google-sheets";
+import {batchClearRanges,batchWriteRanges,ensureSheets,getGoogleSheetRequestCount,getSheetRanges} from "@/lib/google-sheets";
 import {parseSpwWorkbook} from "@/lib/spw-upload";
 import {aggregateDaily,buildClassificationMap,cacheHeaders,cacheValues,classificationHeaders,classificationMapFromValues,classificationValues,normalizedHeaders,normalizedValues,parseSpwToNormalized,rowClass,type FastSalesRow} from "@/lib/m238-fast-sales";
 
-const MASTER_ID="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk";
-const SOURCE_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
+const MASTER_ID="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk",SOURCE_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const NORMALIZED="SALES DASHBOARD DATA",CACHE="DAILY SALES CACHE",CLASS_CACHE="FAST SALES CLASSIFICATION";
 const text=(v:unknown)=>String(v??"").trim(),num=(v:unknown)=>typeof v==="number"?v:Number(String(v??"").replace(/[^0-9.-]/g,""))||0;
 const iso=(v:unknown)=>{const x=text(v);if(/^\d{2}-\d{2}-\d{4}$/.test(x)){const[d,m,y]=x.split("-");return`${y}-${m}-${d}`}if(/^\d{4}-\d{2}-\d{2}/.test(x))return x.slice(0,10);return""};
@@ -14,34 +13,34 @@ function signature(rows:ReturnType<typeof aggregateDaily>){return [...rows].sort
 function friendly(e:unknown){const raw=e instanceof Error?e.message:"Fast processing gagal";if(/429|Too Many Requests/i.test(raw))return"Google Sheets sedang membatasi request. Sistem sudah mencoba kembali beberapa kali; silakan ulangi upload setelah beberapa saat.";return raw}
 
 export async function POST(req:NextRequest){
- const started=Date.now();let spwSaved=false,reportRows=0,fileName="",sheetName="",masterSales=0;
+ const started=Date.now(),apiStart=getGoogleSheetRequestCount();let reportRows=0,fileName="",sheetName="",masterSales=0,report:ReturnType<typeof parseSpwWorkbook>|undefined;
+ const timing={parse:0,read:0,clear:0,write:0,cache:0,total:0};
  try{
-  const{email,key}=creds(),form=await req.formData(),file=form.get("file");
-  if(!(file instanceof File))return NextResponse.json({error:"Pilih file Excel terlebih dahulu."},{status:400});
+  const{email,key}=creds(),form=await req.formData(),file=form.get("file");if(!(file instanceof File))return NextResponse.json({error:"Pilih file Excel terlebih dahulu."},{status:400});
   fileName=file.name;if(!/\.xlsx?$/i.test(file.name))return NextResponse.json({error:"Gunakan file Excel dengan format .xlsx atau .xls."},{status:400});
-  const buffer=await file.arrayBuffer(),report=parseSpwWorkbook(buffer);reportRows=report.rows.length;sheetName=report.sheetName;masterSales=report.detailTotal;
+  let t=Date.now();report=parseSpwWorkbook(await file.arrayBuffer());timing.parse=Date.now()-t;reportRows=report.rows.length;sheetName=report.sheetName;masterSales=report.detailTotal;
   if(report.rows.length>65536)return NextResponse.json({error:"File SPW melebihi kapasitas 65.536 baris."},{status:400});
-  const dates=report.rows.filter(r=>typeof r[0]==="string"&&/^\d{2}-\d{2}-\d{4}$/.test(String(r[0]))).length,staff=report.rows.filter(r=>typeof r[0]==="string"&&/^\d{6,}\s*\/\s*\S+/.test(String(r[0]))).length;
-  if(!dates||!staff)return NextResponse.json({error:"Pola file SPW tidak valid."},{status:422});
-  await clearAndWrite(MASTER_ID,"'SPW'!A1:C65536","'SPW'!A1",report.rows,email,key,"RAW");spwSaved=true;
+  const dates=report.rows.filter(r=>typeof r[0]==="string"&&/^\d{2}-\d{2}-\d{4}$/.test(String(r[0]))).length,staff=report.rows.filter(r=>typeof r[0]==="string"&&/^\d{6,}\s*\/\s*\S+/.test(String(r[0]))).length;if(!dates||!staff)return NextResponse.json({error:"Pola file SPW tidak valid."},{status:422});
+
   try{
-   await ensureSheets(MASTER_ID,[{title:NORMALIZED,headers:normalizedHeaders},{title:CACHE,headers:cacheHeaders},{title:CLASS_CACHE,headers:classificationHeaders}],email,key);
-   const[classResult,rawResult]=await Promise.all([getSheetRanges(MASTER_ID,[`'${CLASS_CACHE}'!A2:I20000`],email,key),getSheetRanges(SOURCE_ID,["'RAW SalesPerson'!AB2:AR50000"],email,key).catch(()=>[[]] as unknown[][][])]);
-   const classRows=classResult[0]||[];let classMap=classificationMapFromValues(classRows),sourceRaw=rawResult[0]||[],sourceCopas:unknown[][]=[],classificationRefreshed=false;
-   let parsed=parseSpwToNormalized(report.rows,classMap,"M238");
-   if(!classMap.size||parsed.unknownClassification>0){
-    const source=await getSheetRanges(SOURCE_ID,["'Data Copas'!A2:Q50000"],email,key);sourceCopas=source[0]||[];const fresh=buildClassificationMap([sourceCopas,sourceRaw]);for(const[k,v]of fresh)classMap.set(k,v);classificationRefreshed=true;parsed=parseSpwToNormalized(report.rows,classMap,"M238");
-   }
-   if(!parsed.rows.length)throw new Error("Tidak ada sales row valid yang dapat diproses dari SPW.");
-   const uploadDates=new Set(parsed.rows.map(r=>r.date)),fastTotal=parsed.rows.reduce((a,r)=>a+r.amount,0);let validation=parsed.unknownClassification?"PENDING_CLASSIFICATION":"PENDING_RAW_SYNC";
-   if(sourceRaw.length){const legacy=sourceRaw.map(rawToFast).filter(r=>uploadDates.has(r.date)&&r.id&&r.amount!==0&&!/VOUCHER/i.test(`${r.scheme} ${r.description}`));if(legacy.length){const legacyTotal=legacy.reduce((a,r)=>a+r.amount,0);if(Math.abs(fastTotal-legacyTotal)<=1)validation=signature(aggregateDaily(parsed.rows,"MATCH"))===signature(aggregateDaily(legacy,"MATCH"))?"MATCH":"MISMATCH";else validation="MISMATCH"}}
-   const cache=aggregateDaily(parsed.rows,validation),debug={deviceRows:parsed.rows.filter(r=>rowClass(r)==="DEVICE").length,accRows:parsed.rows.filter(r=>rowClass(r)==="ACC").length,vasRows:parsed.rows.filter(r=>rowClass(r)==="VAS").length,unclassifiedRows:parsed.rows.filter(r=>rowClass(r)==="UNCLASSIFIED").length};
-   if(parsed.unclassified.length)console.warn("M238 fast sales UNCLASSIFIED",parsed.unclassified.slice(0,20));
-   const clearRanges=[`'${NORMALIZED}'!A2:Q50000`,`'${CACHE}'!A2:Z20000`];if(classificationRefreshed)clearRanges.push(`'${CLASS_CACHE}'!A2:I20000`);await batchClearRanges(MASTER_ID,clearRanges,email,key);
-   const writes=[{range:`'${NORMALIZED}'!A2`,values:parsed.rows.map(normalizedValues)},{range:`'${CACHE}'!A2`,values:cache.map(cacheValues)}];if(classificationRefreshed)writes.push({range:`'${CLASS_CACHE}'!A2`,values:classificationValues(classMap)});await batchWriteRanges(MASTER_ID,writes,email,key,"RAW");
-   const processingMs=Date.now()-started,warning=validation==="MISMATCH"?"Fast processing mismatch detected":validation==="PENDING_CLASSIFICATION"?`${parsed.unknownClassification} article belum memiliki mapping classification existing`:validation==="PENDING_RAW_SYNC"?"Validation RAW SalesPerson masih menunggu sinkron":null;
-   await appendSheetValues(MASTER_ID,"'UPLOAD LOG'!A:H",[[new Date().toISOString(),"FAST_DAILY",file.name,parsed.rows.length,fastTotal,validation,validation==="MISMATCH"?"WARNING":"SUCCESS",`${debug.deviceRows} device / ${debug.accRows} acc / ${debug.vasRows} vas / ${debug.unclassifiedRows} unclassified`]],email,key).catch(()=>undefined);
-   return NextResponse.json({ok:true,fast:{ok:true,validation,warning},rows:report.rows.length,processedRows:parsed.rows.length,newRows:parsed.rows.length,updatedRows:0,duplicateSkipped:parsed.duplicateSkipped,processingMs,sheet:report.sheetName,masterSheet:"MASTER DATA M238 / SPW",processedSheet:NORMALIZED,cacheSheet:CACHE,masterSales,storage:"master+fast-cache",debug,message:"SPW berhasil diupload dan Daily Sales sudah diperbarui."},{headers:{"cache-control":"no-store"}})
-  }catch(fastError){const processingMs=Date.now()-started,message=friendly(fastError);await appendSheetValues(MASTER_ID,"'UPLOAD LOG'!A:H",[[new Date().toISOString(),"FAST_DAILY",file.name,report.rows.length,masterSales,"","FAILED",message]],email,key).catch(()=>undefined);return NextResponse.json({ok:true,fast:{ok:false,error:message},rows:report.rows.length,processingMs,sheet:report.sheetName,masterSheet:"MASTER DATA M238 / SPW",masterSales,storage:"spw-saved-fast-failed",message:"SPW berhasil diupload, tetapi Fast Daily Sales gagal diproses. Data existing tetap aman."},{status:200,headers:{"cache-control":"no-store"}})}
- }catch(e){return NextResponse.json({error:friendly(e),spwSaved,rows:reportRows,file:fileName,sheet:sheetName,masterSales},{status:500})}
+   t=Date.now();let classRows:unknown[][]=[];
+   try{[classRows]=await getSheetRanges(MASTER_ID,[`'${CLASS_CACHE}'!A2:I20000`],email,key)}catch{await ensureSheets(MASTER_ID,[{title:NORMALIZED,headers:normalizedHeaders},{title:CACHE,headers:cacheHeaders},{title:CLASS_CACHE,headers:classificationHeaders}],email,key);[classRows]=await getSheetRanges(MASTER_ID,[`'${CLASS_CACHE}'!A2:I20000`],email,key)}
+   let classMap=classificationMapFromValues(classRows||[]),sourceRaw:unknown[][]=[],classificationRefreshed=false,parsed=parseSpwToNormalized(report.rows,classMap,"M238");
+   if(!classMap.size||parsed.unknownClassification>0){const source=await getSheetRanges(SOURCE_ID,["'Data Copas'!A2:Q50000","'RAW SalesPerson'!AB2:AR50000"],email,key);const copas=source[0]||[];sourceRaw=source[1]||[];const fresh=buildClassificationMap([copas,sourceRaw]);for(const[k,v]of fresh)classMap.set(k,v);classificationRefreshed=true;parsed=parseSpwToNormalized(report.rows,classMap,"M238")}
+   timing.read=Date.now()-t;if(!parsed.rows.length)throw new Error("Tidak ada sales row valid yang dapat diproses dari SPW.");
+
+   t=Date.now();let validation=parsed.unknownClassification?"PENDING_CLASSIFICATION":"PENDING_AUDIT";if(sourceRaw.length){const uploadDates=new Set(parsed.rows.map(r=>r.date)),legacy=sourceRaw.map(rawToFast).filter(r=>uploadDates.has(r.date)&&r.id&&r.amount!==0&&!/VOUCHER/i.test(`${r.scheme} ${r.description}`));if(legacy.length){const fastTotal=parsed.rows.reduce((a,r)=>a+r.amount,0),legacyTotal=legacy.reduce((a,r)=>a+r.amount,0);validation=Math.abs(fastTotal-legacyTotal)<=1&&signature(aggregateDaily(parsed.rows,"MATCH"))===signature(aggregateDaily(legacy,"MATCH"))?"MATCH":"MISMATCH"}}
+   const cache=aggregateDaily(parsed.rows,validation),debug={deviceRows:parsed.rows.filter(r=>rowClass(r)==="DEVICE").length,accRows:parsed.rows.filter(r=>rowClass(r)==="ACC").length,vasRows:parsed.rows.filter(r=>rowClass(r)==="VAS").length,unclassifiedRows:parsed.rows.filter(r=>rowClass(r)==="UNCLASSIFIED").length};timing.cache=Date.now()-t;if(parsed.unclassified.length)console.warn("M238 fast sales UNCLASSIFIED",parsed.unclassified.slice(0,20));
+
+   const clears=["'SPW'!A1:C65536",`'${NORMALIZED}'!A2:Q50000`,`'${CACHE}'!A2:Z20000`];if(classificationRefreshed)clears.push(`'${CLASS_CACHE}'!A2:I20000`);t=Date.now();await batchClearRanges(MASTER_ID,clears,email,key);timing.clear=Date.now()-t;
+   const writes=[{range:"'SPW'!A1",values:report.rows},{range:`'${NORMALIZED}'!A2`,values:parsed.rows.map(normalizedValues)},{range:`'${CACHE}'!A2`,values:cache.map(cacheValues)}];if(classificationRefreshed)writes.push({range:`'${CLASS_CACHE}'!A2`,values:classificationValues(classMap)});t=Date.now();await batchWriteRanges(MASTER_ID,writes,email,key,"RAW");timing.write=Date.now()-t;
+   timing.total=Date.now()-started;const apiRequests=getGoogleSheetRequestCount()-apiStart;console.info("M238_PERF",{op:"upload-spw",timing,apiRequests,rows:report.rows.length,processed:parsed.rows.length,validation});
+   const warning=validation==="MISMATCH"?"Fast processing mismatch detected":validation==="PENDING_CLASSIFICATION"?`${parsed.unknownClassification} article belum memiliki mapping classification existing`:null;
+   return NextResponse.json({ok:true,fast:{ok:true,validation,warning},rows:report.rows.length,processedRows:parsed.rows.length,newRows:parsed.rows.length,updatedRows:0,duplicateSkipped:parsed.duplicateSkipped,processingMs:timing.total,masterSales,debug,performance:{...timing,apiRequests},message:"SPW berhasil diupload dan Daily Sales sudah diperbarui."},{headers:{"cache-control":"no-store"}})
+  }catch(fastError){
+   // Failure path preserves the existing SPW audit source without waiting for formula recalculation.
+   if(report){let t2=Date.now();await batchClearRanges(MASTER_ID,["'SPW'!A1:C65536"],email,key).catch(()=>undefined);timing.clear+=Date.now()-t2;t2=Date.now();await batchWriteRanges(MASTER_ID,[{range:"'SPW'!A1",values:report.rows}],email,key,"RAW").catch(()=>undefined);timing.write+=Date.now()-t2}
+   timing.total=Date.now()-started;const message=friendly(fastError),apiRequests=getGoogleSheetRequestCount()-apiStart;console.warn("M238_PERF",{op:"upload-spw",timing,apiRequests,error:message});return NextResponse.json({ok:true,fast:{ok:false,error:message},rows:reportRows,processingMs:timing.total,performance:{...timing,apiRequests},message:"SPW berhasil diupload, tetapi Fast Daily Sales gagal diproses. Data existing tetap aman."},{headers:{"cache-control":"no-store"}})
+  }
+ }catch(e){timing.total=Date.now()-started;return NextResponse.json({error:friendly(e),rows:reportRows,file:fileName,sheet:sheetName,masterSales,performance:{...timing,apiRequests:getGoogleSheetRequestCount()-apiStart}},{status:500})}
 }
