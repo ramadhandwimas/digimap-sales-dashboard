@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async rewrites() {
+    return [{ source: "/api/daily", destination: "/api/daily-fast" }];
+  },
 };
 
 export default nextConfig;
