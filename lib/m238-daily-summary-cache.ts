@@ -56,7 +56,67 @@ type CacheIndex = {
   updatedAt: string;
 };
 type SourceIndex = CacheIndex & { sheet: string };
-type BuildTiming = { fetch: number; aggregation: number; trafficJoin: number };
+type BuildTiming = {
+  googleSheetsRead: number;
+  normalization: number;
+  dailyAggregation: number;
+  trafficJoin: number;
+  cacheWrite: number;
+  rawRowsFetched: number;
+};
+
+export type DailySummaryRow = Pick<
+  DailySummaryCacheRow,
+  | "date"
+  | "amount"
+  | "target"
+  | "device"
+  | "accessories"
+  | "vas"
+  | "invoices"
+  | "qty"
+  | "upt"
+  | "cvr"
+  | "atv"
+  | "traffic"
+  | "mac"
+  | "ipad"
+  | "iphone"
+  | "watch"
+  | "airpods"
+  | "qoala"
+  | "telkomsel"
+  | "indosat"
+  | "xl"
+> & { achievement: number };
+
+export type DailySummaryTotals = {
+  amount: number;
+  target: number;
+  device: number;
+  accessories: number;
+  vas: number;
+  invoices: number;
+  qty: number;
+  upt: number;
+  atv: number;
+  traffic: number;
+  cvr: number;
+  avgPerDay: number;
+  mac: number;
+  ipad: number;
+  iphone: number;
+  watch: number;
+  airpods: number;
+  qoala: number;
+  telkomsel: number;
+  indosat: number;
+  xl: number;
+  bestDay: { date: string; amount: number } | null;
+  lowestDay: { date: string; amount: number } | null;
+  previousTotal: number;
+  comparisonPercent: number | null;
+};
 
 export const dailySummaryHeaders = [
   "Store",
@@ -88,8 +148,21 @@ export const dailySummaryHeaders = [
   "Updated At",
   "Source",
 ];
-const cacheIndexHeaders = ["Store", "Period", "Start Row", "End Row", "Updated At"];
-const sourceIndexHeaders = ["Store", "Period", "Sheet", "Start Row", "End Row", "Updated At"];
+const cacheIndexHeaders = [
+  "Store",
+  "Period",
+  "Start Row",
+  "End Row",
+  "Updated At",
+];
+const sourceIndexHeaders = [
+  "Store",
+  "Period",
+  "Sheet",
+  "Start Row",
+  "End Row",
+  "Updated At",
+];
 
 const text = (value: unknown) => String(value ?? "").trim();
 const upper = (value: unknown) => text(value).toUpperCase();
@@ -172,7 +245,8 @@ function cacheRowFromValues(values: unknown[]): DailySummaryCacheRow {
     indosat: number(values[24]),
     xl: number(values[25]),
     updatedAt: text(values[26]),
-    source: (text(values[27]) || "CACHE_REFRESH") as DailySummaryCacheRow["source"],
+    source: (text(values[27]) ||
+      "CACHE_REFRESH") as DailySummaryCacheRow["source"],
   };
 }
 
@@ -262,7 +336,10 @@ function rememberRows(rows: DailySummaryCacheRow[]) {
   }
   const at = Date.now();
   for (const [key, list] of periods)
-    serverCache.set(key, { at, rows: list.sort((a, b) => a.date.localeCompare(b.date)) });
+    serverCache.set(key, {
+      at,
+      rows: list.sort((a, b) => a.date.localeCompare(b.date)),
+    });
 }
 
 export async function readCachedSummaryPeriods(
@@ -312,7 +389,12 @@ export async function readCachedSummaryPeriods(
     sheetRange(CACHE_SHEET, entry.startRow, entry.endRow),
   );
   const blocks = ranges.length
-    ? await getSheetRanges(MASTER_ID, ranges, credentials.email, credentials.key)
+    ? await getSheetRanges(
+        MASTER_ID,
+        ranges,
+        credentials.email,
+        credentials.key,
+      )
     : [];
   const found = new Set<string>();
   indexes.forEach((entry, index) => {
@@ -401,7 +483,9 @@ export async function clearActiveSpwSummaryRows(credentials: Credentials) {
   );
   const rows = (storedValues ?? [])
     .map(cacheRowFromValues)
-    .filter((row) => row.date && !(row.store === STORE && row.source === "SPW"));
+    .filter(
+      (row) => row.date && !(row.store === STORE && row.source === "SPW"),
+    );
   const indexes = buildCacheIndex(rows);
   await batchClearRanges(
     MASTER_ID,
@@ -437,7 +521,8 @@ export async function clearActiveSpwSummaryRows(credentials: Credentials) {
 
 function rawToFast(values: unknown[], year: number): FastSalesRow {
   const date = isoDate(values[0]);
-  const store = year === 2025 ? upper(values[12]) || STORE : upper(values[15]) || STORE;
+  const store =
+    year === 2025 ? upper(values[12]) || STORE : upper(values[15]) || STORE;
   return {
     date,
     id: text(values[1]),
@@ -466,9 +551,15 @@ function classification(row: FastSalesRow) {
   if (scheme === "VAS") return "vas";
   const joined = upper(`${row.type} ${row.category} ${row.description}`);
   if (/QOALA|PROTEKSI|TELKOMSEL|INDOSAT|\bXL\b/.test(joined)) return "vas";
-  if (/IPHONE|IPAD|MACBOOK|APPLE WATCH|WATCH SERIES|WATCH SE|WATCH ULTRA/.test(joined))
+  if (
+    /IPHONE|IPAD|MACBOOK|APPLE WATCH|WATCH SERIES|WATCH SE|WATCH ULTRA/.test(
+      joined,
+    )
+  )
     return "device";
-  if (/AIRPODS|ACCESSOR|CASE|CABLE|ADAPTER|CHARGER|PENCIL|KEYBOARD/.test(joined))
+  if (
+    /AIRPODS|ACCESSOR|CASE|CABLE|ADAPTER|CHARGER|PENCIL|KEYBOARD/.test(joined)
+  )
     return "accessories";
   return "other";
 }
@@ -478,9 +569,11 @@ function product(row: FastSalesRow) {
   const joined = upper(`${row.type} ${row.category} ${row.description}`);
   if (joined.includes("AIRPODS")) return "airpods";
   if (joined.includes("IPHONE")) return "iphone";
-  if (joined.includes("MACBOOK") || /^MAC(?:BOOK)?$/.test(row.category)) return "mac";
+  if (joined.includes("MACBOOK") || /^MAC(?:BOOK)?$/.test(row.category))
+    return "mac";
   if (joined.includes("IPAD")) return "ipad";
-  if (/APPLE WATCH|WATCH SERIES|WATCH SE|WATCH ULTRA/.test(joined)) return "watch";
+  if (/APPLE WATCH|WATCH SERIES|WATCH SE|WATCH ULTRA/.test(joined))
+    return "watch";
   return "";
 }
 
@@ -515,7 +608,10 @@ function aggregateRows(
   const groups = new Map<string, FastSalesRow[]>();
   for (const row of sales) {
     if (!row.date || row.store !== STORE || row.qty <= 0) continue;
-    if (/VOUCHER/.test(upper(`${row.scheme} ${row.description} ${row.article}`))) continue;
+    if (
+      /VOUCHER/.test(upper(`${row.scheme} ${row.description} ${row.article}`))
+    )
+      continue;
     const list = groups.get(row.date) ?? [];
     list.push(row);
     groups.set(row.date, list);
@@ -598,8 +694,18 @@ function aggregateRows(
 async function readJoins(credentials: Credentials) {
   const started = Date.now();
   const [[targetRows], [trafficRows]] = await Promise.all([
-    getSheetRanges(SOURCE_ID, ["Config!W1:X120"], credentials.email, credentials.key),
-    getSheetRanges(MASTER_ID, ["'Traffic'!A2:B1000"], credentials.email, credentials.key),
+    getSheetRanges(
+      SOURCE_ID,
+      ["Config!W1:X120"],
+      credentials.email,
+      credentials.key,
+    ),
+    getSheetRanges(
+      MASTER_ID,
+      ["'Traffic'!A2:B1000"],
+      credentials.email,
+      credentials.key,
+    ),
   ]);
   const targets = new Map<string, number>();
   for (const row of targetRows ?? []) {
@@ -635,7 +741,10 @@ export async function buildSummaryFromRawValues(
   return buildSummaryFromFastSales(sales, credentials, source);
 }
 
-async function writeSourceIndexes(indexes: SourceIndex[], credentials: Credentials) {
+async function writeSourceIndexes(
+  indexes: SourceIndex[],
+  credentials: Credentials,
+) {
   await batchClearRanges(
     MASTER_ID,
     [`'${SOURCE_INDEX_SHEET}'!A2:F${INDEX_LIMIT}`],
@@ -677,8 +786,13 @@ async function ensureSourceIndexes(
   );
   const stored = (storedValues ?? [])
     .map(sourceIndexFromValues)
-    .filter((entry) => entry.period && entry.startRow >= 2 && entry.endRow >= entry.startRow);
-  const map = new Map(stored.map((entry) => [cacheKey(entry.store, entry.period), entry]));
+    .filter(
+      (entry) =>
+        entry.period && entry.startRow >= 2 && entry.endRow >= entry.startRow,
+    );
+  const map = new Map(
+    stored.map((entry) => [cacheKey(entry.store, entry.period), entry]),
+  );
   const missingPeriods = periods.filter(
     (period) => refreshYears || !map.has(cacheKey(STORE, period)),
   );
@@ -707,7 +821,10 @@ async function ensureSourceIndexes(
       credentials.key,
     );
     const samples = sampleRows
-      .map((row, index) => ({ row, date: isoDate(sampleBlocks[index]?.[0]?.[0]) }))
+      .map((row, index) => ({
+        row,
+        date: isoDate(sampleBlocks[index]?.[0]?.[0]),
+      }))
       .filter((sample) => sample.date);
     const candidateRanges = yearPeriods.map((period) => {
       const from = `${period}-01`;
@@ -753,16 +870,30 @@ async function ensureSourceIndexes(
         });
     });
     if (!samples.length) {
-      console.warn("M238_PERF", { op: "summary-source-index", sheet, year, warning: "no dated samples" });
+      console.warn("M238_PERF", {
+        op: "summary-source-index",
+        sheet,
+        year,
+        warning: "no dated samples",
+      });
     }
   }
-  const rebuiltKeys = new Set(missingPeriods.map((period) => cacheKey(STORE, period)));
+  const rebuiltKeys = new Set(
+    missingPeriods.map((period) => cacheKey(STORE, period)),
+  );
   const merged = [
-    ...stored.filter((entry) => !rebuiltKeys.has(cacheKey(entry.store, entry.period))),
+    ...stored.filter(
+      (entry) => !rebuiltKeys.has(cacheKey(entry.store, entry.period)),
+    ),
     ...rebuilt,
-  ].sort((a, b) => a.store.localeCompare(b.store) || a.period.localeCompare(b.period));
+  ].sort(
+    (a, b) =>
+      a.store.localeCompare(b.store) || a.period.localeCompare(b.period),
+  );
   await writeSourceIndexes(merged, credentials);
-  return new Map(merged.map((entry) => [cacheKey(entry.store, entry.period), entry]));
+  return new Map(
+    merged.map((entry) => [cacheKey(entry.store, entry.period), entry]),
+  );
 }
 
 async function rebuildPeriods(
@@ -770,10 +901,22 @@ async function rebuildPeriods(
   credentials: Credentials,
   refreshSourceIndex = false,
 ) {
-  const timing: BuildTiming = { fetch: 0, aggregation: 0, trafficJoin: 0 };
+  const timing: BuildTiming = {
+    googleSheetsRead: 0,
+    normalization: 0,
+    dailyAggregation: 0,
+    trafficJoin: 0,
+    cacheWrite: 0,
+    rawRowsFetched: 0,
+  };
   const wanted = [...new Set(periods.filter(validPeriod))];
-  const fetchStarted = Date.now();
-  const indexes = await ensureSourceIndexes(wanted, credentials, refreshSourceIndex);
+  let readStarted = Date.now();
+  const indexes = await ensureSourceIndexes(
+    wanted,
+    credentials,
+    refreshSourceIndex,
+  );
+  timing.googleSheetsRead += Date.now() - readStarted;
   const entries = wanted
     .map((period) => indexes.get(cacheKey(STORE, period)))
     .filter((entry): entry is SourceIndex => Boolean(entry));
@@ -785,28 +928,45 @@ async function rebuildPeriods(
   }
   const sales: FastSalesRow[] = [];
   for (const [sheet, sheetEntries] of grouped) {
+    readStarted = Date.now();
     const blocks = await getSheetRanges(
       SOURCE_ID,
-      sheetEntries.map((entry) => `'${sheet}'!A${entry.startRow}:S${entry.endRow}`),
+      sheetEntries.map(
+        (entry) => `'${sheet}'!A${entry.startRow}:S${entry.endRow}`,
+      ),
       credentials.email,
       credentials.key,
     );
+    timing.googleSheetsRead += Date.now() - readStarted;
+    timing.rawRowsFetched += blocks.reduce(
+      (sum, block) => sum + block.length,
+      0,
+    );
+    const normalizeStarted = Date.now();
     sheetEntries.forEach((entry, index) => {
       const year = Number(entry.period.slice(0, 4));
       for (const values of blocks[index] ?? []) {
         const row = rawToFast(values, year);
-        if (row.store === STORE && periodOf(row.date) === entry.period) sales.push(row);
+        if (row.store === STORE && periodOf(row.date) === entry.period)
+          sales.push(row);
       }
     });
+    timing.normalization += Date.now() - normalizeStarted;
   }
-  timing.fetch = Date.now() - fetchStarted;
   const joinStarted = Date.now();
   const joins = await readJoins(credentials);
   timing.trafficJoin = Date.now() - joinStarted;
   const aggregateStarted = Date.now();
-  const rows = aggregateRows(sales, joins.targets, joins.traffic, "CACHE_REFRESH");
-  timing.aggregation = Date.now() - aggregateStarted;
+  const rows = aggregateRows(
+    sales,
+    joins.targets,
+    joins.traffic,
+    "CACHE_REFRESH",
+  );
+  timing.dailyAggregation = Date.now() - aggregateStarted;
+  const writeStarted = Date.now();
   await upsertDailySummaryRows(rows, credentials);
+  timing.cacheWrite = Date.now() - writeStarted;
   return { rows, timing };
 }
 
@@ -842,6 +1002,99 @@ function diffDays(from: string, to: string) {
   );
 }
 
+function toDailyRows(rows: DailySummaryCacheRow[]): DailySummaryRow[] {
+  return rows.map((row) => ({
+    date: row.date,
+    amount: row.amount,
+    target: row.target,
+    achievement: row.target ? (row.amount / row.target) * 100 : 0,
+    device: row.device,
+    accessories: row.accessories,
+    vas: row.vas,
+    invoices: row.invoices,
+    qty: row.qty,
+    upt: row.upt,
+    cvr: row.cvr,
+    atv: row.atv,
+    traffic: row.traffic,
+    mac: row.mac,
+    ipad: row.ipad,
+    iphone: row.iphone,
+    watch: row.watch,
+    airpods: row.airpods,
+    qoala: row.qoala,
+    telkomsel: row.telkomsel,
+    indosat: row.indosat,
+    xl: row.xl,
+  }));
+}
+
+function summarizeDailyRows(
+  rows: DailySummaryRow[],
+  previousTotal: number,
+): DailySummaryTotals {
+  const totals = {
+    amount: 0,
+    target: 0,
+    device: 0,
+    accessories: 0,
+    vas: 0,
+    invoices: 0,
+    qty: 0,
+    traffic: 0,
+    mac: 0,
+    ipad: 0,
+    iphone: 0,
+    watch: 0,
+    airpods: 0,
+    qoala: 0,
+    telkomsel: 0,
+    indosat: 0,
+    xl: 0,
+  };
+  let bestDay: DailySummaryTotals["bestDay"] = null;
+  let lowestDay: DailySummaryTotals["lowestDay"] = null;
+  for (const row of rows) {
+    totals.amount += row.amount;
+    totals.target += row.target;
+    totals.device += row.device;
+    totals.accessories += row.accessories;
+    totals.vas += row.vas;
+    totals.invoices += row.invoices;
+    totals.qty += row.qty;
+    totals.traffic += row.traffic;
+    totals.mac += row.mac;
+    totals.ipad += row.ipad;
+    totals.iphone += row.iphone;
+    totals.watch += row.watch;
+    totals.airpods += row.airpods;
+    totals.qoala += row.qoala;
+    totals.telkomsel += row.telkomsel;
+    totals.indosat += row.indosat;
+    totals.xl += row.xl;
+    if (!bestDay || row.amount > bestDay.amount)
+      bestDay = { date: row.date, amount: row.amount };
+    if (!lowestDay || row.amount < lowestDay.amount)
+      lowestDay = { date: row.date, amount: row.amount };
+  }
+  const upt = totals.invoices ? totals.qty / totals.invoices : 0;
+  const atv = totals.invoices ? totals.amount / totals.invoices : 0;
+  const cvr = totals.traffic ? (totals.invoices / totals.traffic) * 100 : 0;
+  return {
+    ...totals,
+    upt,
+    atv,
+    cvr,
+    avgPerDay: rows.length ? totals.amount / rows.length : 0,
+    bestDay,
+    lowestDay,
+    previousTotal,
+    comparisonPercent: previousTotal
+      ? ((totals.amount - previousTotal) / previousTotal) * 100
+      : null,
+  };
+}
+
 export async function getDailySummaryRange(
   from: string,
   to: string,
@@ -855,32 +1108,51 @@ export async function getDailySummaryRange(
   const currentPeriods = periodsBetween(from, to);
   const previousPeriods = periodsBetween(previousStart, previousEnd);
   const wanted = [...new Set([...currentPeriods, ...previousPeriods])];
-  let buildTiming: BuildTiming = { fetch: 0, aggregation: 0, trafficJoin: 0 };
+  let buildTiming: BuildTiming = {
+    googleSheetsRead: 0,
+    normalization: 0,
+    dailyAggregation: 0,
+    trafficJoin: 0,
+    cacheWrite: 0,
+    rawRowsFetched: 0,
+  };
 
+  const cacheReadStarted = Date.now();
   let cached = await readCachedSummaryPeriods(wanted, credentials);
+  let cacheRead = Date.now() - cacheReadStarted;
   const rebuild = refresh ? wanted : cached.missing;
   if (rebuild.length) {
     const built = await rebuildPeriods(rebuild, credentials, refresh);
     buildTiming = built.timing;
+    const rereadStarted = Date.now();
     cached = await readCachedSummaryPeriods(wanted, credentials);
+    cacheRead += Date.now() - rereadStarted;
   }
-  const allRows = wanted.flatMap((period) => cached.rowsByPeriod.get(period) ?? []);
+  const allRows = wanted.flatMap(
+    (period) => cached.rowsByPeriod.get(period) ?? [],
+  );
   const rows = allRows
     .filter((row) => row.date >= from && row.date <= to)
     .sort((a, b) => a.date.localeCompare(b.date));
   const previousTotal = allRows
     .filter((row) => row.date >= previousStart && row.date <= previousEnd)
     .reduce((total, row) => total + row.amount, 0);
+  const summaryStarted = Date.now();
+  const dailyRows = toDailyRows(rows);
+  const summary = summarizeDailyRows(dailyRows, previousTotal);
+  const summaryCalculation = Date.now() - summaryStarted;
   return {
-    rows,
-    previousTotal,
+    dailyRows,
+    summary,
     previousStart,
     previousEnd,
     cacheStatus: rebuild.length ? "rebuilt" : "hit",
     missingPeriods: cached.missing,
     timing: {
       ...buildTiming,
-      response: Date.now() - totalStarted,
+      cacheRead,
+      summaryCalculation,
+      backendTotal: Date.now() - totalStarted,
     },
   };
 }
