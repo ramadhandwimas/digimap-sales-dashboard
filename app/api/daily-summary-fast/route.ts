@@ -12,10 +12,20 @@ export async function GET(request:NextRequest){
  if(!validDate(from)||!validDate(to)||from>to)return NextResponse.json({error:"Range tanggal tidak valid"},{status:400});
  try{
   const base=await getDailySummaryRange(from,to,{email,key},refresh);
-  const focus=await getDailySummaryFocus(from,to,{email,key});
+  let focus:Awaited<ReturnType<typeof getDailySummaryFocus>>;
+  let focusWarning="";
+  try{
+   focus=await getDailySummaryFocus(from,to,{email,key});
+  }catch(error){
+   focusWarning="LOB Focus sementara memakai data summary karena cache detail belum tersedia.";
+   console.warn("M238_DAILY_SUMMARY_FOCUS_FALLBACK",{from,to,error:error instanceof Error?error.message:"Unknown error"});
+   const vasByDate=Object.fromEntries(base.dailyRows.map(row=>[row.date,{qoalaQty:0,qoalaValue:row.qoala,telkomselQty:0,telkomselValue:row.telkomsel,xlQty:0,xlValue:row.xl,indosatQty:0,indosatValue:row.indosat}]));
+   const s=base.summary;
+   focus={data:{lob:{iphone:{target:null,achievement:s.iphone},macbook:{target:null,achievement:s.mac},ipad:{target:null,achievement:s.ipad},appleWatch:{target:null,achievement:s.watch},allDevice:{target:null,achievement:s.iphone+s.mac+s.ipad+s.watch}},types:[],configuredFocusKeys:[],vasByDate,cache:"FALLBACK",sourceRows:0},timing:{focusTotal:0,focusSourceRows:0}};
+  }
   const dailyRows=base.dailyRows.map(row=>{const vas=focus.data.vasByDate[row.date]||zeroVas;return{date:row.date,day:new Intl.DateTimeFormat("id-ID",{weekday:"short",timeZone:"Asia/Jakarta"}).format(new Date(`${row.date}T00:00:00Z`)),totalSales:row.amount,target:row.target,achievementPct:row.achievement,transaction:row.invoices,invoice:row.invoices,qty:row.qty,upt:row.upt,atv:row.atv,traffic:row.traffic,cvr:row.cvr,breakdown:{device:row.device,accessories:row.accessories,vas:row.vas},lob:{iphoneQty:row.iphone,macbookQty:row.mac,ipadQty:row.ipad,appleWatchQty:row.watch,airpodsQty:row.airpods},vas}});
   const s=base.summary,summary={totalSales:s.amount,target:s.target,achievementPct:s.target?s.amount/s.target*100:0,transaction:s.invoices,invoice:s.invoices,qty:s.qty,upt:s.upt,atv:s.atv,traffic:s.traffic,cvr:s.cvr,bestDay:s.bestDay,lowestDay:s.lowestDay,previousTotal:s.previousTotal,growthPct:s.comparisonPercent};
-  const body={from,to,summary,previous:{totalSales:s.previousTotal,growthPct:s.comparisonPercent},breakdown:{device:s.device,accessories:s.accessories,vas:s.vas,lob:{iphone:s.iphone,macbook:s.mac,ipad:s.ipad,appleWatch:s.watch,airpods:s.airpods}},lobFocus:focus.data,dailyRows,generatedAt:new Date().toISOString(),source:"DAILY SUMMARY CACHE",cache:{summary:base.cacheStatus,focus:focus.data.cache},performance:{...base.timing,...focus.timing,googleSheetRequests:0,rawRowsFetched:base.timing.rawRowsFetched+focus.data.sourceRows,rowsReturned:dailyRows.length,payloadBytes:0,apiResponse:0,totalLoad:0}};
+  const body={from,to,summary,previous:{totalSales:s.previousTotal,growthPct:s.comparisonPercent},breakdown:{device:s.device,accessories:s.accessories,vas:s.vas,lob:{iphone:s.iphone,macbook:s.mac,ipad:s.ipad,appleWatch:s.watch,airpods:s.airpods}},lobFocus:focus.data,focusWarning:focusWarning||undefined,dailyRows,generatedAt:new Date().toISOString(),source:"DAILY SUMMARY CACHE",cache:{summary:base.cacheStatus,focus:focus.data.cache},performance:{...base.timing,...focus.timing,googleSheetRequests:0,rawRowsFetched:base.timing.rawRowsFetched+focus.data.sourceRows,rowsReturned:dailyRows.length,payloadBytes:0,apiResponse:0,totalLoad:0}};
   const responseStarted=Date.now();let serialized=JSON.stringify(body);body.performance.googleSheetRequests=getGoogleSheetRequestCount()-apiStarted;body.performance.apiResponse=Date.now()-responseStarted;body.performance.totalLoad=Date.now()-started;body.performance.payloadBytes=Buffer.byteLength(serialized,"utf8");serialized=JSON.stringify(body);body.performance.payloadBytes=Buffer.byteLength(serialized,"utf8");serialized=JSON.stringify(body);
   console.info("M238_PERF",{op:"daily-summary-v3",from,to,cache:body.cache,rows:dailyRows.length,payloadBytes:body.performance.payloadBytes,timing:body.performance});
   return new NextResponse(serialized,{headers:{"content-type":"application/json; charset=utf-8","cache-control":refresh?"no-store":"private, max-age=60, stale-while-revalidate=300","server-timing":`total;dur=${body.performance.totalLoad},focus;dur=${body.performance.focusTotal||0}`,"x-daily-summary-rows":String(dailyRows.length),"x-daily-summary-bytes":String(body.performance.payloadBytes)}})
