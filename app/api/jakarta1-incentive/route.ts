@@ -30,6 +30,7 @@ const cache=new Map<string,Cached>();
 const s=(v:unknown)=>String(v??"").trim();
 const up=(v:unknown)=>s(v).toUpperCase();
 const normalizeName=(v:unknown)=>up(v).replace(/\s+/g," ").trim();
+const containsVoucher=(row:Raw)=>row.some(v=>up(v).includes("VOUCHER"));
 function n(v:unknown){if(typeof v==="number")return Number.isFinite(v)?v:0;const x=Number(s(v).replace(/\s/g,"").replace(/\.(?=\d{3}(?:\D|$))/g,"").replace(",",".").replace(/[^0-9.-]/g,""));return Number.isFinite(x)?x:0}
 function iso(v:unknown){if(typeof v==="number"&&v>20000)return new Date(Date.UTC(1899,11,30)+v*86400000).toISOString().slice(0,10);const x=s(v);let m=x.match(/^(\d{2})[-/](\d{2})[-/](\d{4})/);if(m)return`${m[3]}-${m[2]}-${m[1]}`;m=x.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[1]}-${m[2]}-${m[3]}`:""}
 function accessoryTier(price:number):{key:TierKey;rate:number}{if(price<=599000)return{key:"0",rate:5000};if(price<=2000000)return{key:"1",rate:10000};if(price<=4000000)return{key:"2",rate:20000};if(price<=6000000)return{key:"3",rate:40000};return{key:"4",rate:80000}}
@@ -59,6 +60,7 @@ async function calculate(period:string,force:boolean,email:string,key:string){
   const seen=new Set<string>();
   for(const r of rows.slice(1)){
    const date=iso(r[ix.date]);if(!date.startsWith(period))continue;
+   if(containsVoucher(r))continue;
    const staffId=s(r[ix.staffId]).replace(/\.0$/,"");const staffName=s(r[ix.staffName]);const exactName=normalizeName(staffName);if(!staffId&&!exactName)continue;
    const idKey=staffId?`NIK:${staffId}`:`NAME:${exactName}`,rowKey=`${store}|${idKey}`,displayName=staffName||staffId;
    let out=byKey.get(rowKey);if(!out){out=fresh(rowKey,staffId||exactName,displayName,store);byKey.set(rowKey,out)}
