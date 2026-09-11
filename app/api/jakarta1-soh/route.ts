@@ -12,23 +12,35 @@ let cache:{at:number;data:Parsed}|null=null;
 function n(v:unknown){if(typeof v==="number")return Number.isFinite(v)?v:0;const s=String(v??"").trim().replace(/\./g,"").replace(",",".").replace(/[^0-9.-]/g,"");const x=Number(s);return Number.isFinite(x)?x:0}
 function dateKey(v:unknown){if(typeof v==="number"&&v>20000){const d=new Date(Date.UTC(1899,11,30)+v*86400000);return d.toISOString().slice(0,10)}const s=String(v??"").trim();let m=s.match(/^(\d{2})[-/](\d{2})[-/](\d{4})/);if(m)return `${m[3]}-${m[2]}-${m[1]}`;m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[1]}-${m[2]}-${m[3]}`:""}
 function bucket(typeRaw:string,descRaw:string,groupRaw:string,categoryRaw:string,brandRaw:string){
- const type=typeRaw.toUpperCase(),desc=descRaw.toUpperCase(),group=groupRaw.toUpperCase(),category=categoryRaw.toUpperCase(),brand=brandRaw.toUpperCase();
+ const type=typeRaw.trim().toUpperCase(),desc=descRaw.trim().toUpperCase(),group=groupRaw.trim().toUpperCase(),category=categoryRaw.trim().toUpperCase(),brand=brandRaw.trim().toUpperCase();
  const combined=`${type} ${desc} ${group} ${category}`;
- // Priority 1: exclude all DEMO rows before any product classification.
+
+ // 1) DEMO is excluded from the operational SOH view before all other rules.
  if(combined.includes("DEMO"))return"excluded";
- // Priority 2: Devices — one article can only land in one device tab.
- if(type.includes("PHONE")||desc.includes("IPHONE"))return"iphone";
- if(type.includes("TABLET")||desc.includes("IPAD"))return"ipad";
- if(/NOTEBOOK|LAPTOP|DESKTOP|COMPUTER/.test(type)||/MACBOOK|IMAC|MAC MINI|MAC STUDIO|MAC PRO/.test(desc))return"mac";
- if(type.includes("WATCH")||desc.includes("APPLE WATCH")||/^AW\s/.test(desc))return"watch";
- // Priority 3: Apple accessories. Generic Pencil/Keyboard terms require Apple brand;
- // AirPods and explicit Apple/Magic product names are treated as Apple accessories.
- const isAirPods=/AIRPODS?/.test(desc)||/AIRPODS?/.test(type);
- const explicitAppleAccessory=/APPLE\s+PENCIL|APPLE\s+KEYBOARD|MAGIC\s+KEYBOARD/.test(desc);
- const genericAppleAccessory=brand==="APPLE"&&(/PENCIL|STYLUS|KEY ?BOARD/.test(`${desc} ${type}`));
- if(isAirPods||explicitAppleAccessory||genericAppleAccessory)return"apple-accessory";
- // Priority 4: every remaining Accessories row goes to third-party Accessories.
- if(group==="ACCESSORIES")return"accessories";
+
+ // Product/source fields are authoritative for deciding whether a row is an accessory.
+ // Description is deliberately NOT used as the sole basis for device classification.
+ const sourceAccessory=/ACCESSOR/.test(group)||/ACCESSOR/.test(category)||/ACCESSOR/.test(type)||/CASE|COVER|FOLIO|SLEEVE|BAND|STRAP|WALLET|CHARGER|ADAPTER|CABLE|HUB|POWER\s?BANK|SCREEN|PROTECTOR|TEMPERED|HEADSET|EARPHONE|STYLUS|KEY ?BOARD/.test(type);
+
+ // 2) Actual devices only. A row marked as accessory by source fields can never become a device,
+ // even when its Description contains IPHONE/IPAD/MACBOOK/APPLE WATCH.
+ if(!sourceAccessory){
+  if(/(^|\b)(PHONE|SMARTPHONE|MOBILE PHONE)(\b|$)/.test(type)||/(^|\b)IPHONE(\b|$)/.test(category)||/(^|\b)IPHONE(\b|$)/.test(group))return"iphone";
+  if(/(^|\b)(TABLET)(\b|$)/.test(type)||/(^|\b)IPAD(\b|$)/.test(category)||/(^|\b)IPAD(\b|$)/.test(group))return"ipad";
+  if(/NOTEBOOK|LAPTOP|COMPUTER/.test(type)||/MACBOOK/.test(category)||/MACBOOK/.test(group))return"mac";
+  if(/(^|\b)(WATCH|SMARTWATCH)(\b|$)/.test(type)||/APPLE WATCH/.test(category)||/APPLE WATCH/.test(group))return"watch";
+ }
+
+ // 3) Apple accessories: AirPods / Pencil / Keyboard only.
+ const appleAccessoryName=/AIRPODS?/.test(desc)||/APPLE\s+PENCIL/.test(desc)||/MAGIC\s+KEYBOARD|APPLE\s+KEYBOARD/.test(desc);
+ const appleAccessoryType=/AIRPODS?|STYLUS|PENCIL|KEY ?BOARD/.test(type);
+ const appleBrandAccessory=brand==="APPLE"&&(appleAccessoryName||appleAccessoryType);
+ if(appleAccessoryName||appleBrandAccessory)return"apple-accessory";
+
+ // 4) Remaining accessories go to the general Accessories tab.
+ // Common accessory names are accepted here only as a final fallback, never as a device signal.
+ const accessoryByName=/CASE|COVER|FOLIO|SLEEVE|BAND|STRAP|WALLET|CHARGER|ADAPTER|CABLE|HUB|POWER\s?BANK|SCREEN\s*PROTECTOR|TEMPERED|SOUNDCORE|HEADSET|EARPHONE/.test(desc);
+ if(sourceAccessory||group==="ACCESSORIES"||category==="ACCESSORIES"||accessoryByName)return"accessories";
  return"other";
 }
 function todayJakarta(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Jakarta",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date())}
