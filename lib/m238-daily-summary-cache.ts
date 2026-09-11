@@ -282,13 +282,23 @@ export async function readCachedSummaryPeriods(
   }
   if (!missing.length) return { rowsByPeriod: result, missing: [] as string[] };
 
-  await ensureCacheSheets(credentials);
-  const [indexValues] = await getSheetRanges(
-    MASTER_ID,
-    [`'${CACHE_INDEX_SHEET}'!A2:E${INDEX_LIMIT}`],
-    credentials.email,
-    credentials.key,
-  );
+  let indexValues: unknown[][] = [];
+  try {
+    [indexValues] = await getSheetRanges(
+      MASTER_ID,
+      [`'${CACHE_INDEX_SHEET}'!A2:E${INDEX_LIMIT}`],
+      credentials.email,
+      credentials.key,
+    );
+  } catch {
+    await ensureCacheSheets(credentials);
+    [indexValues] = await getSheetRanges(
+      MASTER_ID,
+      [`'${CACHE_INDEX_SHEET}'!A2:E${INDEX_LIMIT}`],
+      credentials.email,
+      credentials.key,
+    );
+  }
   const indexes = (indexValues ?? [])
     .map(cacheIndexFromValues)
     .filter(
@@ -669,51 +679,86 @@ async function ensureSourceIndexes(
     .map(sourceIndexFromValues)
     .filter((entry) => entry.period && entry.startRow >= 2 && entry.endRow >= entry.startRow);
   const map = new Map(stored.map((entry) => [cacheKey(entry.store, entry.period), entry]));
-  const missingYears = [
-    ...new Set(
-      periods
-        .filter((period) => refreshYears || !map.has(cacheKey(STORE, period)))
-        .map((period) => Number(period.slice(0, 4))),
-    ),
-  ];
-  if (!missingYears.length) return map;
+  const missingPeriods = periods.filter(
+    (period) => refreshYears || !map.has(cacheKey(STORE, period)),
+  );
+  if (!missingPeriods.length) return map;
 
   const rebuilt: SourceIndex[] = [];
-  for (const year of missingYears) {
+  const periodsByYear = new Map<number, string[]>();
+  for (const period of missingPeriods) {
+    const year = Number(period.slice(0, 4));
+    const list = periodsByYear.get(year) ?? [];
+    list.push(period);
+    periodsByYear.set(year, list);
+  }
+  for (const [year, yearPeriods] of periodsByYear) {
     const sheet = year === 2025 ? "Data Copas Archive 2025" : "Data Copas";
     const end = year === 2025 ? 32755 : 50000;
     const storeColumn = year === 2025 ? "M" : "P";
-    const [dates, stores] = await getSheetRanges(
+    const step = 500;
+    const sampleRows: number[] = [];
+    for (let row = 2; row <= end; row += step) sampleRows.push(row);
+    if (sampleRows.at(-1) !== end) sampleRows.push(end);
+    const sampleBlocks = await getSheetRanges(
       SOURCE_ID,
-      [`'${sheet}'!A2:A${end}`, `'${sheet}'!${storeColumn}2:${storeColumn}${end}`],
+      sampleRows.map((row) => `'${sheet}'!A${row}:A${row}`),
       credentials.email,
       credentials.key,
     );
-    const found = new Map<string, SourceIndex>();
-    for (let index = 0; index < dates.length; index++) {
-      const date = isoDate(dates[index]?.[0]);
-      if (!date || Number(date.slice(0, 4)) !== year) continue;
-      const store = upper(stores[index]?.[0]) || STORE;
-      if (store !== STORE) continue;
-      const period = periodOf(date);
-      const sheetRow = index + 2;
-      const current = found.get(period);
-      if (!current)
-        found.set(period, {
-          store,
-          period,
+    const samples = sampleRows
+      .map((row, index) => ({ row, date: isoDate(sampleBlocks[index]?.[0]?.[0]) }))
+      .filter((sample) => sample.date);
+    const candidateRanges = yearPeriods.map((period) => {
+      const from = `${period}-01`;
+      const to = `${period}-31`;
+      const before = samples.filter((sample) => sample.date < from).at(-1);
+      const after = samples.find((sample) => sample.date > to);
+      return {
+        period,
+        start: before?.row ?? 2,
+        end: after?.row ?? Math.min(end, (samples.at(-1)?.row ?? 2) + step),
+      };
+    });
+    const candidateBlocks = await getSheetRanges(
+      SOURCE_ID,
+      candidateRanges.flatMap((candidate) => [
+        `'${sheet}'!A${candidate.start}:A${candidate.end}`,
+        `'${sheet}'!${storeColumn}${candidate.start}:${storeColumn}${candidate.end}`,
+      ]),
+      credentials.email,
+      credentials.key,
+    );
+    candidateRanges.forEach((candidate, candidateIndex) => {
+      const dates = candidateBlocks[candidateIndex * 2] ?? [];
+      const stores = candidateBlocks[candidateIndex * 2 + 1] ?? [];
+      let startRow = 0;
+      let endRow = 0;
+      for (let index = 0; index < dates.length; index++) {
+        const date = isoDate(dates[index]?.[0]);
+        const store = upper(stores[index]?.[0]) || STORE;
+        if (periodOf(date) !== candidate.period || store !== STORE) continue;
+        const sheetRow = candidate.start + index;
+        if (!startRow) startRow = sheetRow;
+        endRow = sheetRow;
+      }
+      if (startRow)
+        rebuilt.push({
+          store: STORE,
+          period: candidate.period,
           sheet,
-          startRow: sheetRow,
-          endRow: sheetRow,
+          startRow,
+          endRow,
           updatedAt: new Date().toISOString(),
         });
-      else current.endRow = sheetRow;
+    });
+    if (!samples.length) {
+      console.warn("M238_PERF", { op: "summary-source-index", sheet, year, warning: "no dated samples" });
     }
-    rebuilt.push(...found.values());
   }
-  const rebuiltYears = new Set(missingYears);
+  const rebuiltKeys = new Set(missingPeriods.map((period) => cacheKey(STORE, period)));
   const merged = [
-    ...stored.filter((entry) => !rebuiltYears.has(Number(entry.period.slice(0, 4)))),
+    ...stored.filter((entry) => !rebuiltKeys.has(cacheKey(entry.store, entry.period))),
     ...rebuilt,
   ].sort((a, b) => a.store.localeCompare(b.store) || a.period.localeCompare(b.period));
   await writeSourceIndexes(merged, credentials);
