@@ -6,7 +6,7 @@ import {createPortal} from "react-dom";
 type StoreStatus={code:string;lastUpdate:string;updatedToday:boolean};
 type SohRow={article:string;description:string;brand:string;category:string;productGroup:string;type:string;barcode:string;stocks:Record<string,number>;totalArea:number};
 type Payload={source:string;sheet:string;category:string;today:string;refreshedAt:string;movementAvailable:boolean;stores:StoreStatus[];rows:SohRow[];error?:string};
-const tabs=[['iphone','iPhone'],['ipad','iPad'],['mac','Mac'],['watch','Apple Watch'],['audio-accessory','AirPods / Pencil / Keyboard']] as const;
+const tabs=[['iphone','iPhone'],['mac','MacBook'],['ipad','iPad'],['watch','Apple Watch'],['apple-accessory','Aksesoris Apple'],['accessories','Aksesoris']] as const;
 const num=new Intl.NumberFormat('id-ID');
 const fmtDate=(v:string)=>{if(!v)return'—';const m=v.match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?`${m[3]}/${m[2]}/${m[1]}`:v};
 const fmtTime=(v:string)=>{try{return new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(v))}catch{return v}};
