@@ -10,6 +10,7 @@ const s=(v:unknown)=>String(v??"").trim()
 const up=(v:unknown)=>s(v).toUpperCase()
 function iso(v:unknown){const x=s(v);if(/^\d{2}-\d{2}-\d{4}$/.test(x)){const[d,m,y]=x.split("-");return`${y}-${m}-${d}`}if(/^\d{4}-\d{2}-\d{2}/.test(x))return x.slice(0,10);if(typeof v==="number")return new Date(Date.UTC(1899,11,30)+v*86400000).toISOString().slice(0,10);return""}
 function monthLabel(period:string){return new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(`${period}-01T00:00:00Z`))}
+function salesSheet(period:string){return period.startsWith("2025-")?"Data Copas Archive":"Data Copas"}
 
 type Row={date:string;id:string;name:string;invoice:string;article:string;description:string;type:string;qty:number;amount:number;category:string;brand:string;core:string;scheme:string;vendor:string}
 function parse(r:unknown[]):Row{return{date:iso(r[0]),id:s(r[1]),name:s(r[2]),invoice:s(r[3]),article:s(r[4]),description:s(r[5]),type:s(r[6]),qty:n(r[7]),amount:n(r[8]),category:up(r[9]),brand:up(r[10]),core:up(r[11]),scheme:up(r[12]),vendor:up(r[13])}}
@@ -18,11 +19,7 @@ function kind(r:Row){const text=`${r.category} ${up(r.type)} ${up(r.description)
 function product(r:Row){const t=`${r.category} ${up(r.type)} ${up(r.description)}`;if(t.includes("MAC"))return"mac";if(t.includes("IPHONE"))return"iphone";if(t.includes("IPAD"))return"ipad";if(t.includes("APPLE WATCH")||/\bAW\b/.test(t))return"watch";if(t.includes("AIRPODS"))return"airpods";return"other"}
 function vasMatch(r:Row,terms:string[]){const text=`${r.article} ${r.brand} ${r.vendor} ${r.description}`.toUpperCase();return kind(r)==="vas"&&terms.some(q=>text.includes(q))}
 function positiveQty(r:Row){return Math.max(0,r.qty)}
-function lobEligible(r:Row,p:string){
-  if(product(r)!==p)return false
-  if(p==="airpods")return kind(r)==="accessories"&&(/APPLE/.test(r.brand)||/APPLE/.test(r.vendor)||/AIRPODS/.test(r.category))
-  return kind(r)==="device"
-}
+function lobEligible(r:Row,p:string){if(product(r)!==p)return false;if(p==="airpods")return kind(r)==="accessories"&&(/APPLE/.test(r.brand)||/APPLE/.test(r.vendor)||/AIRPODS/.test(r.category));return kind(r)==="device"}
 function lobMetric(rows:Row[],p:string):LobMetric{return rows.filter(r=>lobEligible(r,p)).reduce((a,r)=>({qty:a.qty+positiveQty(r),amount:a.amount+r.amount}),{qty:0,amount:0})}
 function vasMetric(rows:Row[],terms:string[]):VasMetric{return rows.filter(r=>vasMatch(r,terms)).reduce((a,r)=>({qty:a.qty+positiveQty(r),amount:a.amount+r.amount}),{qty:0,amount:0})}
 function accIncentive(unitPrice:number){return unitPrice<=1315000?15000:30000}
@@ -43,69 +40,38 @@ function daily(rows:Row[]):DailyMetric[]{return[...new Set(rows.filter(valid).ma
 function emptyMetric(x:Staff,target:Target):StaffMetric{return{id:x.id,name:x.name,share:x.share,amount:0,device:0,accessories:0,vas:0,qty:0,invoices:0,upt:0,atv:0,targets:{amount:target.amount*x.share,device:target.device*x.share,accessories:target.accessories*x.share,vas:target.vas*x.share},lob:{mac:{qty:0,amount:0},iphone:{qty:0,amount:0},ipad:{qty:0,amount:0},watch:{qty:0,amount:0},airpods:{qty:0,amount:0}},vasDetail:{qoala:{qty:0,amount:0},telkomsel:{qty:0,amount:0},indosat:{qty:0,amount:0},xl:{qty:0,amount:0},icloud:{qty:0,amount:0}},incentive:{mac:0,iphone:0,ipad:0,watch:0,qoala:0,accessories:0,total:0}}}
 function demo(period:string):M238Payload{const target={period,amount:15500000000,device:13369511827,accessories:1159401355,vas:971086818},staff=[{id:"22000134",name:"Wijaya",position:"Store Trainer",share:.06},{id:"25021585",name:"Andhea Fitri",position:"Sales Assistant",share:.11}];return{mode:"demo",generatedAt:new Date().toISOString(),latestDate:`${period}-01`,period,staff,target,dailyStaff:staff.map(x=>emptyMetric(x,target)),monthlyStaff:staff.map(x=>emptyMetric(x,target)),daily:[],dailySchedule:[],summary:{amount:0,device:0,accessories:0,vas:0,invoices:0,qty:0,upt:0,atv:0,estimate:0,point:0,timegone:0}}}
 
-async function readSchedule(latestDate:string,email:string,key:string):Promise<StaffSchedule[]>{
-  try{
-    const[rows]=await getSheetRanges(MASTER_DATA_ID,["'Dashboard Schedule Snapshot'!A2:G3204"],email,key)
-    const map=new Map<string,{status:string;created:string}>()
-    for(const r of rows){if(iso(r[0])!==latestDate)continue;const id=s(r[1]),status=up(r[5]),created=s(r[6]);if(!id)continue;const old=map.get(id);if(!old||created>=old.created)map.set(id,{status,created})}
-    return[...map.entries()].map(([id,v])=>({id,status:v.status}))
-  }catch{return[]}
-}
+async function readSchedule(latestDate:string,email:string,key:string):Promise<StaffSchedule[]>{try{const[rows]=await getSheetRanges(MASTER_DATA_ID,["'Dashboard Schedule Snapshot'!A2:G3204"],email,key);const map=new Map<string,{status:string;created:string}>();for(const r of rows){if(iso(r[0])!==latestDate)continue;const id=s(r[1]),status=up(r[5]),created=s(r[6]);if(!id)continue;const old=map.get(id);if(!old||created>=old.created)map.set(id,{status,created})}return[...map.entries()].map(([id,v])=>({id,status:v.status}))}catch{return[]}}
 
 const CACHE_TTL=60*1000
 const SOURCE_CACHE_TTL=2*60*1000
 const DAILY_SOURCE_TTL=60*1000
 const responseCache=new Map<string,{expiresAt:number;data:M238Payload}>()
 const pendingRequests=new Map<string,Promise<M238Payload>>()
+type SourceIndex={configRows:unknown[][];dateRows:unknown[][];rawDateRows:unknown[][];sourceSheet:string}
+const sourceIndexCache=new Map<string,{expiresAt:number;data:SourceIndex}>()
+const sourceIndexRequests=new Map<string,Promise<SourceIndex>>()
 
-type SourceIndex={configRows:unknown[][];dateRows:unknown[][];rawDateRows:unknown[][]}
-let sourceIndexCache:{expiresAt:number;data:SourceIndex}|undefined
-let sourceIndexRequest:Promise<SourceIndex>|undefined
-
-async function getSourceIndex(email:string,key:string,force=false):Promise<SourceIndex>{
-  if(!force&&sourceIndexCache&&sourceIndexCache.expiresAt>Date.now())return sourceIndexCache.data
-  if(!force&&sourceIndexRequest)return sourceIndexRequest
-  const request=getSheetRanges(SHEET_ID,["Config!A1:AG55","'Data Copas'!A2:A","'RAW SalesPerson'!AB2:AB"],email,key).then(([configRows=[],dateRows=[],rawDateRows=[]])=>{
-    const data={configRows,dateRows,rawDateRows}
-    sourceIndexCache={data,expiresAt:Date.now()+SOURCE_CACHE_TTL}
-    return data
-  })
-  sourceIndexRequest=request
-  try{return await request}finally{if(sourceIndexRequest===request)sourceIndexRequest=undefined}
+async function getSourceIndex(period:string,email:string,key:string,force=false):Promise<SourceIndex>{
+  const sourceSheet=salesSheet(period),cacheKey=`${email}:${sourceSheet}`,cached=sourceIndexCache.get(cacheKey)
+  if(!force&&cached&&cached.expiresAt>Date.now())return cached.data
+  if(!force&&sourceIndexRequests.has(cacheKey))return sourceIndexRequests.get(cacheKey)!
+  const request=getSheetRanges(SHEET_ID,["Config!A1:AG55",`'${sourceSheet}'!A2:A`,"'RAW SalesPerson'!AB2:AB"],email,key).then(([configRows=[],dateRows=[],rawDateRows=[]])=>{const data={configRows,dateRows,rawDateRows,sourceSheet};sourceIndexCache.set(cacheKey,{data,expiresAt:Date.now()+SOURCE_CACHE_TTL});return data})
+  sourceIndexRequests.set(cacheKey,request)
+  try{return await request}finally{if(sourceIndexRequests.get(cacheKey)===request)sourceIndexRequests.delete(cacheKey)}
 }
 
 type DailySource={latestDate:string;rows:unknown[][];schedule:StaffSchedule[]}
 let dailySourceCache:{cacheKey:string;expiresAt:number;data:DailySource}|undefined
 let dailySourceRequest:{cacheKey:string;request:Promise<DailySource>}|undefined
-
-async function getDailySource(rawDateRows:unknown[][],email:string,key:string,force=false):Promise<DailySource>{
-  const rawDates=rawDateRows.map(r=>iso(r[0])).filter(Boolean),latestDate=rawDates.sort().at(-1)||new Date().toISOString().slice(0,10),cacheKey=`${email}:${latestDate}`
-  if(!force&&dailySourceCache?.cacheKey===cacheKey&&dailySourceCache.expiresAt>Date.now())return dailySourceCache.data
-  if(!force&&dailySourceRequest?.cacheKey===cacheKey)return dailySourceRequest.request
-  const dailyMatches:number[]=[];rawDateRows.forEach((r,i)=>{if(iso(r[0])===latestDate)dailyMatches.push(i+2)})
-  const range=dailyMatches.length?`'RAW SalesPerson'!AB${dailyMatches[0]}:AR${dailyMatches.at(-1)}`:""
-  const request=Promise.all([
-    range?getSheetRanges(SHEET_ID,[range],email,key).then(x=>x[0]??[]):Promise.resolve([] as unknown[][]),
-    readSchedule(latestDate,email,key)
-  ]).then(([rows,schedule])=>{
-    const data={latestDate,rows,schedule}
-    dailySourceCache={cacheKey,data,expiresAt:Date.now()+DAILY_SOURCE_TTL}
-    return data
-  })
-  dailySourceRequest={cacheKey,request}
-  try{return await request}finally{if(dailySourceRequest?.request===request)dailySourceRequest=undefined}
-}
+async function getDailySource(rawDateRows:unknown[][],email:string,key:string,force=false):Promise<DailySource>{const rawDates=rawDateRows.map(r=>iso(r[0])).filter(Boolean),latestDate=rawDates.sort().at(-1)||new Date().toISOString().slice(0,10),cacheKey=`${email}:${latestDate}`;if(!force&&dailySourceCache?.cacheKey===cacheKey&&dailySourceCache.expiresAt>Date.now())return dailySourceCache.data;if(!force&&dailySourceRequest?.cacheKey===cacheKey)return dailySourceRequest.request;const dailyMatches:number[]=[];rawDateRows.forEach((r,i)=>{if(iso(r[0])===latestDate)dailyMatches.push(i+2)});const range=dailyMatches.length?`'RAW SalesPerson'!AB${dailyMatches[0]}:AR${dailyMatches.at(-1)}`:"";const request=Promise.all([range?getSheetRanges(SHEET_ID,[range],email,key).then(x=>x[0]??[]):Promise.resolve([] as unknown[][]),readSchedule(latestDate,email,key)]).then(([rows,schedule])=>{const data={latestDate,rows,schedule};dailySourceCache={cacheKey,data,expiresAt:Date.now()+DAILY_SOURCE_TTL};return data});dailySourceRequest={cacheKey,request};try{return await request}finally{if(dailySourceRequest?.request===request)dailySourceRequest=undefined}}
 
 async function buildPayload(period:string,email:string,key:string,force=false):Promise<M238Payload>{
-  const{configRows,dateRows,rawDateRows}=await getSourceIndex(email,key,force)
+  const{configRows,dateRows,rawDateRows,sourceSheet}=await getSourceIndex(period,email,key,force)
   const label=monthLabel(period).toLowerCase(),targetRow=configRows.find(r=>s(r[16]).toLowerCase()===label),target:Target={period,amount:n(targetRow?.[17]),device:n(targetRow?.[18]),accessories:n(targetRow?.[19]),vas:n(targetRow?.[20])}
   const staff:Staff[]=configRows.slice(27,45).filter(r=>s(r[7])===STORE&&s(r[8])&&s(r[9])&&!/SUPERVISOR|ONLINE/i.test(s(r[10]))).map(r=>({id:s(r[8]),name:s(r[9]),position:s(r[10]),share:n(r[11])}))
   const matching:number[]=[];dateRows.forEach((r,i)=>{if(iso(r[0]).startsWith(period))matching.push(i+2)})
-  const monthRange=matching.length?`'Data Copas'!A${matching[0]}:S${matching.at(-1)}`:""
-  const[monthRows,dailySource]=await Promise.all([
-    monthRange?getSheetRanges(SHEET_ID,[monthRange],email,key).then(x=>x[0]??[]):Promise.resolve([] as unknown[][]),
-    getDailySource(rawDateRows,email,key,force)
-  ])
+  const monthRange=matching.length?`'${sourceSheet}'!A${matching[0]}:S${matching.at(-1)}`:""
+  const[monthRows,dailySource]=await Promise.all([monthRange?getSheetRanges(SHEET_ID,[monthRange],email,key).then(x=>x[0]??[]):Promise.resolve([] as unknown[][]),getDailySource(rawDateRows,email,key,force)])
   const parsed=monthRows.map(parse).filter(r=>r.date.startsWith(period)),current=dailySource.rows.map(parse),monthlyStaff=staff.map(p=>aggregate(parsed,p,target)),latestDate=dailySource.latestDate
   const weekDay=new Intl.DateTimeFormat("id-ID",{weekday:"long",timeZone:"Asia/Jakarta"}).format(new Date(`${latestDate}T00:00:00Z`)).toLowerCase(),dailyTargetRow=configRows.find(r=>s(r[22]).toLowerCase()===weekDay),dailyTarget={period:latestDate,amount:n(dailyTargetRow?.[23]),device:n(dailyTargetRow?.[23]),accessories:n(dailyTargetRow?.[24]),vas:n(dailyTargetRow?.[25])},dailyStaff=staff.map(p=>aggregate(current,p,dailyTarget)),days=daily(parsed),dailySchedule=dailySource.schedule
   const total=days.reduce((a,d)=>({amount:a.amount+d.amount,device:a.device+d.device,accessories:a.accessories+d.accessories,vas:a.vas+d.vas,invoices:a.invoices+d.invoices,qty:a.qty+d.qty}),{amount:0,device:0,accessories:0,vas:0,invoices:0,qty:0}),lastDay=Math.max(1,...days.map(d=>Number(d.date.slice(8,10)))),dim=new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate(),point=Math.min(target.device?total.device/target.device*60:0,60)+Math.min(target.accessories?total.accessories/target.accessories*30:0,30)+Math.min(target.vas?total.vas/target.vas*10:0,10)
