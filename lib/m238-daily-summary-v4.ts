@@ -1,3 +1,4 @@
+import {unstable_cache} from "next/cache";
 import {getSheetRanges} from "@/lib/google-sheets";
 
 const SOURCE_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
@@ -42,6 +43,30 @@ export function resolveSalesSource(year:number):Source{
   throw new Error(`Year ${year} belum didukung Daily Summary`);
 }
 
+function credentialsFromEnv():Cred{
+  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const key=process.env.GOOGLE_PRIVATE_KEY;
+  if(!email||!key)throw new Error("Google Sheets belum dikonfigurasi");
+  return{email,key};
+}
+
+async function readDateColumn(sheet:string,dateCol:string,c:Cred){
+  const [rows]=await getSheetRanges(SOURCE_ID,[`'${sheet}'!${dateCol}2:${dateCol}`],c.email,c.key);
+  return(rows??[]).map(r=>iso(r?.[0]));
+}
+
+const sharedArchiveDateIndex=unstable_cache(
+  async(dateCol:string)=>readDateColumn("Data Copas Archive 2025",dateCol,credentialsFromEnv()),
+  ["m238-daily-summary-v4","date-index","archive-2025"],
+  {revalidate:12*60*60},
+);
+
+const sharedCurrentDateIndex=unstable_cache(
+  async(dateCol:string)=>readDateColumn("Data Copas",dateCol,credentialsFromEnv()),
+  ["m238-daily-summary-v4","date-index","data-copas-2026"],
+  {revalidate:60},
+);
+
 function field(map:Map<string,number>,aliases:string[],required=true){
   for(const a of aliases){const i=map.get(normHeader(a));if(i!=null)return i}
   if(required)throw new Error(`Header tidak ditemukan: ${aliases[0]}`);
@@ -77,27 +102,32 @@ async function schemaFor(source:Source,c:Cred){
   return s;
 }
 
-async function dateIndexFor(source:Source,schema:Schema,c:Cred){
+async function dateIndexFor(source:Source,schema:Schema,c:Cred,refresh=false){
   const dateCol=col(schema.date),key=`${source.sheet}:${dateCol}`;
-  const ttl=source.sheet.includes("Archive")?12*3600000:5*60000;
+  const ttl=source.sheet.includes("Archive")?12*3600000:60000;
   const cached=dateIndexCache.get(key);
-  if(cached&&Date.now()-cached.at<ttl)return cached.dates;
-  const pending=dateIndexPending.get(key);
-  if(pending)return pending;
+  if(!refresh&&cached&&Date.now()-cached.at<ttl)return cached.dates;
+  if(!refresh){
+    const pending=dateIndexPending.get(key);
+    if(pending)return pending;
+  }
   const request=(async()=>{
-    const [rows]=await getSheetRanges(SOURCE_ID,[`'${source.sheet}'!${dateCol}2:${dateCol}`],c.email,c.key);
-    const dates=(rows??[]).map(r=>iso(r?.[0]));
+    const dates=refresh
+      ?await readDateColumn(source.sheet,dateCol,c)
+      :source.sheet.includes("Archive")
+        ?await sharedArchiveDateIndex(dateCol)
+        :await sharedCurrentDateIndex(dateCol);
     dateIndexCache.set(key,{at:Date.now(),dates});
     return dates;
   })().finally(()=>dateIndexPending.delete(key));
-  dateIndexPending.set(key,request);
+  if(!refresh)dateIndexPending.set(key,request);
   return request;
 }
 
-async function boundsFor(period:string,source:Source,schema:Schema,c:Cred){
+async function boundsFor(period:string,source:Source,schema:Schema,c:Cred,refresh=false){
   const key=cacheKey(period),cached=boundsCache.get(key);
-  if(cached)return cached;
-  const dates=await dateIndexFor(source,schema,c);
+  if(!refresh&&cached)return cached;
+  const dates=await dateIndexFor(source,schema,c,refresh);
   let start=0,end=0;
   for(let i=0;i<dates.length;i++){
     if(dates[i]?.slice(0,7)!==period)continue;
@@ -161,7 +191,7 @@ async function joins(c:Cred){
 async function loadMonth(period:string,c:Cred,refresh=false):Promise<Cached>{
   const key=cacheKey(period),current=period===today().slice(0,7),ttl=period.startsWith("2025-")?12*3600000:current?60000:15*60000,cached=monthCache.get(key);
   if(!refresh&&cached&&Date.now()-cached.at<ttl)return cached;
-  const year=Number(period.slice(0,4)),source=resolveSalesSource(year),schema=await schemaFor(source,c),b=await boundsFor(period,source,schema,c);
+  const year=Number(period.slice(0,4)),source=resolveSalesSource(year),schema=await schemaFor(source,c),b=await boundsFor(period,source,schema,c,refresh);
   if(!b.start||!b.end||b.end<b.start){
     const empty={at:Date.now(),rows:[],rawRows:0,source:source.sheet};
     monthCache.set(key,empty);
