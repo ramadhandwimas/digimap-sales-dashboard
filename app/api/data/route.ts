@@ -53,63 +53,20 @@ async function readSchedule(latestDate:string,email:string,key:string):Promise<S
 }
 
 const CACHE_TTL=60*1000
-const SOURCE_CACHE_TTL=2*60*1000
-const DAILY_SOURCE_TTL=60*1000
 const responseCache=new Map<string,{expiresAt:number;data:M238Payload}>()
 const pendingRequests=new Map<string,Promise<M238Payload>>()
 
-type SourceIndex={configRows:unknown[][];dateRows:unknown[][];rawDateRows:unknown[][]}
-let sourceIndexCache:{expiresAt:number;data:SourceIndex}|undefined
-let sourceIndexRequest:Promise<SourceIndex>|undefined
-
-async function getSourceIndex(email:string,key:string,force=false):Promise<SourceIndex>{
-  if(!force&&sourceIndexCache&&sourceIndexCache.expiresAt>Date.now())return sourceIndexCache.data
-  if(!force&&sourceIndexRequest)return sourceIndexRequest
-  const request=getSheetRanges(SHEET_ID,["Config!A1:AG55","'Data Copas'!A2:A","'RAW SalesPerson'!AB2:AB"],email,key).then(([configRows=[],dateRows=[],rawDateRows=[]])=>{
-    const data={configRows,dateRows,rawDateRows}
-    sourceIndexCache={data,expiresAt:Date.now()+SOURCE_CACHE_TTL}
-    return data
-  })
-  sourceIndexRequest=request
-  try{return await request}finally{if(sourceIndexRequest===request)sourceIndexRequest=undefined}
-}
-
-type DailySource={latestDate:string;rows:unknown[][];schedule:StaffSchedule[]}
-let dailySourceCache:{cacheKey:string;expiresAt:number;data:DailySource}|undefined
-let dailySourceRequest:{cacheKey:string;request:Promise<DailySource>}|undefined
-
-async function getDailySource(rawDateRows:unknown[][],email:string,key:string,force=false):Promise<DailySource>{
-  const rawDates=rawDateRows.map(r=>iso(r[0])).filter(Boolean),latestDate=rawDates.sort().at(-1)||new Date().toISOString().slice(0,10),cacheKey=`${email}:${latestDate}`
-  if(!force&&dailySourceCache?.cacheKey===cacheKey&&dailySourceCache.expiresAt>Date.now())return dailySourceCache.data
-  if(!force&&dailySourceRequest?.cacheKey===cacheKey)return dailySourceRequest.request
-  const dailyMatches:number[]=[];rawDateRows.forEach((r,i)=>{if(iso(r[0])===latestDate)dailyMatches.push(i+2)})
-  const range=dailyMatches.length?`'RAW SalesPerson'!AB${dailyMatches[0]}:AR${dailyMatches.at(-1)}`:""
-  const request=Promise.all([
-    range?getSheetRanges(SHEET_ID,[range],email,key).then(x=>x[0]??[]):Promise.resolve([] as unknown[][]),
-    readSchedule(latestDate,email,key)
-  ]).then(([rows,schedule])=>{
-    const data={latestDate,rows,schedule}
-    dailySourceCache={cacheKey,data,expiresAt:Date.now()+DAILY_SOURCE_TTL}
-    return data
-  })
-  dailySourceRequest={cacheKey,request}
-  try{return await request}finally{if(dailySourceRequest?.request===request)dailySourceRequest=undefined}
-}
-
-async function buildPayload(period:string,email:string,key:string,force=false):Promise<M238Payload>{
-  const{configRows,dateRows,rawDateRows}=await getSourceIndex(email,key,force)
+async function buildPayload(period:string,email:string,key:string):Promise<M238Payload>{
+  const[configRows,dateRows,rawDateRows]=await getSheetRanges(SHEET_ID,["Config!A1:AG55","'Data Copas'!A2:A40576","'RAW SalesPerson'!AB2:AB65536"],email,key)
   const label=monthLabel(period).toLowerCase(),targetRow=configRows.find(r=>s(r[16]).toLowerCase()===label),target:Target={period,amount:n(targetRow?.[17]),device:n(targetRow?.[18]),accessories:n(targetRow?.[19]),vas:n(targetRow?.[20])}
   const staff:Staff[]=configRows.slice(27,45).filter(r=>s(r[7])===STORE&&s(r[8])&&s(r[9])&&!/SUPERVISOR|ONLINE/i.test(s(r[10]))).map(r=>({id:s(r[8]),name:s(r[9]),position:s(r[10]),share:n(r[11])}))
   const matching:number[]=[];dateRows.forEach((r,i)=>{if(iso(r[0]).startsWith(period))matching.push(i+2)})
-  const monthRange=matching.length?`'Data Copas'!A${matching[0]}:S${matching.at(-1)}`:""
-  const[monthRows,dailySource]=await Promise.all([
-    monthRange?getSheetRanges(SHEET_ID,[monthRange],email,key).then(x=>x[0]??[]):Promise.resolve([] as unknown[][]),
-    getDailySource(rawDateRows,email,key,force)
-  ])
-  const parsed=monthRows.map(parse).filter(r=>r.date.startsWith(period)),current=dailySource.rows.map(parse),monthlyStaff=staff.map(p=>aggregate(parsed,p,target)),latestDate=dailySource.latestDate
-  const weekDay=new Intl.DateTimeFormat("id-ID",{weekday:"long",timeZone:"Asia/Jakarta"}).format(new Date(`${latestDate}T00:00:00Z`)).toLowerCase(),dailyTargetRow=configRows.find(r=>s(r[22]).toLowerCase()===weekDay),dailyTarget={period:latestDate,amount:n(dailyTargetRow?.[23]),device:n(dailyTargetRow?.[23]),accessories:n(dailyTargetRow?.[24]),vas:n(dailyTargetRow?.[25])},dailyStaff=staff.map(p=>aggregate(current,p,dailyTarget)),days=daily(parsed),dailySchedule=dailySource.schedule
+  const rawDates=rawDateRows.map(r=>iso(r[0])).filter(Boolean),latestDate=rawDates.sort().at(-1)||`${period}-01`,dailyMatches:number[]=[];rawDateRows.forEach((r,i)=>{if(iso(r[0])===latestDate)dailyMatches.push(i+2)})
+  const detailRanges:string[]=[],monthRangeIndex=matching.length?detailRanges.push(`'Data Copas'!A${matching[0]}:S${matching.at(-1)}`)-1:-1,dailyRangeIndex=dailyMatches.length?detailRanges.push(`'RAW SalesPerson'!AB${dailyMatches[0]}:AR${dailyMatches.at(-1)}`)-1:-1
+  const detailRows=detailRanges.length?await getSheetRanges(SHEET_ID,detailRanges,email,key):[],monthRows=monthRangeIndex>=0?detailRows[monthRangeIndex]:[],todayRows=dailyRangeIndex>=0?detailRows[dailyRangeIndex]:[],parsed=monthRows.map(parse).filter(r=>r.date.startsWith(period)),current=todayRows.map(parse),monthlyStaff=staff.map(p=>aggregate(parsed,p,target))
+  const weekDay=new Intl.DateTimeFormat("id-ID",{weekday:"long",timeZone:"Asia/Jakarta"}).format(new Date(`${latestDate}T00:00:00Z`)).toLowerCase(),dailyTargetRow=configRows.find(r=>s(r[22]).toLowerCase()===weekDay),dailyTarget={period:latestDate,amount:n(dailyTargetRow?.[23]),device:n(dailyTargetRow?.[23]),accessories:n(dailyTargetRow?.[24]),vas:n(dailyTargetRow?.[25])},dailyStaff=staff.map(p=>aggregate(current,p,dailyTarget)),days=daily(parsed),dailySchedule=await readSchedule(latestDate,email,key)
   const total=days.reduce((a,d)=>({amount:a.amount+d.amount,device:a.device+d.device,accessories:a.accessories+d.accessories,vas:a.vas+d.vas,invoices:a.invoices+d.invoices,qty:a.qty+d.qty}),{amount:0,device:0,accessories:0,vas:0,invoices:0,qty:0}),lastDay=Math.max(1,...days.map(d=>Number(d.date.slice(8,10)))),dim=new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate(),point=Math.min(target.device?total.device/target.device*60:0,60)+Math.min(target.accessories?total.accessories/target.accessories*30:0,30)+Math.min(target.vas?total.vas/target.vas*10:0,10)
   return{mode:"live",generatedAt:new Date().toISOString(),latestDate,period,staff,target,dailyStaff,monthlyStaff,daily:days,dailySchedule,summary:{...total,upt:total.invoices?total.qty/total.invoices:0,atv:total.invoices?total.amount/total.invoices:0,estimate:total.amount/lastDay*dim,point,timegone:lastDay/dim*100}}
 }
 
-export async function GET(req:NextRequest){const period=req.nextUrl.searchParams.get("period")||new Date().toISOString().slice(0,7),force=req.nextUrl.searchParams.get("refresh")==="1",email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!/^\d{4}-\d{2}$/.test(period))return NextResponse.json({error:"Periode tidak valid"},{status:400});if(!email||!key)return NextResponse.json(demo(period));const cacheKey=`${email}:${period}`,cached=responseCache.get(cacheKey);if(!force&&cached&&cached.expiresAt>Date.now())return NextResponse.json(cached.data,{headers:{"cache-control":"public, max-age=15, s-maxage=60, stale-while-revalidate=120","x-dashboard-cache":"hit"}});try{let request=pendingRequests.get(cacheKey);if(!request||force){request=buildPayload(period,email,key,force);pendingRequests.set(cacheKey,request)}const data=await request;responseCache.set(cacheKey,{data,expiresAt:Date.now()+CACHE_TTL});return NextResponse.json(data,{headers:{"cache-control":force?"no-store":"public, max-age=15, s-maxage=60, stale-while-revalidate=120","x-dashboard-cache":"miss"}})}catch(error){return NextResponse.json({...demo(period),error:error instanceof Error?error.message:"Gagal membaca master Sheet"},{status:200,headers:{"cache-control":"no-store"}})}finally{pendingRequests.delete(cacheKey)}}
+export async function GET(req:NextRequest){const period=req.nextUrl.searchParams.get("period")||new Date().toISOString().slice(0,7),force=req.nextUrl.searchParams.get("refresh")==="1",email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)return NextResponse.json(demo(period));const cacheKey=`${email}:${period}`,cached=responseCache.get(cacheKey);if(!force&&cached&&cached.expiresAt>Date.now())return NextResponse.json(cached.data,{headers:{"cache-control":"public, max-age=15, s-maxage=60, stale-while-revalidate=120","x-dashboard-cache":"hit"}});try{let request=pendingRequests.get(cacheKey);if(!request||force){request=buildPayload(period,email,key);pendingRequests.set(cacheKey,request)}const data=await request;responseCache.set(cacheKey,{data,expiresAt:Date.now()+CACHE_TTL});return NextResponse.json(data,{headers:{"cache-control":force?"no-store":"public, max-age=15, s-maxage=60, stale-while-revalidate=120","x-dashboard-cache":"miss"}})}catch(error){return NextResponse.json({...demo(period),error:error instanceof Error?error.message:"Gagal membaca master Sheet"},{status:200,headers:{"cache-control":"no-store"}})}finally{pendingRequests.delete(cacheKey)}}
