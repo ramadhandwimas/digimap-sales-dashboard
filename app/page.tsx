@@ -13,7 +13,6 @@ import M238StokanMenu from "@/components/m238-stokan-menu"
 import ManualTargetFocus from "@/components/manual-target-focus"
 import StaffPerformanceLiveEnhancer from "@/components/staff-performance-live-enhancer"
 import M238DataManagementOverlay from "@/components/m238-data-management-overlay"
-import M238UpdateSales2Jam from "@/components/m238-update-sales-2jam"
 
 export default function Home() {
   return <DashboardFetchGuard>
@@ -31,6 +30,5 @@ export default function Home() {
     <ManualTargetFocus />
     <StaffPerformanceLiveEnhancer />
     <M238DataManagementOverlay />
-    <M238UpdateSales2Jam />
   </DashboardFetchGuard>
 }
