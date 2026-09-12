@@ -16,6 +16,9 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+    env:
+      VERCEL_ORG_ID: team_tcUrKEIiz00Q7DeEMix1m3ZD
+      VERCEL_PROJECT_ID: prj_3fWVL78IrRfxoHVdrZvQvbzlE7PR
 
     steps:
       - name: Checkout
@@ -32,9 +35,6 @@ jobs:
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
-
-      - name: Link M238 Vercel project
-        run: vercel link --yes --project m238-dashboard --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Pull M238 production environment
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
