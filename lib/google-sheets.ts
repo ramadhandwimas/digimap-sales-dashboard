@@ -17,10 +17,14 @@ export async function getSheetRanges(id:string,ranges:string[],email:string,priv
 
 export async function clearAndWrite(id:string,clearRange:string|null,writeRange:string,values:unknown[][],email:string,privateKey:string,valueInputOption:"RAW"|"USER_ENTERED"="USER_ENTERED"){
   const access=await token(email,privateKey),headers={authorization:`Bearer ${access}`,"content-type":"application/json"}
-  const clearRequest=clearRange?fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(clearRange)}:clear`,{method:"POST",headers,body:"{}"}):Promise.resolve(null)
-  if(!values.length){const cleared=await clearRequest;if(cleared&&!cleared.ok)throw new Error(`Gagal membersihkan data lama (${cleared.status})`);return{cleared:true}}
-  const writeRequest=fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(writeRange)}?valueInputOption=${valueInputOption}`,{method:"PUT",headers,body:JSON.stringify({range:writeRange,majorDimension:"ROWS",values})})
-  const[cleared,written]=await Promise.all([clearRequest,writeRequest]);if(cleared&&!cleared.ok)throw new Error(`Gagal membersihkan data lama (${cleared.status})`);if(!written.ok)throw new Error(`Gagal mengunggah data (${written.status})`);return written.json()
+  if(clearRange){
+    const cleared=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(clearRange)}:clear`,{method:"POST",headers,body:"{}"})
+    if(!cleared.ok)throw new Error(`Gagal membersihkan data lama (${cleared.status})`)
+  }
+  if(!values.length)return{cleared:true}
+  const written=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(writeRange)}?valueInputOption=${valueInputOption}`,{method:"PUT",headers,body:JSON.stringify({range:writeRange,majorDimension:"ROWS",values})})
+  if(!written.ok)throw new Error(`Gagal mengunggah data (${written.status})`)
+  return written.json()
 }
 
 export async function appendSheetValues(id:string,range:string,values:unknown[][],email:string,privateKey:string){const access=await token(email,privateKey);const response=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=OVERWRITE`,{method:"POST",headers:{authorization:`Bearer ${access}`,"content-type":"application/json"},body:JSON.stringify({range,majorDimension:"ROWS",values})});if(!response.ok)throw new Error(`Gagal menyimpan data (${response.status})`);return response.json()}
