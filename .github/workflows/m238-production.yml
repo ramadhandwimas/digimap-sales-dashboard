@@ -34,7 +34,7 @@ jobs:
         run: npm install --global vercel@latest
 
       - name: Link M238 Vercel project
-        run: vercel link --yes --project m238-dashboard --scope ramadhandwimas --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel link --yes --project m238-dashboard --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Pull M238 production environment
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
