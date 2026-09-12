@@ -1,5 +1,5 @@
-import DashboardProductionFull from "@/components/dashboard-production-full"
+import M238DashboardShell from "@/components/m238-dashboard-shell"
 
 export default function Home() {
-  return <DashboardProductionFull />
+  return <M238DashboardShell />
 }
