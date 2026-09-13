@@ -1,9 +1,9 @@
 name: M238 Production Deploy
 
+# Production deploys are handled by the native Vercel Git integration.
+# Keep this workflow manual-only as an emergency fallback so every push to
+# m238-production does not create a second deployment and consume build quota.
 on:
-  push:
-    branches:
-      - m238-production
   workflow_dispatch:
 
 concurrency:
