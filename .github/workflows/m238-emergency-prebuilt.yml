@@ -1,0 +1,44 @@
+name: M238 Emergency Prebuilt Deploy
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: m238-emergency-prebuilt
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      VERCEL_ORG_ID: team_tcUrKEIiz00Q7DeEMix1m3ZD
+      VERCEL_PROJECT_ID: prj_3fWVL78IrRfxoHVdrZvQvbzlE7PR
+
+    steps:
+      - name: Checkout M238 Production
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.0"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Link M238 project locally
+        run: |
+          mkdir -p .vercel
+          echo '{"orgId":"team_tcUrKEIiz00Q7DeEMix1m3ZD","projectId":"prj_3fWVL78IrRfxoHVdrZvQvbzlE7PR"}' > .vercel/project.json
+
+      - name: Build M238 on GitHub runner
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy prebuilt M238
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
