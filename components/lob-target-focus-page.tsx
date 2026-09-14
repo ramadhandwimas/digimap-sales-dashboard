@@ -20,7 +20,29 @@ function statusClass(s:string){return s==="Achieve"?"bg-emerald-50 text-emerald-
 
 export default function LobTargetFocusPage(){
  const now=today(),initialMonth=now.slice(0,7);
- const[filterMode,setFilterMode]=useState<FilterMode>("week"),[week,setWeek]=useState(""),[month,setMonth]=useState(initialMonth),[from,setFrom]=useState(`${initialMonth}-01`),[to,setTo]=useState(now);
+ const[filterMode,setFilterMode]=useState<FilterMode>("week"),[week,setWeek]=useState(""),[month,setMonth]=useState(initialMonth),[from,setFrom]=useState(`${initialMonth}-01`),[to,setTo]=useState(now),[filterRestored,setFilterRestored]=useState(false);
+
+ useEffect(()=>{
+  try{
+   const raw=localStorage.getItem("m238-lob-target-focus-filter");
+   if(raw){
+    const saved=JSON.parse(raw);
+    if(saved.filterMode==="week"||saved.filterMode==="month"||saved.filterMode==="range")setFilterMode(saved.filterMode);
+    if(typeof saved.week==="string")setWeek(saved.week);
+    if(typeof saved.month==="string"&&saved.month)setMonth(saved.month);
+    if(typeof saved.from==="string"&&saved.from)setFrom(saved.from);
+    if(typeof saved.to==="string"&&saved.to)setTo(saved.to);
+   }
+  }catch{}
+  setFilterRestored(true);
+ },[]);
+
+ useEffect(()=>{
+  if(!filterRestored)return;
+  try{
+   localStorage.setItem("m238-lob-target-focus-filter",JSON.stringify({filterMode,week,month,from,to}));
+  }catch{}
+ },[filterRestored,filterMode,week,month,from,to]);
  const[data,setData]=useState<Payload|null>(null),[loading,setLoading]=useState(true),[targetOpen,setTargetOpen]=useState(false),[targets,setTargets]=useState<TargetMap>({}),[draft,setDraft]=useState<TargetMap>({}),[saving,setSaving]=useState(false),[message,setMessage]=useState(""),[selectedProduct,setSelectedProduct]=useState("");
  const[performanceOpen,setPerformanceOpen]=useState(false),[staffOpen,setStaffOpen]=useState(false);
  useEffect(()=>{const q=new URLSearchParams({mode:filterMode});if(filterMode==="week"&&week)q.set("week",week);if(filterMode==="month")q.set("month",month);if(filterMode==="range"){q.set("from",from);q.set("to",to)}setLoading(true);fetch(`/api/lob-target-focus?${q.toString()}`,{cache:"no-store"}).then(r=>r.json()).then(j=>{setData(j);if(!week&&j.week)setWeek(j.week);if(j.month&&!month)setMonth(j.month)}).finally(()=>setLoading(false))},[filterMode,week,month,from,to]);
