@@ -2,6 +2,7 @@ import {NextRequest,NextResponse} from "next/server";
 import {getSheetRanges} from "@/lib/google-sheets";
 
 const DASHBOARD_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
+const MASTER_ID="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk";
 const STORE="M238";
 const s=(v:unknown)=>String(v??"").trim();
 const n=(v:unknown)=>typeof v==="number"?v:Number(s(v).replace(/[^0-9.-]/g,""))||0;
@@ -34,9 +35,30 @@ export async function GET(req:NextRequest){
  const week=req.nextUrl.searchParams.get("week")||"";
  if(!week)return NextResponse.json({error:"Week belum dipilih"},{status:400});
  try{
-  const [dataRows,feedbackRows,...stockRanges]=await safeRanges(DASHBOARD_ID,["'Data Copas'!A2:S50000","'Dashboard Feedback'!A2:G5000","'SOH'!C10:E200","'SOH'!J10:L200","'SOH'!Q10:S200","'SOH'!X10:Z200","'SOH'!AE10:AG200"],email,key);
-  const storeRows=(dataRows||[]).filter(r=>up(r[15])===STORE&&s(r[18])==="2026"&&s(r[14])===week),dates=[...new Set(storeRows.map(r=>iso(r[0])).filter(Boolean))].sort(),start=dates[0]||"",end=dates.at(-1)||"";
-  const feedback=(feedbackRows||[]).filter(r=>{const d=iso(r[1]);return Boolean(d&&start&&d>=start&&d<=end)}).map(r=>s(r[5])).filter(Boolean);
+  const [[dataRows,...stockRanges],[feedbackRows]]=await Promise.all([
+   safeRanges(DASHBOARD_ID,["'Data Copas'!A2:S50000","'SOH'!C10:E200","'SOH'!J10:L200","'SOH'!Q10:S200","'SOH'!X10:Z200","'SOH'!AE10:AG200"],email,key),
+   safeRanges(MASTER_ID,["'Dashboard Feedback'!A2:G5000"],email,key)
+  ]);
+  const storeRows=(dataRows||[]).filter(r=>up(r[15])===STORE&&s(r[18])==="2026"&&s(r[14])===week),
+  dates=[...new Set(storeRows.map(r=>iso(r[0])).filter(Boolean))].sort();
+
+  let start="",end="";
+  if(dates.length){
+   const anchor=new Date(`${dates[0]}T00:00:00Z`);
+   const day=anchor.getUTCDay();
+   const sunday=new Date(anchor.getTime()-day*86400000);
+   const saturday=new Date(sunday.getTime()+6*86400000);
+   start=sunday.toISOString().slice(0,10);
+   end=saturday.toISOString().slice(0,10);
+  }
+
+  const feedback=(feedbackRows||[])
+   .filter(r=>{
+    const d=iso(r[1]);
+    return Boolean(d&&start&&d>=start&&d<=end);
+   })
+   .map(r=>s(r[5]))
+   .filter(Boolean);
   const stockItems:StockItem[]=[];const lobs=["IPHONE","IPAD","MAC","APPLE WATCH","AIRPODS"];
   stockRanges.forEach((rows,i)=>{for(const r of rows||[]){const article=s(r[0]),description=s(r[1]),qty=n(r[2]);if(!article||/^ARTICLE$|GRAND TOTAL/i.test(article))continue;stockItems.push({lob:lobs[i]||"",article,description,qty})}});
   const byLob:Record<string,unknown>={};
@@ -46,7 +68,14 @@ export async function GET(req:NextRequest){
    const themes=[...counts.entries()].sort((a,b)=>b[1]-a[1]).map(([key,count])=>({key,count}));
    const lostMap=new Map<string,{label:string;qty:number;status:string}>();let stockClaimAvailable=0;
    for(const raw of raws.filter(x=>/stok|stock|kosong|habis|tidak tersedia|warna tidak|kapasitas tidak/i.test(x))){const match=bestStockMatch(raw,lob,stockItems);if(!match)continue;if(match.qty<=1){const label=(match.description||match.article).trim();lostMap.set(match.article,{label,qty:match.qty,status:stockStatus(match.qty)})}else stockClaimAvailable++}
-   byLob[lob]={feedbackCount:raws.length,themes,lostStock:[...lostMap.values()],stockClaimAvailable,sohAvailable:stockItems.some(x=>x.lob===lob)};
+   byLob[lob]={
+    feedbackCount:raws.length,
+    themes,
+    lostStock:[...lostMap.values()],
+    stockClaimAvailable,
+    sohAvailable:stockItems.some(x=>x.lob===lob),
+    rawFeedback:raws
+   };
   }
   return NextResponse.json({week,period:{start,end},feedbackCount:feedback.length,byLob},{headers:{"cache-control":"no-store"}});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Gagal membaca reason context"},{status:500})}
