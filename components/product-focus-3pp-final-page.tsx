@@ -33,7 +33,7 @@ export default function ProductFocus3PPFinalPage(){
 
  const targetScope=filterMode==="week"?"weekly":filterMode==="month"?"monthly":"range";
  const activePeriod=filterMode==="week"?(data?.week||week):filterMode==="month"?month:`${from}|${to}`;
- useEffect(()=>{if(!activePeriod)return;let alive=true;fetch(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(activePeriod)}&group=product-focus`,{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!alive||j.error)return;const next:TargetMap={};for(const s of SUPPLIERS){const raw=j.targets?.[s]?.target??(s==="IGA"?j.targets?.Iga?.target:undefined);next[s]=Number(raw||0)}setTargets(next);setDraft(next)}).catch(()=>{});return()=>{alive=false}},[targetScope,activePeriod]);
+ useEffect(()=>{if(!activePeriod)return;let alive=true;fetch(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(activePeriod)}&group=product-focus&t=${Date.now()}`,{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!alive||j.error)return;const next:TargetMap={};for(const s of SUPPLIERS){const raw=j.targets?.[s]?.target??(s==="IGA"?j.targets?.Iga?.target:undefined);next[s]=Number(raw||0)}setTargets(next);setDraft(next)}).catch(()=>{});return()=>{alive=false}},[targetScope,activePeriod]);
 
  const supplierMap=useMemo(()=>new Map((data?.thirdParty.suppliers||[]).map(s=>[norm(s.supplier),s])),[data]);
  const supplierRows=useMemo(()=>SUPPLIERS.map(name=>{const src=supplierMap.get(norm(name));return src?{...src,supplier:name}:{supplier:name,qty:0,value:0,brands:[],staff:[]}}),[supplierMap]);

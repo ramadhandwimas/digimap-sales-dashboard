@@ -282,13 +282,83 @@ export default function DashboardV3() {
     [invoice, setInvoice] = useState(""),
     [saving, setSaving] = useState(false),
     [uploadStatus, setUploadStatus] = useState(""),
-    [openGroups, setOpenGroups] = useState({
+    [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
       dashboard: true,
+      "target-focus": false,
+      administration: false,
       reporting: false,
       system: false,
     }),
-    fileRef = useRef<HTMLInputElement>(null),
+fileRef = useRef<HTMLInputElement>(null),
     uploadingRef = useRef(false);
+
+  useEffect(() => {
+    const closeNativeNavGroups = () => {
+      if (!window.matchMedia("(max-width: 1023px)").matches) return;
+
+      setOpenGroups({
+        dashboard: false,
+        "target-focus": false,
+        administration: false,
+        reporting: false,
+        system: false,
+      });
+    };
+
+    window.addEventListener(
+      "m238:close-native-nav-groups",
+      closeNativeNavGroups
+    );
+
+    return () => {
+      window.removeEventListener(
+        "m238:close-native-nav-groups",
+        closeNativeNavGroups
+      );
+    };
+  }, []);
+
+
+
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      setOpenGroups({
+        dashboard: false,
+        "target-focus": false,
+        administration: false,
+        reporting: false,
+        system: false,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const closeNativeGroups = () => {
+      if (!window.matchMedia("(max-width: 1023px)").matches) return;
+
+      setOpenGroups({
+        dashboard: false,
+        "target-focus": false,
+        administration: false,
+        reporting: false,
+        system: false,
+      });
+    };
+
+    window.addEventListener(
+      "m238:close-native-nav-groups",
+      closeNativeGroups
+    );
+
+    return () => {
+      window.removeEventListener(
+        "m238:close-native-nav-groups",
+        closeNativeGroups
+      );
+    };
+  }, []);
+
+
   useEffect(() => {
     const d = localStorage.getItem("m238-theme") === "dark";
     setDark(d);
@@ -406,36 +476,36 @@ export default function DashboardV3() {
             key: "daily-summary",
             label: "Daily Summary",
             icon: ClipboardList,
-            href: "/daily-summary",
           },
           { key: "staff", label: "Staff Performance", icon: Users },
           { key: "incentive", label: "Est. Incentive", icon: WalletCards },
+          { key: "soh", label: "SOH", icon: PackageSearch },
+        ],
+      },
+      {
+        key: "target-focus",
+        label: "Target Fokus",
+        icon: Gauge,
+        items: [
+          { key: "lob-focus", label: "LOB Target Fokus", icon: Gauge },
+          {
+            key: "product-focus",
+            label: "Product Fokus 3PP",
+            icon: FileSpreadsheet,
+          },
+          { key: "vas-focus", label: "VAS Fokus", icon: WandSparkles },
+        ],
+      },
+      {
+        key: "administration",
+        label: "Administrasi",
+        icon: ClipboardCheck,
+        items: [
+          { key: "mading", label: "Mading", icon: FileSpreadsheet },
           {
             key: "bnpl",
             label: "BNPL & Trade-In",
             icon: CreditCard,
-            href: "/bnpl",
-          },
-          { key: "soh", label: "SOH", icon: PackageSearch, href: "/soh" },
-        ],
-      },
-      {
-        key: "reporting",
-        label: "Reporting",
-        icon: ChartNoAxesCombined,
-        items: [
-          { key: "feedback", label: "Feedback", icon: MessageSquare },
-          {
-            key: "cx",
-            label: "NPS/CX & Member",
-            icon: Cloud,
-            href: "/cx",
-          },
-          {
-            key: "weekly",
-            label: "Weekly Report",
-            icon: ChartNoAxesCombined,
-            href: "/weekly",
           },
           {
             key: "checklist-spv",
@@ -451,6 +521,34 @@ export default function DashboardV3() {
             href: "https://forms.cloud.microsoft/pages/responsepage.aspx?id=iAw5Rakbn0eYpYaKADRxVqklIyFb72JDrV7GtVMqEcNUQVpVV1hBVTdHTDVDWVlMRkE0V0lRVDQySS4u&route=shorturl",
             external: true,
           },
+          {
+            key: "upload",
+            label: "Data Upload",
+            icon: Upload,
+          },
+        ],
+      },
+      {
+        key: "reporting",
+        label: "Reporting",
+        icon: ChartNoAxesCombined,
+        items: [
+          { key: "feedback", label: "Feedback", icon: MessageSquare },
+          {
+            key: "cx",
+            label: "NPS/CX & Member",
+            icon: Cloud,
+          },
+          {
+            key: "weekly",
+            label: "Weekly Report",
+            icon: ChartNoAxesCombined,
+          },
+          {
+            key: "weekly-reason",
+            label: "Weekly Reason",
+            icon: WandSparkles,
+          },
         ],
       },
       {
@@ -458,12 +556,6 @@ export default function DashboardV3() {
         label: "System",
         icon: Settings,
         items: [
-          {
-            key: "upload",
-            label: "Data Upload",
-            icon: Upload,
-            href: "/data-tools",
-          },
           { key: "settings", label: "Settings", icon: Settings },
         ],
       },
@@ -527,12 +619,43 @@ export default function DashboardV3() {
               return (
                 <div key={group.key} className="rounded-xl bg-white/5 p-1">
                   <button
-                    onClick={() =>
-                      setOpenGroups((value) => ({
-                        ...value,
-                        [group.key]: !value[group.key],
-                      }))
-                    }
+                    onClick={() => {
+                      if (window.matchMedia("(max-width: 1023px)").matches) {
+                        document
+                          .querySelectorAll<HTMLElement>(
+                            "[data-target-focus-group] .mt-1, [data-administration-group] .mt-1"
+                          )
+                          .forEach((el) => el.classList.add("hidden"));
+                      }
+
+                      setOpenGroups((value) => {
+                          const mobile = window.matchMedia("(max-width: 1023px)").matches;
+
+                          if (!mobile) {
+                            return {
+                              ...value,
+                              [group.key]: !value[group.key],
+                            };
+                          }
+
+                          const isOpen = value[group.key];
+
+                          document
+                            .querySelectorAll<HTMLElement>(
+                              "[data-target-focus-group] .mt-1, [data-administration-group] .mt-1"
+                            )
+                            .forEach((el) => el.classList.add("hidden"));
+
+                          return {
+                            dashboard: false,
+        "target-focus": false,
+        administration: false,
+        reporting: false,
+        system: false,
+                            [group.key]: !isOpen,
+                          };
+                        });
+                    }}
                     aria-expanded={opened}
                     className="flex w-full items-center gap-2 rounded-lg px-3 py-3 text-sm font-black hover:bg-white/10"
                   >

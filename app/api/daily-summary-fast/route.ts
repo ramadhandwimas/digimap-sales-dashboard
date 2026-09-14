@@ -27,11 +27,12 @@ export async function GET(req:NextRequest){
  if(!validDate(from)||!validDate(to)||from>to)return NextResponse.json({error:"Range tanggal tidak valid"},{status:400});
  try{
   const days=diffDays(from,to),prevEnd=addDays(from,-1),prevStart=addDays(prevEnd,-days+1);
-  const trafficPromise=getSheetRanges(MASTER_ID,["'Traffic'!A2:B1000"],email,key);
-  const[config,dateRows]=await getSheetRanges(SOURCE_ID,["Config!A1:AZ120","'Data Copas'!A2:A50000"],email,key);
-  const indexes:number[]=[];for(let i=0;i<dateRows.length;i++){const d=iso(dateRows[i]?.[0]);if(d&&d>=prevStart&&d<=to)indexes.push(i+2)}
-  let parsed:Row[]=[];if(indexes.length){const first=Math.min(...indexes),last=Math.max(...indexes);const[detail]=await getSheetRanges(SOURCE_ID,[`'Data Copas'!A${first}:S${last}`],email,key);parsed=(detail||[]).map(parse).filter(r=>r.date>=prevStart&&r.date<=to&&valid(r))}
-  const[trafficRows]=await trafficPromise,trafficMap=new Map<string,number>();for(const r of trafficRows||[]){const d=iso(r[0]);if(d)trafficMap.set(d,n(r[1]))}
+  const[[dataRows,config],[trafficRows]]=await Promise.all([
+   getSheetRanges(SOURCE_ID,["'Data Copas'!A2:S50000","Config!A1:AZ120"],email,key),
+   getSheetRanges(MASTER_ID,["'Traffic'!A2:B1000"],email,key)
+  ]);
+  const parsed:Row[]=(dataRows||[]).map(parse).filter(r=>r.date>=prevStart&&r.date<=to&&valid(r));
+  const trafficMap=new Map<string,number>();for(const r of trafficRows||[]){const d=iso(r[0]);if(d)trafficMap.set(d,n(r[1]))}
   const dates=[...new Set(parsed.filter(r=>r.date>=from&&r.date<=to).map(r=>r.date))].sort();
   const rows=dates.map(date=>{const targetRow=config.find(r=>s(r[22]).toLowerCase()===weekday(date));return aggregate(parsed,date,n(targetRow?.[23]),trafficMap.get(date)||0)});
   const previousTotal=parsed.filter(r=>r.date>=prevStart&&r.date<=prevEnd).reduce((a,r)=>a+r.amount,0);

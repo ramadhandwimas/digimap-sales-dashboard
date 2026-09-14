@@ -317,16 +317,80 @@ function reviewFor(label:string,a:Record<string,Agg>,b:Record<string,Agg>,ctx:Lo
  }
  return text
 }
+
+function cleanProductName(v:string){
+ let x=v
+  .replace(/-IND\b/gi,"")
+  .replace(/\bSTL\b/gi,"Starlight")
+  .replace(/\bMDN\b/gi,"Midnight")
+  .replace(/\bSLV\b/gi,"Silver")
+  .replace(/\bSGR\b/gi,"Space Gray")
+  .replace(/\b13\.6\b/g,'13"')
+  .replace(/\b15\.3\b/g,'15"')
+  .replace(/\b14\.2\b/g,'14"')
+  .replace(/\b16\.2\b/g,'16"')
+  .replace(/\b8C GPU\b/gi,"")
+  .replace(/\b10C GPU\b/gi,"")
+  .replace(/\b16GB\/512GB\b/gi,"16/512")
+  .replace(/\b16GB\/256GB\b/gi,"16/256")
+  .replace(/\b24GB\/512GB\b/gi,"24/512")
+  .replace(/\s+/g," ")
+  .trim();
+
+ return x;
+}
+
+function positiveDriverReason(
+ label:string,
+ a:Record<string,Agg>,
+ b:Record<string,Agg>,
+ g:number
+){
+ if(g<=0)return "";
+
+ const mv=movers(a,b)
+  .filter(x=>x.diff>0)
+  .sort((x,y)=>y.diff-x.diff);
+
+ if(!mv.length)return "";
+
+ const x=mv[0];
+ const prev=a[x.name]?.qty||0;
+ const curr=b[x.name]?.qty||0;
+
+ if(label==="Apple Watch"){
+  return `${x.name} menjadi salah satu driver utama kenaikan Apple Watch week ini, naik dari ${prev} menjadi ${curr} unit.`;
+ }
+
+ if(label==="iPad"){
+  return `${x.name} menjadi driver utama kenaikan iPad week ini, naik dari ${prev} menjadi ${curr} unit dan memberi kontribusi terbesar terhadap pertumbuhan qty.`;
+ }
+
+ if(label==="iPhone"){
+  return `${x.name} menjadi driver terbesar kenaikan iPhone week ini, naik dari ${prev} menjadi ${curr} unit.`;
+ }
+
+ if(label==="MacBook"){
+  return `${x.name} menjadi kontributor utama kenaikan qty MacBook week ini, naik dari ${prev} menjadi ${curr} unit.`;
+ }
+
+ return "";
+}
+
 function reasonLines(
  label:string,
  g:number,
  ctx:LobContext|undefined,
  relevantLost:Lost[],
- amountDown=false
+ amountDown=false,
+ a:Record<string,Agg>={},
+ b:Record<string,Agg>={}
 ){
  const out:string[]=[];
 
- // Faktor sangat spesifik hanya berlaku untuk LOB terkait.
+ const driver=positiveDriverReason(label,a,b,g);
+ if(driver)out.push(driver);
+
  if(
   label==="iPhone" &&
   rawHas(ctx,/iphone\s*18|\bip\s*18\b/i)
@@ -336,26 +400,23 @@ function reasonLines(
   );
  }
 
- // Mac: baca hubungan qty vs amount.
  if(label==="MacBook" && g>0 && amountDown){
   out.push(
    "Secara qty MacBook tumbuh, namun amount turun karena kontribusi penjualan week ini lebih banyak berasal dari type dengan value yang lebih rendah."
   );
  }
 
- // Stock hanya jika benar-benar tervalidasi dan relevan.
  if(relevantLost.length){
   out.push(
-   `Ketersediaan stok menjadi kendala pada ${relevantLost.map(x=>x.label).slice(0,2).join(" dan ")}.`
+   `Ketersediaan stok menjadi kendala pada ${relevantLost.map(x=>cleanProductName(x.label)).slice(0,2).join(" dan ")}.`
   );
  }
 
- // Pilih theme paling dominan, jangan dump semua reason.
  const themes=[...(ctx?.themes||[])]
   .sort((a,b)=>b.count-a.count);
 
  for(const t of themes){
-  if(out.length>=2) break;
+  if(out.length>=3)break;
 
   if(t.key==="price"){
    out.push(
@@ -380,15 +441,9 @@ function reasonLines(
     "Metode pembayaran atau cicilan masih menjadi pertimbangan sebagian customer sebelum closing."
    );
   }
-
-  else if(t.key==="waiting" && label!=="iPhone"){
-   out.push(
-    "Sebagian customer masih menunda keputusan pembelian dan belum langsung closing."
-   );
-  }
  }
 
- return [...new Set(out)].slice(0,2);
+ return [...new Set(out)].slice(0,3);
 }
 
 function planFor(
@@ -549,7 +604,9 @@ export default function WeeklyReasonLivePageV2(){
   g,
   ctx,
   lost,
-  amountDown
+  amountDown,
+  a,
+  b
  );
 
  const plans=planFor(

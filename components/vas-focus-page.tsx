@@ -61,7 +61,7 @@ export default function VasFocusPage(){
  useEffect(()=>{
   if(!targetPeriod)return;
   let alive=true;
-  fetch(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=vas-focus`,{cache:"no-store"})
+  fetch(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=vas-focus&t=${Date.now()}`,{cache:"no-store"})
    .then(async r=>{const j=await r.json();if(!r.ok)throw new Error(j?.error||"Gagal membaca target");return j})
    .then(j=>{if(!alive)return;const next:TargetMap={};for(const v of VAS)next[v]=Math.max(0,toNum(j?.targets?.[v]?.target));setTargets(next);setDraft(next);setStaffShares(Array.isArray(j?.staff)?j.staff:[])})
    .catch(()=>{if(!alive)return;const zero:Object={};const next:TargetMap={};for(const v of VAS)next[v]=0;void zero;setTargets(next);setDraft(next);setStaffShares([])});
