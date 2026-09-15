@@ -5,8 +5,43 @@ const ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0",STORE="M238";
 const s=(v:unknown)=>String(v??"").trim(),up=(v:unknown)=>s(v).toUpperCase();
 const n=(v:unknown)=>typeof v==="number"?v:Number(String(v??"").replace(/\./g,"").replace(/,/g,".").replace(/[^0-9.-]/g,""))||0;
 const iso=(v:unknown)=>{const x=s(v);if(/^\d{2}-\d{2}-\d{4}$/.test(x)){const[d,m,y]=x.split("-");return`${y}-${m}-${d}`}if(/^\d{4}-\d{2}-\d{2}/.test(x))return x.slice(0,10);if(typeof v==="number")return new Date(Date.UTC(1899,11,30)+v*86400000).toISOString().slice(0,10);return""};
-const SUPPORTED=["iPhone 17 Pro Max","iPhone 17 Pro","iPhone 17","iPhone Air","iPhone 16","iPhone 15","iPad 11","MacBook Neo","Apple Watch SE"] as const;
-function productName(type:string,desc:string,category:string){const x=`${type} ${desc} ${category}`.toUpperCase().replace(/\s+/g," ");if(/IPHONE\s*17\s*PRO\s*MAX/.test(x))return"iPhone 17 Pro Max";if(/IPHONE\s*17\s*PRO/.test(x))return"iPhone 17 Pro";if(/IPHONE\s*17(?!\s*PRO)/.test(x))return"iPhone 17";if(/IPHONE\s*AIR/.test(x))return"iPhone Air";if(/IPHONE\s*16/.test(x))return"iPhone 16";if(/IPHONE\s*15/.test(x))return"iPhone 15";if(/\bIPAD\s*(?:11|11TH)\b/.test(x))return"iPad 11";if(/\bMBN\b|MACBOOK\s*NEO|MAC\s*NEO/.test(x))return"MacBook Neo";if(/\bAW\s*SE(?:\s*3)?\b|APPLE\s*WATCH\s*SE(?:\s*3)?\b|WATCH\s*SE(?:\s*3)?\b/.test(x))return"Apple Watch SE";return""}
+const SUPPORTED=[
+"iPhone 17 Pro Max","iPhone 17 Pro","iPhone 17","iPhone Air","iPhone 16","iPhone 15",
+"MacBook Neo","MacBook Air M5","MacBook Air M4","MacBook Pro M5","MacBook Pro M4",
+"iPad 11","iPad Air 11 M4","iPad Air 13 M4","iPad Pro 11","iPad Pro 13","iPad mini",
+"Apple Watch Series 11","Apple Watch SE 3","Apple Watch Ultra 3"
+] as const;
+
+function productName(type:string,desc:string,category:string){
+ const x=`${type} ${desc} ${category}`.toUpperCase().replace(/\s+/g," ");
+
+ if(/IPHONE\s*17\s*PRO\s*MAX/.test(x))return "iPhone 17 Pro Max";
+ if(/IPHONE\s*17\s*PRO/.test(x))return "iPhone 17 Pro";
+ if(/IPHONE\s*17(?!\s*PRO)/.test(x))return "iPhone 17";
+ if(/IPHONE\s*AIR/.test(x))return "iPhone Air";
+ if(/IPHONE\s*16/.test(x))return "iPhone 16";
+ if(/IPHONE\s*15/.test(x))return "iPhone 15";
+
+ if(/MACBOOK.*NEO|\bMBN\b/.test(x))return "MacBook Neo";
+ if(/MACBOOK\s*AIR.*M5|MBA.*M5/.test(x))return "MacBook Air M5";
+ if(/MACBOOK\s*AIR.*M4|MBA.*M4/.test(x))return "MacBook Air M4";
+ if(/MACBOOK\s*PRO.*M5|MBP.*M5/.test(x))return "MacBook Pro M5";
+ if(/MACBOOK\s*PRO.*M4|MBP.*M4/.test(x))return "MacBook Pro M4";
+
+ if(/IPAD\s*AIR.*13.*M4/.test(x))return "iPad Air 13 M4";
+ if(/IPAD\s*AIR.*11.*M4/.test(x))return "iPad Air 11 M4";
+ if(/IPAD\s*PRO.*13/.test(x))return "iPad Pro 13";
+ if(/IPAD\s*PRO.*11/.test(x))return "iPad Pro 11";
+ if(/IPAD\s*MINI/.test(x))return "iPad mini";
+ if(/\bIPAD\s*(?:11|11TH)\b/.test(x))return "iPad 11";
+
+ if(/WATCH.*ULTRA.*3|AW.*ULTRA.*3/.test(x))return "Apple Watch Ultra 3";
+ if(/WATCH.*SE.*3|AW.*SE.*3/.test(x))return "Apple Watch SE 3";
+ if(/WATCH.*SERIES.*11|WATCH.*S11|AW.*S11/.test(x))return "Apple Watch Series 11";
+
+ return "";
+}
+
 function focusCell(v:unknown){return productName(s(v),s(v),s(v))}
 function weekOrder(label:string){const m=label.match(/Week\s*(\d+)\s*Q(\d+)/i);return m?Number(m[2])*100+Number(m[1]):-1}
 function weekKey(v:unknown){const m=s(v).match(/Week\s*(\d+)\s*Q(\d+)/i);return m?`Week ${Number(m[1])} Q${Number(m[2])}`:""}
@@ -35,6 +70,12 @@ export async function GET(req:NextRequest){const email=process.env.GOOGLE_SERVIC
  for(const row of selected){const rawId=s(row[1]),rawName=s(row[2]),person=byId.get(rawId)||byName.get(up(rawName)),staffId=person?.id||rawId||rawName,staffName=person?.name||rawName||"Tanpa Nama",desc=s(row[5]),type=s(row[6]),category=up(row[9]),brand=up(row[10]),scheme=up(row[12]),qty=n(row[7]);if(qty===0||brand!=="APPLE"||scheme!=="DEVICES")continue;const p=productName(type,desc,category);if(!p)continue;const rec=staff.get(staffId)||{id:staffId,name:staffName,products:{},total:fresh(),deviceTotal:fresh()};rec.products[p]||=fresh();rec.products[p].qty+=qty;rec.total.qty+=qty;rec.deviceTotal.qty+=qty;productTotals[p].qty+=qty;staff.set(staffId,rec)}
  let productFocus=activeFocusFromConfig(configRows,selectedWeeks).filter(p=>SUPPORTED.includes(p as (typeof SUPPORTED)[number]));
  if(!productFocus.length)productFocus=SUPPORTED.filter(p=>(productTotals[p]?.qty||0)!==0);
- const products=productFocus.map(name=>({name,...(productTotals[name]||fresh())})),rows=[...staff.values()],total=products.reduce((a,r)=>({qty:a.qty+r.qty,value:0}),fresh());
- return NextResponse.json({mode,periodLabel,week,month,from,to,availableWeeks,availableMonths,productFocus,focusSource:productFocus.length?"Config/Product Focus":"Actual fallback",lob:{products,staff:rows,total}},{headers:{"cache-control":"no-store"}})
+ const products=SUPPORTED.map(name=>({name,...(productTotals[name]||fresh())})),rows=[...staff.values()],focusProducts=productFocus.map(name=>({name,...(productTotals[name]||fresh())})),total=focusProducts.reduce((a,r)=>({qty:a.qty+r.qty,value:0}),fresh());
+ const productCatalog={
+ iPhone:SUPPORTED.filter(p=>p.startsWith("iPhone")),
+ MacBook:SUPPORTED.filter(p=>p.startsWith("MacBook")),
+ iPad:SUPPORTED.filter(p=>p.startsWith("iPad")),
+ "Apple Watch":SUPPORTED.filter(p=>p.startsWith("Apple Watch"))
+};
+ return NextResponse.json({mode,periodLabel,week,month,from,to,availableWeeks,availableMonths,productCatalog,productFocus,focusSource:productFocus.length?"Config/Product Focus":"Actual fallback",lob:{products,staff:rows,total}},{headers:{"cache-control":"no-store"}})
 }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Gagal membaca LOB Target Fokus"},{status:500})}}

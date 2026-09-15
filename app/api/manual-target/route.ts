@@ -9,7 +9,7 @@ const s=(v:unknown)=>String(v??"").trim();
 const n=(v:unknown)=>typeof v==="number"?v:Number(s(v).replace(/%/g,"").replace(/,/g,"."))||0;
 function share(v:unknown){let x=n(v);if(x>1)x/=100;return Math.max(0,x)}
 function validScope(v:string){return v==="monthly"||v==="weekly"||v==="range"}
-function validGroup(v:string){return ["lob-focus","product-focus","vas-focus"].includes(v)}
+function validGroup(v:string){return ["lob-focus","lob-focus-active","product-focus","vas-focus"].includes(v)}
 function safeKey(v:string){return v.replace(/[\r\n]/g," ").trim().slice(0,120)}
 function storedKey(group:string,key:string){return `${group}::${safeKey(key)}`}
 async function staffShares(email:string,key:string){const[rows]=await getSheetRanges(SOURCE_ID,["Config!H1:L120"],email,key);return rows.map(r=>({store:s(r[0]).toUpperCase(),id:s(r[1]),name:s(r[2]),position:s(r[3]),share:share(r[4])})).filter(r=>r.store==="M238"&&/^\d{6,10}$/.test(r.id)&&r.name&&r.share>0&&!/SUPERVISOR|\bSPV\b/i.test(r.position))}
