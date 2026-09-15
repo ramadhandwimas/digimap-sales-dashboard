@@ -17,9 +17,6 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-    env:
-      VERCEL_ORG_ID: team_tcUrKEIiz00Q7DeEMix1m3ZD
-      VERCEL_PROJECT_ID: prj_3fWVL78IrRfxoHVdrZvQvbzlE7PR
     steps:
       - name: Checkout exact production commit
         uses: actions/checkout@v4
@@ -36,11 +33,19 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
+      - name: Link exact M238 project
+        run: |
+          rm -rf .vercel
+          vercel link --yes --project m238-dashboard --scope ramadhandwimas --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Show linked project
+        run: cat .vercel/project.json
+
       - name: Pull production environment
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=production --scope ramadhandwimas --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build exact commit for production
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --prod --scope ramadhandwimas --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy exact commit to production domain
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --prod --scope ramadhandwimas --token=${{ secrets.VERCEL_TOKEN }}
