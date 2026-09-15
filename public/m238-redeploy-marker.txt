@@ -1,1 +1,2 @@
 Force production redeploy after rollback on 2026-09-10.
+Production sync for persistent VAS and 3PP Qty/Value targets on 2026-09-15.
