@@ -36,6 +36,8 @@ export default function VasFocusPage(){
  const[targetOpen,setTargetOpen]=useState(false);
  const[targets,setTargets]=useState<TargetMap>({});
  const[draft,setDraft]=useState<TargetMap>({});
+ const[valueTargets,setValueTargets]=useState<TargetMap>({});
+ const[valueDraft,setValueDraft]=useState<TargetMap>({});
  const[staffShares,setStaffShares]=useState<StaffShare[]>([]);
  const[saving,setSaving]=useState(false);
  const[message,setMessage]=useState("");
@@ -61,74 +63,91 @@ export default function VasFocusPage(){
  useEffect(()=>{
   if(!targetPeriod)return;
   let alive=true;
-  fetch(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=vas-focus&t=${Date.now()}`,{cache:"no-store"})
-   .then(async r=>{const j=await r.json();if(!r.ok)throw new Error(j?.error||"Gagal membaca target");return j})
-   .then(j=>{if(!alive)return;const next:TargetMap={};for(const v of VAS)next[v]=Math.max(0,toNum(j?.targets?.[v]?.target));setTargets(next);setDraft(next);setStaffShares(Array.isArray(j?.staff)?j.staff:[])})
-   .catch(()=>{if(!alive)return;const zero:Object={};const next:TargetMap={};for(const v of VAS)next[v]=0;void zero;setTargets(next);setDraft(next);setStaffShares([])});
+  Promise.all([
+   fetch(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=vas-focus&t=${Date.now()}`,{cache:"no-store"}),
+   fetch(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=vas-focus-value&t=${Date.now()}`,{cache:"no-store"})
+  ]).then(async([qr,vr])=>{
+   const[qj,vj]=await Promise.all([qr.json(),vr.json()]);
+   if(!qr.ok)throw new Error(qj?.error||"Gagal membaca target Qty");
+   if(!vr.ok)throw new Error(vj?.error||"Gagal membaca target Value");
+   return[qj,vj];
+  }).then(([qj,vj])=>{
+   if(!alive)return;
+   const q:TargetMap={},v:TargetMap={};
+   for(const name of VAS){q[name]=Math.max(0,toNum(qj?.targets?.[name]?.target));v[name]=Math.max(0,toNum(vj?.targets?.[name]?.target))}
+   setTargets(q);setDraft(q);setValueTargets(v);setValueDraft(v);setStaffShares(Array.isArray(qj?.staff)?qj.staff:[]);
+  }).catch(()=>{
+   if(!alive)return;
+   const q:TargetMap={},v:TargetMap={};for(const name of VAS){q[name]=0;v[name]=0}
+   setTargets(q);setDraft(q);setValueTargets(v);setValueDraft(v);setStaffShares([]);
+  });
   return()=>{alive=false};
  },[targetScope,targetPeriod]);
 
  const rawProviders=Array.isArray(data?.vas?.providers)?data!.vas!.providers!:[];
  const providerMap=useMemo(()=>new Map(rawProviders.map(p=>[String(p?.name||"").trim().toUpperCase(),p])),[rawProviders]);
- const providers=useMemo(()=>VAS.map(name=>{const p=providerMap.get(name.toUpperCase());return {name,qty:toNum(p?.qty),value:toNum(p?.value),staff:Array.isArray(p?.staff)?p!.staff:[] as ProviderStaff[]}}),[providerMap]);
+ const providers=useMemo(()=>VAS.map(name=>{const p=providerMap.get(name.toUpperCase());return{name,qty:toNum(p?.qty),value:toNum(p?.value),staff:Array.isArray(p?.staff)?p!.staff:[] as ProviderStaff[]}}),[providerMap]);
  const active=useMemo(()=>providers.find(p=>p.name===activeVAS)??providers[0]??{name:"Qoala",qty:0,value:0,staff:[] as ProviderStaff[]},[providers,activeVAS]);
  const totalTarget=VAS.reduce((a,v)=>a+toNum(targets[v]),0);
+ const totalValueTarget=VAS.reduce((a,v)=>a+toNum(valueTargets[v]),0);
  const totalAch=providers.reduce((a,p)=>a+p.qty,0);
  const totalValue=providers.reduce((a,p)=>a+p.value,0);
  const overall=totalTarget>0?totalAch/totalTarget*100:0;
+ const overallValue=totalValueTarget>0?totalValue/totalValueTarget*100:0;
  const totalGap=Math.max(0,totalTarget-totalAch);
+ const totalValueGap=Math.max(0,totalValueTarget-totalValue);
  const shareByName=useMemo(()=>new Map((staffShares||[]).map(s=>[String(s?.name||"").trim().toUpperCase(),Math.max(0,toNum(s?.share))])),[staffShares]);
  const staffRows=useMemo(()=>{
-  const rows=Array.isArray(active?.staff)?active.staff:[];
-  return rows.map(r=>{
-   const name=String(r?.name||"Tanpa Nama").trim()||"Tanpa Nama";
+  const sales=new Map((Array.isArray(active?.staff)?active.staff:[]).map(r=>[String(r?.name||"").trim().toUpperCase(),r]));
+  const names=new Map<string,string>();
+  for(const r of active?.staff||[]){const name=String(r?.name||"").trim();if(name)names.set(name.toUpperCase(),name)}
+  for(const r of staffShares||[]){const name=String(r?.name||"").trim();if(name)names.set(name.toUpperCase(),name)}
+  return [...names.entries()].map(([key,name])=>{
+   const r=sales.get(key);
    const qty=toNum(r?.qty),value=toNum(r?.value),deviceQty=toNum(r?.deviceQty),ar=toNum(r?.ar);
-   const share=shareByName.get(name.toUpperCase())||0;
+   const share=shareByName.get(key)||0;
    const target=Math.round(toNum(targets[active.name])*share);
-   const gap=Math.max(0,target-qty);
+   const valueTarget=Math.round(toNum(valueTargets[active.name])*share);
+   const gap=Math.max(0,target-qty),valueGap=Math.max(0,valueTarget-value);
    const status=active.name==="Qoala"?arStatus(ar):achStatus(qty,target);
-   return {name,qty,value,deviceQty,ar,target,gap,status};
+   return{name,qty,value,deviceQty,ar,target,valueTarget,gap,valueGap,status};
   }).sort((a,b)=>b.qty-a.qty||a.name.localeCompare(b.name));
- },[active,shareByName,targets]);
- const staffTotals=useMemo(()=>{
-  const target=staffRows.reduce((a,r)=>a+r.target,0),qty=staffRows.reduce((a,r)=>a+r.qty,0),value=staffRows.reduce((a,r)=>a+r.value,0),deviceQty=staffRows.reduce((a,r)=>a+r.deviceQty,0);
-  return{target,qty,value,deviceQty,gap:Math.max(0,target-qty),ar:deviceQty>0?qty/deviceQty*100:0};
- },[staffRows]);
+ },[active,shareByName,staffShares,targets,valueTargets]);
+ const staffTotals=useMemo(()=>({
+  target:staffRows.reduce((a,r)=>a+r.target,0),valueTarget:staffRows.reduce((a,r)=>a+r.valueTarget,0),qty:staffRows.reduce((a,r)=>a+r.qty,0),value:staffRows.reduce((a,r)=>a+r.value,0),deviceQty:staffRows.reduce((a,r)=>a+r.deviceQty,0)
+ }),[staffRows]);
 
  const save=async()=>{
   setSaving(true);setMessage("");
   try{
-   const body:TargetMap={};for(const v of VAS)body[v]=Math.max(0,Math.floor(toNum(draft[v])));
-   const r=await fetch("/api/manual-target",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scope:targetScope,period:targetPeriod,group:"vas-focus",targets:body})});
-   const j=await r.json();
-   if(!r.ok){setMessage(j?.error||"Gagal menyimpan target");return}
-   setTargets(body);setStaffShares(Array.isArray(j?.staff)?j.staff:staffShares);setTargetOpen(false);
+   const qtyBody:TargetMap={},valueBody:TargetMap={};
+   for(const v of VAS){qtyBody[v]=Math.max(0,Math.floor(toNum(draft[v])));valueBody[v]=Math.max(0,Math.floor(toNum(valueDraft[v])))}
+   const[qtyRes,valueRes]=await Promise.all([
+    fetch("/api/manual-target",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scope:targetScope,period:targetPeriod,group:"vas-focus",targets:qtyBody})}),
+    fetch("/api/manual-target",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scope:targetScope,period:targetPeriod,group:"vas-focus-value",targets:valueBody})})
+   ]);
+   const[qtyJson,valueJson]=await Promise.all([qtyRes.json(),valueRes.json()]);
+   if(!qtyRes.ok){setMessage(qtyJson?.error||"Gagal menyimpan target Qty");return}
+   if(!valueRes.ok){setMessage(valueJson?.error||"Gagal menyimpan target Value");return}
+   setTargets(qtyBody);setDraft(qtyBody);setValueTargets(valueBody);setValueDraft(valueBody);setStaffShares(Array.isArray(qtyJson?.staff)?qtyJson.staff:staffShares);setTargetOpen(false);
   }catch{setMessage("Koneksi gagal saat menyimpan target.")}finally{setSaving(false)}
  };
 
  return <div className="space-y-5">
-  <div><p className="text-xs font-bold uppercase tracking-[.16em] text-blue-600 dark:text-blue-400">M238 • Target Fokus</p><h2 className="mt-1 text-3xl font-black">VAS Fokus</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Target berbasis Qty, actual tetap menampilkan Qty, Value, Device Qty dan AR.</p></div>
-
+  <div><p className="text-xs font-bold uppercase tracking-[.16em] text-blue-600 dark:text-blue-400">M238 • Target Fokus</p><h2 className="mt-1 text-3xl font-black">VAS Fokus</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Target Qty dan Value tersimpan per periode. Actual menampilkan Qty, Value, Device Qty dan AR.</p></div>
   <section className={`${panel} p-4`}>
-   <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap gap-2">{(["week","month","range"] as FilterMode[]).map(f=><button key={f} onClick={()=>setFilterMode(f)} className={`rounded-xl px-4 py-2 text-sm font-bold ${filterMode===f?"bg-blue-600 text-white":"bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>{f==="week"?"Week":f==="month"?"Bulan":"Range Tanggal"}</button>)}</div><button onClick={()=>{setDraft({...targets});setMessage("");setTargetOpen(true)}} className="rounded-xl border px-4 py-2 text-sm font-black">Set Target VAS</button></div>
+   <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap gap-2">{(["week","month","range"] as FilterMode[]).map(f=><button key={f} onClick={()=>setFilterMode(f)} className={`rounded-xl px-4 py-2 text-sm font-bold ${filterMode===f?"bg-blue-600 text-white":"bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>{f==="week"?"Week":f==="month"?"Bulan":"Range Tanggal"}</button>)}</div><button onClick={()=>{setDraft({...targets});setValueDraft({...valueTargets});setMessage("");setTargetOpen(true)}} className="rounded-xl border px-4 py-2 text-sm font-black">Set Target VAS</button></div>
    <div className="mt-4 grid gap-3 md:grid-cols-3">{filterMode==="week"&&<label><span className="mb-1 block text-[11px] font-bold uppercase text-slate-500">Apple Week</span><select value={week} onChange={e=>setWeek(e.target.value)} className="h-11 w-full rounded-xl border px-3 font-semibold">{(data?.availableWeeks??[]).map(w=><option key={w} value={w}>{w}</option>)}</select></label>}{filterMode==="month"&&<label><span className="mb-1 block text-[11px] font-bold uppercase text-slate-500">Filter Bulan</span><select value={month} onChange={e=>setMonth(e.target.value)} className="h-11 w-full rounded-xl border px-3 font-semibold">{(data?.availableMonths??[]).map(m=><option key={m} value={m}>{monthName(m)}</option>)}</select></label>}{filterMode==="range"&&<><label><span className="mb-1 block text-[11px] font-bold uppercase text-slate-500">Dari Tanggal</span><input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="h-11 w-full rounded-xl border px-3 font-semibold"/></label><label><span className="mb-1 block text-[11px] font-bold uppercase text-slate-500">Sampai Tanggal</span><input type="date" value={to} onChange={e=>setTo(e.target.value)} className="h-11 w-full rounded-xl border px-3 font-semibold"/></label></>}</div>
    <p className="mt-3 text-xs text-slate-500">Periode aktif: <b>{data?.periodLabel||targetPeriod||"-"}</b></p>
   </section>
-
   {loading?<div className={`${panel} p-8 text-center text-slate-500`}>Memuat VAS Fokus…</div>:<>
-   {error&&<div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">Data VAS belum dapat dibaca: {error}</div>}
-
-   <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{providers.map(p=>{const t=toNum(targets[p.name]),pc=t>0?p.qty/t*100:0,g=Math.max(0,t-p.qty),st=achStatus(p.qty,t);return <div key={p.name} className={`${sub} p-4`}><div className="flex items-center justify-between gap-2"><p className="font-black">{p.name}</p><span className={`rounded-full px-2 py-1 text-[10px] font-black ${badgeClass(st)}`}>{st}</span></div><div className="mt-3 grid grid-cols-4 gap-2 text-xs"><div><p className="text-slate-400">Target</p><p className="mt-1 font-black">{num.format(t)}</p></div><div><p className="text-slate-400">Ach</p><p className="mt-1 font-black">{num.format(p.qty)}</p></div><div><p className="text-slate-400">Ach %</p><p className="mt-1 font-black">{pct(pc)}</p></div><div><p className="text-slate-400">Gap</p><p className="mt-1 font-black">{num.format(g)}</p></div></div></div>})}</section>
-
-   <section className={`${panel} p-4`}><div className="flex flex-wrap gap-x-7 gap-y-2 text-sm"><span><b>Total Target:</b> {num.format(totalTarget)} Qty</span><span><b>Achievement:</b> {num.format(totalAch)} Qty</span><span><b>Overall:</b> {pct(overall)}</span><span><b>Gap:</b> {num.format(totalGap)} Qty</span><span><b>Total Value:</b> {money.format(totalValue)}</span></div></section>
-
+   {error&&<div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">Data VAS belum dapat dibaca: {error}</div>}
+   <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{providers.map(p=>{const tq=toNum(targets[p.name]),tv=toNum(valueTargets[p.name]),pq=tq?p.qty/tq*100:0,pv=tv?p.value/tv*100:0,gq=Math.max(0,tq-p.qty),gv=Math.max(0,tv-p.value),st=achStatus(p.qty,tq);return <div key={p.name} className={`${sub} p-4`}><div className="flex items-center justify-between"><p className="font-black">{p.name}</p><span className={`rounded-full px-2 py-1 text-[10px] font-black ${badgeClass(st)}`}>{st}</span></div><div className="mt-3 grid grid-cols-2 gap-3 text-xs"><div><p className="text-slate-400">Target Qty</p><p className="font-black">{num.format(tq)}</p><p className="mt-2 text-slate-400">Ach Qty</p><p className="font-black">{num.format(p.qty)} • {pct(pq)}</p><p className="mt-2 text-slate-400">Gap Qty</p><p className="font-black">{num.format(gq)}</p></div><div><p className="text-slate-400">Target Value</p><p className="font-black">{money.format(tv)}</p><p className="mt-2 text-slate-400">Ach Value</p><p className="font-black">{money.format(p.value)} • {pct(pv)}</p><p className="mt-2 text-slate-400">Gap Value</p><p className="font-black">{money.format(gv)}</p></div></div></div>})}</section>
+   <section className={`${panel} p-4`}><div className="flex flex-wrap gap-x-7 gap-y-2 text-sm"><span><b>Target Qty:</b> {num.format(totalTarget)}</span><span><b>Ach Qty:</b> {num.format(totalAch)} ({pct(overall)})</span><span><b>Gap Qty:</b> {num.format(totalGap)}</span><span><b>Target Value:</b> {money.format(totalValueTarget)}</span><span><b>Ach Value:</b> {money.format(totalValue)} ({pct(overallValue)})</span><span><b>Gap Value:</b> {money.format(totalValueGap)}</span></div></section>
    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{providers.map(p=><div key={p.name} className={`${sub} p-4`}><p className="font-black">{p.name}</p><p className="mt-2 text-2xl font-black">{num.format(p.qty)} qty</p><p className="mt-1 text-sm text-slate-500">{money.format(p.value)}</p></div>)}</section>
-
-   <section className={`${panel} p-3`}><div className="overflow-x-auto"><div className="flex min-w-max gap-2">{VAS.map(name=><button key={name} onClick={()=>setActiveVAS(name)} className={`rounded-xl border px-4 py-2 text-sm font-black ${activeVAS===name?"border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/25 dark:text-blue-300":"bg-white text-slate-600 dark:bg-slate-900 dark:text-slate-300"}`}>{name}</button>)}</div></div></section>
-
-   <section key={active.name} className={`${panel} overflow-hidden`}><div className="border-b px-5 py-4"><h3 className="font-black">Penjualan Staff • {active.name}</h3>{active.name==="Qoala"&&<p className="mt-1 text-sm text-slate-500">AR existing: Qty Qoala ÷ Qty Device staff. Status AR: Achieve ≥40%, Need Push 30–39.9%, Critical &lt;30%.</p>}</div>{staffRows.length===0?<div className="p-8 text-center text-sm text-slate-400">Belum ada penjualan {active.name} pada periode ini</div>:<div className="overflow-x-auto"><table className="min-w-[900px] w-full text-sm"><thead><tr><th className="px-4 py-3 text-left">Staff</th><th className="px-3 py-3 text-right">Target</th><th className="px-3 py-3 text-right">Qty</th><th className="px-3 py-3 text-right">Gap</th><th className="px-3 py-3 text-right">Value</th><th className="px-3 py-3 text-right">Device Qty</th><th className="px-3 py-3 text-right">AR</th><th className="px-3 py-3 text-left">Status</th></tr></thead><tbody>{staffRows.map(r=><tr key={`${active.name}-${r.name}`} className="border-t"><td className="px-4 py-3 font-bold">{r.name}</td><td className="px-3 py-3 text-right">{num.format(r.target)}</td><td className="px-3 py-3 text-right font-black">{num.format(r.qty)}</td><td className="px-3 py-3 text-right">{num.format(r.gap)}</td><td className="px-3 py-3 text-right">{money.format(r.value)}</td><td className="px-3 py-3 text-right">{num.format(r.deviceQty)}</td><td className="px-3 py-3 text-right font-black">{pct(r.ar)}</td><td className="px-3 py-3"><span title={r.status==="Critical"?"Rekomendasi: training / roleplay VAS":r.status==="Need Push"?"Perlu push pencapaian VAS":"Target/AR tercapai"} className={`rounded-full px-2 py-1 text-[10px] font-black ${badgeClass(r.status)}`}>{r.status}</span></td></tr>)}</tbody><tfoot><tr className="border-t-2 bg-slate-50 font-black dark:bg-slate-900/60"><td className="px-4 py-3">TOTAL</td><td className="px-3 py-3 text-right">{num.format(staffTotals.target)}</td><td className="px-3 py-3 text-right">{num.format(staffTotals.qty)}</td><td className="px-3 py-3 text-right">{num.format(staffTotals.gap)}</td><td className="px-3 py-3 text-right">{money.format(staffTotals.value)}</td><td className="px-3 py-3 text-right">{num.format(staffTotals.deviceQty)}</td><td className="px-3 py-3 text-right">{pct(staffTotals.ar)}</td><td className="px-3 py-3">-</td></tr></tfoot></table></div>}</section>
+   <section className={`${panel} p-3`}><div className="overflow-x-auto"><div className="flex min-w-max gap-2">{VAS.map(name=><button key={name} onClick={()=>setActiveVAS(name)} className={`rounded-xl border px-4 py-2 text-sm font-black ${activeVAS===name?"border-blue-500 bg-blue-50 text-blue-700":"bg-white text-slate-600 dark:bg-slate-900 dark:text-slate-300"}`}>{name}</button>)}</div></div></section>
+   <section key={active.name} className={`${panel} overflow-hidden`}><div className="border-b px-5 py-4"><h3 className="font-black">Penjualan Staff • {active.name}</h3>{active.name==="Qoala"&&<p className="mt-1 text-sm text-slate-500">AR existing: Qty Qoala ÷ Qty Device staff. Staff yang belum jualan tetap ditampilkan.</p>}</div><div className="overflow-x-auto"><table className="min-w-[1100px] w-full text-sm"><thead><tr><th className="px-4 py-3 text-left">Staff</th><th className="px-3 py-3 text-right">Target Qty</th><th className="px-3 py-3 text-right">Qty</th><th className="px-3 py-3 text-right">Gap Qty</th><th className="px-3 py-3 text-right">Target Value</th><th className="px-3 py-3 text-right">Value</th><th className="px-3 py-3 text-right">Gap Value</th><th className="px-3 py-3 text-right">Device Qty</th><th className="px-3 py-3 text-right">AR</th><th className="px-3 py-3 text-left">Status</th></tr></thead><tbody>{staffRows.map(r=><tr key={`${active.name}-${r.name}`} className="border-t"><td className="px-4 py-3 font-bold">{r.name}</td><td className="px-3 py-3 text-right">{num.format(r.target)}</td><td className="px-3 py-3 text-right font-black">{num.format(r.qty)}</td><td className="px-3 py-3 text-right">{num.format(r.gap)}</td><td className="px-3 py-3 text-right">{money.format(r.valueTarget)}</td><td className="px-3 py-3 text-right">{money.format(r.value)}</td><td className="px-3 py-3 text-right">{money.format(r.valueGap)}</td><td className="px-3 py-3 text-right">{num.format(r.deviceQty)}</td><td className="px-3 py-3 text-right font-black">{pct(r.ar)}</td><td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-black ${badgeClass(r.status)}`}>{r.status}</span></td></tr>)}</tbody><tfoot><tr className="border-t font-black"><td className="px-4 py-3">TOTAL</td><td className="px-3 py-3 text-right">{num.format(staffTotals.target)}</td><td className="px-3 py-3 text-right">{num.format(staffTotals.qty)}</td><td className="px-3 py-3 text-right">{num.format(Math.max(0,staffTotals.target-staffTotals.qty))}</td><td className="px-3 py-3 text-right">{money.format(staffTotals.valueTarget)}</td><td className="px-3 py-3 text-right">{money.format(staffTotals.value)}</td><td className="px-3 py-3 text-right">{money.format(Math.max(0,staffTotals.valueTarget-staffTotals.value))}</td><td className="px-3 py-3 text-right">{num.format(staffTotals.deviceQty)}</td><td className="px-3 py-3 text-right">{pct(staffTotals.deviceQty?staffTotals.qty/staffTotals.deviceQty*100:0)}</td><td className="px-3 py-3">-</td></tr></tfoot></table></div></section>
   </>}
-
-  {targetOpen&&<div className="fixed inset-0 z-[140] grid place-items-center bg-black/35 p-4" onMouseDown={e=>{if(e.target===e.currentTarget)setTargetOpen(false)}}><div className="m238-soft-card w-full max-w-lg rounded-2xl border bg-white p-5 shadow-2xl dark:bg-slate-900"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-blue-600">Set Target VAS</p><h3 className="mt-1 text-xl font-black">{data?.periodLabel||targetPeriod||"-"}</h3></div><button onClick={()=>setTargetOpen(false)} className="rounded-lg border px-3 py-1.5 text-sm font-bold">Tutup</button></div><div className="mt-4 space-y-3">{VAS.map(v=><label key={v} className="flex items-center justify-between gap-4"><span className="font-bold">{v}</span><input type="number" min="0" step="1" value={draft[v]??0} onChange={e=>setDraft(x=>({...x,[v]:Math.max(0,Math.floor(toNum(e.target.value)))}))} className="h-10 w-36 rounded-xl border px-3 text-right font-black"/></label>)}</div><div className="mt-4 border-t pt-4 text-sm"><b>Total Target:</b> {num.format(VAS.reduce((a,v)=>a+toNum(draft[v]),0))} Qty</div>{message&&<p className="mt-3 text-sm font-bold text-rose-600">{message}</p>}<div className="mt-5 flex justify-end gap-2"><button onClick={()=>setTargetOpen(false)} className="rounded-xl border px-4 py-2 text-sm font-bold">Batal</button><button disabled={saving} onClick={save} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white disabled:opacity-50">{saving?"Menyimpan…":"Simpan Target"}</button></div></div></div>}
- </div>
+  {targetOpen&&<div className="fixed inset-0 z-[140] grid place-items-center bg-black/35 p-4" onMouseDown={e=>{if(e.target===e.currentTarget)setTargetOpen(false)}}><div className="m238-soft-card w-full max-w-2xl rounded-2xl border bg-white p-5 shadow-2xl dark:bg-slate-900"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-blue-600">Set Target VAS</p><h3 className="mt-1 text-xl font-black">{data?.periodLabel||targetPeriod||"-"}</h3></div><button onClick={()=>setTargetOpen(false)} className="rounded-lg border px-3 py-1.5 text-sm font-bold">Tutup</button></div><div className="mt-4 space-y-3">{VAS.map(v=><div key={v} className="rounded-xl border p-3"><div className="mb-3 font-black">{v}</div><div className="grid grid-cols-2 gap-3"><label><span className="mb-1 block text-xs font-bold text-slate-500">Target Qty</span><input type="number" min="0" step="1" value={draft[v]??0} onChange={e=>setDraft(x=>({...x,[v]:Math.max(0,Math.floor(toNum(e.target.value)))}))} className="h-10 w-full rounded-xl border px-3 text-right font-black"/></label><label><span className="mb-1 block text-xs font-bold text-slate-500">Target Value</span><input type="number" min="0" step="1000" value={valueDraft[v]??0} onChange={e=>setValueDraft(x=>({...x,[v]:Math.max(0,Math.floor(toNum(e.target.value)))}))} className="h-10 w-full rounded-xl border px-3 text-right font-black"/><span className="mt-1 block text-[11px] text-slate-500">{money.format(valueDraft[v]||0)}</span></label></div></div>)}</div><div className="mt-4 grid grid-cols-2 gap-3 border-t pt-4 text-sm"><div><b>Total Target Qty:</b> {num.format(VAS.reduce((a,v)=>a+toNum(draft[v]),0))}</div><div><b>Total Target Value:</b> {money.format(VAS.reduce((a,v)=>a+toNum(valueDraft[v]),0))}</div></div>{message&&<p className="mt-3 text-sm font-bold text-rose-600">{message}</p>}<div className="mt-5 flex justify-end gap-2"><button onClick={()=>setTargetOpen(false)} className="rounded-xl border px-4 py-2 text-sm font-bold">Batal</button><button disabled={saving} onClick={save} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white disabled:opacity-50">{saving?"Menyimpan…":"Simpan Target"}</button></div></div></div>}
+ </div>;
 }
