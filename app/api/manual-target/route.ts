@@ -5,6 +5,8 @@ const MASTER_ID="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk";
 const SOURCE_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const TAB="Dashboard Manual Target";
 const HEADERS=["Scope","Period","Focus","Target","Updated At"];
+const PRODUCT_FOCUS_KEYS=new Set(["HASTAG","DINO","IGA","IBACKS","HANDAL","OMEGA","TORRAS"]);
+const VAS_FOCUS_KEYS=new Set(["QOALA","TELKOMSEL","XL","INDOSAT"]);
 const s=(v:unknown)=>String(v??"").trim();
 const n=(v:unknown)=>typeof v==="number"?v:Number(s(v).replace(/%/g,"").replace(/,/g,"."))||0;
 function share(v:unknown){let x=n(v);if(x>1)x/=100;return Math.max(0,x)}
@@ -12,6 +14,14 @@ function validScope(v:string){return v==="monthly"||v==="weekly"||v==="range"}
 function validGroup(v:string){return ["lob-focus","lob-focus-active","product-focus","product-focus-value","vas-focus","vas-focus-value"].includes(v)}
 function safeKey(v:string){return v.replace(/[\r\n]/g," ").trim().slice(0,120)}
 function storedKey(group:string,key:string){return `${group}::${safeKey(key)}`}
+function legacyKeyForGroup(group:string,focus:string){
+ const key=s(focus),upper=key.toUpperCase();
+ if(!key||key.includes("::"))return"";
+ if(group==="lob-focus")return key;
+ if(group==="product-focus"&&PRODUCT_FOCUS_KEYS.has(upper))return upper==="IGA"?"IGA":key;
+ if(group==="vas-focus"&&VAS_FOCUS_KEYS.has(upper))return upper==="XL"?"XL":upper==="QOALA"?"Qoala":upper==="TELKOMSEL"?"Telkomsel":"Indosat";
+ return"";
+}
 async function staffShares(email:string,key:string){
  const[rows]=await getSheetRanges(SOURCE_ID,["Config!H1:L120"],email,key);
  return rows.map(r=>({store:s(r[0]).toUpperCase(),id:s(r[1]),name:s(r[2]),position:s(r[3]),share:share(r[4])}))
@@ -28,8 +38,12 @@ export async function GET(req:NextRequest){
   for(const r of rows){
    if(s(r[0])!==scope||s(r[1])!==period)continue;
    const focus=s(r[2]),prefix=`${group}::`;
-   if(focus.startsWith(prefix))latest.set(focus.slice(prefix.length),{target:n(r[3]),updatedAt:s(r[4])});
-   else if(group==="lob-focus"&&!focus.includes("::"))latest.set(focus,{target:n(r[3]),updatedAt:s(r[4])});
+   if(focus.startsWith(prefix)){
+    latest.set(focus.slice(prefix.length),{target:n(r[3]),updatedAt:s(r[4])});
+    continue;
+   }
+   const legacy=legacyKeyForGroup(group,focus);
+   if(legacy&&!latest.has(legacy))latest.set(legacy,{target:n(r[3]),updatedAt:s(r[4])});
   }
   const staff=await staffShares(email,key);
   return NextResponse.json({scope,period,group,targets:Object.fromEntries(latest),staff},{headers:{"cache-control":"no-store"}});
