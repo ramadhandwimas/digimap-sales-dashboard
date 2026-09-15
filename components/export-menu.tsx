@@ -87,23 +87,86 @@ export function ExportMenu({
   );
 }
 
+const unsupportedColor = /(\blab\(|\boklab\(|\blch\(|\boklch\(|\bcolor\()/i;
+
+function sanitizeCloneColors(root: HTMLElement, doc: Document) {
+  const win = doc.defaultView;
+  if (!win) return;
+
+  const elements = [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))];
+  const colorProps: Array<[keyof CSSStyleDeclaration, string]> = [
+    ["color", "#0f172a"],
+    ["backgroundColor", "transparent"],
+    ["borderTopColor", "#e2e8f0"],
+    ["borderRightColor", "#e2e8f0"],
+    ["borderBottomColor", "#e2e8f0"],
+    ["borderLeftColor", "#e2e8f0"],
+    ["outlineColor", "#94a3b8"],
+    ["textDecorationColor", "#0f172a"],
+    ["caretColor", "#0f172a"],
+    ["fill", "#0f172a"],
+    ["stroke", "#0f172a"],
+  ];
+
+  for (const el of elements) {
+    const computed = win.getComputedStyle(el);
+    for (const [prop, fallback] of colorProps) {
+      const value = String(computed[prop] ?? "");
+      if (value && unsupportedColor.test(value)) {
+        el.style.setProperty(
+          prop.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`),
+          fallback,
+          "important",
+        );
+      }
+    }
+
+    const backgroundImage = computed.backgroundImage;
+    if (backgroundImage && unsupportedColor.test(backgroundImage)) {
+      el.style.setProperty("background-image", "none", "important");
+    }
+    const boxShadow = computed.boxShadow;
+    if (boxShadow && unsupportedColor.test(boxShadow)) {
+      el.style.setProperty("box-shadow", "none", "important");
+    }
+    const textShadow = computed.textShadow;
+    if (textShadow && unsupportedColor.test(textShadow)) {
+      el.style.setProperty("text-shadow", "none", "important");
+    }
+  }
+
+  root.style.setProperty("background-color", "#ffffff", "important");
+  root.style.setProperty("color", "#0f172a", "important");
+}
+
 async function renderPicture(node: HTMLElement) {
   try { await document.fonts?.ready; } catch {}
   const width = Math.max(node.scrollWidth, node.clientWidth);
   const height = Math.max(node.scrollHeight, node.clientHeight);
-  const canvas = await html2canvas(node, {
-    backgroundColor: "#ffffff",
-    scale: 2,
-    useCORS: true,
-    logging: false,
-    width,
-    height,
-    windowWidth: width,
-    windowHeight: height,
-  });
-  return new Promise<Blob>((resolve, reject) =>
-    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Gagal membuat picture PNG")), "image/png"),
-  );
+  const marker = `capture-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  node.setAttribute("data-picture-capture", marker);
+
+  try {
+    const canvas = await html2canvas(node, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      width,
+      height,
+      windowWidth: width,
+      windowHeight: height,
+      onclone: (doc) => {
+        const clone = doc.querySelector<HTMLElement>(`[data-picture-capture="${marker}"]`);
+        if (clone) sanitizeCloneColors(clone, doc);
+      },
+    });
+    return await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Gagal membuat picture PNG")), "image/png"),
+    );
+  } finally {
+    node.removeAttribute("data-picture-capture");
+  }
 }
 
 export function PictureShareActions({
