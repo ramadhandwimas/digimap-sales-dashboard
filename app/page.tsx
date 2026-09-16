@@ -15,6 +15,7 @@ import StaffPerformanceLiveEnhancer from "@/components/staff-performance-live-en
 import M238DataManagementOverlay from "@/components/m238-data-management-overlay"
 import TargetFocusPictureEnhancer from "@/components/target-focus-picture-enhancer"
 import NativeViewHeadingDedup from "@/components/native-view-heading-dedup"
+import YtdLobGrowthEnhancer from "@/components/ytd-lob-growth-enhancer"
 
 export default function Home() {
   return <DashboardFetchGuard>
@@ -34,5 +35,6 @@ export default function Home() {
     <M238DataManagementOverlay />
     <TargetFocusPictureEnhancer />
     <NativeViewHeadingDedup />
+    <YtdLobGrowthEnhancer />
   </DashboardFetchGuard>
 }
