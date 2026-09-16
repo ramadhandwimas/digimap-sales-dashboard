@@ -4,7 +4,8 @@ import Jakarta1WeeklyM238 from "@/components/jakarta1-weekly-m238";
 import Jakarta1Soh from "@/components/jakarta1-soh-v2";
 import Jakarta1SohUpdateTrigger from "@/components/jakarta1-soh-update-trigger";
 import Jakarta1IncentiveAudit from "@/components/jakarta1-incentive-audit";
+import Jakarta1YoYDevice from "@/components/jakarta1-yoy-device";
 
 export default function Home(){
-  return <><Jakarta1DashboardV2/><Jakarta1DailyFocus/><Jakarta1WeeklyM238/><Jakarta1Soh/><Jakarta1SohUpdateTrigger/><Jakarta1IncentiveAudit/><script src="/jakarta1-enhancer.js" defer /></>;
+  return <><Jakarta1DashboardV2/><Jakarta1DailyFocus/><Jakarta1WeeklyM238/><Jakarta1Soh/><Jakarta1SohUpdateTrigger/><Jakarta1IncentiveAudit/><Jakarta1YoYDevice/><script src="/jakarta1-enhancer.js" defer /></>;
 }
