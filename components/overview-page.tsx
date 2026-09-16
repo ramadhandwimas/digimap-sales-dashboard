@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useState} from "react";
+import OverviewExportActions from "@/components/overview-export-actions";
 
 const money=new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0});
 const num=new Intl.NumberFormat("id-ID");
@@ -27,6 +28,7 @@ export default function OverviewPage({period}:{period:string;setPeriod:(v:string
 }
 
 function YtdView({data}:{data:Payload}){return <div className="space-y-5">
+ <div className="flex justify-end"><OverviewExportActions data={data}/></div>
  <section className={card}><div><h2 className="font-black">YTD 2025 vs 2026</h2><p className="mt-1 text-sm text-slate-500">Januari–{monthShort(data.ytd.throughMonth)}. Qty dan value ditampilkan berdampingan.</p></div>
   <div className="mt-4 grid grid-cols-2 gap-3">
    <div className="rounded-2xl border p-4"><div className="text-center text-lg font-black">2025</div><div className="mt-4 rounded-xl bg-slate-50 p-3 dark:bg-slate-900"><div className="text-xs font-bold uppercase text-slate-400">All Sales</div><div className="mt-2"><ValuePair qty={data.ytd.qty2025} value={data.ytd.amount2025}/></div></div><div className="mt-3 divide-y">{data.ytd.lobs.map(x=><div key={x.lob} className="flex items-center justify-between gap-2 py-3"><b className="text-sm">{x.lob}</b><div className="text-right"><div className="font-black">{num.format(x.qty2025)} Qty</div><div className="text-xs font-semibold text-slate-500">{money.format(x.amount2025)}</div></div></div>)}</div></div>
