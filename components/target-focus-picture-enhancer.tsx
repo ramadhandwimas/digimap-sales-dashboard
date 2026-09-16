@@ -41,8 +41,8 @@ function tableRows(root:HTMLElement,mode:FocusMode){
    const c=Array.from(tr.querySelectorAll("td")).map(td=>(td.textContent||"").replace(/\s+/g," ").trim());
    if(!c[0])continue;
    if(mode==="Product Fokus 3PP"){
-    const qty=toNum(c[1]),value=toNum(c[2]);
-    all.push({name:c[0],qty,achievement:c[2]||money(0),contribution:c[3]||"0%",active:qty>0||value>0});
+    const target=toNum(c[1]),value=toNum(c[2]),qty=toNum(c[5]);
+    all.push({name:c[0],target:c[1]||money(0),achievement:c[2]||money(0),gap:c[3]||money(0),achievementPct:c[4]||pct(target>0?value/target*100:0),qty,contribution:c[6]||"0%",active:qty>0||value>0});
    }else{
     const target=toNum(c[1]),ach=toNum(c[2]),qty=toNum(c[4]);
     all.push({name:c[0],target:c[1]||money(0),achievement:c[2]||money(0),gap:c[3]||money(0),qty,ar:c[6]||"0%",achievementPct:pct(target>0?ach/target*100:0),status:c[7]||"Critical",active:ach>0||qty>0});
@@ -93,12 +93,12 @@ function table(ctx:CanvasRenderingContext2D,d:Report,mode:FocusMode,width:number
  if(!d.rows.length){ctx.fillStyle="#f8fafc";rr(ctx,pad,y,inner,58,12);ctx.fill();text(ctx,"Belum ada staff dengan transaksi pada pilihan ini",pad+18,y+36,inner-36,18,700,"#64748b");return y+74}
  let cols:number[],headers:string[];
  if(mode==="LOB Target Fokus"){cols=[50,430,120,180,150];headers=["No","Nama Staff","Qty","Contribution %","Status"]}
- else if(mode==="Product Fokus 3PP"){cols=[50,390,110,210,196];headers=["No","Nama Staff","Qty","Achievement","Contribution %"]}
+ else if(mode==="Product Fokus 3PP"){cols=[50,300,210,210,190,130,110,150];headers=["No","Nama Staff","Target","Achievement","Gap","Ach %","Qty","Contribution %"]}
  else{cols=[50,360,200,210,190,100,140,150];headers=["No","Nama Staff","Target","Achievement","Gap","AR","Ach %","Status"]}
  ctx.fillStyle="#eaf1fb";rr(ctx,pad,y,inner,46,12);ctx.fill();let x=pad;headers.forEach((h,i)=>{text(ctx,h,x+10,y+29,cols[i]-20,16,800,"#334155");x+=cols[i]});y+=46;
  d.rows.forEach((r,i)=>{const h=mode==="VAS Fokus"?58:54;ctx.fillStyle=i%2?"#fff":"#f8fafc";ctx.fillRect(pad,y,inner,h);x=pad;let vals:string[];
   if(mode==="LOB Target Fokus") vals=[String(i+1),r.name,`${r.qty||0} unit`,r.contribution||"0%",r.status||"-"];
-  else if(mode==="Product Fokus 3PP") vals=[String(i+1),r.name,String(r.qty||0),r.achievement||money(0),r.contribution||"0%"];
+  else if(mode==="Product Fokus 3PP") vals=[String(i+1),r.name,r.target||money(0),r.achievement||money(0),r.gap||money(0),r.achievementPct||"0%",String(r.qty||0),r.contribution||"0%"];
   else vals=[String(i+1),r.name,r.target||money(0),r.achievement||money(0),r.gap||money(0),r.ar||"0%",r.achievementPct||"0%",r.status||"-"];
   vals.forEach((v,j)=>{const color=mode==="LOB Target Fokus"&&j===4?"#1d4ed8":mode==="VAS Fokus"&&j===7?(v==="Achieve"?"#166534":v==="Need Push"?"#92400e":"#b91c1c"):"#0f172a";text(ctx,v,x+10,y+(h===58?36:34),cols[j]-20,j===1?17:16,j===1?700:600,color);x+=cols[j]});y+=h;
  });
@@ -107,7 +107,7 @@ function table(ctx:CanvasRenderingContext2D,d:Report,mode:FocusMode,width:number
 }
 
 async function render(d:Report,mode:FocusMode){
- const width=mode==="VAS Fokus"?1500:1080,pad=mode==="VAS Fokus"?70:62,rowH=mode==="VAS Fokus"?58:54;
+ const wide=mode==="VAS Fokus"||mode==="Product Fokus 3PP",width=wide?1500:1080,pad=wide?70:62,rowH=mode==="VAS Fokus"?58:54;
  const height=Math.max(860,218+372+100+46+d.rows.length*rowH+(d.zeroCount?66:0)+100);
  const canvas=document.createElement("canvas");canvas.width=width;canvas.height=height;const ctx=canvas.getContext("2d");if(!ctx)throw new Error("Canvas tidak tersedia");
  ctx.fillStyle="#f1f5f9";ctx.fillRect(0,0,width,height);ctx.fillStyle="#fff";rr(ctx,28,28,width-56,height-56,32);ctx.fill();
