@@ -8,75 +8,9 @@ const plans:Record<string,string>={
  "Watch":"Perkuat demo fitur health, fitness, safety dan kebutuhan gift, cek stok size/color yang paling dicari, manfaatkan promo aktif, dan follow-up customer potensial dari week berjalan.",
  "iPhone":"Untuk customer yang mempertimbangkan menunggu iPhone 18, gali kebutuhan penggunaan dan urgensi secara relevan tanpa hard selling. Fokuskan value iPhone yang tersedia sekarang melalui stok siap pakai, promo/BNPL/Trade-In yang berjalan, kebutuhan upgrade aktual, dan lakukan follow-up terjadwal bila customer tetap memilih menunggu. Tetap prioritaskan type iPhone yang menjadi Product Focus weekly."
 };
-
 function timeJakarta(){return new Intl.DateTimeFormat("id-ID",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:"Asia/Jakarta"}).format(new Date()).replace(":",".")}
-function sanitizeClone(doc:Document,root:HTMLElement){
- const bad=/(oklab|oklch|lab|lch|color-mix|color)\(/i;
- for(const node of [root,...Array.from(root.querySelectorAll<HTMLElement>("*"))]){
-  const s=doc.defaultView?.getComputedStyle(node); if(!s)continue;
-  for(const p of ["color","backgroundColor","borderTopColor","borderRightColor","borderBottomColor","borderLeftColor","outlineColor"] as const){const v=s[p];if(v&&bad.test(v))node.style[p]=p==="color"?"#0f172a":"transparent"}
-  if(bad.test(s.backgroundImage||""))node.style.backgroundImage="none";
-  if(bad.test(s.boxShadow||""))node.style.boxShadow="none";
-  if(bad.test(s.textShadow||""))node.style.textShadow="none";
- }
-}
-async function shareWeekly(){
- const source=document.querySelector<HTMLElement>(".weekly-report-page > div.mt-6");
- if(!source)throw new Error("Weekly Report belum siap.");
- const {default:html2canvas}=await import("html2canvas");
- const canvas=await html2canvas(source,{backgroundColor:"#f8fafc",logging:false,scale:Math.min(2,window.devicePixelRatio||1),useCORS:true,width:source.scrollWidth,height:source.scrollHeight,windowWidth:Math.max(source.scrollWidth,1536),windowHeight:source.scrollHeight,scrollX:0,scrollY:0,ignoreElements:n=>n.classList?.contains("export-hide"),onclone:doc=>{const clone=doc.querySelector<HTMLElement>(".weekly-report-page > div.mt-6");if(clone)sanitizeClone(doc,clone)}});
- const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(v=>v?resolve(v):reject(new Error("PNG gagal dibuat")),"image/png"));
- const file=new File([blob],`M238-Weekly-Report-${timeJakarta()}.png`,{type:"image/png"});
- const text=`M238 PIM 2\nUpdate weekly report jam ${timeJakarta()} WIB`;
- if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){await navigator.share({title:"M238 Weekly Report",text,files:[file]});return}
- const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
- window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank","noopener,noreferrer");
-}
-function downloadWeeklyPicture(){
- const source=document.querySelector<HTMLElement>(".weekly-report-page > div.mt-6");
- if(!source)throw new Error("Weekly Report belum siap.");
- import("html2canvas").then(({default:html2canvas})=>html2canvas(source,{backgroundColor:"#f8fafc",logging:false,scale:Math.min(2,window.devicePixelRatio||1),useCORS:true,width:source.scrollWidth,height:source.scrollHeight,windowWidth:Math.max(source.scrollWidth,1536),windowHeight:source.scrollHeight,scrollX:0,scrollY:0,ignoreElements:n=>n.classList?.contains("export-hide"),onclone:doc=>{const clone=doc.querySelector<HTMLElement>(".weekly-report-page > div.mt-6");if(clone)sanitizeClone(doc,clone)}})).then(canvas=>{const a=document.createElement("a");a.href=canvas.toDataURL("image/png");a.download=`M238-Weekly-Report-${timeJakarta()}.png`;a.click()}).catch(e=>window.alert(e instanceof Error?e.message:"Picture gagal dibuat"));
-}
-
-export default function WeeklyCopyEnhancer(){
- useEffect(()=>{
-  let scheduled=false;
-  const enhance=()=>{
-   scheduled=false;
-   const reason=[...document.querySelectorAll("h3")].find(x=>x.textContent?.trim()==="Reason Weekly per LOB");
-   if(!reason)return;
-   const wrap=reason.parentElement;if(!wrap)return;
-   const desc=reason.nextElementSibling as HTMLElement|null;
-   const wanted="Review dibuat dari hasil compare, target, pergerakan type, Product Focus Weekly, serta feedback staff pada periode week agar reason tetap sesuai kondisi store.";
-   if(desc&&desc.textContent!==wanted)desc.textContent=wanted;
-   const reasonBlock=wrap.parentElement as HTMLElement|null;
-   if(reasonBlock)reasonBlock.classList.add("export-hide");
-   for(const article of wrap.querySelectorAll("article")){
-    const name=article.querySelector("h4")?.textContent?.trim()||"";
-    const label=[...article.querySelectorAll("b")].find(x=>x.textContent?.trim()==="Action Plan");
-    const p=label?.parentElement?.querySelector("p") as HTMLElement|null;
-    if(p&&plans[name]&&p.textContent!==plans[name])p.textContent=plans[name];
-    const reviewLabel=[...article.querySelectorAll("b")].find(x=>x.textContent?.trim()==="Weekly Review");
-    const review=reviewLabel?.parentElement?.querySelector("p") as HTMLElement|null;
-    if(review&&!review.querySelector("[data-feedback-note]")){
-      const note=document.createElement("span");note.dataset.feedbackNote="1";note.className="mt-2 block text-xs font-semibold text-slate-500";
-      note.textContent="Reason juga mempertimbangkan feedback staff pada periode weekly dan kondisi type Product Focus pada Target LOB Weekly.";review.appendChild(note);
-    }
-   }
-   const heading=[...document.querySelectorAll("h1")].find(x=>x.textContent?.trim()==="Weekly Report M238");
-   if(heading){
-    const parent=heading.parentElement;
-    if(parent&&!parent.querySelector("[data-weekly-share-actions]")){
-      const actions=document.createElement("div");actions.dataset.weeklyShareActions="1";actions.className="mt-3 flex flex-wrap gap-2";
-      const pic=document.createElement("button");pic.type="button";pic.className="rounded-xl border bg-white px-4 py-2 text-sm font-bold text-blue-600 shadow-sm";pic.textContent="Picture Screenshot";pic.onclick=downloadWeeklyPicture;
-      const wa=document.createElement("button");wa.type="button";wa.className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm";wa.textContent="Share WhatsApp";wa.onclick=()=>{wa.disabled=true;void shareWeekly().catch(e=>window.alert(e instanceof Error?e.message:"Share WhatsApp gagal")).finally(()=>{wa.disabled=false})};
-      actions.append(pic,wa);parent.appendChild(actions);
-    }
-   }
-  };
-  const queue=()=>{if(scheduled)return;scheduled=true;requestAnimationFrame(enhance)};
-  queue();const obs=new MutationObserver(queue);obs.observe(document.body,{childList:true,subtree:true});
-  return()=>obs.disconnect();
- },[]);
- return null;
-}
+function sanitizeClone(doc:Document,root:HTMLElement){const bad=/(oklab|oklch|lab|lch|color-mix|color)\(/i;for(const node of [root,...Array.from(root.querySelectorAll<HTMLElement>("*"))]){const s=doc.defaultView?.getComputedStyle(node);if(!s)continue;for(const p of ["color","backgroundColor","borderTopColor","borderRightColor","borderBottomColor","borderLeftColor","outlineColor"] as const){const v=s[p];if(v&&bad.test(v))node.style[p]=p==="color"?"#0f172a":"transparent"}if(bad.test(s.backgroundImage||""))node.style.backgroundImage="none";if(bad.test(s.boxShadow||""))node.style.boxShadow="none";if(bad.test(s.textShadow||""))node.style.textShadow="none"}}
+async function makeWeeklyCanvas(){const source=document.querySelector<HTMLElement>(".weekly-report-page > div.mt-6");if(!source)throw new Error("Weekly Report belum siap.");const {default:html2canvas}=await import("html2canvas");return html2canvas(source,{backgroundColor:"#f8fafc",logging:false,scale:Math.min(2,window.devicePixelRatio||1),useCORS:true,width:source.scrollWidth,height:source.scrollHeight,windowWidth:Math.max(source.scrollWidth,1536),windowHeight:source.scrollHeight,scrollX:0,scrollY:0,ignoreElements:n=>n.classList?.contains("export-hide"),onclone:doc=>{const clone=doc.querySelector<HTMLElement>(".weekly-report-page > div.mt-6");if(clone)sanitizeClone(doc,clone)}})}
+async function shareWeekly(){const canvas=await makeWeeklyCanvas();const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(v=>v?resolve(v):reject(new Error("PNG gagal dibuat")),"image/png"));const file=new File([blob],`M238-Weekly-Report-${timeJakarta()}.png`,{type:"image/png"});const text=`M238 PIM 2\nUpdate sales jam ${timeJakarta()} WIB`;if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){await navigator.share({title:"M238 Weekly Report",text,files:[file]});return}const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank","noopener,noreferrer")}
+async function downloadWeeklyPicture(){const canvas=await makeWeeklyCanvas();const a=document.createElement("a");a.href=canvas.toDataURL("image/png");a.download=`M238-Weekly-Report-${timeJakarta()}.png`;a.click()}
+export default function WeeklyCopyEnhancer(){useEffect(()=>{let scheduled=false;const enhance=()=>{scheduled=false;const reason=[...document.querySelectorAll("h3")].find(x=>x.textContent?.trim()==="Reason Weekly per LOB");if(!reason)return;const wrap=reason.parentElement;if(!wrap)return;const desc=reason.nextElementSibling as HTMLElement|null;const wanted="Review dibuat dari hasil compare, target, pergerakan type, Product Focus Weekly, serta feedback staff pada periode week agar reason tetap sesuai kondisi store.";if(desc&&desc.textContent!==wanted)desc.textContent=wanted;const reasonBlock=wrap.parentElement as HTMLElement|null;if(reasonBlock)reasonBlock.classList.add("export-hide");for(const article of wrap.querySelectorAll("article")){const name=article.querySelector("h4")?.textContent?.trim()||"";const label=[...article.querySelectorAll("b")].find(x=>x.textContent?.trim()==="Action Plan");const p=label?.parentElement?.querySelector("p") as HTMLElement|null;if(p&&plans[name]&&p.textContent!==plans[name])p.textContent=plans[name];const reviewLabel=[...article.querySelectorAll("b")].find(x=>x.textContent?.trim()==="Weekly Review");const review=reviewLabel?.parentElement?.querySelector("p") as HTMLElement|null;if(review&&!review.querySelector("[data-feedback-note]")){const note=document.createElement("span");note.dataset.feedbackNote="1";note.className="mt-2 block text-xs font-semibold text-slate-500";note.textContent="Reason juga mempertimbangkan feedback staff pada periode weekly dan kondisi type Product Focus pada Target LOB Weekly.";review.appendChild(note)}}const heading=[...document.querySelectorAll("h1")].find(x=>x.textContent?.trim()==="Weekly Report M238");if(heading){const parent=heading.parentElement;if(parent&&!parent.querySelector("[data-weekly-share-actions]")){const actions=document.createElement("div");actions.dataset.weeklyShareActions="1";actions.className="mt-3 flex flex-wrap gap-2";const pic=document.createElement("button");pic.type="button";pic.className="rounded-xl border bg-white px-4 py-2 text-sm font-bold text-blue-600 shadow-sm";pic.textContent="Picture Screenshot";pic.onclick=()=>void downloadWeeklyPicture().catch(e=>window.alert(e instanceof Error?e.message:"Picture gagal dibuat"));const wa=document.createElement("button");wa.type="button";wa.className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm";wa.textContent="Share WhatsApp";wa.onclick=()=>{wa.disabled=true;void shareWeekly().catch(e=>window.alert(e instanceof Error?e.message:"Share WhatsApp gagal")).finally(()=>{wa.disabled=false})};actions.append(pic,wa);parent.appendChild(actions)}}};const queue=()=>{if(scheduled)return;scheduled=true;requestAnimationFrame(enhance)};queue();const obs=new MutationObserver(queue);obs.observe(document.body,{childList:true,subtree:true});return()=>obs.disconnect()},[]);return null}
