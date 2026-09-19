@@ -413,17 +413,23 @@ fileRef = useRef<HTMLInputElement>(null),
     [period],
   );
   useEffect(() => {
+    const needsLegacyData = ["staff", "incentive", "cx", "settings"].includes(tab);
+    if (!needsLegacyData) {
+      setLoading(false);
+      return;
+    }
+
     void load();
     const delay = refreshSetting === "auto" ? 60000 : Number(refreshSetting),
       timer = setInterval(() => {
         if (
           !uploadingRef.current &&
-          (refreshSetting !== "auto" || document.visibilityState === "visible")
+          document.visibilityState === "visible"
         )
           void load();
       }, delay);
     return () => clearInterval(timer);
-  }, [load, refreshSetting]);
+  }, [load, refreshSetting, tab]);
   const toggleTheme = () => {
       const v = !dark;
       setDark(v);
