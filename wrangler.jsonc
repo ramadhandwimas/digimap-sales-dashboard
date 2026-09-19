@@ -2,15 +2,22 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "m238-digimap-pim2-dashboard",
   "compatibility_date": "2026-09-19",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "main": "vinext/server/app-router-entry",
   "assets": {
-    "not_found_handling": "none"
+    "directory": "./dist/client",
+    "not_found_handling": "none",
+    "binding": "ASSETS"
   },
   "observability": {
     "logs": {
       "enabled": true,
       "invocation_logs": true
     }
+  },
+  "images": {
+    "binding": "IMAGES"
   }
 }
