@@ -198,7 +198,7 @@ export default function LoginPage() {
           ref={cardRef}
           onPointerMove={tilt}
           onPointerLeave={resetTilt}
-          className="login-card login-card-enter relative w-full overflow-hidden rounded-[30px] border border-white/[0.16] bg-white/[0.075] p-[1px] shadow-[0_32px_90px_rgba(0,0,0,.48)] backdrop-blur-[28px]"
+          className="login-card login-card-enter relative w-full overflow-hidden rounded-[30px] border border-white/[0.09] bg-white/[0.075] p-[1px] shadow-[0_32px_90px_rgba(0,0,0,.48)] backdrop-blur-[28px]"
         >
           <div aria-hidden className="login-card-glow absolute inset-0 opacity-70" />
           <div className="relative rounded-[29px] bg-[#08101f]/65 px-6 py-7 sm:px-8 sm:py-8">
@@ -700,12 +700,12 @@ export default function LoginPage() {
           transform-style: preserve-3d;
           transition: transform 180ms ease-out, border-color 250ms ease, box-shadow 250ms ease;
           box-shadow:
-            inset 0 1px 0 rgba(255,255,255,.12),
+            inset 0 1px 0 rgba(255,255,255,.06),
             0 32px 90px rgba(0,0,0,.48);
         }
 
         .login-card:hover {
-          border-color: rgba(178,196,255,.26);
+          border-color: rgba(178,196,255,.16);
         }
 
         .login-card-glow {
