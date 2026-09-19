@@ -6,11 +6,21 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f2f2f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
 };
 
 export const metadata: Metadata = {
   title: "M238 Digimap Pondok Indah Mall 2",
   description: "Dashboard Daily Sales, Daily Summary, dan Staff Performance M238 Digimap PIM 2.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "M238 Dashboard",
+    statusBarStyle: "black-translucent",
+  },
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
