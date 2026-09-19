@@ -304,7 +304,7 @@ export default function M238AppleUI() {
 
         body.m238-apple-ui .m238-sidebar .m238-menu-item.is-active svg,
         body.m238-apple-ui .m238-sidebar .m238-menu-item[aria-current="page"] svg {
-          color: #8db9ff !important;
+          filter: brightness(1.12) saturate(1.08);
         }
 
         body.m238-apple-ui .m238-sidebar nav button:not([aria-expanded]) {
