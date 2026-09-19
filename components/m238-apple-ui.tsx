@@ -149,6 +149,16 @@ export default function M238AppleUI() {
         </button>
       )}
 
+      <button
+        type="button"
+        aria-label="Tutup menu"
+        tabIndex={hidden ? -1 : 0}
+        onClick={() => {
+          if (!hidden) window.dispatchEvent(new Event("m238-sidebar-toggle"));
+        }}
+        className={`m238-sidebar-overlay ${hidden ? "" : "is-open"}`}
+      />
+
       <style jsx global>{`
         body.m238-apple-ui {
           --m238-bg: #f5f7fb;
@@ -560,8 +570,52 @@ export default function M238AppleUI() {
             grid-template-columns: none !important;
           }
 
+          body.m238-apple-ui .m238-sidebar {
+            transform: translateX(0);
+            opacity: 1;
+            visibility: visible;
+            will-change: transform;
+            transition:
+              transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 180ms ease,
+              visibility 0s linear;
+          }
+
           body.m238-sidebar-hidden .m238-sidebar {
-            display: none !important;
+            display: block !important;
+            transform: translateX(-104%);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition:
+              transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 160ms ease,
+              visibility 0s linear 250ms;
+          }
+
+          .m238-sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 70;
+            border: 0;
+            padding: 0;
+            background: rgba(2, 6, 23, .42);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition:
+              opacity 220ms ease,
+              visibility 0s linear 220ms;
+            -webkit-tap-highlight-color: transparent;
+          }
+
+          .m238-sidebar-overlay.is-open {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transition:
+              opacity 220ms ease,
+              visibility 0s linear;
           }
 
           body.m238-sidebar-hidden .m238-main {
@@ -574,6 +628,12 @@ export default function M238AppleUI() {
             max-width: 1700px;
             padding-left: 32px !important;
             padding-right: 32px !important;
+          }
+        }
+
+        @media (min-width:1024px) {
+          .m238-sidebar-overlay {
+            display: none !important;
           }
         }
 
