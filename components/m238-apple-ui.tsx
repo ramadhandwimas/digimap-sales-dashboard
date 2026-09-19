@@ -628,6 +628,23 @@ export default function M238AppleUI() {
           background: #f8fbff !important;
         }
 
+        /* No-flash guards for enhanced views */
+        body.m238-apple-ui [data-settings-native-root] > :not(:first-child):not([data-m238-settings-redesign]) {
+          display: none !important;
+        }
+
+        body.m238-apple-ui [data-staff-performance-root] > section:nth-of-type(n+2) {
+          display: none !important;
+        }
+
+        body.m238-apple-ui [data-staff-performance-root]:has([data-live-staff]) [data-staff-live-loading] {
+          display: none !important;
+        }
+
+        body.m238-apple-ui [data-overview-boot] {
+          min-height: 420px;
+        }
+
         /* Native embedded pages */
         body.m238-apple-ui .m238-native-view {
           color: var(--m238-text);
