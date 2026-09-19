@@ -559,66 +559,46 @@ export default function M238AppleUI() {
           background: var(--m238-panel-subtle) !important;
         }
 
-        /* Desktop */
+        /* Desktop sidebar collapse: keep the shell as a grid so main content never drops below the sidebar */
         @media (min-width:1024px) {
           body.m238-apple-ui .m238-app-shell {
+            display: grid !important;
             grid-template-columns: 248px minmax(0,1fr) !important;
+            transition: grid-template-columns 240ms cubic-bezier(0.22, 1, 0.36, 1);
           }
 
           body.m238-sidebar-hidden .m238-app-shell {
-            display: block !important;
-            grid-template-columns: none !important;
+            display: grid !important;
+            grid-template-columns: 0 minmax(0,1fr) !important;
           }
 
           body.m238-apple-ui .m238-sidebar {
+            width: 248px !important;
+            min-width: 248px !important;
             transform: translateX(0);
             opacity: 1;
             visibility: visible;
-            will-change: transform;
+            will-change: transform, opacity;
             transition:
-              transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
-              opacity 180ms ease,
+              transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 160ms ease,
               visibility 0s linear;
           }
 
           body.m238-sidebar-hidden .m238-sidebar {
-            display: block !important;
-            transform: translateX(-104%);
+            transform: translateX(-100%);
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
             transition:
-              transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
-              opacity 160ms ease,
-              visibility 0s linear 250ms;
+              transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 140ms ease,
+              visibility 0s linear 240ms;
           }
 
-          .m238-sidebar-overlay {
-            position: fixed;
-            inset: 0;
-            z-index: 70;
-            border: 0;
-            padding: 0;
-            background: rgba(2, 6, 23, .42);
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-            transition:
-              opacity 220ms ease,
-              visibility 0s linear 220ms;
-            -webkit-tap-highlight-color: transparent;
-          }
-
-          .m238-sidebar-overlay.is-open {
-            opacity: 1;
-            visibility: visible;
-            pointer-events: auto;
-            transition:
-              opacity 220ms ease,
-              visibility 0s linear;
-          }
-
+          body.m238-apple-ui .m238-main,
           body.m238-sidebar-hidden .m238-main {
+            min-width: 0 !important;
             width: 100% !important;
             max-width: none !important;
             margin: 0 !important;
@@ -629,9 +609,7 @@ export default function M238AppleUI() {
             padding-left: 32px !important;
             padding-right: 32px !important;
           }
-        }
 
-        @media (min-width:1024px) {
           .m238-sidebar-overlay {
             display: none !important;
           }
@@ -659,8 +637,53 @@ export default function M238AppleUI() {
             margin: 0 !important;
           }
 
+          body.m238-apple-ui .m238-sidebar {
+            transform: translateX(0);
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            will-change: transform;
+            transition:
+              transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 180ms ease,
+              visibility 0s linear;
+          }
+
           body.m238-sidebar-hidden .m238-sidebar {
-            display: none !important;
+            display: block !important;
+            transform: translateX(-104%);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition:
+              transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 160ms ease,
+              visibility 0s linear 250ms;
+          }
+
+          .m238-sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 70;
+            border: 0;
+            padding: 0;
+            background: rgba(2,6,23,.42);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition:
+              opacity 220ms ease,
+              visibility 0s linear 220ms;
+            -webkit-tap-highlight-color: transparent;
+          }
+
+          .m238-sidebar-overlay.is-open {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transition:
+              opacity 220ms ease,
+              visibility 0s linear;
           }
 
           body.m238-apple-ui .m238-main > header > div {
