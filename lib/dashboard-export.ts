@@ -231,6 +231,8 @@ async function captureReport(element: HTMLElement) {
         scrollY: 0,
         ignoreElements: (node) => node.classList?.contains("export-hide"),
         onclone: (doc) => {
+          doc.documentElement.classList.remove("dark");
+          doc.documentElement.dataset.theme = "light";
           const clone = doc.querySelector<HTMLElement>(`[data-export-id="${captureId}"]`);
           if (!clone) return;
           sanitizeClone(doc, clone);
