@@ -23,9 +23,10 @@ export default function CvrEnhancer(){
  },[period,overviewHost]);
 
  useEffect(()=>{
+  if(!overviewHost)return;
   let alive=true;const from=`${period}-01`,to=period===today().slice(0,7)?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`;
-  Promise.all([fetch(`/api/traffic?from=${from}&to=${to}`,{cache:"no-store"}).then(r=>r.json()),fetch(`/api/data?period=${period}`,{cache:"no-store"}).then(r=>r.json())]).then(([tr,d])=>{if(!alive)return;const traffic=Number(tr.total||0),inv=Number(d?.summary?.invoices||0);setOverviewTraffic(traffic);setOverviewCvr(traffic?inv/traffic*100:0)}).catch(()=>{});return()=>{alive=false}
- },[period]);
+  Promise.all([fetch(`/api/traffic?from=${from}&to=${to}`).then(r=>r.json()),fetch(`/api/data?period=${period}`).then(r=>r.json())]).then(([tr,d])=>{if(!alive)return;const traffic=Number(tr.total||0),inv=Number(d?.summary?.invoices||0);setOverviewTraffic(traffic);setOverviewCvr(traffic?inv/traffic*100:0)}).catch(()=>{});return()=>{alive=false}
+ },[period,overviewHost]);
 
  useEffect(()=>{
   let timer:ReturnType<typeof setTimeout>|null=null;
