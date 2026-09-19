@@ -64,20 +64,11 @@ export default function M238MotionSystem(){
       window.setTimeout(()=>requestAnimationFrame(animateStage),35);
     };
 
-    const observer=new MutationObserver((mutations)=>{
-      if(mutations.some(m=>m.type==="childList"&&(m.addedNodes.length>0||m.removedNodes.length>0))){
-        requestAnimationFrame(()=>requestAnimationFrame(animateStage));
-      }
-    });
-
-    const host=root();
-    if(host)observer.observe(host,{childList:true,subtree:true});
     document.addEventListener("click",navClick,true);
     const readyTimer=window.setTimeout(animateStage,60);
 
     return()=>{
       window.clearTimeout(readyTimer);
-      observer.disconnect();
       document.removeEventListener("click",navClick,true);
       document.body.classList.remove("m238-motion-ready");
     };
