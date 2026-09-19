@@ -6,6 +6,7 @@ import {
   Eye,
   EyeOff,
   LockKeyhole,
+  Check,
   ShieldCheck,
   Sparkles,
   UserRound,
@@ -46,8 +47,10 @@ export default function LoginPage() {
     [password, setPassword] = useState(""),
     [show, setShow] = useState(false),
     [loading, setLoading] = useState(false),
+    [success, setSuccess] = useState(false),
     [error, setError] = useState(""),
-    cardRef = useRef<HTMLElement>(null);
+    cardRef = useRef<HTMLElement>(null),
+    sceneRef = useRef<HTMLElement>(null);
 
   const login = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -65,7 +68,9 @@ export default function LoginPage() {
 
       if (!response.ok) throw new Error(result.error || "Login gagal.");
 
-      window.location.replace("/");
+      setSuccess(true);
+      setLoading(false);
+      window.setTimeout(() => window.location.replace("/"), 650);
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Login gagal.";
       setError(
@@ -75,6 +80,24 @@ export default function LoginPage() {
       );
       setLoading(false);
     }
+  };
+
+  const moveScene = (event: React.PointerEvent<HTMLElement>) => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const rect = scene.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width - 0.5;
+    const y = (event.clientY - rect.top) / rect.height - 0.5;
+    scene.style.setProperty("--scene-x", `${(x * 14).toFixed(2)}px`);
+    scene.style.setProperty("--scene-y", `${(y * 10).toFixed(2)}px`);
+  };
+
+  const resetScene = () => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    scene.style.setProperty("--scene-x", "0px");
+    scene.style.setProperty("--scene-y", "0px");
   };
 
   const tilt = (event: React.PointerEvent<HTMLElement>) => {
@@ -107,14 +130,19 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="m238-login relative grid min-h-[100svh] overflow-hidden bg-[#030712] px-5 py-8 text-white sm:px-8">
+    <main
+      ref={sceneRef}
+      onPointerMove={moveScene}
+      onPointerLeave={resetScene}
+      className="m238-login relative grid min-h-[100svh] overflow-hidden bg-[#030712] px-5 py-8 text-white sm:px-8"
+    >
       <div aria-hidden className="absolute inset-0">
-        <div className="login-grid absolute inset-0 opacity-20" />
+        <div className="login-grid login-parallax-back absolute inset-0 opacity-20" />
         <div className="login-vignette absolute inset-0" />
-        <div className="login-aurora login-aurora-one absolute -left-[18vw] -top-[22vw] h-[70vw] w-[70vw] rounded-full" />
-        <div className="login-aurora login-aurora-two absolute -bottom-[30vw] -right-[18vw] h-[75vw] w-[75vw] rounded-full" />
-        <div className="login-orbit absolute left-1/2 top-[42%] h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-300/10" />
-        <div className="login-orbit login-orbit-two absolute left-1/2 top-[42%] h-[410px] w-[410px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-violet-300/10" />
+        <div className="login-aurora login-aurora-one login-parallax-mid absolute -left-[18vw] -top-[22vw] h-[70vw] w-[70vw] rounded-full" />
+        <div className="login-aurora login-aurora-two login-parallax-mid absolute -bottom-[30vw] -right-[18vw] h-[75vw] w-[75vw] rounded-full" />
+        <div className="login-orbit login-parallax-front absolute left-1/2 top-[42%] h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-300/10" />
+        <div className="login-orbit login-orbit-two login-parallax-front absolute left-1/2 top-[42%] h-[410px] w-[410px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-violet-300/10" />
         <div className="login-core absolute left-1/2 top-[42%] h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full" />
         {stars.map(([left, top, size, delay], index) => (
           <span
@@ -145,15 +173,11 @@ export default function LoginPage() {
           ref={cardRef}
           onPointerMove={tilt}
           onPointerLeave={resetTilt}
-          className="login-card relative w-full overflow-hidden rounded-[30px] border border-white/[0.16] bg-white/[0.075] p-[1px] shadow-[0_32px_90px_rgba(0,0,0,.48)] backdrop-blur-[28px]"
+          className="login-card login-card-enter relative w-full overflow-hidden rounded-[30px] border border-white/[0.16] bg-white/[0.075] p-[1px] shadow-[0_32px_90px_rgba(0,0,0,.48)] backdrop-blur-[28px]"
         >
           <div aria-hidden className="login-card-glow absolute inset-0 opacity-70" />
           <div className="relative rounded-[29px] bg-[#08101f]/65 px-6 py-7 sm:px-8 sm:py-8">
-            <div className="mb-7 text-center">
-              <div className="mx-auto mb-4 flex w-fit items-center gap-1.5 rounded-full border border-blue-300/15 bg-blue-400/[0.08] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-100/80">
-                <Sparkles className="size-3" />
-                Performance Hub
-              </div>
+            <div className="login-stage login-stage-1 mb-7 text-center">
               <h1 className="text-[28px] font-black tracking-[-0.045em] text-white sm:text-[32px]">
                 Welcome Back
               </h1>
@@ -162,7 +186,7 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <form onSubmit={login} className="space-y-4">
+            <form onSubmit={login} className="login-stage login-stage-2 space-y-4">
               <label className="block">
                 <span className="mb-2 block text-[11px] font-bold uppercase tracking-[0.16em] text-slate-300/70">
                   NIK / ID Team
@@ -223,14 +247,16 @@ export default function LoginPage() {
               ) : null}
 
               <button
-                disabled={loading || !nik.trim() || !password}
-                className="login-button group relative mt-2 flex h-[54px] w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-[#2859ff] via-[#5568ff] to-[#885df7] px-4 text-sm font-black text-white shadow-[0_15px_34px_rgba(74,88,255,.32)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(74,88,255,.42)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0"
+                disabled={loading || success || !nik.trim() || !password}
+                className={`login-button group relative mt-2 flex h-[54px] w-full items-center justify-center gap-2 overflow-hidden rounded-2xl px-4 text-sm font-black text-white transition duration-300 disabled:cursor-not-allowed disabled:hover:translate-y-0 ${success ? "login-success bg-[#22c989] shadow-[0_15px_34px_rgba(34,201,137,.28)]" : "bg-gradient-to-r from-[#2859ff] via-[#5568ff] to-[#885df7] shadow-[0_15px_34px_rgba(74,88,255,.32)] hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(74,88,255,.42)] disabled:opacity-45"}`}
               >
                 <span className="login-button-shine absolute inset-y-0 -left-1/2 w-1/3 skew-x-[-18deg] bg-white/20 blur-md transition-all duration-700 group-hover:left-[120%]" />
                 <span className="relative">
-                  {loading ? "Memeriksa…" : "Sign In"}
+                  {success ? "Berhasil" : loading ? "Memeriksa…" : "Sign In"}
                 </span>
-                {!loading ? (
+                {success ? (
+                  <Check className="relative size-5 login-check" />
+                ) : !loading ? (
                   <ArrowRight className="relative size-4 transition-transform duration-300 group-hover:translate-x-1" />
                 ) : (
                   <span className="relative size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -252,10 +278,30 @@ export default function LoginPage() {
 
       <style>{`
         .m238-login {
+          --scene-x: 0px;
+          --scene-y: 0px;
           isolation: isolate;
           background:
             radial-gradient(circle at 50% 30%, rgba(58, 96, 246, 0.15), transparent 32%),
             linear-gradient(145deg, #02050d 0%, #071022 52%, #090719 100%);
+        }
+
+        .login-parallax-back {
+          transform: translate3d(calc(var(--scene-x) * -0.22), calc(var(--scene-y) * -0.22), 0);
+          transition: transform 180ms ease-out;
+          will-change: transform;
+        }
+
+        .login-parallax-mid {
+          translate: calc(var(--scene-x) * -0.42) calc(var(--scene-y) * -0.42);
+          transition: translate 180ms ease-out;
+          will-change: translate;
+        }
+
+        .login-parallax-front {
+          margin-left: calc(var(--scene-x) * 0.34);
+          margin-top: calc(var(--scene-y) * 0.34);
+          transition: margin 180ms ease-out;
         }
 
         .login-grid {
@@ -387,6 +433,47 @@ export default function LoginPage() {
           50% { opacity: .75; transform: scale(1.25); }
         }
 
+        .login-card-enter {
+          animation: loginCardEnter 520ms cubic-bezier(.16,1,.3,1) both;
+        }
+
+        .login-stage {
+          opacity: 0;
+          animation: loginStageEnter 420ms cubic-bezier(.16,1,.3,1) both;
+        }
+
+        .login-stage-1 { animation-delay: 90ms; }
+        .login-stage-2 { animation-delay: 150ms; }
+
+        .login-success {
+          animation: loginSuccessPulse 420ms cubic-bezier(.16,1,.3,1) both;
+        }
+
+        .login-check {
+          animation: loginCheckIn 320ms cubic-bezier(.16,1,.3,1) both;
+        }
+
+        @keyframes loginCardEnter {
+          from { opacity: 0; transform: perspective(1100px) translateY(10px) scale(.975); }
+          to { opacity: 1; transform: perspective(1100px) translateY(0) scale(1); }
+        }
+
+        @keyframes loginStageEnter {
+          from { opacity: 0; transform: translateY(7px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes loginSuccessPulse {
+          0% { transform: scale(.985); }
+          55% { transform: scale(1.015); }
+          100% { transform: scale(1); }
+        }
+
+        @keyframes loginCheckIn {
+          from { opacity: 0; transform: scale(.4) rotate(-18deg); }
+          to { opacity: 1; transform: scale(1) rotate(0); }
+        }
+
         @media (max-width: 640px) {
           .login-orbit { width: 430px; height: 430px; }
           .login-orbit-two { width: 320px; height: 320px; }
@@ -404,6 +491,19 @@ export default function LoginPage() {
           .login-card {
             transform: none !important;
             transition: none !important;
+          }
+          .login-parallax-back,
+          .login-parallax-mid,
+          .login-parallax-front,
+          .login-stage,
+          .login-card-enter,
+          .login-success,
+          .login-check {
+            animation: none !important;
+            transform: none !important;
+            translate: none !important;
+            margin-left: 0 !important;
+            margin-top: 0 !important;
           }
         }
       `}</style>
