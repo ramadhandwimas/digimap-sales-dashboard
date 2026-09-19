@@ -151,7 +151,7 @@ export default function LoginPage() {
       ref={sceneRef}
       onPointerMove={moveScene}
       onPointerLeave={resetScene}
-      className="m238-login relative grid h-[100dvh] min-h-[100dvh] overflow-hidden bg-[#030712] px-4 py-3 text-white sm:min-h-[100svh] sm:px-8 sm:py-8"
+      className="m238-login relative grid h-[100dvh] min-h-[100dvh] overflow-hidden bg-[#030712] px-5 py-8 text-white sm:px-8"
     >
       <div aria-hidden className="absolute inset-0">
         <div className="login-grid login-parallax-back absolute inset-0 opacity-20" />
@@ -182,14 +182,14 @@ export default function LoginPage() {
       </div>
 
       <div className="relative z-10 m-auto flex w-full max-w-[460px] flex-col items-center">
-        <div className="login-brand-lockup mb-3 flex flex-col items-center text-center sm:mb-8">
+        <div className="login-brand-lockup mb-7 flex flex-col items-center text-center sm:mb-8">
           <img
             src="/brand/digimap-by-map-white.svg"
             alt="Digimap by MAP"
-            className="h-auto w-[188px] select-none object-contain drop-shadow-[0_8px_22px_rgba(0,0,0,.24)] sm:w-[272px]"
+            className="h-auto w-[238px] select-none object-contain drop-shadow-[0_8px_22px_rgba(0,0,0,.24)] sm:w-[272px]"
             draggable={false}
           />
-          <p className="mt-1.5 text-[9px] font-extrabold uppercase tracking-[0.3em] text-blue-200/80 sm:mt-3 sm:text-[10px] sm:tracking-[0.34em]">
+          <p className="mt-3 text-[10px] font-extrabold uppercase tracking-[0.34em] text-blue-200/80">
             M238 · PIM 2
           </p>
         </div>
@@ -198,25 +198,25 @@ export default function LoginPage() {
           ref={cardRef}
           onPointerMove={tilt}
           onPointerLeave={resetTilt}
-          className="login-card login-card-enter relative w-full overflow-hidden rounded-[24px] border border-white/[0.16] bg-white/[0.075] p-[1px] shadow-[0_32px_90px_rgba(0,0,0,.48)] backdrop-blur-[28px] sm:rounded-[30px]"
+          className="login-card login-card-enter relative w-full overflow-hidden rounded-[30px] border border-white/[0.16] bg-white/[0.075] p-[1px] shadow-[0_32px_90px_rgba(0,0,0,.48)] backdrop-blur-[28px]"
         >
           <div aria-hidden className="login-card-glow absolute inset-0 opacity-70" />
-          <div className="relative rounded-[23px] bg-[#08101f]/65 px-5 py-5 sm:rounded-[29px] sm:px-8 sm:py-8">
-            <div className="login-stage login-stage-1 mb-4 text-center sm:mb-7">
-              <h1 className="text-[24px] font-black tracking-[-0.045em] text-white sm:text-[32px]">
+          <div className="relative rounded-[29px] bg-[#08101f]/65 px-6 py-7 sm:px-8 sm:py-8">
+            <div className="login-stage login-stage-1 mb-7 text-center">
+              <h1 className="text-[28px] font-black tracking-[-0.045em] text-white sm:text-[32px]">
                 Welcome Back
               </h1>
-              <p className="mt-1 text-[13px] leading-5 text-slate-300/70 sm:mt-2 sm:text-sm sm:leading-6">
+              <p className="mt-2 text-sm leading-6 text-slate-300/70">
                 Sign in to access M238 Dashboard
               </p>
             </div>
 
-            <form onSubmit={login} className="login-stage login-stage-2 space-y-3 sm:space-y-4">
+            <form onSubmit={login} className="login-stage login-stage-2 space-y-4">
               <label className="block">
                 <span className="mb-2 block text-[11px] font-bold uppercase tracking-[0.16em] text-slate-300/70">
                   NIK / ID Team
                 </span>
-                <span className="login-field flex h-[48px] sm:h-[54px] items-center gap-3 rounded-2xl border border-white/[0.11] bg-white/[0.055] px-4 transition focus-within:border-blue-300/45 focus-within:bg-white/[0.08] focus-within:ring-4 focus-within:ring-blue-500/10">
+                <span className="login-field flex h-[54px] items-center gap-3 rounded-2xl border border-white/[0.11] bg-white/[0.055] px-4 transition focus-within:border-blue-300/45 focus-within:bg-white/[0.08] focus-within:ring-4 focus-within:ring-blue-500/10">
                   <UserRound className="size-[18px] shrink-0 text-blue-200/65" />
                   <input
                     value={nik}
@@ -235,7 +235,7 @@ export default function LoginPage() {
                 <span className="mb-2 block text-[11px] font-bold uppercase tracking-[0.16em] text-slate-300/70">
                   Password
                 </span>
-                <span className="login-field flex h-[48px] sm:h-[54px] items-center gap-3 rounded-2xl border border-white/[0.11] bg-white/[0.055] px-4 transition focus-within:border-blue-300/45 focus-within:bg-white/[0.08] focus-within:ring-4 focus-within:ring-blue-500/10">
+                <span className="login-field flex h-[54px] items-center gap-3 rounded-2xl border border-white/[0.11] bg-white/[0.055] px-4 transition focus-within:border-blue-300/45 focus-within:bg-white/[0.08] focus-within:ring-4 focus-within:ring-blue-500/10">
                   <LockKeyhole className="size-[18px] shrink-0 text-blue-200/65" />
                   <input
                     type={show ? "text" : "password"}
@@ -273,7 +273,7 @@ export default function LoginPage() {
 
               <button
                 disabled={loading || success || !nik.trim() || !password}
-                className={`login-button group relative mt-1 flex h-[48px] w-full sm:mt-2 sm:h-[54px] items-center justify-center gap-2 overflow-hidden rounded-2xl px-4 text-sm font-black text-white transition duration-300 disabled:cursor-not-allowed disabled:hover:translate-y-0 ${success ? "login-success bg-[#22c989] shadow-[0_15px_34px_rgba(34,201,137,.28)]" : "bg-gradient-to-r from-[#2859ff] via-[#5568ff] to-[#885df7] shadow-[0_15px_34px_rgba(74,88,255,.32)] hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(74,88,255,.42)] disabled:opacity-45"}`}
+                className={`login-button group relative mt-2 flex h-[54px] w-full items-center justify-center gap-2 overflow-hidden rounded-2xl px-4 text-sm font-black text-white transition duration-300 disabled:cursor-not-allowed disabled:hover:translate-y-0 ${success ? "login-success bg-[#22c989] shadow-[0_15px_34px_rgba(34,201,137,.28)]" : "bg-gradient-to-r from-[#2859ff] via-[#5568ff] to-[#885df7] shadow-[0_15px_34px_rgba(74,88,255,.32)] hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(74,88,255,.42)] disabled:opacity-45"}`}
               >
                 <span className="login-button-shine absolute inset-y-0 -left-1/2 w-1/3 skew-x-[-18deg] bg-white/20 blur-md transition-all duration-700 group-hover:left-[120%]" />
                 {loading && !success ? (
@@ -312,14 +312,14 @@ export default function LoginPage() {
               </div>
             </form>
 
-            <div className="mt-4 flex items-center justify-center gap-2 border-t border-white/[0.08] pt-3 text-[10px] font-medium text-slate-400/80 sm:mt-6 sm:pt-5 sm:text-[11px]">
+            <div className="mt-6 flex items-center justify-center gap-2 border-t border-white/[0.08] pt-5 text-[11px] font-medium text-slate-400/80">
               <ShieldCheck className="size-3.5 text-emerald-300/75" />
               Secure access for M238 team
             </div>
           </div>
         </section>
 
-        <p className="mt-3 text-center text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-500/80 sm:mt-6 sm:text-[10px] sm:tracking-[0.22em]">
+        <p className="mt-6 text-center text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500/80">
           M238 · Pondok Indah Mall 2 <span className="mx-2 text-slate-700">·</span> Bron Tampan
         </p>
       </div>
@@ -343,20 +343,6 @@ export default function LoginPage() {
           .m238-login {
             padding-top: max(10px, env(safe-area-inset-top));
             padding-bottom: max(10px, env(safe-area-inset-bottom));
-          }
-        }
-
-        @media (max-width: 639px) and (max-height: 720px) {
-          .login-brand-lockup {
-            margin-bottom: 8px;
-            transform: scale(.9);
-            transform-origin: center bottom;
-          }
-          .login-card {
-            transform: scale(.94);
-            transform-origin: center center;
-            width: 106.38%;
-            margin-inline: -3.19%;
           }
         }
 
