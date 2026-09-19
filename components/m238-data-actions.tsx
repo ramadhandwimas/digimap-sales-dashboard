@@ -1,5 +1,6 @@
 "use client";
 import {useRef,useState} from "react";
+import {createPortal} from "react-dom";
 import {ChevronDown,X} from "lucide-react";
 
 type Action="spw-upload"|"exchange"|"cutoff"|"spw-clear"|"soh-upload"|"soh-clear"|null;
@@ -9,12 +10,24 @@ const primary="rounded-xl bg-blue-600 px-4 py-3 font-black text-white disabled:o
 const danger="rounded-xl bg-rose-600 px-4 py-3 font-black text-white disabled:opacity-50";
 
 function Modal({title,onClose,children}:{title:string;onClose:()=>void;children:React.ReactNode}){
- return <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true">
-  <div className="max-h-[88vh] w-full overflow-y-auto rounded-t-3xl border bg-white shadow-2xl dark:bg-slate-950 sm:max-w-lg sm:rounded-3xl">
-   <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white/95 p-4 backdrop-blur dark:bg-slate-950/95"><h3 className="text-lg font-black">{title}</h3><button onClick={onClose} className="rounded-xl border p-2" aria-label="Tutup"><X className="size-4"/></button></div>
-   <div className="space-y-4 p-4">{children}</div>
-  </div>
- </div>
+ if(typeof document==="undefined")return null;
+ return createPortal(
+  <div
+   className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/50 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
+   role="dialog"
+   aria-modal="true"
+   onMouseDown={e=>{if(e.currentTarget===e.target)onClose()}}
+  >
+   <div className="max-h-[88dvh] w-full overflow-y-auto rounded-t-3xl border bg-white shadow-2xl dark:bg-slate-950 sm:max-w-lg sm:rounded-3xl">
+    <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white/95 p-4 backdrop-blur dark:bg-slate-950/95">
+     <h3 className="text-lg font-black">{title}</h3>
+     <button onClick={onClose} className="rounded-xl border p-2" aria-label="Tutup"><X className="size-4"/></button>
+    </div>
+    <div className="space-y-4 p-4">{children}</div>
+   </div>
+  </div>,
+  document.body
+ )
 }
 function NoticeBox({notice}:{notice:Notice}){if(!notice)return null;return <div className={`rounded-xl border p-3 text-sm font-bold ${notice.type==="success"?"border-emerald-200 bg-emerald-50 text-emerald-700":"border-rose-200 bg-rose-50 text-rose-700"}`}>{notice.text}</div>}
 
