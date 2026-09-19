@@ -1193,11 +1193,6 @@ function DailySales() {
           >
             <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
           </button>
-          <ExportMenu
-            onXls={downloadXls}
-            onPdf={() => exportReportPdf(reportElement(), exportName)}
-            onPicture={() => exportReportPng(reportElement(), exportName)}
-          />
         </div>
       </div>
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
