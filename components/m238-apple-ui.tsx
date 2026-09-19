@@ -640,13 +640,13 @@ export default function M238AppleUI() {
 
         /* Dark mode */
         .dark body.m238-apple-ui {
-          --m238-bg: #080c14;
+          --m238-bg: #000000;
           --m238-panel: rgba(15,21,33,.96);
-          --m238-panel-solid: #0f1521;
-          --m238-panel-subtle: #141b29;
-          --m238-text: #eef2f7;
-          --m238-muted: #94a3b8;
-          --m238-muted-2: #64748b;
+          --m238-panel-solid: #1c1c1e;
+          --m238-panel-subtle: #2c2c2e;
+          --m238-text: #ffffff;
+          --m238-muted: #8e8e93;
+          --m238-muted-2: #636366;
           --m238-border: rgba(226,232,240,.075);
           --m238-border-strong: rgba(226,232,240,.11);
           --m238-accent-soft: rgba(37,99,235,.14);
@@ -660,9 +660,27 @@ export default function M238AppleUI() {
         .dark body.m238-apple-ui .m238-main {
           background: var(--m238-bg) !important;
         }
+        .dark body.m238-apple-ui .m238-sidebar {
+          background: #111113 !important;
+          border-right-color: rgba(255,255,255,.07) !important;
+          box-shadow: none !important;
+        }
+
+        .dark body.m238-apple-ui .m238-sidebar nav button:hover {
+          background: rgba(255,255,255,.055) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-sidebar nav button[class*="bg-white/20"] {
+          background: rgba(10,132,255,.16) !important;
+          color: #64a9ff !important;
+          box-shadow: inset 0 0 0 1px rgba(10,132,255,.14) !important;
+        }
+
 
         .dark body.m238-apple-ui .m238-main > header {
-          background: rgba(8,12,20,.82) !important;
+          background: rgba(0,0,0,.88) !important;
+          border-color: rgba(255,255,255,.07) !important;
+          box-shadow: none !important;
         }
 
         .dark body.m238-apple-ui .m238-main > header button {
@@ -691,13 +709,13 @@ export default function M238AppleUI() {
         }
 
         .dark body.m238-apple-ui .m238-main tbody tr:hover {
-          background: #131d2c !important;
+          background: #2a2a2d !important;
         }
 
         .dark body.m238-apple-ui .m238-main select,
         .dark body.m238-apple-ui .m238-main input,
         .dark body.m238-apple-ui .m238-main textarea {
-          background: #101827 !important;
+          background: #2c2c2e !important;
         }
 
         .dark body.m238-apple-ui .m238-dark-canvas-fix {
@@ -791,7 +809,7 @@ export default function M238AppleUI() {
         .dark body.m238-apple-ui .m238-native-view .text-slate-800,
         .dark body.m238-apple-ui .m238-native-view .text-slate-700,
         .dark body.m238-apple-ui .m238-native-view .text-slate-600 {
-          color: #e7edf6 !important;
+          color: #f2f2f7 !important;
         }
 
         .dark body.m238-apple-ui .m238-main .text-slate-500,
@@ -818,29 +836,29 @@ export default function M238AppleUI() {
 
         .dark body.m238-apple-ui .m238-main thead,
         .dark body.m238-apple-ui .m238-native-view thead {
-          background: #121a28 !important;
+          background: #232325 !important;
         }
 
         .dark body.m238-apple-ui .m238-main th,
         .dark body.m238-apple-ui .m238-native-view th {
-          color: #9ba8bb !important;
+          color: #8e8e93 !important;
           border-color: var(--m238-border) !important;
         }
 
         .dark body.m238-apple-ui .m238-main td,
         .dark body.m238-apple-ui .m238-native-view td {
-          color: #e5ebf4 !important;
+          color: #f2f2f7 !important;
           border-color: var(--m238-border) !important;
         }
 
         .dark body.m238-apple-ui .m238-main tbody tr[class*="bg-slate"],
         .dark body.m238-apple-ui .m238-native-view tbody tr[class*="bg-slate"] {
-          background: #141c2a !important;
+          background: #242426 !important;
         }
 
         .dark body.m238-apple-ui .m238-main tbody tr:hover,
         .dark body.m238-apple-ui .m238-native-view tbody tr:hover {
-          background: #162133 !important;
+          background: #2a2a2d !important;
         }
 
         .dark body.m238-apple-ui .m238-main select,
@@ -849,7 +867,7 @@ export default function M238AppleUI() {
         .dark body.m238-apple-ui .m238-native-view select,
         .dark body.m238-apple-ui .m238-native-view input,
         .dark body.m238-apple-ui .m238-native-view textarea {
-          background: #111927 !important;
+          background: #2c2c2e !important;
           border-color: var(--m238-border-strong) !important;
           color: #eef2f7 !important;
           box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
@@ -865,7 +883,7 @@ export default function M238AppleUI() {
         .dark body.m238-apple-ui .m238-main button[class*="bg-slate"],
         .dark body.m238-apple-ui .m238-native-view button[class*="bg-white"],
         .dark body.m238-apple-ui .m238-native-view button[class*="bg-slate"] {
-          background: #111927 !important;
+          background: #2c2c2e !important;
           border-color: var(--m238-border-strong) !important;
           color: #dfe7f2 !important;
         }
@@ -918,17 +936,56 @@ export default function M238AppleUI() {
 
         .dark body.m238-apple-ui .m238-main section[class*="bg-gradient-to-br"] {
           background:
-            radial-gradient(circle at 90% -15%, rgba(96,165,250,.19), transparent 34%),
-            radial-gradient(circle at 7% 120%, rgba(99,102,241,.18), transparent 38%),
-            linear-gradient(135deg, #10275d 0%, #163f82 58%, #1d4f9a 100%) !important;
-          border-color: rgba(147,197,253,.13) !important;
-          box-shadow: 0 18px 44px rgba(0,0,0,.25) !important;
+            radial-gradient(circle at 90% -15%, rgba(10,132,255,.18), transparent 34%),
+            radial-gradient(circle at 8% 115%, rgba(94,92,230,.15), transparent 40%),
+            linear-gradient(145deg, #151517 0%, #1c1c1e 58%, #202024 100%) !important;
+          border-color: rgba(255,255,255,.085) !important;
+          box-shadow: none !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main article,
+        .dark body.m238-apple-ui .m238-main section[class*="rounded-2xl"]:not([class*="bg-gradient"]),
+        .dark body.m238-apple-ui .m238-main section[class*="rounded-3xl"]:not([class*="bg-gradient"]),
+        .dark body.m238-apple-ui .m238-native-view article,
+        .dark body.m238-apple-ui .m238-native-view section[class*="rounded-2xl"],
+        .dark body.m238-apple-ui .m238-native-view section[class*="rounded-3xl"] {
+          background: #1c1c1e !important;
+          border-color: rgba(255,255,255,.075) !important;
+          box-shadow: none !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main select,
+        .dark body.m238-apple-ui .m238-main input,
+        .dark body.m238-apple-ui .m238-main textarea,
+        .dark body.m238-apple-ui .m238-native-view select,
+        .dark body.m238-apple-ui .m238-native-view input,
+        .dark body.m238-apple-ui .m238-native-view textarea {
+          background: #2c2c2e !important;
+          border-color: rgba(255,255,255,.09) !important;
+          color: #fff !important;
+          box-shadow: none !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main button[class*="bg-white"],
+        .dark body.m238-apple-ui .m238-main button[class*="bg-slate"],
+        .dark body.m238-apple-ui .m238-native-view button[class*="bg-white"],
+        .dark body.m238-apple-ui .m238-native-view button[class*="bg-slate"] {
+          background: #2c2c2e !important;
+          border-color: rgba(255,255,255,.09) !important;
+          color: #fff !important;
+          box-shadow: none !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main [class*="divide-y"] > :not([hidden]) ~ :not([hidden]),
+        .dark body.m238-apple-ui .m238-native-view [class*="divide-y"] > :not([hidden]) ~ :not([hidden]) {
+          border-color: rgba(255,255,255,.085) !important;
         }
 
         .dark .m238-menu-open {
-          background: rgba(15,21,33,.94);
-          color: #f1f5f9;
-          border-color: rgba(226,232,240,.10);
+          background: #1c1c1e;
+          color: #ffffff;
+          border-color: rgba(255,255,255,.09);
+          box-shadow: none;
         }
 
         @media (prefers-reduced-motion: reduce) {
