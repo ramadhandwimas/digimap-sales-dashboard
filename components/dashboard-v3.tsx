@@ -143,7 +143,7 @@ function Filter({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-11 w-full rounded-xl border bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-200 dark:bg-slate-900 dark:text-slate-100"
+        className="m238-pill-control h-11 w-full rounded-xl border bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-200 dark:bg-slate-900 dark:text-slate-100"
       >
         {children}
       </select>
@@ -171,10 +171,10 @@ function Card({
     rose: "bg-rose-50 text-rose-600",
   }[tone];
   return (
-    <article className="min-w-0 rounded-2xl border bg-white p-5 shadow-sm dark:bg-slate-950">
+    <article data-tone={tone} className="m238-block-card min-w-0 rounded-2xl border bg-white p-5 shadow-sm dark:bg-slate-950">
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-semibold text-slate-500">{label}</p>
-        <span className={`shrink-0 rounded-xl p-2.5 ${c}`}>
+        <span className={`m238-block-icon shrink-0 rounded-xl p-2.5 ${c}`}>
           <Icon className="size-5" />
         </span>
       </div>
@@ -197,7 +197,7 @@ function SectionTitle({
   right?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b px-5 py-4">
+    <div className="m238-section-title flex items-center justify-between gap-4 border-b px-5 py-4">
       <div>
         <h2 className="font-extrabold">{title}</h2>
         <p className="mt-1 text-sm text-slate-500">{sub}</p>
@@ -213,8 +213,11 @@ function Empty({
 }) {
   return (
     <TableRow>
-      <TableCell colSpan={20} className="h-28 text-center text-slate-400">
-        {text}
+      <TableCell colSpan={20} className="h-32 text-center text-slate-400">
+        <div className="m238-empty-state mx-auto flex max-w-sm flex-col items-center gap-2">
+          <span aria-hidden="true" className="m238-empty-blocks"><i/><i/><i/></span>
+          <span>{text}</span>
+        </div>
       </TableCell>
     </TableRow>
   );
@@ -227,7 +230,7 @@ function PeriodFilter({
   setPeriod: (v: string) => void;
 }) {
   return (
-    <section className="mb-5 rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950">
+    <section className="m238-filter-block mb-5 rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950">
       <div className="max-w-xs">
         <Filter label="Filter Bulan" value={period} onChange={setPeriod}>
           {months.map((x) => (
@@ -705,6 +708,9 @@ fileRef = useRef<HTMLInputElement>(null),
         <header className="border-b bg-white/90 backdrop-blur-xl dark:bg-slate-950/90">
           <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-7">
             <div className="flex items-center gap-2 text-sm">
+              <span aria-hidden="true" className="m238-mini-blocks">
+                <i /><i /><i />
+              </span>
               <span className="text-slate-400">M238</span>
               <ChevronRight className="size-3.5" />
               <b>{activeLabel}</b>
@@ -821,7 +827,7 @@ function DashboardHome({
         </p>
       </div>
       <PeriodFilter period={period} setPeriod={setPeriod} />
-      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-[#0872b9] to-[#075b97] p-5 text-white shadow-lg">
+      <section className="m238-hero-block overflow-hidden rounded-3xl bg-gradient-to-br from-[#0872b9] to-[#075b97] p-5 text-white shadow-lg">
         <div className="grid gap-5 lg:grid-cols-[1fr_1.7fr] lg:items-center">
           <div>
             <p className="text-sm text-blue-100">Welcome back, Dwimas</p>
