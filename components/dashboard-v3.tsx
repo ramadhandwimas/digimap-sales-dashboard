@@ -14,9 +14,11 @@ import {
   LayoutDashboard,
   LogOut,
   MessageSquare,
+  Moon,
   PackageSearch,
   RefreshCw,
   Settings,
+  Sun,
   TrendingDown,
   TrendingUp,
   Upload,
@@ -272,6 +274,7 @@ export default function DashboardV3() {
     [staff, setStaff] = useState("ALL"),
     [data, setData] = useState<M238Payload | null>(null),
     [loading, setLoading] = useState(true),
+    [dark, setDark] = useState(false),
     [refreshSetting, setRefreshSetting] = useState<RefreshSetting>("auto"),
     [themeStyle, setThemeStyle] = useState<ThemeStyle>("worklife"),
     [fontSize, setFontSize] = useState<FontSize>("normal"),
@@ -357,8 +360,10 @@ fileRef = useRef<HTMLInputElement>(null),
 
 
   useEffect(() => {
-    document.documentElement.classList.remove("dark");
-    localStorage.removeItem("m238-theme");
+    const d = localStorage.getItem("m238-theme") === "dark";
+    setDark(d);
+    document.documentElement.classList.toggle("dark", d);
+    document.documentElement.dataset.theme = d ? "dark" : "light";
     const r = (localStorage.getItem("m238-refresh") ||
       "auto") as RefreshSetting;
     if (["auto", "60000", "300000", "600000"].includes(r)) setRefreshSetting(r);
@@ -395,7 +400,15 @@ fileRef = useRef<HTMLInputElement>(null),
       }, delay);
     return () => clearInterval(timer);
   }, [load, refreshSetting]);
-  const changeRefresh = (v: RefreshSetting) => {
+  const toggleTheme = () => {
+      const v = !dark;
+      setDark(v);
+      document.documentElement.classList.toggle("dark", v);
+      document.documentElement.dataset.theme = v ? "dark" : "light";
+      localStorage.setItem("m238-theme", v ? "dark" : "light");
+      window.dispatchEvent(new StorageEvent("storage", { key: "m238-theme", newValue: v ? "dark" : "light" }));
+    },
+    changeRefresh = (v: RefreshSetting) => {
       setRefreshSetting(v);
       localStorage.setItem("m238-refresh", v);
     },
@@ -698,6 +711,14 @@ fileRef = useRef<HTMLInputElement>(null),
             </div>
             <div className="flex gap-2">
               <button
+                onClick={toggleTheme}
+                aria-label={dark ? "Aktifkan mode terang" : "Aktifkan mode gelap"}
+                title={dark ? "Mode Terang" : "Mode Gelap"}
+                className="rounded-xl border bg-white p-2.5 dark:bg-slate-900"
+              >
+                {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+              </button>
+              <button
                 onClick={() => void load(true)}
                 className="flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-semibold dark:bg-slate-900"
               >
@@ -753,6 +774,8 @@ fileRef = useRef<HTMLInputElement>(null),
           {tab === "settings" && (
             <SettingsPage
               data={data}
+              dark={dark}
+              toggleTheme={toggleTheme}
               refresh={refreshSetting}
               setRefresh={changeRefresh}
               theme={themeStyle}
@@ -2210,6 +2233,8 @@ function DataUpload({
 
 function SettingsPage({
   data,
+  dark,
+  toggleTheme,
   refresh,
   setRefresh,
   theme,
@@ -2218,6 +2243,8 @@ function SettingsPage({
   setFont,
 }: {
   data: M238Payload | null;
+  dark: boolean;
+  toggleTheme: () => void;
   refresh: RefreshSetting;
   setRefresh: (v: RefreshSetting) => void;
   theme: ThemeStyle;
@@ -2281,6 +2308,16 @@ function SettingsPage({
               <option value="large">Besar</option>
             </Filter>
           </div>
+        </div>
+        <div className="rounded-2xl border bg-white p-5 shadow-sm dark:bg-slate-950">
+          <h3 className="font-extrabold">Light / Dark</h3>
+          <p className="mt-1 text-sm text-slate-500">Pilihan tersimpan otomatis di perangkat ini.</p>
+          <button
+            onClick={toggleTheme}
+            className="mt-4 w-full rounded-xl bg-slate-900 px-4 py-3 font-bold text-white dark:bg-slate-100 dark:text-slate-900"
+          >
+            {dark ? "Mode Terang" : "Mode Gelap"}
+          </button>
         </div>
       </section>
       <section className="rounded-2xl border bg-white p-5 shadow-sm dark:bg-slate-950">
