@@ -74,7 +74,7 @@ const currentPeriod = () => today().slice(0, 7),
       new Date(`${v}-01T00:00:00`),
     );
 type RefreshSetting = "auto" | "60000" | "300000" | "600000";
-type ThemeStyle = "classic" | "natural" | "worklife" | "happiness";
+type ThemeStyle = "classic" | "natural" | "worklife" | "happiness" | "premium";
 type FontSize = "small" | "normal" | "large";
 type DailyStaff = {
   id: string;
@@ -371,11 +371,32 @@ fileRef = useRef<HTMLInputElement>(null),
       "auto") as RefreshSetting;
     if (["auto", "60000", "300000", "600000"].includes(r)) setRefreshSetting(r);
     const t = (localStorage.getItem("m238-style") || "worklife") as ThemeStyle;
-    if (["classic", "natural", "worklife", "happiness"].includes(t))
+    if (["classic", "natural", "worklife", "happiness", "premium"].includes(t))
       setThemeStyle(t);
     const f = (localStorage.getItem("m238-font") || "normal") as FontSize;
     if (["small", "normal", "large"].includes(f)) setFontSize(f);
   }, []);
+  useEffect(() => {
+    const syncDashboardTheme = (event: Event) => {
+      const custom = event as CustomEvent<{ theme?: ThemeStyle }>;
+      const value =
+        custom.detail?.theme ||
+        (localStorage.getItem("m238-style") as ThemeStyle | null);
+      if (
+        value &&
+        ["classic", "natural", "worklife", "happiness", "premium"].includes(value)
+      ) {
+        setThemeStyle(value);
+      }
+    };
+    window.addEventListener("m238:dashboard-theme-change", syncDashboardTheme);
+    return () =>
+      window.removeEventListener(
+        "m238:dashboard-theme-change",
+        syncDashboardTheme,
+      );
+  }, []);
+
   const load = useCallback(
     async (force = false) => {
       setLoading(true);
@@ -618,6 +639,10 @@ fileRef = useRef<HTMLInputElement>(null),
       happiness: {
         shell: "bg-amber-50/60",
         side: "bg-gradient-to-b from-orange-500 via-rose-500 to-violet-600",
+      },
+      premium: {
+        shell: "bg-slate-100",
+        side: "bg-gradient-to-b from-slate-950 to-slate-900",
       },
     }[themeStyle],
     font = {
