@@ -107,6 +107,55 @@ button,select { font: inherit; }
 ::selection { background: #bcd4ff; color: #0b326f; }
 
 
+/* Generic fallback for direct M238 routes (Daily Summary / BNPL / CX / Weekly / SOH).
+   The dashboard shell receives the more specific rules below. */
+html.dark body > main,
+html.dark main.min-h-screen {
+  background: var(--dark-bg) !important;
+  color: var(--dark-text-primary) !important;
+}
+html.dark .bg-white,
+html.dark .bg-white\/90,
+html.dark .bg-slate-950 {
+  background-color: var(--dark-surface) !important;
+  color: var(--dark-text-primary);
+}
+html.dark .bg-slate-50,
+html.dark .bg-slate-100,
+html.dark .bg-slate-900 {
+  background-color: var(--dark-surface-hover) !important;
+}
+html.dark .text-slate-950,
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-slate-700,
+html.dark .text-black {
+  color: var(--dark-text-primary) !important;
+}
+html.dark .text-slate-600,
+html.dark .text-slate-500,
+html.dark .text-slate-400 {
+  color: var(--dark-text-secondary) !important;
+}
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background: var(--dark-input) !important;
+  color: var(--dark-text-primary) !important;
+  border-color: #2A3038 !important;
+  color-scheme: dark;
+}
+html.dark select option { background: var(--dark-input); color: var(--dark-text-primary); }
+html.dark table { color: #E8EAED; border-color: #252A31; }
+html.dark thead,
+html.dark th { background: #171B20 !important; color: #AEB5BF !important; }
+html.dark tbody tr { background: #121519; }
+html.dark tbody tr:nth-child(even) { background: #15191E; }
+html.dark tbody tr:hover { background: #1D2229 !important; }
+html.dark td,
+html.dark th,
+html.dark tr { border-color: #252A31 !important; }
+
 /* =========================================================
    M238 GLOBAL DARK THEME
    Scope: current dashboard only. Light mode remains untouched.
