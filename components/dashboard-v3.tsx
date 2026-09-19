@@ -606,15 +606,18 @@ fileRef = useRef<HTMLInputElement>(null),
       >
         <div className="flex h-full flex-col">
           <div className="p-5">
-            <div className="flex items-center gap-3 border-b border-white/15 pb-5">
+            <div className="m238-sidebar-brand flex items-center gap-3 border-b border-white/15 pb-5">
               <div className="grid size-11 place-items-center rounded-xl bg-white/15 font-black">
                 M238
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="font-extrabold">Digimap PIM 2</p>
-                <p className="text-[10px] font-bold uppercase tracking-[.18em] text-white/70">
-                  Performance Hub
+                <p className="mt-0.5 text-[11px] font-semibold tracking-[.02em] text-white/70">
+                  Sales Dashboard
                 </p>
+                <span aria-hidden="true" className="m238-sidebar-blocks">
+                  <i /><i /><i />
+                </span>
               </div>
             </div>
           </div>
@@ -689,7 +692,8 @@ fileRef = useRef<HTMLInputElement>(null),
                                 else window.location.href = item.href;
                               } else setTab(item.key);
                             }}
-                            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold lg:pl-7 ${tab === item.key ? "bg-white/20 shadow-sm" : "text-white/80 hover:bg-white/10"}`}
+                            aria-current={tab === item.key ? "page" : undefined}
+                            className={`m238-menu-item flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold lg:pl-7 ${tab === item.key ? "is-active" : "text-white/80 hover:bg-white/10"}`}
                           >
                             <ItemIcon className="size-3.5 shrink-0" />
                             <span>{item.label}</span>
