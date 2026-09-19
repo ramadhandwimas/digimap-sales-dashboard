@@ -72,8 +72,8 @@ export default function LoginPage() {
       if (!response.ok) throw new Error(result.error || "Login gagal.");
 
       const elapsed = performance.now() - startedAt;
-      if (elapsed < 1250)
-        await new Promise((resolve) => window.setTimeout(resolve, 1250 - elapsed));
+      if (elapsed < 1450)
+        await new Promise((resolve) => window.setTimeout(resolve, 1450 - elapsed));
 
       setSuccess(true);
       setLoading(false);
@@ -186,7 +186,7 @@ export default function LoginPage() {
           <img
             src="/brand/digimap-by-map-login.png"
             alt="Digimap by MAP"
-            className="h-auto w-[230px] select-none object-contain sm:w-[260px]"
+            className="h-auto w-[238px] select-none rounded-2xl bg-white/95 px-5 py-3 object-contain shadow-[0_10px_30px_rgba(0,0,0,.20)] ring-1 ring-white/20 sm:w-[272px]"
             draggable={false}
           />
           <p className="mt-3 text-[10px] font-extrabold uppercase tracking-[0.34em] text-blue-200/80">
@@ -514,21 +514,22 @@ export default function LoginPage() {
         }
 
         .login-walk-scene {
-          position: relative;
+          position: absolute;
+          inset: 0 10px;
           display: block;
-          width: 122px;
-          height: 34px;
+          height: 54px;
           overflow: visible;
+          pointer-events: none;
         }
 
         .login-person {
           position: absolute;
-          left: 2px;
-          bottom: 4px;
+          left: 6px;
+          bottom: 13px;
           width: 18px;
           height: 25px;
           transform-origin: 50% 100%;
-          animation: personWalkToDoor 1.18s cubic-bezier(.35,.05,.2,1) both;
+          animation: personWalkToDoor 1.36s cubic-bezier(.35,.05,.2,1) both;
           filter: drop-shadow(0 2px 3px rgba(0,0,0,.22));
         }
 
@@ -580,15 +581,16 @@ export default function LoginPage() {
 
         .login-mini-door {
           position: absolute;
-          right: 2px;
-          bottom: 2px;
+          right: 0;
+          bottom: 11px;
           width: 25px;
           height: 31px;
           border: 2px solid rgba(255,255,255,.92);
           border-radius: 4px 4px 2px 2px;
           box-shadow:
-            0 0 12px rgba(120,164,255,.36),
-            inset 0 0 10px rgba(90,122,255,.12);
+            -8px 0 20px rgba(120,164,255,.18),
+            0 0 16px rgba(120,164,255,.40),
+            inset 0 0 10px rgba(90,122,255,.14);
           overflow: hidden;
         }
 
@@ -606,14 +608,30 @@ export default function LoginPage() {
           inset: 2px;
           background: linear-gradient(90deg, rgba(16,30,70,.88), rgba(45,64,142,.72));
           transform-origin: left center;
-          animation: miniDoorOpen 1.18s cubic-bezier(.22,1,.36,1) both;
+          animation: miniDoorOpen 1.36s cubic-bezier(.22,1,.36,1) both;
         }
 
         @keyframes personWalkToDoor {
-          0% { transform: translateX(0) scale(1); opacity: 1; }
-          70% { transform: translateX(80px) scale(1); opacity: 1; }
-          87% { transform: translateX(93px) scale(.82); opacity: 1; }
-          100% { transform: translateX(100px) scale(.35); opacity: 0; }
+          0% {
+            left: 6px;
+            transform: scale(1);
+            opacity: 1;
+          }
+          72% {
+            left: calc(100% - 56px);
+            transform: scale(1);
+            opacity: 1;
+          }
+          88% {
+            left: calc(100% - 43px);
+            transform: scale(.82);
+            opacity: 1;
+          }
+          100% {
+            left: calc(100% - 31px);
+            transform: scale(.30);
+            opacity: 0;
+          }
         }
 
         @keyframes miniDoorOpen {
