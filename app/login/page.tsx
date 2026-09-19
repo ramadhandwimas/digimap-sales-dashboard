@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Eye,
@@ -45,12 +45,28 @@ export default function LoginPage() {
   const [nik, setNik] = useState(""),
     [password, setPassword] = useState(""),
     [show, setShow] = useState(false),
+    [introDone, setIntroDone] = useState(false),
     [loading, setLoading] = useState(false),
     [success, setSuccess] = useState(false),
     [statusText, setStatusText] = useState(""),
     [error, setError] = useState(""),
     cardRef = useRef<HTMLElement>(null),
     sceneRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      setIntroDone(true);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setIntroDone(true);
+      sessionStorage.setItem("m238-login-intro-seen", "1");
+    }, 1950);
+
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const login = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -148,6 +164,29 @@ export default function LoginPage() {
       onPointerLeave={resetScene}
       className="m238-login relative grid min-h-[100svh] overflow-hidden bg-[#030712] px-5 py-8 text-white sm:px-8"
     >
+      {!introDone ? (
+        <div className="login-door-intro absolute inset-0 z-[60] overflow-hidden bg-[#020611]">
+          <div className="login-door-camera absolute inset-0">
+            <div className="login-door-glow absolute left-1/2 top-1/2 h-[78vh] w-[62vw] max-w-[760px] -translate-x-1/2 -translate-y-1/2 rounded-[34px]" />
+            <div className="login-door-frame absolute left-1/2 top-1/2 h-[72vh] w-[52vw] max-w-[650px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[30px] border border-blue-200/25 shadow-[0_0_80px_rgba(59,130,246,.22)]">
+              <div className="login-door-space absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(72,113,255,.52),rgba(10,18,42,.94)_58%,#050914_100%)]" />
+              <div className="login-door-grid absolute inset-0 opacity-25" />
+              <div className="login-door-panel login-door-left absolute inset-y-0 left-0 w-1/2 border-r border-white/10 bg-[linear-gradient(135deg,#11192b,#09111f)]">
+                <div className="login-door-line absolute inset-y-[8%] right-5 w-px bg-gradient-to-b from-transparent via-blue-300/45 to-transparent" />
+              </div>
+              <div className="login-door-panel login-door-right absolute inset-y-0 right-0 w-1/2 border-l border-white/10 bg-[linear-gradient(225deg,#11192b,#09111f)]">
+                <div className="login-door-line absolute inset-y-[8%] left-5 w-px bg-gradient-to-b from-transparent via-violet-300/45 to-transparent" />
+              </div>
+              <div className="login-door-logo absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 text-center">
+                <div className="text-[34px] font-black tracking-[-.055em] text-white sm:text-[46px]">M238</div>
+                <div className="mt-2 text-[10px] font-bold uppercase tracking-[.34em] text-blue-200/75">PIM 2</div>
+              </div>
+            </div>
+            <div className="login-door-floor absolute bottom-[-18vh] left-1/2 h-[42vh] w-[120vw] -translate-x-1/2 bg-[radial-gradient(ellipse_at_top,rgba(49,86,255,.22),transparent_64%)]" />
+          </div>
+        </div>
+      ) : null}
+
       <div aria-hidden className="absolute inset-0">
         <div className="login-grid login-parallax-back absolute inset-0 opacity-20" />
         <div className="login-vignette absolute inset-0" />
@@ -176,7 +215,7 @@ export default function LoginPage() {
         <span aria-hidden className="login-floating-block login-block-d"><i /><i /></span>
       </div>
 
-      <div className="relative z-10 m-auto flex w-full max-w-[460px] flex-col items-center">
+      <div className={`relative z-10 m-auto flex w-full max-w-[460px] flex-col items-center transition-opacity duration-300 ${introDone ? "opacity-100" : "pointer-events-none opacity-0"}`}>
         <div className="login-brand-lockup mb-7 flex flex-col items-center text-center sm:mb-8">
           <div className="leading-none">
             <div className="text-[42px] font-black tracking-[-0.065em] text-white sm:text-[48px]">
@@ -318,6 +357,102 @@ export default function LoginPage() {
           background:
             radial-gradient(circle at 50% 30%, rgba(58, 96, 246, 0.15), transparent 32%),
             linear-gradient(145deg, #02050d 0%, #071022 52%, #090719 100%);
+        }
+
+        .login-door-intro {
+          perspective: 1400px;
+          animation: introFadeOut 260ms ease 1.72s both;
+        }
+
+        .login-door-camera {
+          transform-origin: 50% 50%;
+          animation: doorCameraPush 1.9s cubic-bezier(.18,.78,.22,1) both;
+          will-change: transform, filter;
+        }
+
+        .login-door-glow {
+          background:
+            radial-gradient(circle at center, rgba(83,123,255,.32), rgba(63,76,255,.09) 44%, transparent 72%);
+          filter: blur(28px);
+          animation: doorGlow 1.55s ease-in-out both;
+        }
+
+        .login-door-frame {
+          transform-style: preserve-3d;
+          background: #07101f;
+        }
+
+        .login-door-grid {
+          background-image:
+            linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+          background-size: 36px 36px;
+          transform: perspective(520px) rotateX(64deg) scale(1.5) translateY(26%);
+          transform-origin: bottom;
+        }
+
+        .login-door-panel {
+          transform-style: preserve-3d;
+          backface-visibility: hidden;
+          box-shadow:
+            inset 0 0 40px rgba(255,255,255,.025),
+            0 0 28px rgba(0,0,0,.45);
+        }
+
+        .login-door-left {
+          transform-origin: left center;
+          animation: doorOpenLeft 1.22s cubic-bezier(.2,.82,.22,1) .42s both;
+        }
+
+        .login-door-right {
+          transform-origin: right center;
+          animation: doorOpenRight 1.22s cubic-bezier(.2,.82,.22,1) .42s both;
+        }
+
+        .login-door-logo {
+          animation: doorLogoOut 780ms ease .35s both;
+          text-shadow: 0 0 24px rgba(103,142,255,.46);
+        }
+
+        .login-door-floor {
+          filter: blur(10px);
+          animation: floorRush 1.8s cubic-bezier(.2,.8,.2,1) both;
+        }
+
+        @keyframes doorOpenLeft {
+          0%, 20% { transform: rotateY(0deg) translateX(0); }
+          100% { transform: rotateY(-78deg) translateX(-7%); }
+        }
+
+        @keyframes doorOpenRight {
+          0%, 20% { transform: rotateY(0deg) translateX(0); }
+          100% { transform: rotateY(78deg) translateX(7%); }
+        }
+
+        @keyframes doorCameraPush {
+          0% { transform: translateZ(0) scale(.94); filter: brightness(.9); }
+          38% { transform: translateZ(0) scale(1); filter: brightness(1); }
+          100% { transform: translateZ(0) scale(2.45); filter: brightness(1.18); }
+        }
+
+        @keyframes doorLogoOut {
+          0%, 42% { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+          100% { opacity: 0; transform: translate(-50%,-50%) scale(.82); }
+        }
+
+        @keyframes doorGlow {
+          0% { opacity: .25; transform: translate(-50%,-50%) scale(.82); }
+          100% { opacity: .9; transform: translate(-50%,-50%) scale(1.18); }
+        }
+
+        @keyframes floorRush {
+          from { transform: translateX(-50%) scaleY(.72); opacity: .35; }
+          to { transform: translateX(-50%) scaleY(1.35); opacity: .75; }
+        }
+
+        @keyframes introFadeOut {
+          from { opacity: 1; }
+          to { opacity: 0; }
         }
 
         .login-parallax-back {
@@ -611,6 +746,9 @@ export default function LoginPage() {
         }
 
         @media (max-width: 640px) {
+          .login-door-glow { width: 92vw !important; height: 68vh !important; }
+          .login-door-frame { width: 78vw !important; height: 64vh !important; }
+          .login-door-camera { animation-duration: 1.75s; }
           .login-orbit { width: 430px; height: 430px; }
           .login-orbit-two { width: 320px; height: 320px; }
           .login-core { width: 190px; height: 190px; }
@@ -629,6 +767,9 @@ export default function LoginPage() {
           .login-card {
             transform: none !important;
             transition: none !important;
+          }
+          .login-door-intro {
+            display: none !important;
           }
           .login-parallax-back,
           .login-parallax-mid,
