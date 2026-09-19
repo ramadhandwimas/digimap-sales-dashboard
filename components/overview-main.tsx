@@ -28,7 +28,7 @@ function MiniKpi({label,actual,target,estimate,point,maxPoint}:{label:string;act
 
 export default function OverviewMain({period,setPeriod}:{period:string;setPeriod:(v:string)=>void}){
  const[mode,setMode]=useState<"monthly"|"ytd"|"compare">("monthly"),[monthMode,setMonthMode]=useState<"current"|"pick">(period===currentPeriod()?"current":"pick"),[data,setData]=useState<Payload|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState("");
- useEffect(()=>{let alive=true;setLoading(true);setError("");fetch(`/api/overview?period=${encodeURIComponent(period)}&t=${Date.now()}`,{cache:"no-store"}).then(async r=>{const j=await r.json();if(!r.ok||j.error)throw new Error(j.error||"Overview gagal dibaca");if(alive)setData(j)}).catch(e=>alive&&setError(e instanceof Error?e.message:"Overview gagal dibaca")).finally(()=>alive&&setLoading(false));return()=>{alive=false}},[period]);
+ useEffect(()=>{let alive=true;setLoading(true);setError("");fetch(`/api/overview?period=${encodeURIComponent(period)}`).then(async r=>{const j=await r.json();if(!r.ok||j.error)throw new Error(j.error||"Overview gagal dibaca");if(alive){setData(j);window.dispatchEvent(new CustomEvent("m238:overview-data",{detail:j}))}}).catch(e=>alive&&setError(e instanceof Error?e.message:"Overview gagal dibaca")).finally(()=>alive&&setLoading(false));return()=>{alive=false}},[period]);
  const top=useMemo(()=>[...(data?.staff||[])].sort((a,b)=>b.amount-a.amount).slice(0,3),[data]);
  const needPush=useMemo(()=>[...(data?.staff||[])].filter(x=>x.status!=="Productive").sort((a,b)=>(a.achievement??999)-(b.achievement??999)||a.amount-b.amount).slice(0,3),[data]);
  const setCurrent=()=>{setMonthMode("current");setPeriod(currentPeriod())};
