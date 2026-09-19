@@ -12,9 +12,15 @@ function applySavedTheme(){
 
 export default function M238ThemePersistence(){
  useEffect(()=>{
+  document.documentElement.classList.remove("dark");
+  localStorage.removeItem("m238-theme");
+  localStorage.removeItem("m238-theme-mode");
   applySavedTheme();
   let last=localStorage.getItem("m238-style")||"worklife";
   const sync=()=>{
+   document.documentElement.classList.remove("dark");
+   localStorage.removeItem("m238-theme");
+   localStorage.removeItem("m238-theme-mode");
    const current=localStorage.getItem("m238-style")||"worklife";
    if(current!==last||document.documentElement.dataset.m238DashboardTheme!==current){last=current;applySavedTheme()}
   };
