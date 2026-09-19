@@ -37,6 +37,46 @@ export default function M238AppleUI() {
       setSidebarHidden(true);
     };
 
+    const normalizeDarkCanvas = () => {
+      const isDark = document.documentElement.classList.contains("dark");
+      const main = document.querySelector(".m238-main") as HTMLElement | null;
+      if (!main) return;
+
+      const candidates = [
+        main,
+        ...Array.from(main.querySelectorAll<HTMLElement>("div, section")),
+      ];
+
+      for (const el of candidates) {
+        el.classList.remove("m238-dark-canvas-fix");
+        if (!isDark) continue;
+
+        const rect = el.getBoundingClientRect();
+        if (rect.width < window.innerWidth * 0.72 || rect.height < 180) continue;
+
+        const style = window.getComputedStyle(el);
+        const bg = style.backgroundColor.replace(/\s+/g, "");
+        const isLight =
+          bg === "rgb(255,255,255)" ||
+          bg === "rgb(248,250,252)" ||
+          bg === "rgb(249,250,251)" ||
+          bg === "rgb(245,247,251)" ||
+          bg === "rgb(241,245,249)" ||
+          bg === "rgba(255,255,255,0.9)" ||
+          bg === "rgba(255,255,255,0.96)";
+
+        const looksLikeCard =
+          el.matches("article") ||
+          el.className.includes("rounded-2xl") ||
+          el.className.includes("rounded-3xl") ||
+          el.getAttribute("role") === "dialog";
+
+        if (isLight && !looksLikeCard) {
+          el.classList.add("m238-dark-canvas-fix");
+        }
+      }
+    };
+
     const apply = () => {
       const aside = document.querySelector("aside") as HTMLElement | null;
       const main = document.querySelector("main") as HTMLElement | null;
@@ -45,6 +85,8 @@ export default function M238AppleUI() {
       aside.parentElement?.classList.add("m238-app-shell");
       aside.classList.add("m238-sidebar");
       main.classList.add("m238-main");
+
+      normalizeDarkCanvas();
 
       const brand = aside.querySelector(
         ".p-5 > div.flex.items-center.gap-3",
@@ -71,8 +113,22 @@ export default function M238AppleUI() {
     const observer = new MutationObserver(apply);
     observer.observe(document.body, { childList: true, subtree: true });
 
+    const themeObserver = new MutationObserver(() => {
+      window.requestAnimationFrame(() => {
+        normalizeDarkCanvas();
+      });
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    window.addEventListener("resize", normalizeDarkCanvas);
+
     return () => {
       observer.disconnect();
+      themeObserver.disconnect();
+      window.removeEventListener("resize", normalizeDarkCanvas);
       window.removeEventListener("m238-sidebar-toggle", toggle);
       document.removeEventListener("click", closeAfterNav, true);
       document.body.classList.remove("m238-apple-ui", "m238-sidebar-hidden");
@@ -642,6 +698,12 @@ export default function M238AppleUI() {
         .dark body.m238-apple-ui .m238-main input,
         .dark body.m238-apple-ui .m238-main textarea {
           background: #101827 !important;
+        }
+
+        .dark body.m238-apple-ui .m238-dark-canvas-fix {
+          background: var(--m238-bg) !important;
+          background-color: var(--m238-bg) !important;
+          color: var(--m238-text) !important;
         }
 
         /* Dark canvas hardening: page shell must never stay light */
