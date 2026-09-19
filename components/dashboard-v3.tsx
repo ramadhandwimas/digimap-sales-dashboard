@@ -652,10 +652,10 @@ fileRef = useRef<HTMLInputElement>(null),
     }[fontSize];
   return (
     <div
-      className={`min-h-screen ${theme.shell} ${font} text-slate-950 dark:bg-slate-900 dark:text-slate-100 lg:grid lg:grid-cols-[236px_minmax(0,1fr)]`}
+      className={`m238-app-shell min-h-screen ${theme.shell} ${font} text-slate-950 dark:bg-slate-900 dark:text-slate-100 lg:grid lg:grid-cols-[236px_minmax(0,1fr)]`}
     >
       <aside
-        className={`${theme.side} border-b text-white lg:sticky lg:top-0 lg:h-screen lg:border-b-0`}
+        className={`m238-sidebar ${theme.side} border-b text-white lg:sticky lg:top-0 lg:h-screen lg:border-b-0`}
       >
         <div className="flex h-full flex-col">
           <div className="p-5">
@@ -761,7 +761,7 @@ fileRef = useRef<HTMLInputElement>(null),
           </nav>
         </div>
       </aside>
-      <main className="min-w-0 pb-10">
+      <main className="m238-main min-w-0 pb-10">
         <header className="border-b bg-white/90 backdrop-blur-xl dark:bg-slate-950/90">
           <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-7">
             <div className="flex items-center gap-2 text-sm">
@@ -803,9 +803,7 @@ fileRef = useRef<HTMLInputElement>(null),
           </div>
         </header>
         <div className="px-4 pt-6 sm:px-7">
-          {tab === "dashboard" && (
-            <DashboardHome data={data} period={period} setPeriod={setPeriod} />
-          )}{" "}
+          {tab === "dashboard" && <OverviewBootPlaceholder />}{" "}
           {tab === "daily" && <DailySales />}{" "}
           {tab === "staff" && (
             <StaffPerformance
@@ -849,6 +847,22 @@ fileRef = useRef<HTMLInputElement>(null),
           )}
         </div>
       </main>
+    </div>
+  );
+}
+
+function OverviewBootPlaceholder() {
+  return (
+    <div data-overview-boot className="space-y-5" aria-hidden="true">
+      <div className="space-y-2">
+        <div className="m238-skeleton h-3 w-24 rounded-full" />
+        <div className="m238-skeleton h-9 w-52 rounded-xl" />
+      </div>
+      <div className="m238-skeleton h-14 rounded-2xl" />
+      <div className="m238-skeleton h-44 rounded-3xl" />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({length:4}).map((_,i)=><div key={i} className="m238-skeleton h-32 rounded-2xl" />)}
+      </div>
     </div>
   );
 }
@@ -1450,7 +1464,7 @@ function StaffPerformance({
 }) {
   const t = Totals({ rows });
   return (
-    <div className="space-y-5">
+    <div data-staff-performance-root className="space-y-5">
       <div>
         <h1 className="text-3xl font-black">Staff Performance</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -1476,7 +1490,11 @@ function StaffPerformance({
           </Filter>
         </div>
       </section>
-      <section className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950">
+      <div data-staff-live-loading className="space-y-4">
+        <div className="m238-skeleton h-24 rounded-2xl" />
+        <div className="m238-skeleton h-72 rounded-2xl" />
+      </div>
+      <section data-staff-legacy className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950">
         <SectionTitle
           title="Staff Performance"
           sub="Achievement value bulanan"
