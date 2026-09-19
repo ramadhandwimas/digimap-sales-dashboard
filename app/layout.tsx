@@ -22,6 +22,9 @@ export default function RootLayout({
       var dark = saved === "dark";
       document.documentElement.classList.toggle("dark", dark);
       document.documentElement.dataset.theme = dark ? "dark" : "light";
+      var style = localStorage.getItem("m238-style") || "worklife";
+      if (!["classic","natural","worklife","happiness","premium"].includes(style)) style = "worklife";
+      document.documentElement.dataset.m238DashboardTheme = style;
     } catch (_) {}
   `;
 
@@ -30,7 +33,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
-      <body className="antialiased"><IdleLogout/>{children}</body>
+      <body className="m238-apple-ui antialiased"><IdleLogout/>{children}</body>
     </html>
   );
 }
