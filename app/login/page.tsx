@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Eye,
@@ -42,6 +42,32 @@ const stars = [
 ] as const;
 
 export default function LoginPage() {
+  useEffect(() => {
+    const color = "#030712";
+    const previousHtmlBg = document.documentElement.style.backgroundColor;
+    const previousBodyBg = document.body.style.backgroundColor;
+    document.documentElement.style.backgroundColor = color;
+    document.body.style.backgroundColor = color;
+
+    let theme = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+    const created = !theme;
+    const previousTheme = theme?.content ?? "";
+    if (!theme) {
+      theme = document.createElement("meta");
+      theme.name = "theme-color";
+      theme.setAttribute("data-m238-login-theme", "true");
+      document.head.appendChild(theme);
+    }
+    theme.content = color;
+
+    return () => {
+      document.documentElement.style.backgroundColor = previousHtmlBg;
+      document.body.style.backgroundColor = previousBodyBg;
+      if (created) theme?.remove();
+      else if (theme) theme.content = previousTheme;
+    };
+  }, []);
+
   const [nik, setNik] = useState(""),
     [password, setPassword] = useState(""),
     [show, setShow] = useState(false),
