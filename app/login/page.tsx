@@ -8,7 +8,6 @@ import {
   LockKeyhole,
   Check,
   ShieldCheck,
-  Sparkles,
   UserRound,
 } from "lucide-react";
 
@@ -89,15 +88,23 @@ export default function LoginPage() {
     const rect = scene.getBoundingClientRect();
     const x = (event.clientX - rect.left) / rect.width - 0.5;
     const y = (event.clientY - rect.top) / rect.height - 0.5;
-    scene.style.setProperty("--scene-x", `${(x * 14).toFixed(2)}px`);
-    scene.style.setProperty("--scene-y", `${(y * 10).toFixed(2)}px`);
+    scene.style.setProperty("--scene-back-x", `${(-x * 3).toFixed(2)}px`);
+    scene.style.setProperty("--scene-back-y", `${(-y * 2).toFixed(2)}px`);
+    scene.style.setProperty("--scene-mid-x", `${(-x * 6).toFixed(2)}px`);
+    scene.style.setProperty("--scene-mid-y", `${(-y * 4).toFixed(2)}px`);
+    scene.style.setProperty("--scene-front-x", `${(x * 5).toFixed(2)}px`);
+    scene.style.setProperty("--scene-front-y", `${(y * 3.5).toFixed(2)}px`);
   };
 
   const resetScene = () => {
     const scene = sceneRef.current;
     if (!scene) return;
-    scene.style.setProperty("--scene-x", "0px");
-    scene.style.setProperty("--scene-y", "0px");
+    scene.style.setProperty("--scene-back-x", "0px");
+    scene.style.setProperty("--scene-back-y", "0px");
+    scene.style.setProperty("--scene-mid-x", "0px");
+    scene.style.setProperty("--scene-mid-y", "0px");
+    scene.style.setProperty("--scene-front-x", "0px");
+    scene.style.setProperty("--scene-front-y", "0px");
   };
 
   const tilt = (event: React.PointerEvent<HTMLElement>) => {
@@ -278,8 +285,12 @@ export default function LoginPage() {
 
       <style>{`
         .m238-login {
-          --scene-x: 0px;
-          --scene-y: 0px;
+          --scene-back-x: 0px;
+          --scene-back-y: 0px;
+          --scene-mid-x: 0px;
+          --scene-mid-y: 0px;
+          --scene-front-x: 0px;
+          --scene-front-y: 0px;
           isolation: isolate;
           background:
             radial-gradient(circle at 50% 30%, rgba(58, 96, 246, 0.15), transparent 32%),
@@ -287,20 +298,20 @@ export default function LoginPage() {
         }
 
         .login-parallax-back {
-          transform: translate3d(calc(var(--scene-x) * -0.22), calc(var(--scene-y) * -0.22), 0);
+          transform: translate3d(var(--scene-back-x), var(--scene-back-y), 0);
           transition: transform 180ms ease-out;
           will-change: transform;
         }
 
         .login-parallax-mid {
-          translate: calc(var(--scene-x) * -0.42) calc(var(--scene-y) * -0.42);
+          translate: var(--scene-mid-x) var(--scene-mid-y);
           transition: translate 180ms ease-out;
           will-change: translate;
         }
 
         .login-parallax-front {
-          margin-left: calc(var(--scene-x) * 0.34);
-          margin-top: calc(var(--scene-y) * 0.34);
+          margin-left: var(--scene-front-x);
+          margin-top: var(--scene-front-y);
           transition: margin 180ms ease-out;
         }
 
