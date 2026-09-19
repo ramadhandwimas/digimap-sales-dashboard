@@ -16,8 +16,20 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const themeInit = `
+    try {
+      var saved = localStorage.getItem("m238-theme");
+      var dark = saved === "dark";
+      document.documentElement.classList.toggle("dark", dark);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    } catch (_) {}
+  `;
+
   return (
     <html lang="id" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+      </head>
       <body className="antialiased"><IdleLogout/>{children}</body>
     </html>
   );
