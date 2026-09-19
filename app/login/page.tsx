@@ -184,9 +184,9 @@ export default function LoginPage() {
       <div className="relative z-10 m-auto flex w-full max-w-[460px] flex-col items-center">
         <div className="login-brand-lockup mb-7 flex flex-col items-center text-center sm:mb-8">
           <img
-            src="/brand/digimap-by-map-login.png"
+            src="/brand/digimap-by-map-white.svg"
             alt="Digimap by MAP"
-            className="h-auto w-[238px] select-none rounded-2xl bg-white/95 px-5 py-3 object-contain shadow-[0_10px_30px_rgba(0,0,0,.20)] ring-1 ring-white/20 sm:w-[272px]"
+            className="h-auto w-[238px] select-none object-contain drop-shadow-[0_8px_22px_rgba(0,0,0,.24)] sm:w-[272px]"
             draggable={false}
           />
           <p className="mt-3 text-[10px] font-extrabold uppercase tracking-[0.34em] text-blue-200/80">
