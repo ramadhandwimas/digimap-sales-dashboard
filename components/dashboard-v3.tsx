@@ -566,6 +566,34 @@ fileRef = useRef<HTMLInputElement>(null),
         ],
       },
     ] as const,
+    sidebarGroupIconColor = {
+      dashboard: "text-sky-400",
+      "target-focus": "text-violet-400",
+      administration: "text-orange-400",
+      reporting: "text-emerald-400",
+      system: "text-slate-400",
+    } as Record<string, string>,
+    sidebarItemIconColor = {
+      dashboard: "text-sky-400",
+      daily: "text-emerald-400",
+      "daily-summary": "text-amber-400",
+      staff: "text-violet-400",
+      incentive: "text-cyan-400",
+      soh: "text-orange-400",
+      "lob-focus": "text-rose-400",
+      "product-focus": "text-yellow-400",
+      "vas-focus": "text-fuchsia-400",
+      mading: "text-sky-400",
+      bnpl: "text-emerald-400",
+      "checklist-spv": "text-teal-400",
+      "checklist-staff": "text-cyan-400",
+      upload: "text-indigo-400",
+      feedback: "text-rose-400",
+      cx: "text-sky-400",
+      weekly: "text-emerald-400",
+      "weekly-reason": "text-amber-400",
+      settings: "text-slate-400",
+    } as Record<string, string>,
     activeLabel =
       (
         {
@@ -668,7 +696,7 @@ fileRef = useRef<HTMLInputElement>(null),
                     aria-expanded={opened}
                     className="flex w-full items-center gap-2 rounded-lg px-3 py-3 text-sm font-black hover:bg-white/10"
                   >
-                    <GroupIcon className="size-4" />
+                    <GroupIcon className={`size-4 shrink-0 ${sidebarGroupIconColor[group.key] ?? "text-slate-300"}`} />
                     <span className="flex-1 text-left">{group.label}</span>
                     <ChevronDown
                       className={`size-4 transition ${opened ? "rotate-180" : ""}`}
@@ -695,7 +723,7 @@ fileRef = useRef<HTMLInputElement>(null),
                             aria-current={tab === item.key ? "page" : undefined}
                             className={`m238-menu-item flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold lg:pl-7 ${tab === item.key ? "is-active" : "text-white/80 hover:bg-white/10"}`}
                           >
-                            <ItemIcon className="size-3.5 shrink-0" />
+                            <ItemIcon className={`size-3.5 shrink-0 ${sidebarItemIconColor[item.key] ?? "text-slate-300"}`} />
                             <span>{item.label}</span>
                           </button>
                         );
