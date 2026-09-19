@@ -5,7 +5,6 @@ import {useEffect} from "react";
 type Lob={lob:string;qty2025:number;qty2026:number;qtyGrowth:number|null};
 type OverviewPayload={ytd?:{lobs?:Lob[]}};
 
-const currentPeriod=()=>new Intl.DateTimeFormat("sv-SE",{year:"numeric",month:"2-digit",timeZone:"Asia/Jakarta"}).format(new Date()).slice(0,7);
 const fmt=(v:number|null)=>v==null?"—":`${v>=0?"▲":"▼"} ${Math.abs(v).toLocaleString("id-ID",{maximumFractionDigits:1})}%`;
 
 export default function YtdLobGrowthEnhancer(){
@@ -41,15 +40,18 @@ export default function YtdLobGrowthEnhancer(){
    }
   };
 
-  fetch(`/api/overview?period=${encodeURIComponent(currentPeriod())}&t=${Date.now()}`,{cache:"no-store"})
-   .then(r=>r.json())
-   .then((j:OverviewPayload)=>{if(disposed)return;lobs=j.ytd?.lobs||[];apply();})
-   .catch(()=>{});
+  const onOverviewData=(event:Event)=>{
+   if(disposed)return;
+   const detail=(event as CustomEvent<OverviewPayload>).detail;
+   lobs=detail?.ytd?.lobs||[];
+   apply();
+  };
+  window.addEventListener("m238:overview-data",onOverviewData);
 
   const onClick=()=>{window.setTimeout(apply,50);window.setTimeout(apply,250)};
   document.addEventListener("click",onClick,true);
   const timers=[300,800,1500,2500].map(ms=>window.setTimeout(apply,ms));
-  return()=>{disposed=true;document.removeEventListener("click",onClick,true);timers.forEach(clearTimeout)};
+  return()=>{disposed=true;window.removeEventListener("m238:overview-data",onOverviewData);document.removeEventListener("click",onClick,true);timers.forEach(clearTimeout)};
  },[]);
  return null;
 }
