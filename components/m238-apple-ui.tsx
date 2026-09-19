@@ -162,29 +162,29 @@ export default function M238AppleUI() {
       <style jsx global>{`
         body.m238-apple-ui {
           --m238-bg: #f5f7fb;
-          --m238-panel: rgba(255, 255, 255, 0.96);
+          --m238-panel: #ffffff;
           --m238-panel-solid: #ffffff;
-          --m238-panel-subtle: #f8fafc;
-          --m238-text: #0f172a;
-          --m238-muted: #64748b;
-          --m238-muted-2: #94a3b8;
-          --m238-border: rgba(15, 23, 42, 0.08);
-          --m238-border-strong: rgba(15, 23, 42, 0.12);
-          --m238-accent: #2563eb;
-          --m238-accent-hover: #1d4ed8;
-          --m238-accent-soft: #eff6ff;
-          --m238-positive: #059669;
-          --m238-warning: #d97706;
-          --m238-negative: #e11d48;
+          --m238-panel-subtle: #f8fafd;
+          --m238-text: #1f2937;
+          --m238-muted: #667085;
+          --m238-muted-2: #98a2b3;
+          --m238-border: #e3e8f1;
+          --m238-border-strong: #d8e0eb;
+          --m238-accent: #4a90ff;
+          --m238-accent-hover: #347ff2;
+          --m238-accent-soft: #edf5ff;
+          --m238-positive: #42c77a;
+          --m238-warning: #ff9f43;
+          --m238-negative: #ff6262;
           --m238-sidebar-bg: #0a1020;
           --m238-sidebar-bg-2: #111a31;
           --m238-sidebar-text: #cbd5e1;
           --m238-sidebar-muted: #7f8ba3;
           --m238-sidebar-active: rgba(59, 130, 246, 0.16);
-          --m238-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.03);
-          --m238-shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.045);
-          --m238-shadow-md: 0 12px 32px rgba(15, 23, 42, 0.07);
-          --m238-radius: 18px;
+          --m238-shadow-xs: 0 3px 10px rgba(15, 23, 42, 0.045);
+          --m238-shadow-sm: 0 6px 18px rgba(15, 23, 42, 0.075);
+          --m238-shadow-md: 0 10px 24px rgba(15, 23, 42, 0.09);
+          --m238-radius: 20px;
           background: var(--m238-bg) !important;
           color: var(--m238-text) !important;
           font-family:
@@ -261,9 +261,9 @@ export default function M238AppleUI() {
         }
 
         body.m238-apple-ui .m238-sidebar nav button[class*="bg-white/20"] {
-          background: var(--m238-sidebar-active) !important;
-          color: #9fc4ff !important;
-          box-shadow: inset 0 0 0 1px rgba(96,165,250,.12) !important;
+          background: rgba(74,144,255,.18) !important;
+          color: #ffffff !important;
+          box-shadow: 0 4px 12px rgba(0,0,0,.12), inset 0 0 0 1px rgba(108,165,255,.18) !important;
         }
 
         body.m238-apple-ui .m238-sidebar nav button[class*="bg-white/20"] svg {
@@ -286,7 +286,7 @@ export default function M238AppleUI() {
           width: 42px !important;
           height: 42px !important;
           border-radius: 13px !important;
-          background: linear-gradient(145deg, #2563eb, #5b6df5) !important;
+          background: linear-gradient(145deg, #4a90ff 0%, #8a6fff 100%) !important;
           color: white !important;
           box-shadow:
             inset 0 1px 0 rgba(255,255,255,.22),
@@ -348,7 +348,7 @@ export default function M238AppleUI() {
           position: sticky;
           top: 0;
           z-index: 45;
-          background: rgba(255,255,255,.82) !important;
+          background: rgba(245,247,251,.88) !important;
           border-color: var(--m238-border) !important;
           backdrop-filter: saturate(170%) blur(20px);
           -webkit-backdrop-filter: saturate(170%) blur(20px);
@@ -363,7 +363,7 @@ export default function M238AppleUI() {
           border-color: var(--m238-border-strong) !important;
           background: rgba(255,255,255,.92) !important;
           box-shadow: var(--m238-shadow-xs);
-          border-radius: 11px !important;
+          border-radius: 14px !important;
           transition:
             transform .16s ease,
             border-color .16s ease,
@@ -373,7 +373,7 @@ export default function M238AppleUI() {
         body.m238-apple-ui .m238-main > header button:hover {
           border-color: rgba(37,99,235,.20) !important;
           box-shadow: var(--m238-shadow-sm);
-          transform: translateY(-1px);
+          transform: translateY(-2px);
         }
 
         /* Content width and rhythm */
@@ -456,9 +456,9 @@ export default function M238AppleUI() {
           position: relative;
           overflow: hidden;
           background:
-            radial-gradient(circle at 92% -20%, rgba(147,197,253,.38), transparent 34%),
-            radial-gradient(circle at 8% 120%, rgba(99,102,241,.28), transparent 38%),
-            linear-gradient(135deg, #1748a5 0%, #1f64c9 58%, #326fd0 100%) !important;
+            radial-gradient(circle at 92% -20%, rgba(255,216,77,.22), transparent 32%),
+            radial-gradient(circle at 8% 120%, rgba(138,111,255,.24), transparent 38%),
+            linear-gradient(135deg, #4a90ff 0%, #5f7df4 58%, #806df0 100%) !important;
           border: 1px solid rgba(255,255,255,.17) !important;
           box-shadow: 0 16px 38px rgba(30,64,175,.15) !important;
         }
@@ -483,7 +483,7 @@ export default function M238AppleUI() {
         body.m238-apple-ui .m238-main input,
         body.m238-apple-ui .m238-main textarea {
           border-color: var(--m238-border-strong) !important;
-          border-radius: 11px !important;
+          border-radius: 14px !important;
           background: var(--m238-panel-solid) !important;
           color: var(--m238-text) !important;
           box-shadow: inset 0 1px 0 rgba(15,23,42,.018);
