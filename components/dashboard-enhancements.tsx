@@ -10,6 +10,7 @@ type CompareData={period:string;cutoffDay:number;current:number;mtm:number;lfl:n
 type DailyRow={id:string;name:string;accessories:number;vas:number};
 type DailyData={staff:DailyRow[];total:{accessories:number;vas:number}};
 type UploadInfo={timestamp:string;fileName:string;rows:number}|null;
+type DataActivity={label:string;timestamp:string;detail?:string}|null;
 type LoginRow={nik:string;name:string;count:number;lastLogin:string};
 type LoginData={date:string;rows:LoginRow[];totalUsers:number;totalLogins:number;summary:string};
 
@@ -28,10 +29,11 @@ function ProductivityCard({upt,atv}:{upt:number;atv:number}){return <div classNa
 export default function DashboardEnhancements(){
  const[period,setPeriod]=useState(currentPeriod());
  const[salesOverviewTarget,setSalesOverviewTarget]=useState<HTMLElement|null>(null),[revenueTarget,setRevenueTarget]=useState<HTMLElement|null>(null),[yearTarget,setYearTarget]=useState<HTMLElement|null>(null),[salesTarget,setSalesTarget]=useState<HTMLElement|null>(null),[settingsTarget,setSettingsTarget]=useState<HTMLElement|null>(null);
- const[overview,setOverview]=useState<OverviewData|null>(null),[compare,setCompare]=useState<CompareData|null>(null),[spwUpload,setSpwUpload]=useState<UploadInfo>(null),[dailyDetail,setDailyDetail]=useState<DailyData|null>(null),[loginData,setLoginData]=useState<LoginData|null>(null);
+ const[overview,setOverview]=useState<OverviewData|null>(null),[compare,setCompare]=useState<CompareData|null>(null),[spwUpload,setSpwUpload]=useState<UploadInfo>(null),[dataActivity,setDataActivity]=useState<DataActivity>(null),[dailyDetail,setDailyDetail]=useState<DailyData|null>(null),[loginData,setLoginData]=useState<LoginData|null>(null);
 
  useEffect(()=>{const load=()=>fetch(`/api/daily?date=${today()}&t=${Date.now()}`,{cache:"no-store"}).then(r=>r.json()).then(setDailyDetail).catch(()=>{});void load();const id=setInterval(load,60000);return()=>clearInterval(id)},[]);
  useEffect(()=>{const load=()=>fetch("/api/upload-status",{cache:"no-store"}).then(r=>r.json()).then(j=>setSpwUpload(j.spw||null)).catch(()=>{});void load();const id=setInterval(load,60000);return()=>clearInterval(id)},[]);
+ useEffect(()=>{const read=()=>{try{const raw=localStorage.getItem("m238-last-data-activity");if(raw)setDataActivity(JSON.parse(raw))}catch{}};const onActivity=(e:Event)=>{const d=(e as CustomEvent<DataActivity>).detail;if(d)setDataActivity(d)};read();window.addEventListener("m238:data-activity",onActivity);return()=>window.removeEventListener("m238:data-activity",onActivity)},[]);
  useEffect(()=>{const load=()=>fetch(`/api/login-activity?date=${today()}`,{cache:"no-store"}).then(r=>r.json()).then(setLoginData).catch(()=>{});void load();const id=setInterval(load,60000);return()=>clearInterval(id)},[]);
 
  useEffect(()=>{
@@ -65,7 +67,7 @@ export default function DashboardEnhancements(){
  const totalGrowth=annual?.lastYearTotal?((annual.thisYearTotal-annual.lastYearTotal)/annual.lastYearTotal)*100:0,totalDiff=(annual?.thisYearTotal??0)-(annual?.lastYearTotal??0),s=overview?.summary,t=overview?.target;
 
  return <>
-  {salesTarget&&createPortal(<div className="inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm dark:bg-slate-950 dark:text-slate-300"><Clock3 className="size-4 text-blue-600"/><span>Update sales terakhir: <b>{spwUpload?`${jakartaDateTime(spwUpload.timestamp)} WIB`:"Belum ada log upload SPW"}</b>{spwUpload?.fileName?` • ${spwUpload.fileName}`:""}</span></div>,salesTarget)}
+  {salesTarget&&createPortal(<div className="inline-flex max-w-full items-center gap-2 rounded-xl border bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm dark:bg-slate-950 dark:text-slate-300"><Clock3 className="size-4 shrink-0 text-blue-600"/><span className="min-w-0"><span className="text-slate-500">Aktivitas data terakhir:</span> <b>{dataActivity?.label||"Upload SPW"}</b> • <b>{jakartaDateTime(dataActivity?.timestamp||spwUpload?.timestamp||"")} WIB</b>{dataActivity?.detail?` • ${dataActivity.detail}`:spwUpload?.fileName?` • ${spwUpload.fileName}`:""}</span></div>,salesTarget)}
 
   {salesOverviewTarget&&createPortal(<><OverviewTargetCard label="MTD Sales" value={s?.amount??0} target={t?.amount??0}/><OverviewTargetCard label="Device" value={s?.device??0} target={t?.device??0} weight={60}/><OverviewTargetCard label="Accessories" value={s?.accessories??0} target={t?.accessories??0} weight={30}/><OverviewTargetCard label="VAS" value={s?.vas??0} target={t?.vas??0} weight={10}/><ProductivityCard upt={s?.upt??0} atv={s?.atv??0}/></>,salesOverviewTarget)}
 
