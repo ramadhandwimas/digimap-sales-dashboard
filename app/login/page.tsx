@@ -47,6 +47,7 @@ export default function LoginPage() {
     [show, setShow] = useState(false),
     [loading, setLoading] = useState(false),
     [success, setSuccess] = useState(false),
+    [statusText, setStatusText] = useState(""),
     [error, setError] = useState(""),
     cardRef = useRef<HTMLElement>(null),
     sceneRef = useRef<HTMLElement>(null);
@@ -54,6 +55,8 @@ export default function LoginPage() {
   const login = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
+    setSuccess(false);
+    setStatusText("Signing you in…");
     setError("");
     try {
       const response = await fetch("/api/auth/login", {
@@ -69,7 +72,8 @@ export default function LoginPage() {
 
       setSuccess(true);
       setLoading(false);
-      window.setTimeout(() => window.location.replace("/"), 650);
+      setStatusText("Welcome back!");
+      window.setTimeout(() => window.location.replace("/"), 900);
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Login gagal.";
       setError(
@@ -78,6 +82,7 @@ export default function LoginPage() {
           : message,
       );
       setLoading(false);
+      setStatusText("");
     }
   };
 
@@ -164,15 +169,27 @@ export default function LoginPage() {
             }}
           />
         ))}
+
+        <span aria-hidden className="login-floating-block login-block-a"><i /></span>
+        <span aria-hidden className="login-floating-block login-block-b"><i /><i /></span>
+        <span aria-hidden className="login-floating-block login-block-c"><i /></span>
+        <span aria-hidden className="login-floating-block login-block-d"><i /><i /></span>
       </div>
 
       <div className="relative z-10 m-auto flex w-full max-w-[460px] flex-col items-center">
-        <div className="mb-7 flex flex-col items-center text-center sm:mb-8">
-          <div className="login-brand grid size-[62px] place-items-center rounded-[20px] border border-white/20 bg-white/[0.09] text-base font-black tracking-[-0.03em] shadow-2xl backdrop-blur-xl">
-            M238
+        <div className="login-brand-lockup mb-7 flex flex-col items-center text-center sm:mb-8">
+          <div className="leading-none">
+            <div className="text-[42px] font-black tracking-[-0.065em] text-white sm:text-[48px]">
+              digimap
+            </div>
+            <div className="-mt-1 flex items-baseline justify-center gap-1">
+              <span className="text-[10px] font-medium text-slate-300">by</span>
+              <span className="font-serif text-[21px] font-black italic tracking-[-0.04em] text-red-500">MAP</span>
+            </div>
           </div>
-          <p className="mt-4 text-[11px] font-extrabold uppercase tracking-[0.34em] text-blue-200/80">
-            Digimap PIM 2
+          <div className="mt-3 h-px w-28 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+          <p className="mt-3 text-[10px] font-extrabold uppercase tracking-[0.34em] text-blue-200/80">
+            M238 · PIM 2
           </p>
         </div>
 
@@ -269,6 +286,12 @@ export default function LoginPage() {
                   <span className="relative size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                 )}
               </button>
+              <div
+                aria-live="polite"
+                className={`login-status h-5 text-center text-[11px] font-semibold transition ${success ? "text-emerald-300" : "text-slate-400/80"}`}
+              >
+                {statusText}
+              </div>
             </form>
 
             <div className="mt-6 flex items-center justify-center gap-2 border-t border-white/[0.08] pt-5 text-[11px] font-medium text-slate-400/80">
@@ -279,7 +302,7 @@ export default function LoginPage() {
         </section>
 
         <p className="mt-6 text-center text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500/80">
-          M238 · Pondok Indah Mall 2
+          M238 · Pondok Indah Mall 2 <span className="mx-2 text-slate-700">·</span> Bron Tampan
         </p>
       </div>
 
@@ -380,6 +403,108 @@ export default function LoginPage() {
           opacity: .25;
           box-shadow: 0 0 8px rgba(255,255,255,.65);
           animation: twinkle 3.2s ease-in-out infinite;
+        }
+        .login-floating-block {
+          position: absolute;
+          width: 42px;
+          height: 42px;
+          border-radius: 11px;
+          background: linear-gradient(145deg, rgba(86,159,255,.92), rgba(76,94,255,.72));
+          border: 1px solid rgba(255,255,255,.20);
+          box-shadow:
+            inset 0 2px 0 rgba(255,255,255,.28),
+            inset 0 -5px 10px rgba(17,32,92,.22),
+            0 16px 34px rgba(25,62,170,.24);
+          opacity: .72;
+          filter: saturate(.94);
+          animation: blockDrift 12s ease-in-out infinite alternate;
+          will-change: transform;
+        }
+
+        .login-floating-block i {
+          position: absolute;
+          top: -7px;
+          left: 9px;
+          width: 12px;
+          height: 9px;
+          border-radius: 999px 999px 5px 5px;
+          background: rgba(112,177,255,.95);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.38);
+        }
+
+        .login-floating-block i + i {
+          left: 24px;
+        }
+
+        .login-block-a {
+          left: 8%;
+          top: 62%;
+          background: linear-gradient(145deg, rgba(255,216,77,.94), rgba(255,159,67,.78));
+          animation-duration: 13s;
+        }
+
+        .login-block-b {
+          left: 82%;
+          top: 18%;
+          width: 34px;
+          height: 34px;
+          transform: rotate(14deg);
+          animation-delay: -4s;
+          animation-duration: 15s;
+        }
+
+        .login-block-c {
+          right: 8%;
+          bottom: 14%;
+          width: 54px;
+          height: 44px;
+          background: linear-gradient(145deg, rgba(77,226,180,.9), rgba(47,184,160,.72));
+          animation-delay: -7s;
+          animation-duration: 17s;
+        }
+
+        .login-block-d {
+          left: 18%;
+          bottom: 9%;
+          width: 30px;
+          height: 30px;
+          background: linear-gradient(145deg, rgba(255,98,98,.92), rgba(210,72,115,.72));
+          animation-delay: -9s;
+          animation-duration: 14s;
+        }
+
+        @keyframes blockDrift {
+          0% {
+            transform: translate3d(-4px, 8px, 0) rotate(-5deg);
+          }
+          45% {
+            transform: translate3d(8px, -7px, 0) rotate(3deg);
+          }
+          100% {
+            transform: translate3d(15px, 5px, 0) rotate(7deg);
+          }
+        }
+
+        .login-brand-lockup {
+          animation: brandEnter 520ms cubic-bezier(.16,1,.3,1) both;
+        }
+
+        @keyframes brandEnter {
+          from { opacity: 0; transform: translateY(-8px) scale(.97); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .login-status {
+          transform: translateY(0);
+        }
+
+        .login-success + .login-status {
+          animation: loginStatusIn 260ms ease both;
+        }
+
+        @keyframes loginStatusIn {
+          from { opacity: 0; transform: translateY(-3px); }
+          to { opacity: 1; transform: translateY(0); }
         }
 
         .login-brand {
@@ -490,13 +615,15 @@ export default function LoginPage() {
           .login-orbit-two { width: 320px; height: 320px; }
           .login-core { width: 190px; height: 190px; }
           .login-card { transform: none !important; }
+          .login-floating-block { opacity: .42; transform: scale(.76); }
         }
 
         @media (prefers-reduced-motion: reduce) {
           .login-aurora,
           .login-orbit,
           .login-core,
-          .login-star {
+          .login-star,
+          .login-floating-block {
             animation: none !important;
           }
           .login-card {
