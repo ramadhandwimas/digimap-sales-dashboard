@@ -27,11 +27,14 @@ export async function GET(req:NextRequest){
  if(!validDate(from)||!validDate(to)||from>to)return NextResponse.json({error:"Range tanggal tidak valid"},{status:400});
  try{
   const days=diffDays(from,to),prevEnd=addDays(from,-1),prevStart=addDays(prevEnd,-days+1);
-  const[[dataRows,config],[trafficRows]]=await Promise.all([
-   getSheetRanges(SOURCE_ID,["'Data Copas'!A2:S50000","Config!A1:AZ120"],email,key),
+  const[[dataRows,archive2025Rows,config],[trafficRows]]=await Promise.all([
+   getSheetRanges(SOURCE_ID,["'Data Copas'!A2:S50000","'Data Copas Archive 2025'!A2:S32755","Config!A1:AZ120"],email,key),
    getSheetRanges(MASTER_ID,["'Traffic'!A2:B1000"],email,key)
   ]);
-  const parsed:Row[]=(dataRows||[]).map(parse).filter(r=>r.date>=prevStart&&r.date<=to&&valid(r));
+  const liveParsed:Row[]=(dataRows||[]).map(parse).filter(valid);
+  const archiveHasStore=(archive2025Rows||[]).some(r=>up(r[15])==="M238");
+  const archiveParsed:Row[]=(archive2025Rows||[]).map(r=>{const x=parse(r);if(!archiveHasStore)x.store="M238";return x}).filter(valid);
+  const parsed:Row[]=[...archiveParsed,...liveParsed].filter(r=>r.date>=prevStart&&r.date<=to);
   const trafficMap=new Map<string,number>();for(const r of trafficRows||[]){const d=iso(r[0]);if(d)trafficMap.set(d,n(r[1]))}
   const dates=[...new Set(parsed.filter(r=>r.date>=from&&r.date<=to).map(r=>r.date))].sort();
   const rows=dates.map(date=>{const targetRow=config.find(r=>s(r[22]).toLowerCase()===weekday(date));return aggregate(parsed,date,n(targetRow?.[23]),trafficMap.get(date)||0)});
@@ -44,6 +47,6 @@ export async function GET(req:NextRequest){
   const dailyRows=rows.map(r=>({date:r.date,day:new Intl.DateTimeFormat("id-ID",{weekday:"short",timeZone:"Asia/Jakarta"}).format(new Date(`${r.date}T00:00:00Z`)),totalSales:r.amount,target:r.target,achievementPct:r.target?r.amount/r.target*100:0,transaction:r.invoices,invoice:r.invoices,qty:r.qty,upt:r.upt,atv:r.atv,traffic:r.traffic,cvr:r.cvr,breakdown:{device:r.device,accessories:r.accessories,vas:r.vas},lob:{iphoneQty:r.iphone,macbookQty:r.mac,ipadQty:r.ipad,appleWatchQty:r.watch,airpodsQty:r.airpods},vas:r.vasData}));
   const period=from.slice(0,7),monthTargetRow=config.find(r=>s(r[16]).toLowerCase()===new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(`${period}-01T00:00:00Z`)).toLowerCase()),monthlyTarget=n(monthTargetRow?.[17]),summaryTarget=viewMode==="monthly"&&from.slice(0,7)===to.slice(0,7)?monthlyTarget:totals.target;const summary={totalSales:totals.amount,target:summaryTarget,achievementPct:summaryTarget?totals.amount/summaryTarget*100:0,transaction:totals.invoices,invoice:totals.invoices,qty:totals.qty,upt,atv,traffic:totals.traffic,cvr,bestDay:best?{date:best.date,amount:best.amount}:null,lowestDay:lowest?{date:lowest.date,amount:lowest.amount}:null,previousTotal,growthPct};
   const performance={googleSheetRequests:getGoogleSheetRequestCount()-apiStarted,rawRowsFetched:parsed.length,rowsReturned:dailyRows.length,totalLoad:Date.now()-started};
-  return NextResponse.json({from,to,summary,previous:{totalSales:previousTotal,growthPct},breakdown:{device:totals.device,accessories:totals.accessories,vas:totals.vas,lob:{iphone:totals.iphone,macbook:totals.mac,ipad:totals.ipad,appleWatch:totals.watch,airpods:totals.airpods}},lobFocus:focus.data,focusWarning:focusWarning||undefined,dailyRows,generatedAt:new Date().toISOString(),source:"Data Copas + Config + Traffic (LIVE)",cache:{summary:"LIVE",focus:focus.data.cache},performance},{headers:{"cache-control":"no-store"}})
+  return NextResponse.json({from,to,summary,previous:{totalSales:previousTotal,growthPct},breakdown:{device:totals.device,accessories:totals.accessories,vas:totals.vas,lob:{iphone:totals.iphone,macbook:totals.mac,ipad:totals.ipad,appleWatch:totals.watch,airpods:totals.airpods}},lobFocus:focus.data,focusWarning:focusWarning||undefined,dailyRows,generatedAt:new Date().toISOString(),source:"Data Copas 2026 + Data Copas Archive 2025 + Config + Traffic",cache:{summary:"LIVE",focus:focus.data.cache},performance},{headers:{"cache-control":"no-store"}})
  }catch(error){console.warn("M238_DAILY_SUMMARY_LIVE_ERROR",{from,to,error:error instanceof Error?error.message:"Unknown error"});return NextResponse.json({error:"Daily Summary belum berhasil diperbarui."},{status:500,headers:{"cache-control":"no-store"}})}
 }
