@@ -2348,7 +2348,7 @@ function SettingsPage({
     setDiagnosis(d);
   };
   return (
-    <div className="space-y-5">
+    <div data-settings-native-root className="space-y-5">
       <div>
         <h1 className="text-3xl font-black">Settings</h1>
         <p className="mt-1 text-sm text-slate-500">
