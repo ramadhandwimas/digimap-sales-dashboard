@@ -16,6 +16,7 @@ import M238DataManagementOverlay from "@/components/m238-data-management-overlay
 import TargetFocusPictureEnhancer from "@/components/target-focus-picture-enhancer"
 import NativeViewHeadingDedup from "@/components/native-view-heading-dedup"
 import YtdLobGrowthEnhancer from "@/components/ytd-lob-growth-enhancer"
+import M238MotionSystem from "@/components/m238-motion-system"
 
 export default function Home() {
   return <DashboardFetchGuard>
@@ -36,5 +37,6 @@ export default function Home() {
     <TargetFocusPictureEnhancer />
     <NativeViewHeadingDedup />
     <YtdLobGrowthEnhancer />
+    <M238MotionSystem />
   </DashboardFetchGuard>
 }
