@@ -198,10 +198,10 @@ export default function LoginPage() {
           ref={cardRef}
           onPointerMove={tilt}
           onPointerLeave={resetTilt}
-          className="login-card login-card-enter relative w-full overflow-hidden rounded-[30px] border border-white/[0.09] bg-white/[0.075] p-[1px] shadow-[0_32px_90px_rgba(0,0,0,.48)] backdrop-blur-[28px]"
+          className="login-card login-card-enter relative w-full overflow-hidden rounded-[30px] border border-[#6f86b8]/20 bg-white/[0.055] shadow-[0_32px_90px_rgba(0,0,0,.48)] backdrop-blur-[28px]"
         >
           <div aria-hidden className="login-card-glow absolute inset-0 opacity-70" />
-          <div className="relative rounded-[29px] bg-[#08101f]/65 px-6 py-7 sm:px-8 sm:py-8">
+          <div className="relative rounded-[29px] bg-[#08101f]/72 px-6 py-7 sm:px-8 sm:py-8">
             <div className="login-stage login-stage-1 mb-7 text-center">
               <h1 className="text-[28px] font-black tracking-[-0.045em] text-white sm:text-[32px]">
                 Welcome Back
@@ -700,12 +700,12 @@ export default function LoginPage() {
           transform-style: preserve-3d;
           transition: transform 180ms ease-out, border-color 250ms ease, box-shadow 250ms ease;
           box-shadow:
-            inset 0 1px 0 rgba(255,255,255,.06),
-            0 32px 90px rgba(0,0,0,.48);
+            0 32px 90px rgba(0,0,0,.48),
+            0 0 0 1px rgba(67,89,137,.10);
         }
 
         .login-card:hover {
-          border-color: rgba(178,196,255,.16);
+          border-color: rgba(111,134,184,.28);
         }
 
         .login-card-glow {
