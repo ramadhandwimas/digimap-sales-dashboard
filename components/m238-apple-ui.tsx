@@ -644,6 +644,190 @@ export default function M238AppleUI() {
           background: #101827 !important;
         }
 
+        /* Complete dark surface normalization */
+        .dark body.m238-apple-ui .m238-main,
+        .dark body.m238-apple-ui .m238-native-view {
+          color: var(--m238-text) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main article,
+        .dark body.m238-apple-ui .m238-main section[class*="rounded-2xl"]:not([class*="bg-gradient"]),
+        .dark body.m238-apple-ui .m238-main section[class*="rounded-3xl"]:not([class*="bg-gradient"]),
+        .dark body.m238-apple-ui .m238-main div[class*="rounded-2xl"][class*="border"][class*="bg-white"],
+        .dark body.m238-apple-ui .m238-native-view article,
+        .dark body.m238-apple-ui .m238-native-view section[class*="rounded-2xl"],
+        .dark body.m238-apple-ui .m238-native-view section[class*="rounded-3xl"] {
+          background: var(--m238-panel) !important;
+          border-color: var(--m238-border) !important;
+          color: var(--m238-text) !important;
+          box-shadow: var(--m238-shadow-xs) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main .bg-white,
+        .dark body.m238-apple-ui .m238-main .bg-white\/90,
+        .dark body.m238-apple-ui .m238-main .bg-slate-50,
+        .dark body.m238-apple-ui .m238-main .bg-slate-100,
+        .dark body.m238-apple-ui .m238-main .bg-slate-900,
+        .dark body.m238-apple-ui .m238-main .bg-slate-950,
+        .dark body.m238-apple-ui .m238-native-view .bg-white,
+        .dark body.m238-apple-ui .m238-native-view .bg-slate-50,
+        .dark body.m238-apple-ui .m238-native-view .bg-slate-100,
+        .dark body.m238-apple-ui .m238-native-view .bg-slate-900,
+        .dark body.m238-apple-ui .m238-native-view .bg-slate-950 {
+          background-color: var(--m238-panel-solid) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main .bg-slate-50,
+        .dark body.m238-apple-ui .m238-main .bg-slate-100,
+        .dark body.m238-apple-ui .m238-native-view .bg-slate-50,
+        .dark body.m238-apple-ui .m238-native-view .bg-slate-100 {
+          background-color: var(--m238-panel-subtle) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main .text-slate-950,
+        .dark body.m238-apple-ui .m238-main .text-slate-900,
+        .dark body.m238-apple-ui .m238-main .text-slate-800,
+        .dark body.m238-apple-ui .m238-main .text-slate-700,
+        .dark body.m238-apple-ui .m238-main .text-slate-600,
+        .dark body.m238-apple-ui .m238-native-view .text-slate-950,
+        .dark body.m238-apple-ui .m238-native-view .text-slate-900,
+        .dark body.m238-apple-ui .m238-native-view .text-slate-800,
+        .dark body.m238-apple-ui .m238-native-view .text-slate-700,
+        .dark body.m238-apple-ui .m238-native-view .text-slate-600 {
+          color: #e7edf6 !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main .text-slate-500,
+        .dark body.m238-apple-ui .m238-main .text-slate-400,
+        .dark body.m238-apple-ui .m238-main .text-slate-300,
+        .dark body.m238-apple-ui .m238-native-view .text-slate-500,
+        .dark body.m238-apple-ui .m238-native-view .text-slate-400,
+        .dark body.m238-apple-ui .m238-native-view .text-slate-300 {
+          color: var(--m238-muted) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main [class*="border-slate"],
+        .dark body.m238-apple-ui .m238-native-view [class*="border-slate"],
+        .dark body.m238-apple-ui .m238-main [class*="border-gray"],
+        .dark body.m238-apple-ui .m238-native-view [class*="border-gray"] {
+          border-color: var(--m238-border) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main table,
+        .dark body.m238-apple-ui .m238-native-view table {
+          background: var(--m238-panel-solid) !important;
+          color: var(--m238-text) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main thead,
+        .dark body.m238-apple-ui .m238-native-view thead {
+          background: #121a28 !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main th,
+        .dark body.m238-apple-ui .m238-native-view th {
+          color: #9ba8bb !important;
+          border-color: var(--m238-border) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main td,
+        .dark body.m238-apple-ui .m238-native-view td {
+          color: #e5ebf4 !important;
+          border-color: var(--m238-border) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main tbody tr[class*="bg-slate"],
+        .dark body.m238-apple-ui .m238-native-view tbody tr[class*="bg-slate"] {
+          background: #141c2a !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main tbody tr:hover,
+        .dark body.m238-apple-ui .m238-native-view tbody tr:hover {
+          background: #162133 !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main select,
+        .dark body.m238-apple-ui .m238-main input,
+        .dark body.m238-apple-ui .m238-main textarea,
+        .dark body.m238-apple-ui .m238-native-view select,
+        .dark body.m238-apple-ui .m238-native-view input,
+        .dark body.m238-apple-ui .m238-native-view textarea {
+          background: #111927 !important;
+          border-color: var(--m238-border-strong) !important;
+          color: #eef2f7 !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+        }
+
+        .dark body.m238-apple-ui input::placeholder,
+        .dark body.m238-apple-ui textarea::placeholder {
+          color: #66748a !important;
+          opacity: 1;
+        }
+
+        .dark body.m238-apple-ui .m238-main button[class*="bg-white"],
+        .dark body.m238-apple-ui .m238-main button[class*="bg-slate"],
+        .dark body.m238-apple-ui .m238-native-view button[class*="bg-white"],
+        .dark body.m238-apple-ui .m238-native-view button[class*="bg-slate"] {
+          background: #111927 !important;
+          border-color: var(--m238-border-strong) !important;
+          color: #dfe7f2 !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main .bg-blue-50,
+        .dark body.m238-apple-ui .m238-native-view .bg-blue-50 {
+          background: rgba(37,99,235,.12) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main .bg-emerald-50,
+        .dark body.m238-apple-ui .m238-native-view .bg-emerald-50 {
+          background: rgba(5,150,105,.12) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main .bg-violet-50,
+        .dark body.m238-apple-ui .m238-native-view .bg-violet-50 {
+          background: rgba(124,58,237,.12) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main .bg-amber-50,
+        .dark body.m238-apple-ui .m238-native-view .bg-amber-50 {
+          background: rgba(217,119,6,.12) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main .bg-rose-50,
+        .dark body.m238-apple-ui .m238-native-view .bg-rose-50 {
+          background: rgba(225,29,72,.11) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main .text-blue-600,
+        .dark body.m238-apple-ui .m238-main .text-blue-700,
+        .dark body.m238-apple-ui .m238-native-view .text-blue-600,
+        .dark body.m238-apple-ui .m238-native-view .text-blue-700 {
+          color: #75a7ff !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main .text-emerald-600,
+        .dark body.m238-apple-ui .m238-main .text-emerald-700,
+        .dark body.m238-apple-ui .m238-native-view .text-emerald-600,
+        .dark body.m238-apple-ui .m238-native-view .text-emerald-700 {
+          color: #45d6a2 !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main .text-rose-600,
+        .dark body.m238-apple-ui .m238-main .text-rose-700,
+        .dark body.m238-apple-ui .m238-native-view .text-rose-600,
+        .dark body.m238-apple-ui .m238-native-view .text-rose-700 {
+          color: #fb7185 !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main section[class*="bg-gradient-to-br"] {
+          background:
+            radial-gradient(circle at 90% -15%, rgba(96,165,250,.19), transparent 34%),
+            radial-gradient(circle at 7% 120%, rgba(99,102,241,.18), transparent 38%),
+            linear-gradient(135deg, #10275d 0%, #163f82 58%, #1d4f9a 100%) !important;
+          border-color: rgba(147,197,253,.13) !important;
+          box-shadow: 0 18px 44px rgba(0,0,0,.25) !important;
+        }
+
         .dark .m238-menu-open {
           background: rgba(15,21,33,.94);
           color: #f1f5f9;
