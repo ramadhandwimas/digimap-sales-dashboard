@@ -12,20 +12,20 @@ function applySavedTheme(){
 
 export default function M238ThemePersistence(){
  useEffect(()=>{
-  document.documentElement.classList.remove("dark");
-  localStorage.removeItem("m238-theme");
-  localStorage.removeItem("m238-theme-mode");
+  const savedTheme=localStorage.getItem("m238-theme")==="dark"?"dark":"light";
+  document.documentElement.classList.toggle("dark",savedTheme==="dark");
+  document.documentElement.dataset.theme=savedTheme;
   applySavedTheme();
   let last=localStorage.getItem("m238-style")||"worklife";
   const sync=()=>{
-   document.documentElement.classList.remove("dark");
-   localStorage.removeItem("m238-theme");
-   localStorage.removeItem("m238-theme-mode");
+   const savedTheme=localStorage.getItem("m238-theme")==="dark"?"dark":"light";
+   document.documentElement.classList.toggle("dark",savedTheme==="dark");
+   document.documentElement.dataset.theme=savedTheme;
    const current=localStorage.getItem("m238-style")||"worklife";
    if(current!==last||document.documentElement.dataset.m238DashboardTheme!==current){last=current;applySavedTheme()}
   };
   const timer=window.setInterval(sync,250);
-  const onStorage=(e:StorageEvent)=>{if(e.key==="m238-style")sync()};
+  const onStorage=(e:StorageEvent)=>{if(e.key==="m238-style"||e.key==="m238-theme")sync()};
   window.addEventListener("storage",onStorage);
   return()=>{window.clearInterval(timer);window.removeEventListener("storage",onStorage)};
  },[]);
