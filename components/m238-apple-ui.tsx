@@ -644,6 +644,41 @@ export default function M238AppleUI() {
           background: #101827 !important;
         }
 
+        /* Dark canvas hardening: page shell must never stay light */
+        .dark body.m238-apple-ui,
+        .dark body.m238-apple-ui .m238-app-shell,
+        .dark body.m238-apple-ui .m238-main,
+        .dark body.m238-apple-ui .m238-main > div,
+        .dark body.m238-apple-ui .m238-native-view,
+        .dark body.m238-apple-ui .m238-native-view > main,
+        .dark body.m238-apple-ui .m238-native-view > div,
+        .dark body.m238-apple-ui [class*="min-h-screen"],
+        .dark body.m238-apple-ui [class*="min-h-dvh"],
+        .dark body.m238-apple-ui [class*="min-h-svh"] {
+          background-color: var(--m238-bg) !important;
+          color: var(--m238-text) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main > div[class*="px-4"],
+        .dark body.m238-apple-ui .m238-main > div[class*="sm:px-"],
+        .dark body.m238-apple-ui .m238-main > div[class*="space-y-"] {
+          background: transparent !important;
+        }
+
+        /* Catch legacy/arbitrary light page backgrounds used by newer overview views */
+        .dark body.m238-apple-ui .m238-main [class*="bg-[#f"],
+        .dark body.m238-apple-ui .m238-main [class*="bg-[#F"],
+        .dark body.m238-apple-ui .m238-main [class*="bg-[rgb(24"],
+        .dark body.m238-apple-ui .m238-native-view [class*="bg-[#f"],
+        .dark body.m238-apple-ui .m238-native-view [class*="bg-[#F"] {
+          background-color: var(--m238-bg) !important;
+        }
+
+        .dark body.m238-apple-ui .m238-main > div > div:not([class*="bg-gradient"]):not([class*="rounded"]),
+        .dark body.m238-apple-ui .m238-native-view > div > div:not([class*="bg-gradient"]):not([class*="rounded"]) {
+          border-color: var(--m238-border) !important;
+        }
+
         /* Complete dark surface normalization */
         .dark body.m238-apple-ui .m238-main,
         .dark body.m238-apple-ui .m238-native-view {
