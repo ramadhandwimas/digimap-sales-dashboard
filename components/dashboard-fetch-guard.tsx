@@ -24,8 +24,10 @@ export default function DashboardFetchGuard({children}:{children:ReactNode}){
 
     const guardedFetch:typeof window.fetch=async(input,init)=>{
       const url=typeof input==="string"?input:input instanceof URL?input.toString():input.url
-      const isDashboardData=url.includes("/api/data")
-      const isDaily=url.includes("/api/daily")
+      const parsedUrl=new URL(url,window.location.origin)
+      const pathname=parsedUrl.pathname
+      const isDashboardData=pathname==="/api/data"
+      const isDaily=pathname==="/api/daily"||pathname==="/api/daily-fast"
       if(!isDashboardData&&!isDaily)return originalFetch(input,init)
 
       const method=(init?.method||(typeof input!=="string"&&!(input instanceof URL)?input.method:"GET")||"GET").toUpperCase()
@@ -33,8 +35,8 @@ export default function DashboardFetchGuard({children}:{children:ReactNode}){
 
       const force=isDashboardData&&/[?&]refresh=1(?:&|$)/.test(url)
       const normalizedKey=isDashboardData
-        ? `data:${new URL(url,window.location.origin).searchParams.get("period")||""}`
-        : `daily:${new URL(url,window.location.origin).searchParams.get("date")||""}`
+        ? `data:${parsedUrl.searchParams.get("period")||""}`
+        : `daily:${parsedUrl.searchParams.get("date")||""}`
       const ttl=isDashboardData?DATA_TTL_MS:DAILY_TTL_MS
 
       if(!force){
