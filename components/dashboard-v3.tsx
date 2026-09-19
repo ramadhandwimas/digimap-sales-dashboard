@@ -728,7 +728,7 @@ fileRef = useRef<HTMLInputElement>(null),
                     />
                   </button>
                   {opened ? (
-                    <div className="mt-1 grid grid-cols-2 gap-1 sm:grid-cols-3 lg:block lg:space-y-1">
+                    <div className="mt-2 ml-4 space-y-1 border-l border-white/10 pl-3 lg:ml-0 lg:mt-1 lg:border-l-0 lg:pl-0">
                       {group.items.map((item) => {
                         const ItemIcon = item.icon;
                         return (
