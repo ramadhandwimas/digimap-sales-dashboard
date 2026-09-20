@@ -166,7 +166,7 @@ export default function MobileDashboardApp(){
     }finally{setRefreshing(false)}
   },[tab,salesMode,reportMode,loadOverview,loadDaily,loadSummary,loadWeekly,loadFeedback,loadCx]);
 
-  const openStaff=async(staff:Staff,mode:"daily"|"monthly"="monthly")=>{setStaffDetailMode(mode);setStaffDetail(staff);setSheet("staff");if(mode==="daily")return;try{const d=await cachedJson<{staff:Staff[]}>(`/api/staff-performance-month?period=${period}`,180000);const full=d.staff.find(x=>x.id===staff.id);if(full)setStaffDetail(full)}catch{}};
+  const openStaff=async(staff:Staff,mode:"daily"|"monthly"="monthly")=>{setStaffDetailMode(mode);setStaffDetail(staff);setSheet("staff");if(mode==="daily")return;try{const url=periodMode==="week"&&activeRange?`/api/staff-performance-month?period=${activeRange.from.slice(0,7)}&from=${activeRange.from}&to=${activeRange.to}`:`/api/staff-performance-month?period=${period}`,d=await cachedJson<{staff:Staff[]}>(url,180000);const full=d.staff.find(x=>x.id===staff.id);if(full)setStaffDetail(full)}catch{}};
   const openHomeSalesDetail=async()=>{
     setSheet("home-sales");
     if(summary)return;
@@ -202,7 +202,7 @@ export default function MobileDashboardApp(){
     if(action!=="incentive")return;
     setMoreBusy(true);
     try{
-      const from=`${period}-01`,to=period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`;
+      const from=periodMode==="week"&&activeRange?activeRange.from:`${period}-01`,to=periodMode==="week"&&activeRange?activeRange.to:(period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`);
       setMoreData(await cachedJson<any>(`/api/incentive-range?from=${from}&to=${to}`,180000));
     }catch(e){setMoreData({error:e instanceof Error?e.message:"Gagal memuat data"})}
     finally{setMoreBusy(false)}
