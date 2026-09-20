@@ -266,7 +266,7 @@ function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,onOpenSalesDe
 
   {mode==="monthly"?<>
     <button className="m238m-hero-button" onClick={onOpenSalesDetail}>
-      <Card className="m238m-hero m238m-home-hero"><div className="m238m-hero-title"><span>Total Sales</span><ChevronRight size={18}/></div><strong>{money.format(overview.summary.amount)}</strong><p>{pct(achievement)} dari Target</p><Progress value={achievement}/><div className="m238m-hero-meta"><span>Target <b>{compact(overview.target.amount)}</b></span><span>Point Store <b>{overview.summary.point.total.toFixed(1)}</b></span></div></Card>
+      <Card className="m238m-hero m238m-home-hero"><div className="m238m-hero-title"><span>Total Sales</span><ChevronRight size={18}/></div><strong>{money.format(overview.summary.amount)}</strong><p>{pct(achievement)} dari Target</p><Progress value={achievement}/><div className="m238m-hero-meta"><span>Target <b>{money.format(overview.target.amount)}</b></span><span>Point Store <b>{overview.summary.point.total.toFixed(1)}</b></span></div></Card>
     </button>
     <div className="m238m-grid"><Metric label="Achievement" value={pct(achievement)} sub={overview.summary.status}/><Metric label="Gap / Variance" value={compact(overview.summary.gap)} sub={overview.summary.gap>0?"Sisa ke target":"Target tercapai"}/><Metric label="Estimate" value={compact(overview.summary.estimate.amount)} sub="Proyeksi bulan"/><Metric label="Pace" value={pct(overview.summary.pace)} sub={overview.summary.status}/></div>
     <Card className="m238m-point-card"><div><span>Point Store</span><strong>{overview.summary.point.total.toFixed(1)}</strong></div><div className="m238m-point-breakdown"><span>Device {overview.summary.point.device.toFixed(1)}/60</span><span>ACC {overview.summary.point.accessories.toFixed(1)}/30</span><span>VAS {overview.summary.point.vas.toFixed(1)}/10</span></div></Card>
@@ -312,7 +312,7 @@ function HomeSalesDetail({overview,traffic,summary}:{overview:Overview;traffic:T
   <Card className="m238m-detail-sales"><span>Total Sales</span><strong>{money.format(overview.summary.amount)}</strong><small>{overview.label}</small></Card>
   <div className="m238m-detail-list">
    {[
-    ["Target",compact(overview.target.amount)],
+    ["Target",money.format(overview.target.amount)],
     ["Achievement",pct(ach)],
     ["Gap / Variance",money.format(overview.summary.gap)],
     ["Estimate",money.format(overview.summary.estimate.amount)],
