@@ -449,11 +449,12 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
    try{setDailyProductDetail(await cachedJson<any>(`/api/lob-target-focus?mode=range&from=${daily?.date||today()}&to=${daily?.date||today()}`,120000))}
    catch{setDailyProductDetail(null)}finally{setDailyProductBusy(false)}
  };
- const lobStaff=dailyLobPick&&daily?daily.staff.filter(st=>Number(st.lob?.[dailyLobPick.key]||0)>0).sort((a,b)=>Number(b.lob?.[dailyLobPick.key]||0)-Number(a.lob?.[dailyLobPick.key]||0)):[];
- const vasStaff=dailyVasPick&&daily?daily.staff.filter(st=>Number(st.vasDetail?.[dailyVasPick.key]?.qty||0)>0||Number(st.vasDetail?.[dailyVasPick.key]?.value||0)>0).sort((a,b)=>Number(b.vasDetail?.[dailyVasPick.key]?.value||0)-Number(a.vasDetail?.[dailyVasPick.key]?.value||0)):[];
+ const dailyLobKey=dailyLobPick?.key,dailyVasKey=dailyVasPick?.key;
+ const lobStaff=dailyLobKey&&daily?daily.staff.filter(st=>Number(st.lob?.[dailyLobKey]||0)>0).sort((a,b)=>Number(b.lob?.[dailyLobKey]||0)-Number(a.lob?.[dailyLobKey]||0)):[];
+ const vasStaff=dailyVasKey&&daily?daily.staff.filter(st=>Number(st.vasDetail?.[dailyVasKey]?.qty||0)>0||Number(st.vasDetail?.[dailyVasKey]?.value||0)>0).sort((a,b)=>Number(b.vasDetail?.[dailyVasKey]?.value||0)-Number(a.vasDetail?.[dailyVasKey]?.value||0)):[];
  const productPrefix=(key:string)=>key==="iphone"?"iPhone":key==="mac"?"MacBook":key==="ipad"?"iPad":key==="watch"?"Apple Watch":"AirPods";
- const selectedProductStaff=dailyDrillStaff&&dailyLobPick?(dailyProductDetail?.lob?.staff||[]).find((x:any)=>String(x.id)===String(dailyDrillStaff.id));
- const selectedProducts=dailyDrillStaff&&dailyLobPick?Object.entries(selectedProductStaff?.products||{}).filter(([name,v]:any)=>name.startsWith(productPrefix(dailyLobPick.key))&&Number(v?.qty||0)>0).map(([name,v]:any)=>({name,qty:Number(v.qty||0),value:Number(v.value||0)})).sort((a,b)=>b.qty-a.qty):[];
+ const selectedProductStaff=dailyDrillStaff&&dailyLobKey?(dailyProductDetail?.lob?.staff||[]).find((x:any)=>String(x.id)===String(dailyDrillStaff.id)):undefined;
+ const selectedProducts=dailyDrillStaff&&dailyLobKey?Object.entries(selectedProductStaff?.products||{}).filter(([name,v]:any)=>name.startsWith(productPrefix(dailyLobKey))&&Number(v?.qty||0)>0).map(([name,v]:any)=>({name,qty:Number(v.qty||0),value:Number(v.value||0)})).sort((a,b)=>b.qty-a.qty):[];
  return <div className="m238m-stack m238m-enter">
   <Segmented value={mode} onChange={setMode} items={[{value:"daily",label:"Daily"},{value:"summary",label:"Summary"},{value:"lob",label:"Fokus Product"}]}/>
   {mode==="daily"?(daily?<>
@@ -498,24 +499,24 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
   <Sheet open={!!dailyLobPick} onClose={()=>{setDailyLobPick(null);setDailyDrillStaff(null)}} title={dailyLobPick?`${dailyLobPick.label} • Staff Hari Ini`:"LOB Staff"}>
    {dailyLobPick?<div className="m238m-stack">
     <Card className="m238m-copy-card"><strong>{dailyLobPick.label}</strong><p>{num.format(Number(dailyLob[dailyLobPick.key]||0))} unit terjual hari ini. Pilih staff untuk melihat unit/model yang dijual.</p></Card>
-    {lobStaff.length?<div className="m238m-list">{lobStaff.map((st,i)=><button key={st.id} className="m238m-click-card" onClick={()=>setDailyDrillStaff(st)}><Card className="m238m-product-detail-row"><div><strong>#{i+1} {shortStaffName(st.name)}</strong><span>Penjualan {dailyLobPick.label}</span></div><div><b>{num.format(Number(st.lob?.[dailyLobPick.key]||0))} unit</b><ChevronRight size={15}/></div></Card></button>)}</div>:<Card className="m238m-empty">Belum ada staff yang menjual {dailyLobPick.label} hari ini.</Card>}
+    {lobStaff.length?<div className="m238m-list">{lobStaff.map((st,i)=><button key={st.id} className="m238m-click-card" onClick={()=>setDailyDrillStaff(st)}><Card className="m238m-product-detail-row"><div><strong>#{i+1} {shortStaffName(st.name)}</strong><span>Penjualan {dailyLobPick.label}</span></div><div><b>{num.format(Number(st.lob?.[dailyLobKey!]||0))} unit</b><ChevronRight size={15}/></div></Card></button>)}</div>:<Card className="m238m-empty">Belum ada staff yang menjual {dailyLobPick.label} hari ini.</Card>}
    </div>:null}
   </Sheet>
 
   <Sheet open={!!dailyVasPick} onClose={()=>{setDailyVasPick(null);setDailyDrillStaff(null)}} title={dailyVasPick?`${dailyVasPick.label} • Staff Hari Ini`:"VAS Staff"}>
    {dailyVasPick?<div className="m238m-stack">
     <Card className="m238m-copy-card"><strong>{dailyVasPick.label}</strong><p>Pilih staff untuk melihat detail VAS yang dijual hari ini.</p></Card>
-    {vasStaff.length?<div className="m238m-list">{vasStaff.map((st,i)=>{const x=st.vasDetail?.[dailyVasPick.key];return <button key={st.id} className="m238m-click-card" onClick={()=>setDailyDrillStaff(st)}><Card className="m238m-product-detail-row"><div><strong>#{i+1} {shortStaffName(st.name)}</strong><span>{num.format(Number(x?.qty||0))} qty</span></div><div><b>{money.format(Number(x?.value||0))}</b><ChevronRight size={15}/></div></Card></button>})}</div>:<Card className="m238m-empty">Belum ada penjualan {dailyVasPick.label} hari ini.</Card>}
+    {vasStaff.length?<div className="m238m-list">{vasStaff.map((st,i)=>{const x=st.vasDetail?.[dailyVasKey!];return <button key={st.id} className="m238m-click-card" onClick={()=>setDailyDrillStaff(st)}><Card className="m238m-product-detail-row"><div><strong>#{i+1} {shortStaffName(st.name)}</strong><span>{num.format(Number(x?.qty||0))} qty</span></div><div><b>{money.format(Number(x?.value||0))}</b><ChevronRight size={15}/></div></Card></button>})}</div>:<Card className="m238m-empty">Belum ada penjualan {dailyVasPick.label} hari ini.</Card>}
    </div>:null}
   </Sheet>
 
   <Sheet open={!!dailyDrillStaff} onClose={()=>setDailyDrillStaff(null)} title={dailyDrillStaff?`${shortStaffName(dailyDrillStaff.name)} • Detail Penjualan`:"Detail Staff"}>
    {dailyDrillStaff&&dailyLobPick?<div className="m238m-stack">
-    <Card className="m238m-detail-sales"><span>{dailyLobPick.label}</span><strong>{num.format(Number(dailyDrillStaff.lob?.[dailyLobPick.key]||0))} unit</strong><small>{daily.date}</small></Card>
+    <Card className="m238m-detail-sales"><span>{dailyLobPick.label}</span><strong>{num.format(Number(dailyDrillStaff.lob?.[dailyLobKey!]||0))} unit</strong><small>{daily.date}</small></Card>
     <div className="m238m-section-head"><h2>Unit / Model Terjual</h2><span>{selectedProducts.length} type</span></div>
     {dailyProductBusy?<Skeleton/>:selectedProducts.length?<div className="m238m-list">{selectedProducts.map(p=><Card key={p.name} className="m238m-product-detail-row"><div><strong>{p.name}</strong><span>Penjualan hari ini</span></div><b>{num.format(p.qty)} unit</b></Card>)}</div>:<Card className="m238m-empty">{dailyLobPick.key==="airpods"?"Breakdown model AirPods belum tersedia dari source detail harian; total unit staff tetap ditampilkan di atas.":"Tidak ada breakdown model yang cocok pada source detail harian."}</Card>}
    </div>:dailyDrillStaff&&dailyVasPick?<div className="m238m-stack">
-    <Card className="m238m-detail-sales"><span>VAS Staff • {shortStaffName(dailyDrillStaff.name)}</span><strong>{money.format(Number(dailyDrillStaff.vasDetail?.[dailyVasPick.key]?.value||0))}</strong><small>{dailyVasPick.label} • {num.format(Number(dailyDrillStaff.vasDetail?.[dailyVasPick.key]?.qty||0))} qty</small></Card>
+    <Card className="m238m-detail-sales"><span>VAS Staff • {shortStaffName(dailyDrillStaff.name)}</span><strong>{money.format(Number(dailyDrillStaff.vasDetail?.[dailyVasKey!]?.value||0))}</strong><small>{dailyVasPick.label} • {num.format(Number(dailyDrillStaff.vasDetail?.[dailyVasKey!]?.qty||0))} qty</small></Card>
     <div className="m238m-section-head"><h2>VAS yang Dijual</h2><span>Hari ini</span></div>
     <div className="m238m-list">{(["qoala","telkomsel","xl","indosat"] as const).map(key=>{const x=dailyDrillStaff.vasDetail?.[key];if(!x||(!x.qty&&!x.value))return null;const label=key==="qoala"?"Qoala":key==="telkomsel"?"Telkomsel":key==="xl"?"XL":"Indosat";return <Card key={key} className="m238m-vas-row"><div><strong>{label}</strong><span>{num.format(Number(x.qty||0))} qty</span></div><b>{money.format(Number(x.value||0))}</b></Card>})}</div>
    </div>:null}
