@@ -113,7 +113,7 @@ export default function MobileDashboardApp(){
   },[tab,salesMode,reportMode,loadOverview,loadDaily,loadSummary,loadWeekly,loadFeedback,loadCx]);
 
   const openStaff=async(staff:Staff,mode:"daily"|"monthly"="monthly")=>{setStaffDetailMode(mode);setStaffDetail(staff);setSheet("staff");if(mode==="daily")return;try{const d=await cachedJson<{staff:Staff[]}>(`/api/staff-performance-month?period=${period}`,180000);const full=d.staff.find(x=>x.id===staff.id);if(full)setStaffDetail(full)}catch{}};
-  const toggleDark=()=>{const next=!dark;setDark(next);localStorage.setItem("m238-theme",next?"dark":"light");document.documentElement.classList.toggle("dark",next)};
+  const toggleDark=()=>{const next=!dark;setDark(next);localStorage.setItem("m238-theme",next?"dark":"light");document.documentElement.classList.toggle("dark",next);let meta=document.querySelector('meta[name="theme-color"]') as HTMLMetaElement|null;if(!meta){meta=document.createElement("meta");meta.name="theme-color";document.head.appendChild(meta)}meta.content=next?"#000000":"#f2f2f7"};
   const transaction=overview?.summary.invoices||0,trafficValue=traffic?.total||0,cvr=trafficValue?transaction/trafficValue*100:0,achievement=overview?.target.amount?((overview.summary.amount/overview.target.amount)*100):0;
   const team=useMemo(()=>{const rows=overview?.staff||[];if(teamFilter==="top")return rows.filter(x=>x.status==="Productive");if(teamFilter==="attention")return rows.filter(x=>x.status!=="Productive");return rows},[overview,teamFilter]);
 
@@ -153,7 +153,7 @@ export default function MobileDashboardApp(){
       {refreshing?<div className="m238m-refreshing"><RefreshCw size={14} className="spin"/> Memperbarui data…</div>:null}
       {error?<Card className="m238m-error">{error}</Card>:null}
       {loading&&!overview?<Skeleton/>:null}
-      {!loading&&overview&&tab==="home"?<HomeScreen overview={overview} traffic={trafficValue} cvr={cvr} achievement={achievement}/>:null}
+      {!loading&&overview&&tab==="home"?<HomeScreen overview={overview} traffic={traffic} cvr={cvr} achievement={achievement}/>:null}
       {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} onStaff={s=>void openStaff(s,"daily")}/>:null}
       {tab==="team"?<TeamScreen rows={team} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
       {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]}/>:null}
@@ -184,7 +184,7 @@ export default function MobileDashboardApp(){
     </Sheet>
 
     <Sheet open={sheet==="staff"} onClose={()=>setSheet(null)} title={staffDetail?`${staffDetail.name} • ${staffDetailMode==="daily"?"Hari Ini":"Bulanan"}`:"Staff Detail"}>
-      {staffDetail?<StaffDetail staff={staffDetail}/>:<Skeleton/>}
+      {staffDetail?<StaffDetail staff={staffDetail} mode={staffDetailMode}/>:<Skeleton/>}
     </Sheet>
     <Sheet open={sheet==="more"} onClose={()=>setSheet(null)} title={moreKind==="incentive"?"Estimasi Incentive":moreKind==="bnpl"?"BNPL & Trade-In":moreKind==="target"?"Target & Program":moreKind==="checklist"?"Checklist Store":moreKind==="mobile-view"?"Versi Tampilan HP":"Detail"}>
       {moreBusy?<Skeleton/>:<MoreDetail kind={moreKind} data={moreData}/>} 
@@ -193,11 +193,15 @@ export default function MobileDashboardApp(){
   </div>
 }
 
-function HomeScreen({overview,traffic,cvr,achievement}:{overview:Overview;traffic:number;cvr:number;achievement:number}){
- const insight=achievement>=100?"Target bulan ini sudah tercapai. Pertahankan momentum penjualan.":achievement>=80?"Achievement sudah mendekati target. Fokuskan opportunity yang siap closing.":"Achievement masih perlu didorong. Prioritaskan opportunity dan follow-up yang aktif.";
+function HomeScreen({overview,traffic,cvr,achievement}:{overview:Overview;traffic:Traffic|null;cvr:number;achievement:number}){
+ const salesRows=overview.daily||[],latestSales=salesRows.at(-1)?.amount||0,prevSales=salesRows.at(-2)?.amount||0,salesDelta=prevSales?((latestSales-prevSales)/prevSales)*100:null;
+ const trafficRows=traffic?.daily||[],latestTraffic=trafficRows.at(-1)?.traffic||0,prevTraffic=trafficRows.at(-2)?.traffic||0,trafficDelta=prevTraffic?((latestTraffic-prevTraffic)/prevTraffic)*100:null;
+ const insight=salesDelta==null
+  ? (achievement>=100?"Target bulan ini sudah tercapai. Pertahankan momentum penjualan.":achievement>=80?"Achievement sudah mendekati target. Fokuskan opportunity yang siap closing.":"Achievement masih perlu didorong. Prioritaskan opportunity dan follow-up yang aktif.")
+  : `Sales hari terakhir ${salesDelta>=0?"naik":"turun"} ${pct(Math.abs(salesDelta))} dibanding hari sebelumnya.`;
  return <div className="m238m-stack m238m-enter">
   <Card className="m238m-hero"><span>Total Sales</span><strong>{compact(overview.summary.amount)}</strong><p>{pct(achievement)} dari Target</p><Progress value={achievement}/><div><span>Target</span><b>{compact(overview.target.amount)}</b></div></Card>
-  <div className="m238m-grid"><Metric label="Traffic" value={num.format(traffic)}/><Metric label="Transaction" value={num.format(overview.summary.invoices)}/><Metric label="CVR" value={pct(cvr)}/><Metric label="UPT" value={overview.summary.upt.toFixed(1)}/></div>
+  <div className="m238m-grid"><Metric label="Traffic" value={num.format(traffic?.total||0)} sub={trafficDelta==null?undefined:`${trafficDelta>=0?"+":""}${pct(trafficDelta)} vs hari sebelumnya`}/><Metric label="Transaction" value={num.format(overview.summary.invoices)} sub="Bulan berjalan"/><Metric label="CVR" value={pct(cvr)} sub="Traffic → transaksi"/><Metric label="UPT" value={overview.summary.upt.toFixed(1)} sub="Unit per transaksi"/></div>
   <Card className="m238m-insight"><Lightbulb size={18}/><div><span>Insight Hari Ini</span><p>{insight}</p></div></Card>
   <div className="m238m-section-head"><h2>Store Performance</h2><span>{overview.summary.status}</span></div>
   <div className="m238m-grid"><Metric label="Device" value={compact(overview.summary.device)}/><Metric label="ACC" value={compact(overview.summary.accessories)}/><Metric label="VAS" value={compact(overview.summary.vas)}/><Metric label="Estimate" value={compact(overview.summary.estimate.amount)}/></div>
@@ -211,7 +215,10 @@ function SalesScreen({mode,setMode,daily,summary,onStaff}:{mode:SalesMode;setMod
 
 function StaffRow({staff,onClick}:{staff:Staff;onClick:()=>void}){const target=staff.targets?.amount||staff.target||0,a=target?staff.amount/target*100:staff.achievement||0;return <button className="m238m-staff-row" onClick={onClick}><div className="m238m-avatar">{initials(staff.name)}</div><div className="m238m-staff-main"><div><strong>{staff.name}</strong><b>{compact(staff.amount)}</b></div><Progress value={a}/><small>{pct(a)}</small></div><ChevronRight size={17}/></button>}
 function TeamScreen({rows,filter,setFilter,onStaff}:{rows:Staff[];filter:string;setFilter:(v:string)=>void;onStaff:(s:Staff)=>void}){return <div className="m238m-stack m238m-enter"><div className="m238m-chips">{[["all","All"],["top","Top Performer"],["attention","Perlu Perhatian"]].map(([k,l])=><button key={k} className={filter===k?"active":""} onClick={()=>setFilter(k)}>{l}</button>)}</div><div className="m238m-list">{rows.map(s=><StaffRow key={s.id} staff={s} onClick={()=>onStaff(s)}/>)}</div></div>}
-function StaffDetail({staff}:{staff:Staff}){const target=staff.targets?.amount||staff.target||0,a=target?staff.amount/target*100:staff.achievement||0;return <div className="m238m-stack"><div className="m238m-profile"><div className="m238m-avatar big">{initials(staff.name)}</div><div><h2>{staff.name}</h2><p>{staff.position||"Staff M238"}</p></div></div><Card className="m238m-hero compact"><span>Sales</span><strong>{compact(staff.amount)}</strong><p>Target {compact(target)} • {pct(a)}</p><Progress value={a}/></Card><div className="m238m-grid"><Metric label="Device" value={compact(staff.device||0)}/><Metric label="ACC" value={compact(staff.accessories||0)}/><Metric label="VAS" value={compact(staff.vas||0)}/><Metric label="UPT" value={(staff.upt||0).toFixed(1)}/><Metric label="ATV" value={compact(staff.atv||0)}/><Metric label="Invoice" value={num.format(staff.invoices||0)}/><Metric label="Qoala" value={compact(staff.vasDetail?.qoala?.value||0)}/><Metric label="Incentive" value={compact(staff.incentive?.total||0)}/></div></div>}
+function StaffDetail({staff,mode}:{staff:Staff;mode:"daily"|"monthly"}){
+ const target=staff.targets?.amount||staff.target||0,a=target?staff.amount/target*100:staff.achievement||0,device=staff.device||Math.max(0,(staff.amount||0)-(staff.accessories||0)-(staff.vas||0));
+ return <div className="m238m-stack"><div className="m238m-profile"><div className="m238m-avatar big">{initials(staff.name)}</div><div><h2>{staff.name}</h2><p>{staff.position||"Staff M238"} • {mode==="daily"?"Hari ini":"Bulanan"}</p></div></div><Card className="m238m-hero compact"><span>Sales</span><strong>{compact(staff.amount)}</strong><p>Target {compact(target)} • {pct(a)}</p><Progress value={a}/></Card><div className="m238m-grid"><Metric label="Device" value={compact(device)}/><Metric label="ACC" value={compact(staff.accessories||0)}/><Metric label="VAS" value={compact(staff.vas||0)}/><Metric label="UPT" value={(staff.upt||0).toFixed(1)}/><Metric label="ATV" value={compact(staff.atv||0)}/><Metric label="Invoice" value={num.format(staff.invoices||0)}/><Metric label="Qoala" value={compact(staff.vasDetail?.qoala?.value||0)}/><Metric label="Incentive" value={mode==="daily"?"—":compact(staff.incentive?.total||0)} sub={mode==="daily"?"Lihat Est. Incentive untuk nilai bulanan":undefined}/></div></div>
+}
 
 function ReportScreen({mode,setMode,weekly,weeklySummary,feedback,cx,staff}:{mode:ReportMode;setMode:(v:ReportMode)=>void;weekly:Weekly|null;weeklySummary:DailySummary|null;feedback:Feedback|null;cx:Cx|null;staff:Staff[]}){
  return <div className="m238m-stack m238m-enter"><Segmented value={mode} onChange={setMode} items={[{value:"weekly",label:"Weekly"},{value:"feedback",label:"Feedback"},{value:"cx",label:"CX"}]}/>{mode==="weekly"?(weekly?<WeeklyView weekly={weekly} summary={weeklySummary}/>:<Skeleton/>):mode==="feedback"?(feedback?<FeedbackView data={feedback} staff={staff}/>:<Skeleton/>):(cx?<CxView data={cx} staff={staff}/>:<Skeleton/>)}</div>
