@@ -16,8 +16,8 @@ type Staff={id:string;name:string;position?:string;status?:string;amount:number;
 type Overview={period:string;label:string;target:{amount:number;device:number;accessories:number;vas:number};summary:{amount:number;device:number;accessories:number;vas:number;invoices:number;qty:number;upt:number;atv:number;achievement:number;gap:number;status:string;estimate:{amount:number};point:{total:number}};staff:Staff[];daily:{date:string;amount:number}[];lfl?:{growth:number|null};team:{total:number;productive:number;needPush:number}};
 type Traffic={total:number;daily?:{date:string;traffic:number}[]};
 type Daily={date:string;staff:Staff[];total:{amount:number;target:number;accessories:number;accTarget:number;vas:number;vasTarget:number;qty:number;invoices:number;upt:number}};
-type DailySummary={summary:{totalSales:number;target:number;achievementPct:number;transaction:number;invoice:number;qty:number;upt:number;atv:number;traffic:number;cvr:number;growthPct:number|null};breakdown:{device:number;accessories:number;vas:number};dailyRows?:unknown[]};
-type Weekly={labelA:string;labelB:string;periodB:{start:string;end:string};a:{scheme:Record<string,{qty:number;amount:number}>;lob:Record<string,Record<string,{qty:number;amount:number}>>};b:{scheme:Record<string,{qty:number;amount:number}>;lob:Record<string,Record<string,{qty:number;amount:number}>>};targets:{lob:Record<string,number>;grandTotal:number};analysis:Record<string,{review:string;actionPlan:string;target:number;achievement:number;gap:number}>;feedbackSummary?:string};
+type DailySummary={summary:{totalSales:number;target:number;achievementPct:number;transaction:number;invoice:number;qty:number;upt:number;atv:number;traffic:number;cvr:number;growthPct:number|null};breakdown:{device:number;accessories:number;vas:number};dailyRows?:{date:string;day?:string;totalSales:number;traffic:number;cvr:number;upt:number;atv:number;transaction:number;invoice:number}[]};
+type Weekly={labelA:string;labelB:string;availableWeeks?:string[];periodB:{start:string;end:string};a:{scheme:Record<string,{qty:number;amount:number}>;lob:Record<string,Record<string,{qty:number;amount:number}>>};b:{scheme:Record<string,{qty:number;amount:number}>;lob:Record<string,Record<string,{qty:number;amount:number}>>};targets:{lob:Record<string,number>;grandTotal:number};analysis:Record<string,{review:string;actionPlan:string;target:number;achievement:number;gap:number}>;feedbackSummary?:string};
 type Feedback={rows:{date:string;staffId:string;name:string;category:string;raw:string;professional:string}[]};
 type Cx={rows:{date:string;staffId:string;name:string;cx:number;member:number}[]};
 
@@ -52,13 +52,21 @@ function Segmented<T extends string>({value,onChange,items}:{value:T;onChange:(v
 function Skeleton(){return <div className="m238m-stack m238m-fade"><div className="m238m-skeleton hero"/><div className="m238m-grid">{Array.from({length:4},(_,i)=><div key={i} className="m238m-skeleton tile"/>)}</div><div className="m238m-skeleton list"/><div className="m238m-skeleton list"/></div>}
 
 function Sheet({open,onClose,title,children}:{open:boolean;onClose:()=>void;title:string;children:ReactNode}){
+  const[startY,setStartY]=useState<number|null>(null),[dragY,setDragY]=useState(0);
   if(!open)return null;
-  return <div className="m238m-sheet-layer" onClick={onClose}><div className="m238m-sheet" onClick={e=>e.stopPropagation()}><div className="m238m-handle"/><div className="m238m-sheet-head"><h3>{title}</h3><button onClick={onClose}><X size={18}/></button></div>{children}</div></div>
+  const move=(y:number)=>{if(startY==null)return;setDragY(Math.max(0,y-startY))};
+  const end=()=>{if(dragY>90)onClose();setStartY(null);setDragY(0)};
+  return <div className="m238m-sheet-layer" onClick={onClose}>
+    <div className="m238m-sheet" style={{transform:dragY?`translateY(${dragY}px)`:undefined,transition:dragY?"none":undefined}} onClick={e=>e.stopPropagation()} onTouchMove={e=>move(e.touches[0].clientY)} onTouchEnd={end}>
+      <button className="m238m-handle-button" aria-label="Geser untuk menutup" onTouchStart={e=>setStartY(e.touches[0].clientY)}><span className="m238m-handle"/></button>
+      <div className="m238m-sheet-head"><h3>{title}</h3><button onClick={onClose}><X size={18}/></button></div>{children}
+    </div>
+  </div>
 }
 
 export default function MobileDashboardApp(){
-  const[tab,setTab]=useState<Tab>("home"),[period,setPeriod]=useState(periodNow()),[draftPeriod,setDraftPeriod]=useState(periodNow()),[sheet,setSheet]=useState<SheetName>(null),[moreKind,setMoreKind]=useState(""),[moreData,setMoreData]=useState<any>(null),[moreBusy,setMoreBusy]=useState(false);
-  const[overview,setOverview]=useState<Overview|null>(null),[traffic,setTraffic]=useState<Traffic|null>(null),[daily,setDaily]=useState<Daily|null>(null),[summary,setSummary]=useState<DailySummary|null>(null),[weekly,setWeekly]=useState<Weekly|null>(null),[weeklySummary,setWeeklySummary]=useState<DailySummary|null>(null),[feedback,setFeedback]=useState<Feedback|null>(null),[cx,setCx]=useState<Cx|null>(null),[staffDetail,setStaffDetail]=useState<Staff|null>(null);
+  const[tab,setTab]=useState<Tab>("home"),[period,setPeriod]=useState(periodNow()),[draftPeriod,setDraftPeriod]=useState(periodNow()),[periodMode,setPeriodMode]=useState<"month"|"week">("month"),[draftPeriodMode,setDraftPeriodMode]=useState<"month"|"week">("month"),[selectedWeek,setSelectedWeek]=useState(""),[draftWeek,setDraftWeek]=useState(""),[sheet,setSheet]=useState<SheetName>(null),[moreKind,setMoreKind]=useState(""),[moreData,setMoreData]=useState<any>(null),[moreBusy,setMoreBusy]=useState(false);
+  const[overview,setOverview]=useState<Overview|null>(null),[traffic,setTraffic]=useState<Traffic|null>(null),[daily,setDaily]=useState<Daily|null>(null),[summary,setSummary]=useState<DailySummary|null>(null),[weekly,setWeekly]=useState<Weekly|null>(null),[weeklySummary,setWeeklySummary]=useState<DailySummary|null>(null),[feedback,setFeedback]=useState<Feedback|null>(null),[cx,setCx]=useState<Cx|null>(null),[staffDetail,setStaffDetail]=useState<Staff|null>(null),[staffDetailMode,setStaffDetailMode]=useState<"daily"|"monthly">("monthly");
   const[salesMode,setSalesMode]=useState<SalesMode>("daily"),[reportMode,setReportMode]=useState<ReportMode>("weekly"),[teamFilter,setTeamFilter]=useState("all"),[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[error,setError]=useState(""),[dark,setDark]=useState(false);
   const rootRef=useRef<HTMLDivElement>(null),touchStart=useRef<number|null>(null);
 
@@ -77,7 +85,17 @@ export default function MobileDashboardApp(){
 
   const loadDaily=useCallback(async(force=false)=>{const d=await cachedJson<Daily>(`/api/daily-fast?date=${today()}`,90000,force);setDaily(d)},[]);
   const loadSummary=useCallback(async(force=false)=>{const from=`${period}-01`,to=period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`;const d=await cachedJson<DailySummary>(`/api/daily-summary-fast?from=${from}&to=${to}&mode=monthly`,180000,force);setSummary(d)},[period]);
-  const loadWeekly=useCallback(async(force=false)=>{const w=await cachedJson<Weekly>("/api/weekly-stable",180000,force);setWeekly(w);if(w.periodB?.start&&w.periodB?.end){const s=await cachedJson<DailySummary>(`/api/daily-summary-fast?from=${w.periodB.start}&to=${w.periodB.end}&mode=range`,180000,force);setWeeklySummary(s)}},[]);
+  const loadWeekly=useCallback(async(force=false,weekOverride="")=>{
+    let url="/api/weekly-stable";
+    if(weekOverride){
+      const base=await cachedJson<Weekly>("/api/weekly-stable",180000,force),weeks=base.availableWeeks||[],idx=weeks.indexOf(weekOverride),from=idx>0?weeks[idx-1]:"";
+      url=`/api/weekly-stable?to=${encodeURIComponent(weekOverride)}${from?`&from=${encodeURIComponent(from)}`:""}`;
+    }
+    const w=await cachedJson<Weekly>(url,180000,force);setWeekly(w);setSelectedWeek(w.labelB||weekOverride);
+    if(w.periodB?.start&&w.periodB?.end){
+      const s=await cachedJson<DailySummary>(`/api/daily-summary-fast?from=${w.periodB.start}&to=${w.periodB.end}&mode=range`,180000,force);setWeeklySummary(s);
+    }
+  },[]);
   const loadFeedback=useCallback(async(force=false)=>setFeedback(await cachedJson<Feedback>(`/api/feedback?period=${period}`,180000,force)),[period]);
   const loadCx=useCallback(async(force=false)=>setCx(await cachedJson<Cx>(`/api/cx-member?period=${period}`,180000,force)),[period]);
 
@@ -94,12 +112,13 @@ export default function MobileDashboardApp(){
     }finally{setRefreshing(false)}
   },[tab,salesMode,reportMode,loadOverview,loadDaily,loadSummary,loadWeekly,loadFeedback,loadCx]);
 
-  const openStaff=async(staff:Staff)=>{setStaffDetail(staff);setSheet("staff");try{const d=await cachedJson<{staff:Staff[]}>(`/api/staff-performance-month?period=${period}`,180000);const full=d.staff.find(x=>x.id===staff.id);if(full)setStaffDetail(full)}catch{}};
+  const openStaff=async(staff:Staff,mode:"daily"|"monthly"="monthly")=>{setStaffDetailMode(mode);setStaffDetail(staff);setSheet("staff");if(mode==="daily")return;try{const d=await cachedJson<{staff:Staff[]}>(`/api/staff-performance-month?period=${period}`,180000);const full=d.staff.find(x=>x.id===staff.id);if(full)setStaffDetail(full)}catch{}};
   const toggleDark=()=>{const next=!dark;setDark(next);localStorage.setItem("m238-theme",next?"dark":"light");document.documentElement.classList.toggle("dark",next)};
   const transaction=overview?.summary.invoices||0,trafficValue=traffic?.total||0,cvr=trafficValue?transaction/trafficValue*100:0,achievement=overview?.target.amount?((overview.summary.amount/overview.target.amount)*100):0;
   const team=useMemo(()=>{const rows=overview?.staff||[];if(teamFilter==="top")return rows.filter(x=>x.status==="Productive");if(teamFilter==="attention")return rows.filter(x=>x.status!=="Productive");return rows},[overview,teamFilter]);
 
-  const applyPeriod=()=>{setPeriod(draftPeriod);setDaily(null);setSummary(null);setWeekly(null);setFeedback(null);setCx(null);setSheet(null)};
+  const openPeriodSheet=()=>{setDraftPeriod(period);setDraftPeriodMode(periodMode);setDraftWeek(selectedWeek||weekly?.labelB||"");setSheet("period");if(!weekly)void loadWeekly()};
+  const applyPeriod=()=>{if(draftPeriodMode==="week"){setPeriodMode("week");setSheet(null);setTab("report");setReportMode("weekly");void loadWeekly(true,draftWeek);return}setPeriodMode("month");setPeriod(draftPeriod);setDaily(null);setSummary(null);setFeedback(null);setCx(null);setSheet(null)};
   const shareText=`M238 PIM 2 • ${overview?.label||monthLabel(period)}\nSales ${money.format(overview?.summary.amount||0)}\nAchievement ${pct(achievement)}\nUPT ${(overview?.summary.upt||0).toFixed(1)}`;
   const doShare=async(kind:string)=>{if(kind==="wa")window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`,"_blank");else if(kind==="copy")await navigator.clipboard.writeText(shareText);else if(rootRef.current&&kind==="png")await exportReportPng(rootRef.current,`M238-${period}`);else if(rootRef.current&&kind==="pdf")await exportReportPdf(rootRef.current,`M238-${period}`);else if(kind==="xlsx"&&overview)await exportReportXlsx([{name:"Overview",rows:[["Periode",overview.label],["Sales",overview.summary.amount],["Target",overview.target.amount],["Achievement",achievement],["UPT",overview.summary.upt],[],["Staff","Sales","Achievement"],...overview.staff.map(s=>[s.name,s.amount,s.achievement??0])]}],`M238-${period}`);setSheet(null)};
 
@@ -130,13 +149,13 @@ export default function MobileDashboardApp(){
       <div className="m238m-header-actions"><button onClick={()=>setSheet("share")} aria-label="Share"><Share2 size={19}/></button><button onClick={()=>void refresh()} aria-label="Refresh"><RefreshCw size={19} className={refreshing?"spin":""}/></button></div>
     </header>
     <main className="m238m-content">
-      <button className="m238m-period" onClick={()=>{setDraftPeriod(period);setSheet("period")}}><CalendarDays size={15}/><span>{monthLabel(period)}</span><small>Week {retailWeek()}</small><ChevronRight size={15}/></button>
+      <button className="m238m-period" onClick={openPeriodSheet}><CalendarDays size={15}/><span>{periodMode==="week"?(selectedWeek||weekly?.labelB||"Pilih Week"):monthLabel(period)}</span><small>{periodMode==="week"?"Weekly":(weekly?.labelB||`Week ${retailWeek()}`)}</small><ChevronRight size={15}/></button>
       {refreshing?<div className="m238m-refreshing"><RefreshCw size={14} className="spin"/> Memperbarui data…</div>:null}
       {error?<Card className="m238m-error">{error}</Card>:null}
       {loading&&!overview?<Skeleton/>:null}
       {!loading&&overview&&tab==="home"?<HomeScreen overview={overview} traffic={trafficValue} cvr={cvr} achievement={achievement}/>:null}
-      {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} onStaff={openStaff}/>:null}
-      {tab==="team"?<TeamScreen rows={team} filter={teamFilter} setFilter={setTeamFilter} onStaff={openStaff}/>:null}
+      {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} onStaff={s=>void openStaff(s,"daily")}/>:null}
+      {tab==="team"?<TeamScreen rows={team} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
       {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]}/>:null}
       {tab==="more"?<MoreScreen dark={dark} toggleDark={toggleDark} onAction={handleMore}/>:null}
     </main>
@@ -148,9 +167,9 @@ export default function MobileDashboardApp(){
     </nav>
 
     <Sheet open={sheet==="period"} onClose={()=>setSheet(null)} title="Pilih Periode">
-      <Segmented value={"month"} onChange={()=>{}} items={[{value:"month",label:"Month"}]}/>
-      <div className="m238m-sheet-list">{months.map(p=><button key={p} onClick={()=>setDraftPeriod(p)} className={draftPeriod===p?"selected":""}><span>{monthLabel(p)}</span>{draftPeriod===p?<strong>✓</strong>:null}</button>)}</div>
-      <button className="m238m-primary" onClick={applyPeriod}>Terapkan</button>
+      <Segmented value={draftPeriodMode} onChange={setDraftPeriodMode} items={[{value:"month",label:"Month"},{value:"week",label:"Week"}]}/>
+      {draftPeriodMode==="month"?<div className="m238m-sheet-list">{months.map(p=><button key={p} onClick={()=>setDraftPeriod(p)} className={draftPeriod===p?"selected":""}><span>{monthLabel(p)}</span>{draftPeriod===p?<strong>✓</strong>:null}</button>)}</div>:<div className="m238m-sheet-list">{(weekly?.availableWeeks||[]).slice().reverse().map(w=><button key={w} onClick={()=>setDraftWeek(w)} className={draftWeek===w?"selected":""}><span>{w}</span>{draftWeek===w?<strong>✓</strong>:null}</button>)}</div>}
+      <button className="m238m-primary" disabled={draftPeriodMode==="week"&&!draftWeek} onClick={applyPeriod}>Terapkan</button>
     </Sheet>
 
     <Sheet open={sheet==="share"} onClose={()=>setSheet(null)} title="Share Report">
@@ -164,10 +183,10 @@ export default function MobileDashboardApp(){
       <button className="m238m-cancel" onClick={()=>setSheet(null)}>Cancel</button>
     </Sheet>
 
-    <Sheet open={sheet==="staff"} onClose={()=>setSheet(null)} title={staffDetail?.name||"Staff Detail"}>
+    <Sheet open={sheet==="staff"} onClose={()=>setSheet(null)} title={staffDetail?`${staffDetail.name} • ${staffDetailMode==="daily"?"Hari Ini":"Bulanan"}`:"Staff Detail"}>
       {staffDetail?<StaffDetail staff={staffDetail}/>:<Skeleton/>}
     </Sheet>
-    <Sheet open={sheet==="more"} onClose={()=>setSheet(null)} title={moreKind==="incentive"?"Estimasi Incentive":moreKind==="bnpl"?"BNPL & Trade-In":moreKind==="target"?"Target & Program":moreKind==="checklist"?"Checklist Store":"Detail"}>
+    <Sheet open={sheet==="more"} onClose={()=>setSheet(null)} title={moreKind==="incentive"?"Estimasi Incentive":moreKind==="bnpl"?"BNPL & Trade-In":moreKind==="target"?"Target & Program":moreKind==="checklist"?"Checklist Store":moreKind==="mobile-view"?"Versi Tampilan HP":"Detail"}>
       {moreBusy?<Skeleton/>:<MoreDetail kind={moreKind} data={moreData}/>} 
     </Sheet>
     <style jsx global>{mobileCss}</style>
@@ -214,12 +233,13 @@ function CxView({data,staff}:{data:Cx;staff:Staff[]}){
 }
 
 function MoreScreen({dark,toggleDark,onAction}:{dark:boolean;toggleDark:()=>void;onAction:(action:string)=>void}){
- const groups=[["Performance",[[WalletCards,"Incentive","incentive"],[CreditCard,"BNPL","bnpl"],[Target,"Target & Program","target"]]],["Operational",[[ClipboardCheck,"Checklist Store","checklist"],[Activity,"NPS / CX & Member","cx"],[TrendingUp,"Aktivitas Toko","activity"]]],["Appearance",[[dark?Sun:Moon,dark?"Light Mode":"Dark Mode","theme"]]],["Account",[[Settings,"Settings","settings"],[LogOut,"Logout","logout"]]]] as const;
+ const groups=[["Performance",[[WalletCards,"Incentive","incentive"],[CreditCard,"BNPL","bnpl"],[Target,"Target & Program","target"]]],["Operational",[[ClipboardCheck,"Checklist Store","checklist"],[Activity,"NPS / CX & Member","cx"],[TrendingUp,"Aktivitas Toko","activity"]]],["Appearance",[[Settings,"Versi Tampilan HP","mobile-view"],[dark?Sun:Moon,dark?"Light Mode":"Dark Mode","theme"]]],["Account",[[Settings,"Settings","settings"],[LogOut,"Logout","logout"]]]] as const;
  return <div className="m238m-more">{groups.map(([title,items])=><section key={title}><h3>{title}</h3><div>{items.map(([Icon,label,action])=><button key={label} onClick={()=>{if(action==="theme")toggleDark();else if(action==="logout")void fetch("/api/auth/logout",{method:"POST"}).finally(()=>{window.location.href="/login"});else onAction(action)}}><span><i><Icon size={18}/></i>{label}</span><ChevronRight size={17}/></button>)}</div></section>)}</div>
 }
 
 function MoreDetail({kind,data}:{kind:string;data:any}){
  if(kind==="checklist")return <div className="m238m-action-list"><button onClick={()=>window.open("https://forms.cloud.microsoft/pages/responsepage.aspx?id=iAw5Rakbn0eYpYaKADRxVqklIyFb72JDrV7GtVMqEcNUMUdNM1Q1VU4zTU9PTlpVTERHVUpZUk9BQS4u&route=shorturl","_blank")}><ClipboardCheck/>Checklist SPV</button><button onClick={()=>window.open("https://forms.cloud.microsoft/pages/responsepage.aspx?id=iAw5Rakbn0eYpYaKADRxVqklIyFb72JDrV7GtVMqEcNUQVpVV1hBVTdHTDVDWVlMRkE0V0lRVDQySS4u&route=shorturl","_blank")}><ClipboardCheck/>Checklist Staff</button></div>;
+ if(kind==="mobile-view")return <div className="m238m-stack"><Card className="m238m-copy-card"><strong>Versi Tampilan HP</strong><p>Pilih tampilan lama jika ingin menggunakan dashboard responsive sebelumnya, atau tampilan baru untuk UI khusus iPhone.</p></Card><div className="m238m-view-picker"><button onClick={()=>window.dispatchEvent(new CustomEvent("m238:mobile-view-change",{detail:"classic"}))}>Tampilan Lama</button><button className="active" onClick={()=>window.dispatchEvent(new CustomEvent("m238:mobile-view-change",{detail:"new"}))}>Tampilan Baru ✓</button></div></div>;
  if(kind==="settings")return <Card>Pengaturan tampilan utama tetap tersedia di bagian Appearance. Pengaturan akun mengikuti sistem M238 yang sama.</Card>;
  if(data?.error)return <Card className="m238m-error">{data.error}</Card>;
  if(kind==="incentive")return <div className="m238m-stack"><Card className="m238m-hero compact"><span>Total Estimasi Incentive</span><strong>{compact(data?.total||0)}</strong></Card><div className="m238m-list">{(data?.rows||[]).map((r:any)=><Card key={r.id} className="m238m-copy-card"><div className="m238m-copy-head"><strong>{r.name}</strong><b>{compact(r.incentive?.total||0)}</b></div><p>Mac {num.format(r.qty?.mac||0)} • iPhone {num.format(r.qty?.iphone||0)} • iPad {num.format(r.qty?.ipad||0)} • Watch {num.format(r.qty?.watch||0)}</p></Card>)}</div></div>;
