@@ -4,7 +4,7 @@ import {appendSheetValues,clearAndWrite,ensureSheet,getSheetRanges} from "@/lib/
 const ID="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk";
 const SHEET="BNPL_TradeIn";
 const HEAD=["ID","Date","Category","Provider","Qty","Amount","Notes","Updated By","Updated At"];
-const PROVIDERS={BNPL:["HCI","Indodana","Kredivo","Akulaku","SPayLater"],"Trade-In":["Laku6 Master Device","OnePulse"]} as const;
+const PROVIDERS={BNPL:["HCI","Indodana","Kredivo","Akulaku","SPayLater","KreditPlus"],"Trade-In":["Laku6 Master Device","OnePulse"]} as const;
 type Category=keyof typeof PROVIDERS;
 
 const text=(v:unknown)=>String(v??"").trim();
