@@ -6,7 +6,6 @@ import {ChevronRight,Pencil,Search,Shuffle,Trash2,Upload} from "lucide-react";
 const money=new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0});
 const num=new Intl.NumberFormat("id-ID");
 const today=()=>new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Jakarta",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
-const compact=(v:number)=>Math.abs(v)>=1e9?"Rp "+(v/1e9).toLocaleString("id-ID",{maximumFractionDigits:2})+" M":Math.abs(v)>=1e6?"Rp "+(v/1e6).toLocaleString("id-ID",{maximumFractionDigits:0})+" jt":money.format(v);
 const pct=(v:number)=>new Intl.NumberFormat("id-ID",{maximumFractionDigits:1}).format(Number(v||0))+"%";
 
 function Card({children,className=""}:{children:React.ReactNode;className?:string}){return <section className={"m238m-card "+className}>{children}</section>}
@@ -15,26 +14,39 @@ function Metric({label,value,sub}:{label:string;value:string;sub?:string}){retur
 function SectionHead({title,meta}:{title:string;meta?:string}){return <div className="m238m-section-head"><h2>{title}</h2>{meta?<span>{meta}</span>:null}</div>}
 function ErrorBox({text}:{text:string}){return <Card className="m238m-error">{text}</Card>}
 
+const operationCss=`
+.m238m-soh-tabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
+.m238m-soh-tabs::-webkit-scrollbar{display:none}
+.m238m-soh-tabs button{flex:none;border:0;background:var(--m-surface2);color:var(--m-secondary);border-radius:10px;padding:9px 11px;font-size:10px;font-weight:850;white-space:nowrap}
+.m238m-soh-tabs button.active{background:var(--m-surface);color:var(--m-blue);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+`;
+
 export default function MobileOperations({kind,period}:{kind:string;period:string}){
- if(kind==="soh")return <SohMobile/>;
- if(kind==="stokan")return <StokanMobile/>;
- if(kind==="mading")return <MadingMobile period={period}/>;
- if(kind==="bnpl")return <BnplMobile period={period}/>;
- if(kind==="target")return <TargetFocusMobile period={period}/>;
- return null;
+ let view:React.ReactNode=null;
+ if(kind==="soh")view=<SohMobile/>;
+ else if(kind==="stokan")view=<StokanMobile/>;
+ else if(kind==="mading")view=<MadingMobile period={period}/>;
+ else if(kind==="bnpl")view=<BnplMobile period={period}/>;
+ else if(kind==="target")view=<TargetFocusMobile period={period}/>;
+ return <>{view}<style jsx global>{operationCss}</style></>;
 }
 
 function SohMobile(){
- const[q,setQ]=useState(""),[data,setData]=useState<any>(null),[loading,setLoading]=useState(true),[error,setError]=useState("");
+ const[q,setQ]=useState(""),[data,setData]=useState<any>(null),[loading,setLoading]=useState(true),[error,setError]=useState(""),[active,setActive]=useState("IPHONE");
  useEffect(()=>{let alive=true;const t=setTimeout(async()=>{setLoading(true);try{const r=await fetch("/api/soh?q="+encodeURIComponent(q)),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal membaca SOH");if(alive){setData(j);setError("")}}catch(e){if(alive)setError(e instanceof Error?e.message:"Gagal membaca SOH")}finally{if(alive)setLoading(false)}},180);return()=>{alive=false;clearTimeout(t)}},[q]);
  const groups=[["IPHONE","iPhone"],["IPAD","iPad"],["MACBOOK","MacBook"],["APPLE WATCH","Apple Watch"],["AIRPODS, PENCIL & KEYBOARD","AirPods, Pencil & Keyboard"]] as const;
+ const label=groups.find(([k])=>k===active)?.[1]||active,rows=(data?.rows||[]).filter((x:any)=>x.category===active),total=rows.reduce((a:number,x:any)=>a+Number(x.qty||0),0),sold=rows.reduce((a:number,x:any)=>a+Number(x.soldQty||0),0);
  return <div className="m238m-stack">
   <Card className="m238m-form-card"><label className="m238m-input-icon"><Search size={17}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Cari article atau description…"/></label>{data?.updated?<small>SOH updated {data.updated}{data.soldDate?" • Sales terakhir "+data.soldDate:""}</small>:null}</Card>
+  <div className="m238m-soh-tabs">{groups.map(([key,name])=><button key={key} className={active===key?"active":""} onClick={()=>setActive(key)}>{name}</button>)}</div>
   {error?<ErrorBox text={error}/>:null}
-  {loading&&!data?<Card>Memuat SOH…</Card>:groups.map(([key,label])=>{const rows=(data?.rows||[]).filter((x:any)=>x.category===key),total=rows.reduce((a:number,x:any)=>a+Number(x.qty||0),0);if(q&&rows.length===0)return null;return <div key={key} className="m238m-stack"><SectionHead title={label} meta={num.format(total)+" unit"}/><div className="m238m-list">{rows.map((r:any)=><Card key={r.article+"-"+r.description} className="m238m-stock-row"><div><strong>{r.description||r.article}</strong><span>{r.article}</span></div><div><b>{num.format(r.qty)}</b><small>{r.soldQty?"Sold "+num.format(r.soldQty):"SOH"}</small></div></Card>)}{!rows.length?<Card className="m238m-empty">Tidak ada stok pada kategori ini.</Card>:null}</div></div>})}
+  {loading&&!data?<Card>Memuat SOH…</Card>:<>
+    <SectionHead title={label} meta={num.format(total)+" unit"}/>
+    <div className="m238m-grid"><Metric label="SOH" value={num.format(total)}/><Metric label="Sold" value={num.format(sold)}/></div>
+    <div className="m238m-list">{rows.map((r:any)=><Card key={r.article+"-"+r.description} className="m238m-stock-row"><div><strong>{r.description||r.article}</strong><span>{r.article}</span></div><div><b>{num.format(r.qty)}</b><small>{r.soldQty?"Sold "+num.format(r.soldQty):"SOH"}</small></div></Card>)}{!rows.length?<Card className="m238m-empty">Tidak ada stok pada kategori ini.</Card>:null}</div>
+  </>}
  </div>
 }
-
 function MadingMobile({period}:{period:string}){
  const[data,setData]=useState<any>(null),[overview,setOverview]=useState<any>(null),[loading,setLoading]=useState(true),[error,setError]=useState("");
  useEffect(()=>{let alive=true;setLoading(true);Promise.all([fetch("/api/mading?period="+period).then(r=>r.json()),fetch("/api/overview?period="+period).then(r=>r.json())]).then(([m,o])=>{if(!alive)return;if(m.error)throw new Error(m.error);setData(m);setOverview(o);setError("")}).catch(e=>alive&&setError(e instanceof Error?e.message:"Gagal membaca Mading")).finally(()=>alive&&setLoading(false));return()=>{alive=false}},[period]);
@@ -42,18 +54,18 @@ function MadingMobile({period}:{period:string}){
  if(error)return <ErrorBox text={error}/>;
  const t=overview?.target||{amount:0,device:0,accessories:0,vas:0},s=data?.summary||{},e=data?.estimate||{};
  const points={device:Math.min(t.device?s.device/t.device*60:0,60),acc:Math.min(t.accessories?s.accessories/t.accessories*30:0,30),vas:Math.min(t.vas?s.vas/t.vas*10:0,10)};
- const kpi=(label:string,actual:number,target:number,estimate:number,point:number,max:number)=><Card className="m238m-kpi-detail"><span>{label}</span><strong>{compact(actual)}</strong><p>Target {compact(target)} • {pct(target?actual/target*100:0)}</p><Progress value={target?actual/target*100:0}/><small>Estimate {compact(estimate)} • Point {point.toFixed(1)}/{max} • Variance {compact(target-actual)}</small></Card>;
+ const kpi=(label:string,actual:number,target:number,estimate:number,point:number,max:number)=><Card className="m238m-kpi-detail"><span>{label}</span><strong>{money.format(actual)}</strong><p>Target {money.format(target)} • {pct(target?actual/target*100:0)}</p><Progress value={target?actual/target*100:0}/><small>Estimate {money.format(estimate)} • Point {point.toFixed(1)}/{max} • Variance {money.format(target-actual)}</small></Card>;
  const growth=(a:number,b:number)=>b?(a-b)/b*100:0;
  return <div className="m238m-stack">
   <div className="m238m-grid">{kpi("Amount",s.amount||0,t.amount||0,e.amount||0,points.device+points.acc+points.vas,100)}{kpi("Device",s.device||0,t.device||0,e.device||0,points.device,60)}{kpi("ACC",s.accessories||0,t.accessories||0,e.accessories||0,points.acc,30)}{kpi("VAS",s.vas||0,t.vas||0,e.vas||0,points.vas,10)}</div>
   <SectionHead title="Compare Performance" meta={"Cutoff day "+(data?.compare?.cutoffDay||"-")}/>
   <div className="m238m-grid"><Metric label="MTM" value={(growth(data?.compare?.current?.total||0,data?.compare?.mtm?.total||0)>=0?"+":"")+pct(growth(data?.compare?.current?.total||0,data?.compare?.mtm?.total||0))} sub={data?.compare?.mtm?.period}/><Metric label="LFL" value={(growth(data?.compare?.current?.total||0,data?.compare?.lfl?.total||0)>=0?"+":"")+pct(growth(data?.compare?.current?.total||0,data?.compare?.lfl?.total||0))} sub={data?.compare?.lfl?.period}/><Metric label="Qty" value={num.format(s.qty||0)}/><Metric label="UPT" value={Number(s.upt||0).toFixed(1)}/></div>
   <SectionHead title="Pencapaian Staff" meta="Value"/>
-  <div className="m238m-list">{(s.staff||[]).map((r:any,i:number)=><Card key={r.name} className="m238m-rank-row"><b>#{i+1}</b><div><strong>{r.name}</strong><span>{compact(r.value)}</span></div></Card>)}</div>
+  <div className="m238m-list">{(s.staff||[]).map((r:any,i:number)=><Card key={r.name} className="m238m-rank-row"><b>#{i+1}</b><div><strong>{r.name}</strong><span>{money.format(r.value)}</span></div></Card>)}</div>
   <SectionHead title="LOB" meta="Qty & Value"/>
-  <div className="m238m-list">{(s.lob||[]).map((r:any)=><Card key={r.name} className="m238m-copy-card"><div className="m238m-copy-head"><strong>{r.name}</strong><b>{num.format(r.qty)} unit</b></div><p>{compact(r.value)}</p></Card>)}</div>
+  <div className="m238m-list">{(s.lob||[]).map((r:any)=><Card key={r.name} className="m238m-copy-card"><div className="m238m-copy-head"><strong>{r.name}</strong><b>{num.format(r.qty)} unit</b></div><p>{money.format(r.value)}</p></Card>)}</div>
   <SectionHead title="VAS Provider" meta="Qty & Value"/>
-  <div className="m238m-grid">{(s.vasProviders||[]).map((r:any)=><Metric key={r.name} label={r.name} value={compact(r.value)} sub={num.format(r.qty)+" qty"}/>)}</div>
+  <div className="m238m-grid">{(s.vasProviders||[]).map((r:any)=><Metric key={r.name} label={r.name} value={money.format(r.value)} sub={num.format(r.qty)+" qty"}/>)}</div>
  </div>
 }
 
@@ -69,11 +81,11 @@ function BnplMobile({period}:{period:string}){
  const edit=(r:any)=>{setEditing(r);setDate(r.date);setCategory(r.category);setProvider(r.provider);setQty(r.qty);setAmount(r.amount);setNotes(r.notes||"")};
  const remove=async(id:string)=>{if(!confirm("Hapus data BNPL / Trade-In ini?"))return;setBusy(true);try{const r=await fetch("/api/bnpl",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id})}),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal menghapus");await load()}catch(e){setError(e instanceof Error?e.message:"Gagal menghapus")}finally{setBusy(false)}};
  return <div className="m238m-stack">
-  <div className="m238m-grid"><Metric label="BNPL" value={compact(data?.bnpl?.amount||0)} sub={num.format(data?.bnpl?.qty||0)+" trx"}/><Metric label="Trade-In" value={compact(data?.tradeIn?.amount||0)} sub={num.format(data?.tradeIn?.qty||0)+" trx"}/></div>
+  <div className="m238m-grid"><Metric label="BNPL" value={money.format(data?.bnpl?.amount||0)} sub={num.format(data?.bnpl?.qty||0)+" trx"}/><Metric label="Trade-In" value={money.format(data?.tradeIn?.amount||0)} sub={num.format(data?.tradeIn?.qty||0)+" trx"}/></div>
   <Card className="m238m-form-card"><strong>{editing?"Edit BNPL / Trade-In":"Input BNPL / Trade-In"}</strong><input type="date" value={date} onChange={e=>setDate(e.target.value)}/><div className="m238m-form-grid"><select value={category} onChange={e=>setCategory(e.target.value as "BNPL"|"Trade-In")}><option value="BNPL">BNPL</option><option value="Trade-In">Trade-In</option></select><select value={provider} onChange={e=>setProvider(e.target.value)}>{providers.map(x=><option key={x}>{x}</option>)}</select></div><div className="m238m-form-grid"><input inputMode="numeric" type="number" min={0} value={qty} onChange={e=>setQty(Number(e.target.value))} placeholder="Qty"/><input inputMode="numeric" type="number" min={0} value={amount} onChange={e=>setAmount(Number(e.target.value))} placeholder="Amount"/></div><input value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Notes (opsional)"/><div className="m238m-form-actions"><button className="m238m-primary" disabled={busy||!provider} onClick={()=>void save()}>{busy?"Menyimpan…":editing?"Simpan Perubahan":"Simpan"}</button>{editing?<button className="m238m-cancel" onClick={reset}>Batal</button>:null}</div></Card>
   {error?<ErrorBox text={error}/>:null}
   <SectionHead title="Daily Tracking" meta={period}/>
-  {loading&&!data?<Card>Memuat data…</Card>:<div className="m238m-list">{(data?.rows||[]).slice().reverse().map((r:any)=><Card key={r.id} className="m238m-op-row"><div className="m238m-copy-head"><div><strong>{r.provider}</strong><span>{r.date} • {r.category}</span></div><b>{compact(r.amount)}</b></div><p>{num.format(r.qty)} qty{r.notes?" • "+r.notes:""}</p><div className="m238m-row-actions"><button onClick={()=>edit(r)}><Pencil size={15}/> Edit</button><button className="danger" onClick={()=>void remove(r.id)}><Trash2 size={15}/> Hapus</button></div></Card>)}</div>}
+  {loading&&!data?<Card>Memuat data…</Card>:<div className="m238m-list">{(data?.rows||[]).slice().reverse().map((r:any)=><Card key={r.id} className="m238m-op-row"><div className="m238m-copy-head"><div><strong>{r.provider}</strong><span>{r.date} • {r.category}</span></div><b>{money.format(r.amount)}</b></div><p>{num.format(r.qty)} qty{r.notes?" • "+r.notes:""}</p><div className="m238m-row-actions"><button onClick={()=>edit(r)}><Pencil size={15}/> Edit</button><button className="danger" onClick={()=>void remove(r.id)}><Trash2 size={15}/> Hapus</button></div></Card>)}</div>}
  </div>
 }
 
