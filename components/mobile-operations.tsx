@@ -24,7 +24,7 @@ const operationCss=`
 .m238m-modern-search.open input{width:100%;opacity:1;padding:0 4px}
 .m238m-modern-search input::placeholder{color:var(--m-secondary)}
 .m238m-search-close{color:var(--m-secondary)!important}
-.m238m-soh-tabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
+.m238m-compare-value-card>div{display:flex;flex-direction:column;gap:2px;margin-top:8px}.m238m-compare-value-card>div span{font-size:9px;color:var(--m-secondary)}.m238m-compare-value-card>div b{font-size:11px;line-height:1.3;overflow-wrap:anywhere}.m238m-compare-value-card>small{display:block;margin-top:3px}.m238m-soh-tabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
 .m238m-soh-tabs::-webkit-scrollbar{display:none}
 .m238m-soh-tabs button{flex:none;border:0;background:var(--m-surface2);color:var(--m-secondary);border-radius:10px;padding:9px 11px;font-size:10px;font-weight:850;white-space:nowrap}
 .m238m-soh-tabs button.active{background:var(--m-surface);color:var(--m-blue);box-shadow:0 1px 4px rgba(0,0,0,.08)}
@@ -77,7 +77,24 @@ function MadingMobile({period}:{period:string}){
  return <div className="m238m-stack">
   <div className="m238m-grid">{kpi("Amount",s.amount||0,t.amount||0,e.amount||0,points.device+points.acc+points.vas,100)}{kpi("Device",s.device||0,t.device||0,e.device||0,points.device,60)}{kpi("ACC",s.accessories||0,t.accessories||0,e.accessories||0,points.acc,30)}{kpi("VAS",s.vas||0,t.vas||0,e.vas||0,points.vas,10)}</div>
   <SectionHead title="Compare Performance" meta={"Cutoff day "+(data?.compare?.cutoffDay||"-")}/>
-  <div className="m238m-grid"><Metric label="MTM" value={(growth(data?.compare?.current?.total||0,data?.compare?.mtm?.total||0)>=0?"+":"")+pct(growth(data?.compare?.current?.total||0,data?.compare?.mtm?.total||0))} sub={data?.compare?.mtm?.period}/><Metric label="LFL" value={(growth(data?.compare?.current?.total||0,data?.compare?.lfl?.total||0)>=0?"+":"")+pct(growth(data?.compare?.current?.total||0,data?.compare?.lfl?.total||0))} sub={data?.compare?.lfl?.period}/><Metric label="Qty" value={num.format(s.qty||0)}/><Metric label="UPT" value={Number(s.upt||0).toFixed(1)}/></div>
+  <div className="m238m-grid">
+   <Card className="m238m-metric m238m-compare-value-card">
+    <span>MTM</span>
+    <strong>{(growth(data?.compare?.current?.total||0,data?.compare?.mtm?.total||0)>=0?"+":"")+pct(growth(data?.compare?.current?.total||0,data?.compare?.mtm?.total||0))}</strong>
+    <small>{data?.compare?.mtm?.period||"-"}</small>
+    <div><span>Current</span><b>{money.format(data?.compare?.current?.total||0)}</b></div>
+    <div><span>Previous</span><b>{money.format(data?.compare?.mtm?.total||0)}</b></div>
+   </Card>
+   <Card className="m238m-metric m238m-compare-value-card">
+    <span>LFL</span>
+    <strong>{(growth(data?.compare?.current?.total||0,data?.compare?.lfl?.total||0)>=0?"+":"")+pct(growth(data?.compare?.current?.total||0,data?.compare?.lfl?.total||0))}</strong>
+    <small>{data?.compare?.lfl?.period||"-"}</small>
+    <div><span>Current</span><b>{money.format(data?.compare?.current?.total||0)}</b></div>
+    <div><span>LFL</span><b>{money.format(data?.compare?.lfl?.total||0)}</b></div>
+   </Card>
+   <Metric label="Qty" value={num.format(s.qty||0)}/>
+   <Metric label="UPT" value={Number(s.upt||0).toFixed(1)}/>
+  </div>
   <SectionHead title="Pencapaian Staff" meta="Value"/>
   <div className="m238m-list">{(s.staff||[]).map((r:any,i:number)=><Card key={r.name} className="m238m-rank-row"><b>#{i+1}</b><div><strong>{r.name}</strong><span>{money.format(r.value)}</span></div></Card>)}</div>
   <SectionHead title="LOB" meta="Qty & Value"/>
