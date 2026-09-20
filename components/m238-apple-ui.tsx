@@ -29,12 +29,43 @@ export default function M238AppleUI() {
         return next;
       });
 
+    const resetClassicMobileScroll = () => {
+      if (!window.matchMedia("(max-width:768px)").matches) return;
+      if (localStorage.getItem("m238-mobile-view") !== "classic") return;
+
+      const reset = () => {
+        window.scrollTo(0, 0);
+        const scrolling = document.scrollingElement as HTMLElement | null;
+        if (scrolling) {
+          scrolling.scrollTop = 0;
+          scrolling.scrollLeft = 0;
+        }
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+
+        document
+          .querySelectorAll<HTMLElement>(".m238-main, .m238-app-shell, main")
+          .forEach((el) => {
+            el.scrollTop = 0;
+            el.scrollLeft = 0;
+          });
+      };
+
+      reset();
+      window.requestAnimationFrame(reset);
+      window.setTimeout(reset, 60);
+      window.setTimeout(reset, 180);
+      window.setTimeout(reset, 420);
+      window.setTimeout(reset, 800);
+    };
+
     const closeAfterNav = (event: MouseEvent) => {
       if (!mobile) return;
       const target = event.target as HTMLElement | null;
       const control = target?.closest("nav a, nav button") as HTMLElement | null;
       if (!control || control.hasAttribute("aria-expanded")) return;
       setSidebarHidden(true);
+      resetClassicMobileScroll();
     };
 
     const normalizeDarkCanvas = () => {
@@ -793,6 +824,13 @@ export default function M238AppleUI() {
           .m238-menu-open {
             top: 11px;
             left: 12px;
+          }
+        }
+
+        @media (max-width:768px) {
+          body.m238-apple-ui .m238-main,
+          body.m238-apple-ui .m238-main > div[class*="px-4"] {
+            overflow-anchor: none !important;
           }
         }
 
