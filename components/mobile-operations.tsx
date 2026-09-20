@@ -105,7 +105,7 @@ function MadingMobile({period,periodMode,selectedWeek,activeRange}:{period:strin
  const growth=(a:number,b:number)=>b?(a-b)/b*100:0;
  return <div className="m238m-stack">
   <div className="m238m-grid">{kpi("Amount",s.amount||0,t.amount||0,e.amount||0,points.device+points.acc+points.vas,100)}{kpi("Device",s.device||0,t.device||0,e.device||0,points.device,60)}{kpi("ACC",s.accessories||0,t.accessories||0,e.accessories||0,points.acc,30)}{kpi("VAS",s.vas||0,t.vas||0,e.vas||0,points.vas,10)}</div>
-  <SectionHead title="Compare Performance" meta={"Cutoff day "+(data?.compare?.cutoffDay||"-")}/>
+  {!isWeek?<><SectionHead title="Compare Performance" meta={"Cutoff day "+(data?.compare?.cutoffDay||"-")}/>
   <div className="m238m-grid">
    <Card className="m238m-metric m238m-compare-value-card">
     <span>MTM</span>
@@ -123,7 +123,7 @@ function MadingMobile({period,periodMode,selectedWeek,activeRange}:{period:strin
    </Card>
    <Metric label="Qty" value={num.format(s.qty||0)}/>
    <Metric label="UPT" value={Number(s.upt||0).toFixed(1)}/>
-  </div>
+  </div></>:<><SectionHead title="Performance Week" meta={selectedWeek||"Week aktif"}/><div className="m238m-grid"><Metric label="Qty" value={num.format(s.qty||0)}/><Metric label="UPT" value={Number(s.upt||0).toFixed(1)}/></div></>}
   <SectionHead title="Pencapaian Staff" meta="Value"/>
   <div className="m238m-list">{(s.staff||[]).map((r:any,i:number)=><Card key={r.name} className="m238m-rank-row"><b>#{i+1}</b><div><strong>{r.name}</strong><span>{money.format(r.value)}</span></div></Card>)}</div>
   <SectionHead title="LOB" meta="Qty & Value"/>
