@@ -1,7 +1,7 @@
 "use client";
 
 import {useEffect,useMemo,useRef,useState} from "react";
-import {ChevronRight,Pencil,Search,Shuffle,Trash2,Upload} from "lucide-react";
+import {ChevronRight,Pencil,Search,Shuffle,Trash2,Upload,X} from "lucide-react";
 
 const money=new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0});
 const num=new Intl.NumberFormat("id-ID");
@@ -15,6 +15,15 @@ function SectionHead({title,meta}:{title:string;meta?:string}){return <div class
 function ErrorBox({text}:{text:string}){return <Card className="m238m-error">{text}</Card>}
 
 const operationCss=`
+.m238m-soh-search-card{display:flex;flex-direction:column;gap:10px}
+.m238m-soh-search-card>small{font-size:10px;color:var(--m-secondary)}
+.m238m-modern-search{width:52px;height:52px;border-radius:18px;background:var(--m-surface2);display:flex;align-items:center;overflow:hidden;transition:width .42s cubic-bezier(.22,1,.36,1),border-radius .28s ease,box-shadow .28s ease}
+.m238m-modern-search.open{width:100%;border-radius:18px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--m-blue) 18%,transparent)}
+.m238m-modern-search button{width:52px;height:52px;flex:none;border:0;background:transparent;color:var(--m-text);display:grid;place-items:center}
+.m238m-modern-search input{min-width:0;width:0;opacity:0;border:0;outline:0;background:transparent;color:var(--m-text);font:inherit;font-size:14px;transition:width .34s cubic-bezier(.22,1,.36,1),opacity .18s ease;padding:0}
+.m238m-modern-search.open input{width:100%;opacity:1;padding:0 4px}
+.m238m-modern-search input::placeholder{color:var(--m-secondary)}
+.m238m-search-close{color:var(--m-secondary)!important}
 .m238m-soh-tabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
 .m238m-soh-tabs::-webkit-scrollbar{display:none}
 .m238m-soh-tabs button{flex:none;border:0;background:var(--m-surface2);color:var(--m-secondary);border-radius:10px;padding:9px 11px;font-size:10px;font-weight:850;white-space:nowrap}
@@ -32,12 +41,21 @@ export default function MobileOperations({kind,period}:{kind:string;period:strin
 }
 
 function SohMobile(){
- const[q,setQ]=useState(""),[data,setData]=useState<any>(null),[loading,setLoading]=useState(true),[error,setError]=useState(""),[active,setActive]=useState("IPHONE");
+ const[q,setQ]=useState(""),[searchOpen,setSearchOpen]=useState(false),[data,setData]=useState<any>(null),[loading,setLoading]=useState(true),[error,setError]=useState(""),[active,setActive]=useState("IPHONE");
+ const searchRef=useRef<HTMLInputElement>(null);
+ useEffect(()=>{if(searchOpen)setTimeout(()=>searchRef.current?.focus(),120)},[searchOpen]);
  useEffect(()=>{let alive=true;const t=setTimeout(async()=>{setLoading(true);try{const r=await fetch("/api/soh?q="+encodeURIComponent(q)),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal membaca SOH");if(alive){setData(j);setError("")}}catch(e){if(alive)setError(e instanceof Error?e.message:"Gagal membaca SOH")}finally{if(alive)setLoading(false)}},180);return()=>{alive=false;clearTimeout(t)}},[q]);
  const groups=[["IPHONE","iPhone"],["IPAD","iPad"],["MACBOOK","MacBook"],["APPLE WATCH","Apple Watch"],["AIRPODS, PENCIL & KEYBOARD","AirPods, Pencil & Keyboard"]] as const;
  const label=groups.find(([k])=>k===active)?.[1]||active,rows=(data?.rows||[]).filter((x:any)=>x.category===active),total=rows.reduce((a:number,x:any)=>a+Number(x.qty||0),0),sold=rows.reduce((a:number,x:any)=>a+Number(x.soldQty||0),0);
  return <div className="m238m-stack">
-  <Card className="m238m-form-card"><label className="m238m-input-icon"><Search size={17}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Cari article atau description…"/></label>{data?.updated?<small>SOH updated {data.updated}{data.soldDate?" • Sales terakhir "+data.soldDate:""}</small>:null}</Card>
+  <Card className="m238m-soh-search-card">
+   <div className={"m238m-modern-search "+(searchOpen?"open":"")}>
+    <button className="m238m-search-trigger" onClick={()=>setSearchOpen(true)} aria-label="Buka pencarian"><Search size={19}/></button>
+    <input ref={searchRef} value={q} onChange={e=>setQ(e.target.value)} placeholder="Cari article atau description…" onFocus={()=>setSearchOpen(true)}/>
+    {searchOpen?<button className="m238m-search-close" onClick={()=>{setQ("");setSearchOpen(false);searchRef.current?.blur()}} aria-label="Tutup pencarian"><X size={17}/></button>:null}
+   </div>
+   {data?.updated?<small>SOH updated {data.updated}{data.soldDate?" • Sales terakhir "+data.soldDate:""}</small>:null}
+  </Card>
   <div className="m238m-soh-tabs">{groups.map(([key,name])=><button key={key} className={active===key?"active":""} onClick={()=>setActive(key)}>{name}</button>)}</div>
   {error?<ErrorBox text={error}/>:null}
   {loading&&!data?<Card>Memuat SOH…</Card>:<>
