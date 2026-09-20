@@ -24,7 +24,37 @@ const operationCss=`
 .m238m-modern-search.open input{width:100%;opacity:1;padding:0 4px}
 .m238m-modern-search input::placeholder{color:var(--m-secondary)}
 .m238m-search-close{color:var(--m-secondary)!important}
-.m238m-compare-value-card>div{display:flex;flex-direction:column;gap:2px;margin-top:8px}.m238m-compare-value-card>div span{font-size:9px;color:var(--m-secondary)}.m238m-compare-value-card>div b{font-size:11px;line-height:1.3;overflow-wrap:anywhere}.m238m-compare-value-card>small{display:block;margin-top:3px}.m238m-soh-tabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
+.m238m-compare-value-card>div{display:flex;flex-direction:column;gap:2px;margin-top:8px}.m238m-compare-value-card>div span{font-size:9px;color:var(--m-secondary)}.m238m-compare-value-card>div b{font-size:11px;line-height:1.3;overflow-wrap:anywhere}.m238m-compare-value-card>small{display:block;margin-top:3px}.m238m-bnpl-days{display:flex;flex-direction:column;gap:12px}
+.m238m-bnpl-day-card{padding:0!important;overflow:hidden}
+.m238m-bnpl-day-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 14px 12px;border-bottom:1px solid var(--m-line)}
+.m238m-bnpl-day-head>div{display:flex;flex-direction:column;gap:3px}
+.m238m-bnpl-day-head strong{font-size:14px}
+.m238m-bnpl-day-head span{font-size:10px;color:var(--m-secondary)}
+.m238m-bnpl-day-head>b{font-size:13px;text-align:right;overflow-wrap:anywhere}
+.m238m-bnpl-provider-list{display:flex;flex-direction:column}
+.m238m-bnpl-provider-list>button{border:0;border-bottom:1px solid var(--m-line);background:transparent;color:var(--m-text);display:grid;grid-template-columns:1fr auto 18px;gap:10px;align-items:center;padding:12px 14px;text-align:left}
+.m238m-bnpl-provider-list>button:last-child{border-bottom:0}
+.m238m-bnpl-provider-list>button>div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.m238m-bnpl-provider-list>button>div:nth-child(2){align-items:flex-end;text-align:right}
+.m238m-bnpl-provider-list strong{font-size:13px}
+.m238m-bnpl-provider-list b{font-size:12px}
+.m238m-bnpl-provider-list span{font-size:9px;color:var(--m-secondary)}
+.m238m-record-backdrop{position:fixed;inset:0;z-index:10020;background:rgba(15,23,42,.32);backdrop-filter:blur(8px);display:flex;align-items:flex-end}
+.m238m-record-sheet{width:100%;max-height:82dvh;overflow:auto;background:var(--m-bg);border-radius:26px 26px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -16px 50px rgba(0,0,0,.18)}
+.m238m-record-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.m238m-record-sheet-head>div{display:flex;flex-direction:column;gap:3px}
+.m238m-record-sheet-head span{font-size:10px;color:var(--m-secondary);font-weight:800}
+.m238m-record-sheet-head strong{font-size:19px}
+.m238m-record-sheet-head button{width:38px;height:38px;border:0;border-radius:50%;background:var(--m-surface);color:var(--m-text);display:grid;place-items:center}
+.m238m-record-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.m238m-record-detail-grid>div{background:var(--m-surface);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:5px}
+.m238m-record-detail-grid span{font-size:9px;color:var(--m-secondary)}
+.m238m-record-detail-grid b{font-size:12px;line-height:1.35;overflow-wrap:anywhere}
+.m238m-record-safe-note{margin-top:10px;background:color-mix(in srgb,#f59e0b 10%,var(--m-surface));border-radius:12px;padding:10px;font-size:9px;line-height:1.45;color:var(--m-secondary)}
+.m238m-record-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.m238m-record-actions button{border:0;border-radius:12px;padding:12px;font-weight:850;background:var(--m-surface);color:var(--m-text);display:flex;align-items:center;justify-content:center;gap:7px}
+.m238m-record-actions button.danger{color:#ef4444;background:color-mix(in srgb,#ef4444 8%,var(--m-surface))}
+.m238m-soh-tabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
 .m238m-soh-tabs::-webkit-scrollbar{display:none}
 .m238m-soh-tabs button{flex:none;border:0;background:var(--m-surface2);color:var(--m-secondary);border-radius:10px;padding:9px 11px;font-size:10px;font-weight:850;white-space:nowrap}
 .m238m-soh-tabs button.active{background:var(--m-surface);color:var(--m-blue);box-shadow:0 1px 4px rgba(0,0,0,.08)}
@@ -105,25 +135,45 @@ function MadingMobile({period}:{period:string}){
 }
 
 function BnplMobile({period}:{period:string}){
- const[data,setData]=useState<any>(null),[loading,setLoading]=useState(true),[error,setError]=useState(""),[editing,setEditing]=useState<any>(null);
+ const[data,setData]=useState<any>(null),[loading,setLoading]=useState(true),[error,setError]=useState(""),[editing,setEditing]=useState<any>(null),[selected,setSelected]=useState<any>(null);
  const[date,setDate]=useState(today()),[category,setCategory]=useState<"BNPL"|"Trade-In">("BNPL"),[provider,setProvider]=useState("HCI"),[qty,setQty]=useState(1),[amount,setAmount]=useState(0),[notes,setNotes]=useState(""),[busy,setBusy]=useState(false);
  const load=async()=>{setLoading(true);try{const r=await fetch("/api/bnpl?period="+period),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal membaca BNPL");setData(j);setError("")}catch(e){setError(e instanceof Error?e.message:"Gagal membaca BNPL")}finally{setLoading(false)}};
  useEffect(()=>{void load()},[period]);
  const providers=(data?.providers?.[category]||(category==="BNPL"?["HCI","Indodana","Kredivo","Akulaku","SPayLater"]:["Laku6 Master Device","OnePulse"])) as string[];
  useEffect(()=>{if(!providers.includes(provider))setProvider(providers[0]||"")},[category,data]);
- const reset=()=>{setEditing(null);setDate(today());setCategory("BNPL");setProvider("HCI");setQty(1);setAmount(0);setNotes("")};
+ const reset=()=>{setEditing(null);setSelected(null);setDate(today());setCategory("BNPL");setProvider("HCI");setQty(1);setAmount(0);setNotes("")};
  const save=async()=>{setBusy(true);try{const body={id:editing?.id,date,category,provider,qty,amount,notes},r=await fetch("/api/bnpl",{method:editing?"PUT":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)}),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal menyimpan");reset();await load()}catch(e){setError(e instanceof Error?e.message:"Gagal menyimpan")}finally{setBusy(false)}};
- const edit=(r:any)=>{setEditing(r);setDate(r.date);setCategory(r.category);setProvider(r.provider);setQty(r.qty);setAmount(r.amount);setNotes(r.notes||"")};
- const remove=async(id:string)=>{if(!confirm("Hapus data BNPL / Trade-In ini?"))return;setBusy(true);try{const r=await fetch("/api/bnpl",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id})}),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal menghapus");await load()}catch(e){setError(e instanceof Error?e.message:"Gagal menghapus")}finally{setBusy(false)}};
+ const edit=(r:any)=>{setSelected(null);setEditing(r);setDate(r.date);setCategory(r.category);setProvider(r.provider);setQty(r.qty);setAmount(r.amount);setNotes(r.notes||"")};
+ const remove=async(id:string)=>{if(!confirm("Hapus data BNPL / Trade-In ini?"))return;setBusy(true);try{const r=await fetch("/api/bnpl",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id})}),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal menghapus");setSelected(null);await load()}catch(e){setError(e instanceof Error?e.message:"Gagal menghapus")}finally{setBusy(false)}};
+ const groups=useMemo(()=>{
+  const map=new Map<string,any[]>();
+  for(const r of data?.rows||[]){const arr=map.get(r.date)||[];arr.push(r);map.set(r.date,arr)}
+  return [...map.entries()].sort((a,b)=>b[0].localeCompare(a[0]));
+ },[data?.rows]);
+ const dayLabel=(v:string)=>new Intl.DateTimeFormat("id-ID",{weekday:"long",day:"numeric",month:"short",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(v+"T00:00:00Z"));
  return <div className="m238m-stack">
   <div className="m238m-grid"><Metric label="BNPL" value={money.format(data?.bnpl?.amount||0)} sub={num.format(data?.bnpl?.qty||0)+" trx"}/><Metric label="Trade-In" value={money.format(data?.tradeIn?.amount||0)} sub={num.format(data?.tradeIn?.qty||0)+" trx"}/></div>
+
   <Card className="m238m-form-card"><strong>{editing?"Edit BNPL / Trade-In":"Input BNPL / Trade-In"}</strong><input type="date" value={date} onChange={e=>setDate(e.target.value)}/><div className="m238m-form-grid"><select value={category} onChange={e=>setCategory(e.target.value as "BNPL"|"Trade-In")}><option value="BNPL">BNPL</option><option value="Trade-In">Trade-In</option></select><select value={provider} onChange={e=>setProvider(e.target.value)}>{providers.map(x=><option key={x}>{x}</option>)}</select></div><div className="m238m-form-grid"><input inputMode="numeric" type="number" min={0} value={qty} onChange={e=>setQty(Number(e.target.value))} placeholder="Qty"/><input inputMode="numeric" type="number" min={0} value={amount} onChange={e=>setAmount(Number(e.target.value))} placeholder="Amount"/></div><input value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Notes (opsional)"/><div className="m238m-form-actions"><button className="m238m-primary" disabled={busy||!provider} onClick={()=>void save()}>{busy?"Menyimpan…":editing?"Simpan Perubahan":"Simpan"}</button>{editing?<button className="m238m-cancel" onClick={reset}>Batal</button>:null}</div></Card>
+
   {error?<ErrorBox text={error}/>:null}
   <SectionHead title="Daily Tracking" meta={period}/>
-  {loading&&!data?<Card>Memuat data…</Card>:<div className="m238m-list">{(data?.rows||[]).slice().reverse().map((r:any)=><Card key={r.id} className="m238m-op-row"><div className="m238m-copy-head"><div><strong>{r.provider}</strong><span>{r.date} • {r.category}</span></div><b>{money.format(r.amount)}</b></div><p>{num.format(r.qty)} qty{r.notes?" • "+r.notes:""}</p><div className="m238m-row-actions"><button onClick={()=>edit(r)}><Pencil size={15}/> Edit</button><button className="danger" onClick={()=>void remove(r.id)}><Trash2 size={15}/> Hapus</button></div></Card>)}</div>}
+  {loading&&!data?<Card>Memuat data…</Card>:groups.length?<div className="m238m-bnpl-days">{groups.map(([d,rows])=>{
+    const totalQty=rows.reduce((a:number,r:any)=>a+Number(r.qty||0),0),totalAmount=rows.reduce((a:number,r:any)=>a+Number(r.amount||0),0);
+    return <Card key={d} className="m238m-bnpl-day-card">
+      <div className="m238m-bnpl-day-head"><div><strong>{dayLabel(d)}</strong><span>{num.format(totalQty)} qty total</span></div><b>{money.format(totalAmount)}</b></div>
+      <div className="m238m-bnpl-provider-list">{rows.map((r:any)=><button key={r.id} onClick={()=>setSelected(r)}><div><strong>{r.provider}</strong><span>{r.category}{r.notes?" • "+r.notes:""}</span></div><div><b>{num.format(r.qty)} qty</b><span>{money.format(r.amount)}</span></div><ChevronRight size={16}/></button>)}</div>
+    </Card>
+  })}</div>:<Card className="m238m-empty">Belum ada data BNPL / Trade-In pada bulan ini.</Card>}
+
+  {selected?<div className="m238m-record-backdrop" onClick={()=>setSelected(null)}><div className="m238m-record-sheet" onClick={e=>e.stopPropagation()}>
+    <div className="m238m-record-sheet-head"><div><span>{selected.category}</span><strong>{selected.provider}</strong></div><button onClick={()=>setSelected(null)}><X size={18}/></button></div>
+    <div className="m238m-record-detail-grid"><div><span>Tanggal</span><b>{dayLabel(selected.date)}</b></div><div><span>Qty</span><b>{num.format(selected.qty)}</b></div><div><span>Amount</span><b>{money.format(selected.amount)}</b></div><div><span>Notes</span><b>{selected.notes||"—"}</b></div></div>
+    <div className="m238m-record-safe-note">Edit dan Hapus hanya tersedia di detail ini agar tidak mudah tertekan dari list utama.</div>
+    <div className="m238m-record-actions"><button onClick={()=>edit(selected)}><Pencil size={16}/> Edit</button><button className="danger" disabled={busy} onClick={()=>void remove(selected.id)}><Trash2 size={16}/> Hapus</button></div>
+  </div></div>:null}
  </div>
 }
-
 const PRODUCT_KEYS=["HASTAG","DINO","IGA","IBACKS","HANDAL","OMEGA","TORRAS"];
 const VAS_KEYS=["Qoala","Telkomsel","XL","Indosat"];
 function TargetFocusMobile({period}:{period:string}){
