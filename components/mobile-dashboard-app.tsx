@@ -9,14 +9,41 @@ import {
 import {exportReportPdf,exportReportPng,exportReportXlsx} from "@/lib/dashboard-export";
 
 type Tab="home"|"sales"|"team"|"report"|"more";
-type SalesMode="daily"|"summary";
+type SalesMode="daily"|"summary"|"lob";
 type ReportMode="weekly"|"feedback"|"cx";
-type SheetName="period"|"share"|"staff"|"more"|null;
-type Staff={id:string;name:string;position?:string;status?:string;amount:number;device:number;accessories:number;vas:number;qty:number;invoices:number;upt:number;atv:number;target?:number;achievement?:number|null;targets?:{amount:number;device:number;accessories:number;vas:number};incentive?:{total:number};vasDetail?:{qoala?:{qty:number;value:number}}};
-type Overview={period:string;label:string;target:{amount:number;device:number;accessories:number;vas:number};summary:{amount:number;device:number;accessories:number;vas:number;invoices:number;qty:number;upt:number;atv:number;achievement:number;gap:number;status:string;estimate:{amount:number};point:{total:number}};staff:Staff[];daily:{date:string;amount:number}[];lfl?:{growth:number|null};team:{total:number;productive:number;needPush:number}};
+type SheetName="period"|"share"|"staff"|"day"|"more"|null;
+type ProviderMetric={qty:number;value:number};
+type Staff={
+ id:string;name:string;position?:string;status?:string;amount:number;device:number;accessories:number;vas:number;qty:number;invoices:number;upt:number;atv:number;
+ target?:number;achievement?:number|null;gap?:number;
+ targets?:{amount:number;device:number;accessories:number;vas:number};
+ lob?:{iphone:number;mac:number;ipad:number;watch:number;airpods:number};
+ incentive?:{mac:number;iphone:number;ipad:number;watch:number;qoala:number;accessories:number;total:number};
+ vasDetail?:{qoala?:ProviderMetric;telkomsel?:ProviderMetric;xl?:ProviderMetric;indosat?:ProviderMetric};
+};
+type Overview={
+ period:string;label:string;
+ target:{amount:number;device:number;accessories:number;vas:number};
+ summary:{amount:number;device:number;accessories:number;vas:number;invoices:number;qty:number;upt:number;atv:number;achievement:number;gap:number;pace:number;status:string;estimate:{amount:number;device:number;accessories:number;vas:number};point:{total:number;device:number;accessories:number;vas:number}};
+ staff:Staff[];daily:{date:string;amount:number}[];
+ lfl?:{amount2025?:number;amount2026?:number|null;diff?:number|null;growth:number|null;qty2025?:number;qty2026?:number|null;qtyGrowth?:number|null};
+ team:{total:number;productive:number;needPush:number;totalTransactions?:number;avgUpt?:number;avgAtv?:number};
+ ytd?:{amount2025:number;amount2026:number;growth:number;qty2025:number;qty2026:number;qtyGrowth:number};
+};
 type Traffic={total:number;daily?:{date:string;traffic:number}[]};
 type Daily={date:string;staff:Staff[];total:{amount:number;target:number;accessories:number;accTarget:number;vas:number;vasTarget:number;qty:number;invoices:number;upt:number}};
-type DailySummary={summary:{totalSales:number;target:number;achievementPct:number;transaction:number;invoice:number;qty:number;upt:number;atv:number;traffic:number;cvr:number;growthPct:number|null};breakdown:{device:number;accessories:number;vas:number};dailyRows?:{date:string;day?:string;totalSales:number;traffic:number;cvr:number;upt:number;atv:number;transaction:number;invoice:number}[]};
+type DailyRow={
+ date:string;day?:string;totalSales:number;target:number;achievementPct:number;traffic:number;cvr:number;upt:number;atv:number;transaction:number;invoice:number;qty:number;
+ breakdown:{device:number;accessories:number;vas:number};
+ lob:{iphoneQty:number;macbookQty:number;ipadQty:number;appleWatchQty:number;airpodsQty:number};
+ vas:{qoalaQty:number;qoalaValue:number;telkomselQty:number;telkomselValue:number;xlQty:number;xlValue:number;indosatQty:number;indosatValue:number};
+};
+type LobFocus={lob?:Record<string,{target:number|null;achievement:number}>;types?:unknown[];configuredFocusKeys?:string[]};
+type DailySummary={
+ summary:{totalSales:number;target:number;achievementPct:number;transaction:number;invoice:number;qty:number;upt:number;atv:number;traffic:number;cvr:number;growthPct:number|null;previousTotal?:number;bestDay?:{date:string;amount:number}|null;lowestDay?:{date:string;amount:number}|null};
+ breakdown:{device:number;accessories:number;vas:number;lob:{iphone:number;macbook:number;ipad:number;appleWatch:number;airpods:number}};
+ lobFocus?:LobFocus;dailyRows?:DailyRow[];
+};
 type Weekly={labelA:string;labelB:string;availableWeeks?:string[];periodB:{start:string;end:string};a:{scheme:Record<string,{qty:number;amount:number}>;lob:Record<string,Record<string,{qty:number;amount:number}>>};b:{scheme:Record<string,{qty:number;amount:number}>;lob:Record<string,Record<string,{qty:number;amount:number}>>};targets:{lob:Record<string,number>;grandTotal:number};analysis:Record<string,{review:string;actionPlan:string;target:number;achievement:number;gap:number}>;feedbackSummary?:string};
 type Feedback={rows:{date:string;staffId:string;name:string;category:string;raw:string;professional:string}[]};
 type Cx={rows:{date:string;staffId:string;name:string;cx:number;member:number}[]};
@@ -66,7 +93,7 @@ function Sheet({open,onClose,title,children}:{open:boolean;onClose:()=>void;titl
 
 export default function MobileDashboardApp(){
   const[tab,setTab]=useState<Tab>("home"),[period,setPeriod]=useState(periodNow()),[draftPeriod,setDraftPeriod]=useState(periodNow()),[periodMode,setPeriodMode]=useState<"month"|"week">("month"),[draftPeriodMode,setDraftPeriodMode]=useState<"month"|"week">("month"),[selectedWeek,setSelectedWeek]=useState(""),[draftWeek,setDraftWeek]=useState(""),[sheet,setSheet]=useState<SheetName>(null),[moreKind,setMoreKind]=useState(""),[moreData,setMoreData]=useState<any>(null),[moreBusy,setMoreBusy]=useState(false);
-  const[overview,setOverview]=useState<Overview|null>(null),[traffic,setTraffic]=useState<Traffic|null>(null),[daily,setDaily]=useState<Daily|null>(null),[summary,setSummary]=useState<DailySummary|null>(null),[weekly,setWeekly]=useState<Weekly|null>(null),[weeklySummary,setWeeklySummary]=useState<DailySummary|null>(null),[feedback,setFeedback]=useState<Feedback|null>(null),[cx,setCx]=useState<Cx|null>(null),[staffDetail,setStaffDetail]=useState<Staff|null>(null),[staffDetailMode,setStaffDetailMode]=useState<"daily"|"monthly">("monthly");
+  const[overview,setOverview]=useState<Overview|null>(null),[traffic,setTraffic]=useState<Traffic|null>(null),[daily,setDaily]=useState<Daily|null>(null),[summary,setSummary]=useState<DailySummary|null>(null),[weekly,setWeekly]=useState<Weekly|null>(null),[weeklySummary,setWeeklySummary]=useState<DailySummary|null>(null),[feedback,setFeedback]=useState<Feedback|null>(null),[cx,setCx]=useState<Cx|null>(null),[staffDetail,setStaffDetail]=useState<Staff|null>(null),[staffDetailMode,setStaffDetailMode]=useState<"daily"|"monthly">("monthly"),[dayDetail,setDayDetail]=useState<DailyRow|null>(null);
   const[salesMode,setSalesMode]=useState<SalesMode>("daily"),[reportMode,setReportMode]=useState<ReportMode>("weekly"),[teamFilter,setTeamFilter]=useState("all"),[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[error,setError]=useState(""),[dark,setDark]=useState(false);
   const rootRef=useRef<HTMLDivElement>(null),touchStart=useRef<number|null>(null);
 
@@ -154,7 +181,7 @@ export default function MobileDashboardApp(){
       {error?<Card className="m238m-error">{error}</Card>:null}
       {loading&&!overview?<Skeleton/>:null}
       {!loading&&overview&&tab==="home"?<HomeScreen overview={overview} traffic={traffic} cvr={cvr} achievement={achievement}/>:null}
-      {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} onStaff={s=>void openStaff(s,"daily")}/>:null}
+      {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} onStaff={s=>void openStaff(s,"daily")} onDay={row=>{setDayDetail(row);setSheet("day")}}/>:null}
       {tab==="team"?<TeamScreen rows={team} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
       {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]}/>:null}
       {tab==="more"?<MoreScreen dark={dark} toggleDark={toggleDark} onAction={handleMore}/>:null}
@@ -185,6 +212,9 @@ export default function MobileDashboardApp(){
 
     <Sheet open={sheet==="staff"} onClose={()=>setSheet(null)} title={staffDetail?`${staffDetail.name} • ${staffDetailMode==="daily"?"Hari Ini":"Bulanan"}`:"Staff Detail"}>
       {staffDetail?<StaffDetail staff={staffDetail} mode={staffDetailMode}/>:<Skeleton/>}
+    </Sheet>
+    <Sheet open={sheet==="day"} onClose={()=>setSheet(null)} title={dayDetail?`Daily Detail • ${dayDetail.date}`:"Daily Detail"}>
+      {dayDetail?<DailyDetail row={dayDetail}/>:<Skeleton/>}
     </Sheet>
     <Sheet open={sheet==="more"} onClose={()=>setSheet(null)} title={moreKind==="incentive"?"Estimasi Incentive":moreKind==="bnpl"?"BNPL & Trade-In":moreKind==="target"?"Target & Program":moreKind==="checklist"?"Checklist Store":moreKind==="mobile-view"?"Versi Tampilan HP":"Detail"}>
       {moreBusy?<Skeleton/>:<MoreDetail kind={moreKind} data={moreData}/>} 
