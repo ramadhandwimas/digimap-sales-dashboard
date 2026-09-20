@@ -135,26 +135,38 @@ function MadingMobile({period}:{period:string}){
 }
 
 function BnplMobile({period}:{period:string}){
- const[data,setData]=useState<any>(null),[loading,setLoading]=useState(true),[error,setError]=useState(""),[editing,setEditing]=useState<any>(null),[selected,setSelected]=useState<any>(null);
+ const[data,setData]=useState<any>(null),[loading,setLoading]=useState(true),[error,setError]=useState(""),[editing,setEditing]=useState<any>(null),[selected,setSelected]=useState<any>(null),[categoryDetail,setCategoryDetail]=useState<"BNPL"|"Trade-In"|null>(null),[providerDetail,setProviderDetail]=useState<string|null>(null);
  const[date,setDate]=useState(today()),[category,setCategory]=useState<"BNPL"|"Trade-In">("BNPL"),[provider,setProvider]=useState("HCI"),[qty,setQty]=useState(1),[amount,setAmount]=useState(0),[notes,setNotes]=useState(""),[busy,setBusy]=useState(false);
  const load=async()=>{setLoading(true);try{const r=await fetch("/api/bnpl?period="+period),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal membaca BNPL");setData(j);setError("")}catch(e){setError(e instanceof Error?e.message:"Gagal membaca BNPL")}finally{setLoading(false)}};
  useEffect(()=>{void load()},[period]);
- const providers=(data?.providers?.[category]||(category==="BNPL"?["HCI","Indodana","Kredivo","Akulaku","SPayLater"]:["Laku6 Master Device","OnePulse"])) as string[];
+ const providers=(data?.providers?.[category]||(category==="BNPL"?["HCI","Indodana","Kredivo","Akulaku","SPayLater","KreditPlus"]:["Laku6 Master Device","OnePulse"])) as string[];
  useEffect(()=>{if(!providers.includes(provider))setProvider(providers[0]||"")},[category,data]);
  const reset=()=>{setEditing(null);setSelected(null);setDate(today());setCategory("BNPL");setProvider("HCI");setQty(1);setAmount(0);setNotes("")};
  const save=async()=>{setBusy(true);try{const body={id:editing?.id,date,category,provider,qty,amount,notes},r=await fetch("/api/bnpl",{method:editing?"PUT":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)}),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal menyimpan");reset();await load()}catch(e){setError(e instanceof Error?e.message:"Gagal menyimpan")}finally{setBusy(false)}};
  const edit=(r:any)=>{setSelected(null);setEditing(r);setDate(r.date);setCategory(r.category);setProvider(r.provider);setQty(r.qty);setAmount(r.amount);setNotes(r.notes||"")};
  const remove=async(id:string)=>{if(!confirm("Hapus data BNPL / Trade-In ini?"))return;setBusy(true);try{const r=await fetch("/api/bnpl",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id})}),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal menghapus");setSelected(null);await load()}catch(e){setError(e instanceof Error?e.message:"Gagal menghapus")}finally{setBusy(false)}};
+ const displayProvider=(v:string)=>v==="HCI"?"Home Credit":v;
+ const monthEnd=`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`;
+ const cutoff=period===today().slice(0,7)?today():monthEnd;
+ const visibleRows=(data?.rows||[]).filter((r:any)=>r.date>=`${period}-01`&&r.date<=cutoff);
+ const summaryFor=(cat:"BNPL"|"Trade-In")=>{
+   const names=(data?.providers?.[cat]||(cat==="BNPL"?["HCI","Indodana","Kredivo","Akulaku","SPayLater","KreditPlus"]:["Laku6 Master Device","OnePulse"])) as string[];
+   return names.map(name=>{const rows=visibleRows.filter((r:any)=>r.category===cat&&r.provider===name);return{provider:name,qty:rows.reduce((a:number,r:any)=>a+Number(r.qty||0),0),amount:rows.reduce((a:number,r:any)=>a+Number(r.amount||0),0)}})
+ };
+ const providerRows=providerDetail?visibleRows.filter((r:any)=>r.provider===providerDetail).sort((a:any,b:any)=>a.date.localeCompare(b.date)||String(a.id).localeCompare(String(b.id))):[];
  const groups=useMemo(()=>{
   const map=new Map<string,any[]>();
-  for(const r of data?.rows||[]){const arr=map.get(r.date)||[];arr.push(r);map.set(r.date,arr)}
+  for(const r of visibleRows){const arr=map.get(r.date)||[];arr.push(r);map.set(r.date,arr)}
   return [...map.entries()].sort((a,b)=>b[0].localeCompare(a[0]));
- },[data?.rows]);
+ },[data?.rows,period,cutoff]);
  const dayLabel=(v:string)=>new Intl.DateTimeFormat("id-ID",{weekday:"long",day:"numeric",month:"short",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(v+"T00:00:00Z"));
  return <div className="m238m-stack">
-  <div className="m238m-grid"><Metric label="BNPL" value={money.format(data?.bnpl?.amount||0)} sub={num.format(data?.bnpl?.qty||0)+" trx"}/><Metric label="Trade-In" value={money.format(data?.tradeIn?.amount||0)} sub={num.format(data?.tradeIn?.qty||0)+" trx"}/></div>
+  <div className="m238m-grid">
+   <button className="m238m-metric-button" onClick={()=>setCategoryDetail("BNPL")}><Card className="m238m-metric m238m-drill-card"><span>BNPL</span><strong>{money.format(data?.bnpl?.amount||0)}</strong><small>{num.format(data?.bnpl?.qty||0)} trx • Tap detail</small><ChevronRight size={15}/></Card></button>
+   <button className="m238m-metric-button" onClick={()=>setCategoryDetail("Trade-In")}><Card className="m238m-metric m238m-drill-card"><span>Trade-In</span><strong>{money.format(data?.tradeIn?.amount||0)}</strong><small>{num.format(data?.tradeIn?.qty||0)} trx • Tap detail</small><ChevronRight size={15}/></Card></button>
+  </div>
 
-  <Card className="m238m-form-card"><strong>{editing?"Edit BNPL / Trade-In":"Input BNPL / Trade-In"}</strong><input type="date" value={date} onChange={e=>setDate(e.target.value)}/><div className="m238m-form-grid"><select value={category} onChange={e=>setCategory(e.target.value as "BNPL"|"Trade-In")}><option value="BNPL">BNPL</option><option value="Trade-In">Trade-In</option></select><select value={provider} onChange={e=>setProvider(e.target.value)}>{providers.map(x=><option key={x}>{x}</option>)}</select></div><div className="m238m-form-grid"><input inputMode="numeric" type="number" min={0} value={qty} onChange={e=>setQty(Number(e.target.value))} placeholder="Qty"/><input inputMode="numeric" type="number" min={0} value={amount} onChange={e=>setAmount(Number(e.target.value))} placeholder="Amount"/></div><input value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Notes (opsional)"/><div className="m238m-form-actions"><button className="m238m-primary" disabled={busy||!provider} onClick={()=>void save()}>{busy?"Menyimpan…":editing?"Simpan Perubahan":"Simpan"}</button>{editing?<button className="m238m-cancel" onClick={reset}>Batal</button>:null}</div></Card>
+  <Card className="m238m-form-card"><strong>{editing?"Edit BNPL / Trade-In":"Input BNPL / Trade-In"}</strong><input type="date" value={date} onChange={e=>setDate(e.target.value)}/><div className="m238m-form-grid"><select value={category} onChange={e=>setCategory(e.target.value as "BNPL"|"Trade-In")}><option value="BNPL">BNPL</option><option value="Trade-In">Trade-In</option></select><select value={provider} onChange={e=>setProvider(e.target.value)}>{providers.map(x=><option key={x} value={x}>{displayProvider(x)}</option>)}</select></div><div className="m238m-form-grid"><input inputMode="numeric" type="number" min={0} value={qty} onChange={e=>setQty(Number(e.target.value))} placeholder="Qty"/><input inputMode="numeric" type="number" min={0} value={amount} onChange={e=>setAmount(Number(e.target.value))} placeholder="Amount"/></div><input value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Notes (opsional)"/><div className="m238m-form-actions"><button className="m238m-primary" disabled={busy||!provider} onClick={()=>void save()}>{busy?"Menyimpan…":editing?"Simpan Perubahan":"Simpan"}</button>{editing?<button className="m238m-cancel" onClick={reset}>Batal</button>:null}</div></Card>
 
   {error?<ErrorBox text={error}/>:null}
   <SectionHead title="Daily Tracking" meta={period}/>
@@ -162,12 +174,25 @@ function BnplMobile({period}:{period:string}){
     const totalQty=rows.reduce((a:number,r:any)=>a+Number(r.qty||0),0),totalAmount=rows.reduce((a:number,r:any)=>a+Number(r.amount||0),0);
     return <Card key={d} className="m238m-bnpl-day-card">
       <div className="m238m-bnpl-day-head"><div><strong>{dayLabel(d)}</strong><span>{num.format(totalQty)} qty total</span></div><b>{money.format(totalAmount)}</b></div>
-      <div className="m238m-bnpl-provider-list">{rows.map((r:any)=><button key={r.id} onClick={()=>setSelected(r)}><div><strong>{r.provider}</strong><span>{r.category}{r.notes?" • "+r.notes:""}</span></div><div><b>{num.format(r.qty)} qty</b><span>{money.format(r.amount)}</span></div><ChevronRight size={16}/></button>)}</div>
+      <div className="m238m-bnpl-provider-list">{rows.map((r:any)=><button key={r.id} onClick={()=>setSelected(r)}><div><strong>{displayProvider(r.provider)}</strong><span>{r.category}{r.notes?" • "+r.notes:""}</span></div><div><b>{num.format(r.qty)} qty</b><span>{money.format(r.amount)}</span></div><ChevronRight size={16}/></button>)}</div>
     </Card>
-  })}</div>:<Card className="m238m-empty">Belum ada data BNPL / Trade-In pada bulan ini.</Card>}
+  })}</div>:<Card className="m238m-empty">Belum ada data BNPL / Trade-In pada periode ini.</Card>}
+
+  {categoryDetail?<div className="m238m-record-backdrop" onClick={()=>setCategoryDetail(null)}><div className="m238m-record-sheet" onClick={e=>e.stopPropagation()}>
+    <div className="m238m-record-sheet-head"><div><span>Periode {period}</span><strong>{categoryDetail==="BNPL"?"BNPL":"Trade-In"}</strong></div><button onClick={()=>setCategoryDetail(null)}><X size={18}/></button></div>
+    <Card className="m238m-copy-card"><strong>1 – {cutoff.slice(8,10)} {new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(cutoff+"T00:00:00Z"))}</strong><p>Pilih provider untuk melihat transaksi dari tanggal 1 sampai cutoff periode aktif.</p></Card>
+    <div className="m238m-list">{summaryFor(categoryDetail).map(r=><button key={r.provider} className="m238m-click-card" onClick={()=>{setProviderDetail(r.provider);setCategoryDetail(null)}}><Card className="m238m-product-detail-row"><div><strong>{displayProvider(r.provider)}</strong><span>{num.format(r.qty)} qty</span></div><div><b>{money.format(r.amount)}</b><ChevronRight size={15}/></div></Card></button>)}</div>
+  </div></div>:null}
+
+  {providerDetail?<div className="m238m-record-backdrop" onClick={()=>setProviderDetail(null)}><div className="m238m-record-sheet" onClick={e=>e.stopPropagation()}>
+    <div className="m238m-record-sheet-head"><div><span>Penjualan 1 – {cutoff.slice(8,10)}</span><strong>{displayProvider(providerDetail)}</strong></div><button onClick={()=>setProviderDetail(null)}><X size={18}/></button></div>
+    <Card className="m238m-detail-sales"><span>Total Penjualan</span><strong>{money.format(providerRows.reduce((a:number,r:any)=>a+Number(r.amount||0),0))}</strong><small>{num.format(providerRows.reduce((a:number,r:any)=>a+Number(r.qty||0),0))} qty</small></Card>
+    <div className="m238m-section-head"><h2>Riwayat Penjualan</h2><span>{providerRows.length} record</span></div>
+    <div className="m238m-list">{providerRows.length?providerRows.map((r:any)=><button key={r.id} className="m238m-click-card" onClick={()=>{setProviderDetail(null);setSelected(r)}}><Card className="m238m-product-detail-row"><div><strong>{dayLabel(r.date)}</strong><span>{num.format(r.qty)} qty{r.notes?" • "+r.notes:""}</span></div><div><b>{money.format(r.amount)}</b><ChevronRight size={15}/></div></Card></button>):<Card className="m238m-empty">Belum ada penjualan {displayProvider(providerDetail)} pada periode ini.</Card>}</div>
+  </div></div>:null}
 
   {selected?<div className="m238m-record-backdrop" onClick={()=>setSelected(null)}><div className="m238m-record-sheet" onClick={e=>e.stopPropagation()}>
-    <div className="m238m-record-sheet-head"><div><span>{selected.category}</span><strong>{selected.provider}</strong></div><button onClick={()=>setSelected(null)}><X size={18}/></button></div>
+    <div className="m238m-record-sheet-head"><div><span>{selected.category}</span><strong>{displayProvider(selected.provider)}</strong></div><button onClick={()=>setSelected(null)}><X size={18}/></button></div>
     <div className="m238m-record-detail-grid"><div><span>Tanggal</span><b>{dayLabel(selected.date)}</b></div><div><span>Qty</span><b>{num.format(selected.qty)}</b></div><div><span>Amount</span><b>{money.format(selected.amount)}</b></div><div><span>Notes</span><b>{selected.notes||"—"}</b></div></div>
     <div className="m238m-record-safe-note">Edit dan Hapus hanya tersedia di detail ini agar tidak mudah tertekan dari list utama.</div>
     <div className="m238m-record-actions"><button onClick={()=>edit(selected)}><Pencil size={16}/> Edit</button><button className="danger" disabled={busy} onClick={()=>void remove(selected.id)}><Trash2 size={16}/> Hapus</button></div>
