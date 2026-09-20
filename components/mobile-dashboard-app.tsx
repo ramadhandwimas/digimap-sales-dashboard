@@ -115,26 +115,28 @@ function Sheet({open,onClose,title,children}:{open:boolean;onClose:()=>void;titl
 }
 
 export default function MobileDashboardApp(){
-  const[tab,setTab]=useState<Tab>("home"),[period,setPeriod]=useState(periodNow()),[draftPeriod,setDraftPeriod]=useState(periodNow()),[periodMode,setPeriodMode]=useState<"month"|"week">("month"),[draftPeriodMode,setDraftPeriodMode]=useState<"month"|"week">("month"),[selectedWeek,setSelectedWeek]=useState(""),[draftWeek,setDraftWeek]=useState(""),[sheet,setSheet]=useState<SheetName>(null),[moreKind,setMoreKind]=useState(""),[moreData,setMoreData]=useState<any>(null),[moreBusy,setMoreBusy]=useState(false);
+  const[tab,setTab]=useState<Tab>("home"),[period,setPeriod]=useState(periodNow()),[draftPeriod,setDraftPeriod]=useState(periodNow()),[periodMode,setPeriodMode]=useState<"month"|"week">("month"),[draftPeriodMode,setDraftPeriodMode]=useState<"month"|"week">("month"),[selectedWeek,setSelectedWeek]=useState(""),[draftWeek,setDraftWeek]=useState(""),[activeRange,setActiveRange]=useState<{from:string;to:string}|null>(null),[sheet,setSheet]=useState<SheetName>(null),[moreKind,setMoreKind]=useState(""),[moreData,setMoreData]=useState<any>(null),[moreBusy,setMoreBusy]=useState(false);
   const[overview,setOverview]=useState<Overview|null>(null),[traffic,setTraffic]=useState<Traffic|null>(null),[daily,setDaily]=useState<Daily|null>(null),[summary,setSummary]=useState<DailySummary|null>(null),[weekly,setWeekly]=useState<Weekly|null>(null),[weeklySummary,setWeeklySummary]=useState<DailySummary|null>(null),[feedback,setFeedback]=useState<Feedback|null>(null),[cx,setCx]=useState<Cx|null>(null),[staffDetail,setStaffDetail]=useState<Staff|null>(null),[staffDetailMode,setStaffDetailMode]=useState<"daily"|"monthly">("monthly"),[dayDetail,setDayDetail]=useState<DailyRow|null>(null);
   const[homeMode,setHomeMode]=useState<HomeMode>("monthly"),[salesMode,setSalesMode]=useState<SalesMode>("daily"),[reportMode,setReportMode]=useState<ReportMode>("weekly"),[teamFilter,setTeamFilter]=useState("all"),[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[error,setError]=useState(""),[dark,setDark]=useState(false);
   const rootRef=useRef<HTMLDivElement>(null),touchStart=useRef<number|null>(null);
 
   const loadOverview=useCallback(async(force=false)=>{
     setError("");
-    const from=`${period}-01`,to=period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`;
+    const monthlyFrom=`${period}-01`,monthlyTo=period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`;
+    const from=periodMode==="week"&&activeRange?activeRange.from:monthlyFrom,to=periodMode==="week"&&activeRange?activeRange.to:monthlyTo;
+    const overviewUrl=periodMode==="week"&&activeRange?`/api/overview?period=${from.slice(0,7)}&from=${from}&to=${to}&label=${encodeURIComponent(selectedWeek)}`:`/api/overview?period=${period}`;
     const[o,t]=await Promise.all([
-      cachedJson<Overview>(`/api/overview?period=${period}`,180000,force),
+      cachedJson<Overview>(overviewUrl,180000,force),
       cachedJson<Traffic>(`/api/traffic?from=${from}&to=${to}`,180000,force)
     ]);
     setOverview(o);setTraffic(t);
-  },[period]);
+  },[period,periodMode,activeRange,selectedWeek]);
 
   useEffect(()=>{setLoading(true);loadOverview().catch(e=>setError(e instanceof Error?e.message:"Gagal memuat dashboard")).finally(()=>setLoading(false))},[loadOverview]);
   useEffect(()=>{const d=localStorage.getItem("m238-theme")==="dark";setDark(d);document.documentElement.classList.toggle("dark",d)},[]);
 
   const loadDaily=useCallback(async(force=false)=>{const d=await cachedJson<Daily>(`/api/daily-fast?date=${today()}`,90000,force);setDaily(d)},[]);
-  const loadSummary=useCallback(async(force=false)=>{const from=`${period}-01`,to=period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`;const d=await cachedJson<DailySummary>(`/api/daily-summary-fast?from=${from}&to=${to}&mode=monthly`,180000,force);setSummary(d)},[period]);
+  const loadSummary=useCallback(async(force=false)=>{const monthlyFrom=`${period}-01`,monthlyTo=period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`,from=periodMode==="week"&&activeRange?activeRange.from:monthlyFrom,to=periodMode==="week"&&activeRange?activeRange.to:monthlyTo,mode=periodMode==="week"&&activeRange?"range":"monthly";const d=await cachedJson<DailySummary>(`/api/daily-summary-fast?from=${from}&to=${to}&mode=${mode}`,180000,force);setSummary(d)},[period,periodMode,activeRange]);
   const loadWeekly=useCallback(async(force=false,weekOverride="")=>{
     let url="/api/weekly-stable";
     if(weekOverride){
@@ -145,12 +147,14 @@ export default function MobileDashboardApp(){
     if(w.periodB?.start&&w.periodB?.end){
       const s=await cachedJson<DailySummary>(`/api/daily-summary-fast?from=${w.periodB.start}&to=${w.periodB.end}&mode=range`,180000,force);setWeeklySummary(s);
     }
+    return w;
   },[]);
   const loadFeedback=useCallback(async(force=false)=>setFeedback(await cachedJson<Feedback>(`/api/feedback?period=${period}`,180000,force)),[period]);
   const loadCx=useCallback(async(force=false)=>setCx(await cachedJson<Cx>(`/api/cx-member?period=${period}`,180000,force)),[period]);
 
   useEffect(()=>{if(tab==="sales"){if(salesMode==="daily"&&!daily)void loadDaily();if((salesMode==="summary"||salesMode==="lob")&&!summary)void loadSummary()}},[tab,salesMode,daily,summary,loadDaily,loadSummary]);
   useEffect(()=>{if(tab!=="report")return;if(reportMode==="weekly"&&!weekly)void loadWeekly();if(reportMode==="feedback"&&!feedback)void loadFeedback();if(reportMode==="cx"&&!cx)void loadCx()},[tab,reportMode,weekly,feedback,cx,loadWeekly,loadFeedback,loadCx]);
+  useEffect(()=>{if(sheet==="period"&&draftPeriodMode==="week"&&!draftWeek&&weekly?.labelB)setDraftWeek(weekly.labelB)},[sheet,draftPeriodMode,draftWeek,weekly]);
 
   const refresh=useCallback(async()=>{
     setRefreshing(true);
@@ -173,7 +177,21 @@ export default function MobileDashboardApp(){
   const team=useMemo(()=>{const rows=overview?.staff||[];if(teamFilter==="top")return rows.filter(x=>x.status==="Productive");if(teamFilter==="attention")return rows.filter(x=>x.status!=="Productive");return rows},[overview,teamFilter]);
 
   const openPeriodSheet=()=>{setDraftPeriod(period);setDraftPeriodMode(periodMode);setDraftWeek(selectedWeek||weekly?.labelB||"");setSheet("period");if(!weekly)void loadWeekly()};
-  const applyPeriod=()=>{if(draftPeriodMode==="week"){setPeriodMode("week");setSheet(null);setTab("report");setReportMode("weekly");void loadWeekly(true,draftWeek);return}setPeriodMode("month");setPeriod(draftPeriod);setDaily(null);setSummary(null);setFeedback(null);setCx(null);setSheet(null)};
+  const applyPeriod=async()=>{
+    if(draftPeriodMode==="week"){
+      if(!draftWeek)return;
+      setRefreshing(true);
+      try{
+        const w=await loadWeekly(true,draftWeek);
+        if(w?.periodB?.start&&w?.periodB?.end){
+          setPeriodMode("week");setSelectedWeek(w.labelB||draftWeek);setActiveRange({from:w.periodB.start,to:w.periodB.end});setPeriod(w.periodB.start.slice(0,7));
+          setSummary(null);setFeedback(null);setCx(null);setOverview(null);setTraffic(null);setSheet(null);
+        }
+      }finally{setRefreshing(false)}
+      return;
+    }
+    setPeriodMode("month");setActiveRange(null);setSelectedWeek("");setPeriod(draftPeriod);setDaily(null);setSummary(null);setFeedback(null);setCx(null);setOverview(null);setTraffic(null);setSheet(null);
+  };
   const shareText=`M238 PIM 2 • ${overview?.label||monthLabel(period)}\nSales ${money.format(overview?.summary.amount||0)}\nAchievement ${pct(achievement)}\nUPT ${(overview?.summary.upt||0).toFixed(1)}`;
   const doShare=async(kind:string)=>{if(kind==="wa")window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`,"_blank");else if(kind==="copy")await navigator.clipboard.writeText(shareText);else if(rootRef.current&&kind==="png")await exportReportPng(rootRef.current,`M238-${period}`);else if(rootRef.current&&kind==="pdf")await exportReportPdf(rootRef.current,`M238-${period}`);else if(kind==="xlsx"&&overview)await exportReportXlsx([{name:"Overview",rows:[["Periode",overview.label],["Sales",overview.summary.amount],["Target",overview.target.amount],["Achievement",achievement],["UPT",overview.summary.upt],[],["Staff","Sales","Achievement"],...overview.staff.map(s=>[s.name,s.amount,s.achievement??0])]}],`M238-${period}`);setSheet(null)};
 
@@ -213,12 +231,12 @@ export default function MobileDashboardApp(){
       <div className="m238m-header-actions"><button onClick={()=>setSheet("share")} aria-label="Share"><Share2 size={19}/></button><button onClick={()=>void refresh()} aria-label="Refresh"><RefreshCw size={19} className={refreshing?"spin":""}/></button></div>
     </header>
     <main className="m238m-content">
-      <button className="m238m-period" onClick={openPeriodSheet}><CalendarDays size={15}/><span>{periodMode==="week"?(selectedWeek||weekly?.labelB||"Pilih Week"):monthLabel(period)}</span><small>{periodMode==="week"?"Weekly":(weekly?.labelB||`Week ${retailWeek()}`)}</small><ChevronRight size={15}/></button>
+      <button className="m238m-period" onClick={openPeriodSheet}><CalendarDays size={15}/><span>{periodMode==="week"?(selectedWeek||weekly?.labelB||"Pilih Week"):monthLabel(period)}</span><small>{periodMode==="week"?"Weekly":(weekly?.labelB||"Week berjalan")}</small><ChevronRight size={15}/></button>
       {refreshing?<div className="m238m-refreshing"><RefreshCw size={14} className="spin"/> Memperbarui data…</div>:null}
       {error?<Card className="m238m-error">{error}</Card>:null}
       {loading&&!overview?<Skeleton/>:null}
       {!loading&&overview&&tab==="home"?<HomeScreen mode={homeMode} setMode={setHomeMode} overview={overview} traffic={traffic} cvr={cvr} achievement={achievement} onOpenSalesDetail={()=>void openHomeSalesDetail()}/>:null}
-      {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} period={period} onStaff={s=>void openStaff(s,"daily")} onDay={row=>{setDayDetail(row);setSheet("day")}}/>:null}
+      {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange} onStaff={s=>void openStaff(s,"daily")} onDay={row=>{setDayDetail(row);setSheet("day")}}/>:null}
       {tab==="team"?<TeamScreen rows={team} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
       {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]}/>:null}
       {tab==="admin"?<AdminScreen onAction={handleMore}/>:null}
@@ -233,9 +251,8 @@ export default function MobileDashboardApp(){
     </nav>
 
     <Sheet open={sheet==="period"} onClose={()=>setSheet(null)} title="Pilih Periode">
-      <Segmented value={draftPeriodMode} onChange={setDraftPeriodMode} items={[{value:"month",label:"Month"},{value:"week",label:"Week"}]}/>
+      <div className="m238m-period-sheet-top"><Segmented value={draftPeriodMode} onChange={setDraftPeriodMode} items={[{value:"month",label:"Month"},{value:"week",label:"Week"}]}/><button className="m238m-primary" disabled={draftPeriodMode==="week"&&!draftWeek} onClick={()=>void applyPeriod()}>Terapkan</button></div>
       {draftPeriodMode==="month"?<div className="m238m-sheet-list">{months.map(p=><button key={p} onClick={()=>setDraftPeriod(p)} className={draftPeriod===p?"selected":""}><span>{monthLabel(p)}</span>{draftPeriod===p?<strong>✓</strong>:null}</button>)}</div>:<div className="m238m-sheet-list">{(weekly?.availableWeeks||[]).slice().reverse().map(w=><button key={w} onClick={()=>setDraftWeek(w)} className={draftWeek===w?"selected":""}><span>{w}</span>{draftWeek===w?<strong>✓</strong>:null}</button>)}</div>}
-      <button className="m238m-primary" disabled={draftPeriodMode==="week"&&!draftWeek} onClick={applyPeriod}>Terapkan</button>
     </Sheet>
 
     <Sheet open={sheet==="share"} onClose={()=>setSheet(null)} title="Share Report">
@@ -384,7 +401,7 @@ function HomeSalesDetail({overview,traffic,summary}:{overview:Overview;traffic:T
  </div>
 }
 
-function SalesScreen({mode,setMode,daily,summary,period,onStaff,onDay}:{mode:SalesMode;setMode:(v:SalesMode)=>void;daily:Daily|null;summary:DailySummary|null;period:string;onStaff:(s:Staff)=>void;onDay:(r:DailyRow)=>void}){
+function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,activeRange,onStaff,onDay}:{mode:SalesMode;setMode:(v:SalesMode)=>void;daily:Daily|null;summary:DailySummary|null;period:string;periodMode:"month"|"week";selectedWeek:string;activeRange:{from:string;to:string}|null;onStaff:(s:Staff)=>void;onDay:(r:DailyRow)=>void}){
  const ach=daily?.total.target?daily.total.amount/daily.total.target*100:0,device=daily?Math.max(0,daily.total.amount-daily.total.accessories-daily.total.vas):0;
  const dailyRows=[...(summary?.dailyRows||[])].sort((a,b)=>a.date.localeCompare(b.date));
  return <div className="m238m-stack m238m-enter">
@@ -401,14 +418,14 @@ function SalesScreen({mode,setMode,daily,summary,period,onStaff,onDay}:{mode:Sal
     <div className="m238m-grid"><Metric label="Device" value={money.format(summary.breakdown.device)}/><Metric label="ACC" value={money.format(summary.breakdown.accessories)}/><Metric label="VAS" value={money.format(summary.breakdown.vas)}/></div>
     <div className="m238m-section-head"><h2>Per Hari</h2><span>Urut dari tanggal 1</span></div>
     <div className="m238m-list">{dailyRows.map(r=><button key={r.date} className="m238m-day-row" onClick={()=>onDay(r)}><div className="m238m-day-main"><strong>{salesDateLabel(r.date)}</strong><b>{money.format(r.totalSales)}</b><small>Achievement {pct(r.achievementPct)} • CVR {pct(r.cvr)} • UPT {r.upt.toFixed(1)}</small></div><ChevronRight size={17}/></button>)}</div>
-  </>:<Skeleton/>):(summary?<FocusProductView summary={summary} period={period}/>:<Skeleton/>)}
+  </>:<Skeleton/>):(summary?<FocusProductView summary={summary} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>:<Skeleton/>)}
  </div>
 }
-function FocusProductView({summary,period}:{summary:DailySummary;period:string}){
+function FocusProductView({summary,period,periodMode,selectedWeek,activeRange}:{summary:DailySummary;period:string;periodMode:"month"|"week";selectedWeek:string;activeRange:{from:string;to:string}|null}){
  const[tab,setTab]=useState<FocusMode>("lob"),[focus,setFocus]=useState<any>(null),[staffPerf,setStaffPerf]=useState<Staff[]>([]);
  const[lobTargets,setLobTargets]=useState<Record<string,number>>({}),[lobActive,setLobActive]=useState<Record<string,number>>({}),[vasTargets,setVasTargets]=useState<Record<string,number>>({}),[thirdTargets,setThirdTargets]=useState<Record<string,number>>({});
  const[shares,setShares]=useState<Array<{id:string;name:string;share:number}>>([]),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[notice,setNotice]=useState("");
- const[selectedLob,setSelectedLob]=useState<string|null>(null),[selectedProduct,setSelectedProduct]=useState<string|null>(null),[selectedVas,setSelectedVas]=useState<string|null>(null),[editFocus,setEditFocus]=useState(false);
+ const[selectedLob,setSelectedLob]=useState<string|null>(null),[selectedProduct,setSelectedProduct]=useState<string|null>(null),[selectedVas,setSelectedVas]=useState<string|null>(null),[selectedThird,setSelectedThird]=useState<string|null>(null),[editFocus,setEditFocus]=useState(false),[editVas,setEditVas]=useState(false),[editThird,setEditThird]=useState(false);
  const lob=summary.breakdown.lob||{iphone:0,macbook:0,ipad:0,appleWatch:0,airpods:0};
  const vas=(summary.dailyRows||[]).reduce((a,r)=>({qoalaQty:a.qoalaQty+(r.vas?.qoalaQty||0),qoalaValue:a.qoalaValue+(r.vas?.qoalaValue||0),telkomselQty:a.telkomselQty+(r.vas?.telkomselQty||0),telkomselValue:a.telkomselValue+(r.vas?.telkomselValue||0),xlQty:a.xlQty+(r.vas?.xlQty||0),xlValue:a.xlValue+(r.vas?.xlValue||0),indosatQty:a.indosatQty+(r.vas?.indosatQty||0),indosatValue:a.indosatValue+(r.vas?.indosatValue||0)}),{qoalaQty:0,qoalaValue:0,telkomselQty:0,telkomselValue:0,xlQty:0,xlValue:0,indosatQty:0,indosatValue:0});
  const vasTotal=vas.qoalaValue+vas.telkomselValue+vas.xlValue+vas.indosatValue,vasQty=vas.qoalaQty+vas.telkomselQty+vas.xlQty+vas.indosatQty;
@@ -416,16 +433,19 @@ function FocusProductView({summary,period}:{summary:DailySummary;period:string})
  const thirdKeys=["HASTAG","DINO","IGA","IBACKS","HANDAL","OMEGA","TORRAS"];
  const vasRows=[["Qoala","qoala",vas.qoalaValue,vas.qoalaQty],["Telkomsel","telkomsel",vas.telkomselValue,vas.telkomselQty],["XL","xl",vas.xlValue,vas.xlQty],["Indosat","indosat",vas.indosatValue,vas.indosatQty]] as const;
 
+ const targetScope=periodMode==="week"?"weekly":"monthly",targetPeriod=periodMode==="week"?(selectedWeek||""):period;
+ const focusUrl=periodMode==="week"&&activeRange?`/api/lob-target-focus?mode=range&from=${activeRange.from}&to=${activeRange.to}`:`/api/lob-target-focus?mode=month&month=${period}`;
+ const staffUrl=periodMode==="week"&&activeRange?`/api/staff-performance-month?period=${activeRange.from.slice(0,7)}&from=${activeRange.from}&to=${activeRange.to}`:`/api/staff-performance-month?period=${period}`;
  const load=useCallback(async(force=false)=>{
   setLoading(true);
   try{
    const [fp,lt,la,vt,tt,sp]=await Promise.all([
-    cachedJson<any>(`/api/lob-target-focus?mode=month&month=${period}`,180000,force),
-    cachedJson<any>(`/api/manual-target?scope=monthly&period=${encodeURIComponent(period)}&group=lob-focus`,180000,force),
-    cachedJson<any>(`/api/manual-target?scope=monthly&period=${encodeURIComponent(period)}&group=lob-focus-active`,180000,force),
-    cachedJson<any>(`/api/manual-target?scope=monthly&period=${encodeURIComponent(period)}&group=vas-focus`,180000,force),
-    cachedJson<any>(`/api/manual-target?scope=monthly&period=${encodeURIComponent(period)}&group=product-focus`,180000,force),
-    cachedJson<{staff:Staff[]}>(`/api/staff-performance-month?period=${period}`,180000,force)
+    cachedJson<any>(focusUrl,180000,force),
+    cachedJson<any>(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=lob-focus`,180000,force),
+    cachedJson<any>(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=lob-focus-active`,180000,force),
+    cachedJson<any>(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=vas-focus`,180000,force),
+    cachedJson<any>(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=product-focus`,180000,force),
+    cachedJson<{staff:Staff[]}>(staffUrl,180000,force)
    ]);
    setFocus(fp);setStaffPerf(sp.staff||[]);
    setLobTargets(Object.fromEntries(Object.entries(lt.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])));
@@ -434,7 +454,7 @@ function FocusProductView({summary,period}:{summary:DailySummary;period:string})
    setThirdTargets(Object.fromEntries(Object.entries(tt.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])));
    setShares((vt.staff||lt.staff||[]).map((x:any)=>({id:String(x.id),name:String(x.name),share:Number(x.share||0)})));
   }finally{setLoading(false)}
- },[period]);
+ },[period,periodMode,selectedWeek,activeRange,focusUrl,staffUrl,targetScope,targetPeriod]);
  useEffect(()=>{void load()},[load]);
 
  const products=(focus?.lob?.products||[]) as Array<{name:string;qty:number;value:number}>;
@@ -449,8 +469,8 @@ function FocusProductView({summary,period}:{summary:DailySummary;period:string})
   setSaving(true);setNotice("");
   try{
    const [a,b]=await Promise.all([
-    fetch("/api/manual-target",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scope:"monthly",period,group:"lob-focus",targets:lobTargets})}),
-    fetch("/api/manual-target",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scope:"monthly",period,group:"lob-focus-active",targets:lobActive})})
+    fetch("/api/manual-target",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scope:targetScope,period:targetPeriod,group:"lob-focus",targets:lobTargets})}),
+    fetch("/api/manual-target",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scope:targetScope,period:targetPeriod,group:"lob-focus-active",targets:lobActive})})
    ]);
    const ja=await a.json(),jb=await b.json();if(!a.ok)throw new Error(ja.error||"Gagal menyimpan target LOB");if(!b.ok)throw new Error(jb.error||"Gagal menyimpan fokus unit");
    setNotice("Target & unit fokus tersimpan.");setEditFocus(false);await load(true);
@@ -458,7 +478,12 @@ function FocusProductView({summary,period}:{summary:DailySummary;period:string})
  };
  const saveVas=async()=>{
   setSaving(true);setNotice("");
-  try{const r=await fetch("/api/manual-target",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scope:"monthly",period,group:"vas-focus",targets:vasTargets})}),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal menyimpan target VAS");setNotice(j.message||"Target VAS tersimpan.");await load(true)}
+  try{const r=await fetch("/api/manual-target",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scope:targetScope,period:targetPeriod,group:"vas-focus",targets:vasTargets})}),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal menyimpan target VAS");setNotice(j.message||"Target VAS tersimpan.");setEditVas(false);await load(true)}
+  catch(e){setNotice(e instanceof Error?e.message:"Gagal menyimpan")}finally{setSaving(false)}
+ };
+ const saveThird=async()=>{
+  setSaving(true);setNotice("");
+  try{const r=await fetch("/api/manual-target",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scope:targetScope,period:targetPeriod,group:"product-focus",targets:thirdTargets})}),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal menyimpan target Third Party");setNotice(j.message||"Target Third Party tersimpan.");setEditThird(false);await load(true)}
   catch(e){setNotice(e instanceof Error?e.message:"Gagal menyimpan")}finally{setSaving(false)}
  };
 
@@ -490,9 +515,9 @@ function FocusProductView({summary,period}:{summary:DailySummary;period:string})
   </>:null}
 
   {tab==="vas"?<>
-    <div className="m238m-section-head"><h2>VAS</h2><span>{num.format(vasQty)} qty total</span></div>
-    <Card className="m238m-vas-total"><span>Total VAS</span><strong>{money.format(vasTotal)}</strong></Card>
-    <Card className="m238m-vas-target-editor"><strong>Target Manual VAS</strong><p>Target otomatis dibagi ke staff mengikuti %T existing.</p>{vasRows.map(([label])=><label key={label}><span>{label}</span><input type="number" inputMode="numeric" min={0} value={vasTargets[label]||0} onChange={e=>setVasTargets(v=>({...v,[label]:Number(e.target.value)}))}/></label>)}<button className="m238m-primary" disabled={saving} onClick={()=>void saveVas()}>{saving?"Menyimpan…":"Simpan Target VAS"}</button></Card>
+    <div className="m238m-section-head"><h2>VAS</h2><button className="m238m-text-action" onClick={()=>setEditVas(!editVas)}>{editVas?"Tutup":"Atur Target"}</button></div>
+    <Card className="m238m-vas-total"><span>Total VAS • {num.format(vasQty)} qty</span><strong>{money.format(vasTotal)}</strong></Card>
+    {editVas?<Card className="m238m-vas-target-editor"><strong>Target Manual VAS • {periodMode==="week"?selectedWeek:monthLabel(period)}</strong><p>Target otomatis dibagi ke staff mengikuti %T existing. Setelah disimpan editor akan tertutup.</p>{vasRows.map(([label])=><label key={label}><span>{label}</span><input type="number" inputMode="numeric" min={0} value={vasTargets[label]||0} onChange={e=>setVasTargets(v=>({...v,[label]:Number(e.target.value)}))}/></label>)}<button className="m238m-primary" disabled={saving} onClick={()=>void saveVas()}>{saving?"Menyimpan…":"Simpan Target VAS"}</button></Card>:null}
     {notice?<small className="m238m-notice">{notice}</small>:null}
     <div className="m238m-list">
      {vasRows.map(([label,key,value,qty])=>{const target=Number(vasTargets[label]||0),ar=target?Number(value)/target*100:0;return <button key={label} className="m238m-click-card" onClick={()=>setSelectedVas(label)}><Card className="m238m-vas-row"><div><strong>{label}</strong><span>{num.format(Number(qty))} qty • Target {money.format(target)}</span></div><div className="m238m-row-chevron"><div><b>{money.format(Number(value))}</b><small>{target?`AR ${pct(ar)}`:"AR —"}</small></div><ChevronRight size={16}/></div></Card></button>})}
@@ -500,9 +525,10 @@ function FocusProductView({summary,period}:{summary:DailySummary;period:string})
   </>:null}
 
   {tab==="third"?<>
-    <div className="m238m-section-head"><h2>Third Party</h2><span>Target program</span></div>
-    <Card className="m238m-copy-card"><strong>Target 3PP</strong><p>Menampilkan target existing. Actual 3PP belum tersedia dari API Sales saat ini.</p></Card>
-    {loading?<Card>Memuat target Third Party…</Card>:<div className="m238m-list">{thirdKeys.map(name=><Card key={name} className="m238m-third-row"><strong>{name}</strong><div><span>Target</span><b>{num.format(thirdTargets[name]||0)}</b></div></Card>)}</div>}
+    <div className="m238m-section-head"><h2>Third Party</h2><button className="m238m-text-action" onClick={()=>setEditThird(!editThird)}>{editThird?"Tutup":"Atur Target"}</button></div>
+    {editThird?<Card className="m238m-vas-target-editor"><strong>Target Manual Third Party • {periodMode==="week"?selectedWeek:monthLabel(period)}</strong><p>Target otomatis dibagi ke staff mengikuti %T existing. Setelah disimpan editor akan tertutup.</p>{thirdKeys.map(name=><label key={name}><span>{name}</span><input type="number" inputMode="numeric" min={0} value={thirdTargets[name]||0} onChange={e=>setThirdTargets(v=>({...v,[name]:Number(e.target.value)}))}/></label>)}<button className="m238m-primary" disabled={saving} onClick={()=>void saveThird()}>{saving?"Menyimpan…":"Simpan Target Third Party"}</button></Card>:null}
+    {notice?<small className="m238m-notice">{notice}</small>:null}
+    {loading?<Card>Memuat target Third Party…</Card>:<div className="m238m-list">{thirdKeys.map(name=><button key={name} className="m238m-click-card" onClick={()=>setSelectedThird(name)}><Card className="m238m-third-row"><strong>{name}</strong><div className="m238m-row-chevron"><div><span>Target</span><b>{num.format(thirdTargets[name]||0)}</b></div><ChevronRight size={16}/></div></Card></button>)}</div>}
   </>:null}
 
   <Sheet open={!!selectedLob} onClose={()=>setSelectedLob(null)} title={selectedLob?`${selectedLob} • Detail Penjualan`:"Detail LOB"}>
@@ -515,6 +541,9 @@ function FocusProductView({summary,period}:{summary:DailySummary;period:string})
 
   <Sheet open={!!selectedVas} onClose={()=>setSelectedVas(null)} title={selectedVas?`${selectedVas} • Detail Staff & AR`:"Detail VAS"}>
    {selectedVas&&selectedVasRow?<div className="m238m-stack"><Card className="m238m-detail-sales"><span>{selectedVas}</span><strong>{money.format(Number(selectedVasRow[2]))}</strong><small>{num.format(Number(selectedVasRow[3]))} qty • Target {money.format(vasTarget)}</small></Card><div className="m238m-section-head"><h2>Breakdown Target & Actual</h2><span>%T Staff</span></div><div className="m238m-list">{selectedVasStaff.map((r,i)=><Card key={r.id} className="m238m-vas-staff-row"><div className="m238m-vas-staff-head"><span>#{i+1}</span><strong>{shortStaffName(r.name)}</strong><b className={r.target&&r.ar>=100?"positive":""}>{r.target?pct(r.ar):"AR —"}</b></div><div className="m238m-vas-staff-meta"><span>Actual <b>{money.format(r.actual)}</b> • {num.format(r.qty)} qty</span><span>Target <b>{money.format(r.target)}</b> • %T {pct(r.share*100)}</span></div><Progress value={r.ar}/></Card>)}</div></div>:null}
+  </Sheet>
+  <Sheet open={!!selectedThird} onClose={()=>setSelectedThird(null)} title={selectedThird?`${selectedThird} • Breakdown Target`:"Third Party"}>
+   {selectedThird?<div className="m238m-stack"><Card className="m238m-copy-card"><strong>Target {selectedThird}</strong><p>{num.format(Number(thirdTargets[selectedThird]||0))} total target • {periodMode==="week"?selectedWeek:monthLabel(period)}</p></Card><div className="m238m-section-head"><h2>Breakdown Target Staff</h2><span>%T existing</span></div><div className="m238m-list">{shares.map((r,i)=>{const target=Number(thirdTargets[selectedThird]||0)*r.share;return <Card key={r.id} className="m238m-vas-staff-row"><div className="m238m-vas-staff-head"><span>#{i+1}</span><strong>{shortStaffName(r.name)}</strong><b>{num.format(target)}</b></div><div className="m238m-vas-staff-meta"><span>Target staff • %T {pct(r.share*100)}</span><span>Actual / AR belum tersedia dari source Third Party.</span></div></Card>})}</div></div>:null}
   </Sheet>
  </div>
 }
@@ -671,7 +700,7 @@ const mobileCss=`
 .m238m-detail-sales{background:linear-gradient(145deg,#0a66d6,#5241b8);color:#fff}.m238m-detail-sales>span,.m238m-detail-sales>small{display:block;opacity:.78;font-size:11px}.m238m-detail-sales>strong{display:block;font-size:25px;margin:5px 0}.m238m-detail-list{background:var(--m-surface);border-radius:16px;overflow:hidden}.m238m-detail-list>div{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:12px 14px;border-bottom:1px solid var(--m-line)}.m238m-detail-list>div:last-child{border-bottom:0}.m238m-detail-list span{font-size:12px;color:var(--m-secondary)}.m238m-detail-list b{font-size:12px;text-align:right;max-width:62%;word-break:break-word}
 .m238m-bottom{--m238m-active-index:0;position:fixed;z-index:40;left:14px;right:14px;bottom:calc(10px + env(safe-area-inset-bottom));height:64px;display:grid;grid-template-columns:repeat(6,1fr);align-items:center;padding:0 6px;background:color-mix(in srgb,var(--m-surface) 94%,transparent);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);border:1px solid color-mix(in srgb,var(--m-line) 85%,transparent);border-radius:21px;box-shadow:0 12px 30px rgba(15,23,42,.12);isolation:isolate;overflow:visible}.m238m-liquid-bubble{position:absolute;z-index:1;top:-17px;left:calc((var(--m238m-active-index) + .5) * 16.6666667%);width:48px;height:48px;border-radius:50%;background:color-mix(in srgb,var(--m-blue) 12%,var(--m-surface));border:5px solid var(--m-bg);box-shadow:0 9px 22px rgba(15,23,42,.12);transform:translateX(-50%);transition:left 420ms cubic-bezier(.22,1,.36,1),transform 220ms ease,box-shadow 220ms ease}.m238m-liquid-bubble:before,.m238m-liquid-bubble:after{content:"";position:absolute;top:12px;width:13px;height:13px;background:transparent}.m238m-liquid-bubble:before{left:-16px;border-top-right-radius:13px;box-shadow:5px -5px 0 0 var(--m-bg)}.m238m-liquid-bubble:after{right:-16px;border-top-left-radius:13px;box-shadow:-5px -5px 0 0 var(--m-bg)}.m238m-bottom button{position:relative;z-index:2;height:58px;border:0;background:transparent;color:var(--m-secondary);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:15px;font-size:10px;font-weight:800;transition:color 260ms ease,transform 360ms cubic-bezier(.22,1,.36,1)}.m238m-nav-icon{width:32px;height:28px;display:grid;place-items:center;transition:transform 420ms cubic-bezier(.22,1,.36,1),color 260ms ease}.m238m-nav-label{max-height:14px;font-size:9px;opacity:.78;transform:translateY(0);transition:opacity 220ms ease,transform 320ms cubic-bezier(.22,1,.36,1),max-height 220ms ease}.m238m-bottom button.active{color:var(--m-text);transform:none}.m238m-bottom button.active .m238m-nav-icon{transform:translateY(-19px) scale(1.04);color:var(--m-blue)}.m238m-bottom button.active .m238m-nav-label{opacity:1;transform:translateY(-2px);color:var(--m-blue)}.m238m-bottom button:not(.active) .m238m-nav-label{opacity:0;max-height:0;transform:translateY(5px)}.m238m-bottom button:active .m238m-nav-icon{transform:scale(.9)}.m238m-bottom button.active:active .m238m-nav-icon{transform:translateY(-18px) scale(.92)}.dark .m238m-bottom{background:color-mix(in srgb,var(--m-surface) 92%,transparent);border-color:color-mix(in srgb,var(--m-line) 90%,transparent);box-shadow:0 14px 34px rgba(0,0,0,.28)}.dark .m238m-liquid-bubble{background:color-mix(in srgb,var(--m-blue) 18%,var(--m-surface))}.dark .m238m-bottom button.active .m238m-nav-label{color:var(--m-blue)}
 .m238m-sheet-layer{position:fixed;z-index:100;inset:0;background:rgba(0,0,0,.28);backdrop-filter:blur(3px);display:flex;align-items:flex-end}.m238m-sheet{width:100%;max-height:86dvh;overflow:auto;background:var(--m-bg);color:var(--m-text);border-radius:24px 24px 0 0;padding:8px 16px calc(16px + env(safe-area-inset-bottom));animation:m238mSheet var(--motion-slow) cubic-bezier(.22,1,.36,1);will-change:transform}.m238m-handle-button{display:block;width:100%;height:24px;border:0;background:transparent;padding:8px 0}.m238m-handle{display:block;width:38px;height:5px;border-radius:999px;background:rgba(127,127,127,.35);margin:0 auto}.m238m-sheet-head{display:flex;justify-content:space-between;align-items:center;padding:7px 2px 12px}.m238m-sheet-head h3{font-size:19px;margin:0}.m238m-sheet-head button{border:0;background:var(--m-surface2);color:var(--m-text);width:32px;height:32px;border-radius:50%;display:grid;place-items:center}
-.m238m-form-card{display:flex;flex-direction:column;gap:10px}.m238m-form-card select,.m238m-form-card textarea,.m238m-form-card input{width:100%;border:0;background:var(--m-surface2);color:var(--m-text);border-radius:12px;padding:12px;font:inherit;outline:none}.m238m-form-card textarea{min-height:104px;resize:vertical}.m238m-form-card small{color:var(--m-secondary)}.m238m-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.m238m-sheet-list{background:var(--m-surface);border-radius:16px;overflow:hidden;margin:12px 0}.m238m-sheet-list button{display:flex;justify-content:space-between;width:100%;padding:14px;border:0;border-bottom:1px solid var(--m-line);background:transparent;color:var(--m-text);font-weight:700;text-align:left}.m238m-sheet-list button.selected{color:var(--m-blue)}.m238m-primary,.m238m-cancel{width:100%;border:0;border-radius:14px;padding:14px;font-size:15px;font-weight:850}.m238m-primary{background:var(--m-blue);color:white}.m238m-cancel{background:var(--m-surface);color:var(--m-text);margin-top:10px}.m238m-action-list{background:var(--m-surface);border-radius:16px;overflow:hidden}.m238m-action-list button{width:100%;height:54px;display:flex;align-items:center;gap:12px;border:0;border-bottom:1px solid var(--m-line);background:transparent;color:var(--m-text);font-size:14px;font-weight:750;padding:0 15px}.m238m-action-list button svg{width:19px;color:var(--m-blue)}
+.m238m-form-card{display:flex;flex-direction:column;gap:10px}.m238m-form-card select,.m238m-form-card textarea,.m238m-form-card input{width:100%;border:0;background:var(--m-surface2);color:var(--m-text);border-radius:12px;padding:12px;font:inherit;outline:none}.m238m-form-card textarea{min-height:104px;resize:vertical}.m238m-form-card small{color:var(--m-secondary)}.m238m-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.m238m-period-sheet-top{position:sticky;top:0;z-index:4;background:var(--m-surface);padding-bottom:8px}.m238m-period-sheet-top .m238m-primary{margin-top:8px}.m238m-sheet-list{background:var(--m-surface);border-radius:16px;overflow:hidden;margin:12px 0}.m238m-sheet-list button{display:flex;justify-content:space-between;width:100%;padding:14px;border:0;border-bottom:1px solid var(--m-line);background:transparent;color:var(--m-text);font-weight:700;text-align:left}.m238m-sheet-list button.selected{color:var(--m-blue)}.m238m-primary,.m238m-cancel{width:100%;border:0;border-radius:14px;padding:14px;font-size:15px;font-weight:850}.m238m-primary{background:var(--m-blue);color:white}.m238m-cancel{background:var(--m-surface);color:var(--m-text);margin-top:10px}.m238m-action-list{background:var(--m-surface);border-radius:16px;overflow:hidden}.m238m-action-list button{width:100%;height:54px;display:flex;align-items:center;gap:12px;border:0;border-bottom:1px solid var(--m-line);background:transparent;color:var(--m-text);font-size:14px;font-weight:750;padding:0 15px}.m238m-action-list button svg{width:19px;color:var(--m-blue)}
 .m238m-input-icon{display:flex;align-items:center;gap:8px;background:var(--m-surface2);border-radius:12px;padding:0 10px}.m238m-input-icon input{background:transparent!important;padding-left:0!important}.m238m-stock-row,.m238m-rank-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.m238m-stock-row>div:first-child{min-width:0;display:flex;flex-direction:column}.m238m-stock-row>div:first-child strong{font-size:13px}.m238m-stock-row>div:first-child span,.m238m-rank-row span{font-size:11px;color:var(--m-secondary)}.m238m-stock-row>div:last-child{text-align:right;display:flex;flex-direction:column}.m238m-stock-row>div:last-child b{font-size:18px}.m238m-stock-row>div:last-child small{font-size:10px;color:var(--m-secondary)}.m238m-kpi-detail>span{font-size:11px;color:var(--m-secondary);font-weight:800}.m238m-kpi-detail>strong{display:block;font-size:18px;margin:5px 0}.m238m-kpi-detail>p,.m238m-kpi-detail>small{font-size:10px;color:var(--m-secondary)}.m238m-kpi-detail .m238m-progress{margin:7px 0}.m238m-rank-row>div{display:flex;flex-direction:column;flex:1}.m238m-form-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.m238m-form-actions .m238m-cancel{margin-top:0}.m238m-primary{display:flex;align-items:center;justify-content:center;gap:7px}.m238m-cancel.danger,.m238m-row-actions .danger{color:#ff453a}.m238m-row-actions{display:flex;gap:8px;margin-top:10px}.m238m-row-actions button,.m238m-inline-link{border:0;background:var(--m-surface2);color:var(--m-text);border-radius:10px;padding:8px 10px;font-size:11px;font-weight:800;display:inline-flex;align-items:center;gap:5px}.m238m-inline-link{margin-top:10px;color:var(--m-blue)}.m238m-mini-list{margin-top:10px;display:flex;flex-direction:column;gap:6px}.m238m-mini-list>div{display:grid;grid-template-columns:1fr auto;gap:3px 10px;background:var(--m-surface2);padding:9px;border-radius:10px}.m238m-mini-list span,.m238m-mini-list b{font-size:11px}.m238m-mini-list small{grid-column:1/-1;font-size:10px;color:var(--m-secondary)}.m238m-target-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}.m238m-target-row>div{display:flex;flex-direction:column}.m238m-target-row>div span{font-size:10px;color:var(--m-secondary)}.m238m-target-row label{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--m-secondary)}.m238m-target-row input[type="number"]{width:76px;border:0;background:var(--m-surface2);color:var(--m-text);border-radius:9px;padding:8px;text-align:right}.m238m-toggle-row{grid-column:1/-1;justify-content:flex-end}.m238m-notice{display:block;text-align:center;color:var(--m-secondary)}.m238m-empty{text-align:center;color:var(--m-secondary);font-size:12px}.m238m-op-row .m238m-copy-head>div{display:flex;flex-direction:column}.m238m-op-row .m238m-copy-head span{font-size:10px;color:var(--m-secondary)}.m238m-view-picker{display:grid;grid-template-columns:1fr 1fr;gap:8px}.m238m-view-picker button{border:0;border-radius:14px;background:var(--m-surface);color:var(--m-text);padding:14px 10px;font-weight:850}.m238m-view-picker button.active{background:var(--m-blue);color:white}.m238m-touch-chart{margin-top:12px}.m238m-touch-chart svg{width:100%;height:94px;color:rgba(255,255,255,.95);overflow:visible}.m238m-touch-chart circle{fill:rgba(255,255,255,.72);stroke:none;cursor:pointer}.m238m-touch-chart circle.active{fill:white}.m238m-chart-tip{display:flex;align-items:center;justify-content:space-between;font-size:11px;margin-bottom:3px}.m238m-chart-tip span{color:white!important;opacity:.9}.m238m-chart-days{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px}.m238m-chart-days button{border:0;background:transparent;color:rgba(255,255,255,.65);font-size:10px;font-weight:800;padding:4px 0;border-radius:8px}.m238m-chart-days button.active{background:rgba(255,255,255,.14);color:white}.m238m-skeleton{background:linear-gradient(90deg,var(--m-surface2),color-mix(in srgb,var(--m-surface) 75%,var(--m-surface2)),var(--m-surface2));background-size:200% 100%;animation:m238mShimmer 1.2s infinite;border-radius:18px}.m238m-skeleton.hero{height:190px;border-radius:22px}.m238m-skeleton.tile{height:92px}.m238m-skeleton.list{height:70px}.m238m-refreshing{display:flex;align-items:center;gap:6px;justify-content:center;font-size:11px;color:var(--m-secondary);padding-bottom:7px}.m238m-warning-card{background:color-mix(in srgb,#ff9f0a 12%,var(--m-surface));border:1px solid color-mix(in srgb,#ff9f0a 30%,transparent)}.m238m-success-card{background:color-mix(in srgb,#30d158 10%,var(--m-surface));border:1px solid color-mix(in srgb,#30d158 24%,transparent)}.m238m-error{color:#ff453a;font-size:13px}.spin{animation:m238mSpin .8s linear infinite}.m238m-enter{animation:m238mEnter var(--motion-normal) cubic-bezier(.22,1,.36,1)}
 @keyframes m238mEnter{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}@keyframes m238mSheet{from{transform:translateY(100%)}to{transform:none}}@keyframes m238mShimmer{to{background-position:-200% 0}}@keyframes m238mSpin{to{transform:rotate(360deg)}}
 @media(min-width:769px){.m238m-app{display:none!important}}
