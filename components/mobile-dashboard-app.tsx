@@ -185,7 +185,18 @@ export default function MobileDashboardApp(){
       const full=d.staff.find(x=>x.id===staff.id);
       const ir=(incData.rows||[]).find((x:any)=>String(x.id)===String(staff.id));
       if(full){
-        setStaffDetail({...full,incentiveDetail:ir?{from:incData.from,to:incData.to,qty:ir.qty||{},activeDays:Number(ir.activeDays||0),rates:ir.rates||{accessories:{},qoala:{}},teamTotal:Number(incData.total||0)}:undefined});
+        setStaffDetail({...full,
+          incentive:ir?.incentive?{
+            mac:Number(ir.incentive.mac||0),
+            iphone:Number(ir.incentive.iphone||0),
+            ipad:Number(ir.incentive.ipad||0),
+            watch:Number(ir.incentive.watch||0),
+            accessories:Number(ir.incentive.accessories||0),
+            qoala:Number(ir.incentive.qoala||0),
+            total:Number(ir.incentive.total||0)
+          }:full.incentive,
+          incentiveDetail:ir?{from:incData.from,to:incData.to,qty:ir.qty||{},activeDays:Number(ir.activeDays||0),rates:ir.rates||{accessories:{},qoala:{}},teamTotal:Number(incData.total||0)}:undefined
+        });
       }
     }catch{}
   };
