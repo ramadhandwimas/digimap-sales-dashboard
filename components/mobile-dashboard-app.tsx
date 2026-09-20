@@ -79,8 +79,14 @@ const compact=(v:number)=>Math.abs(v)>=1e9?`Rp ${(v/1e9).toLocaleString("id-ID",
 function retailWeek(){const now=new Date(`${today()}T00:00:00+07:00`),m=now.getMonth()+1,starts=[10,1,4,7],startMonth=starts.find(x=>x<=m)||10,startYear=startMonth===10&&m<10?now.getFullYear()-1:now.getFullYear(),start=new Date(startYear,startMonth-1,1),diff=Math.floor((now.getTime()-start.getTime())/86400000);return Math.max(1,Math.ceil((diff+start.getDay()+1)/7))}
 function initials(name:string){return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase()}
 function shortStaffName(name:string){
- const parts=name.trim().split(/\s+/).filter(Boolean);
- if(parts.length<=1)return name;
+ const raw=name.trim(),key=raw.toLowerCase();
+ if(key.startsWith("muhammad farabi"))return "Farabi";
+ if(key.startsWith("muhammada farabi"))return "Farabi";
+ if(key.startsWith("muhammad haykal"))return "Haykal";
+ if(key.startsWith("muhammada haykal"))return "Haykal";
+ if(key==="rifo arvian ario"||key.startsWith("rifo arvian"))return "Rifo";
+ const parts=raw.split(/\s+/).filter(Boolean);
+ if(parts.length<=1)return raw;
  const preferred=parts[0].length<=4&&parts.length>2?parts[1]:parts[0];
  const rest=preferred===parts[0]?parts.slice(1):parts.filter(x=>x!==preferred);
  const initial=rest.find(x=>x.length>1)?.[0]||rest[0]?.[0]||"";
@@ -587,11 +593,11 @@ function StaffDetail({staff,mode}:{staff:Staff;mode:"daily"|"monthly"}){
  const lob=staff.lob||{iphone:0,mac:0,ipad:0,watch:0,airpods:0},vas=staff.vasDetail||{},inc=staff.incentive;
  return <div className="m238m-stack">
   <div className="m238m-profile"><div className="m238m-avatar big">{initials(staff.name)}</div><div><h2>{staff.name}</h2><p>{staff.position||"Staff M238"} • {mode==="daily"?"Hari ini":"Bulanan"}</p></div></div>
-  <Card className="m238m-hero compact"><span>Sales</span><strong>{compact(staff.amount)}</strong><p>Target {compact(target)} • {pct(a)}</p><Progress value={a}/></Card>
-  <div className="m238m-grid"><Metric label="Gap" value={compact(gap)}/><Metric label="Device" value={compact(device)} sub={staff.targets?.device?`Target ${compact(staff.targets.device)}`:undefined}/><Metric label="ACC" value={compact(staff.accessories||0)} sub={staff.targets?.accessories?`Target ${compact(staff.targets.accessories)}`:undefined}/><Metric label="VAS" value={compact(staff.vas||0)} sub={staff.targets?.vas?`Target ${compact(staff.targets.vas)}`:undefined}/><Metric label="Qty" value={num.format(staff.qty||0)}/><Metric label="Invoice" value={num.format(staff.invoices||0)}/><Metric label="UPT" value={(staff.upt||0).toFixed(1)}/><Metric label="ATV" value={compact(staff.atv||0)}/></div>
+  <Card className="m238m-hero compact"><span>Sales</span><strong>{money.format(staff.amount)}</strong><p>Target {money.format(target)} • {pct(a)}</p><Progress value={a}/></Card>
+  <div className="m238m-grid"><Metric label="Gap" value={money.format(gap)}/><Metric label="Device" value={money.format(device)} sub={staff.targets?.device?`Target ${money.format(staff.targets.device)}`:undefined}/><Metric label="ACC" value={money.format(staff.accessories||0)} sub={staff.targets?.accessories?`Target ${money.format(staff.targets.accessories)}`:undefined}/><Metric label="VAS" value={money.format(staff.vas||0)} sub={staff.targets?.vas?`Target ${money.format(staff.targets.vas)}`:undefined}/><Metric label="Qty" value={num.format(staff.qty||0)}/><Metric label="Invoice" value={num.format(staff.invoices||0)}/><Metric label="UPT" value={(staff.upt||0).toFixed(1)}/><Metric label="ATV" value={money.format(staff.atv||0)}/></div>
   {(lob.iphone||lob.mac||lob.ipad||lob.watch||lob.airpods)?<><div className="m238m-section-head"><h2>LOB Qty</h2></div><div className="m238m-grid"><Metric label="iPhone" value={num.format(lob.iphone)}/><Metric label="MacBook" value={num.format(lob.mac)}/><Metric label="iPad" value={num.format(lob.ipad)}/><Metric label="Apple Watch" value={num.format(lob.watch)}/><Metric label="AirPods" value={num.format(lob.airpods)}/></div></>:null}
   {(vas.qoala||vas.telkomsel||vas.xl||vas.indosat)?<><div className="m238m-section-head"><h2>VAS Provider</h2></div><div className="m238m-grid"><Metric label="Qoala" value={compact(vas.qoala?.value||0)} sub={`${num.format(vas.qoala?.qty||0)} qty`}/><Metric label="Telkomsel" value={compact(vas.telkomsel?.value||0)} sub={`${num.format(vas.telkomsel?.qty||0)} qty`}/><Metric label="XL" value={compact(vas.xl?.value||0)} sub={`${num.format(vas.xl?.qty||0)} qty`}/><Metric label="Indosat" value={compact(vas.indosat?.value||0)} sub={`${num.format(vas.indosat?.qty||0)} qty`}/></div></>:null}
-  {mode==="monthly"&&inc?<><div className="m238m-section-head"><h2>Estimated Incentive</h2><span>{compact(inc.total)}</span></div><div className="m238m-grid"><Metric label="MacBook" value={compact(inc.mac)}/><Metric label="iPhone" value={compact(inc.iphone)}/><Metric label="iPad" value={compact(inc.ipad)}/><Metric label="Watch" value={compact(inc.watch)}/><Metric label="Accessories" value={compact(inc.accessories)}/><Metric label="Qoala" value={compact(inc.qoala)}/></div></>:null}
+  {mode==="monthly"&&inc?<><div className="m238m-section-head"><h2>Estimated Incentive</h2><span>{money.format(inc.total)}</span></div><div className="m238m-grid"><Metric label="MacBook" value={money.format(inc.mac)}/><Metric label="iPhone" value={money.format(inc.iphone)}/><Metric label="iPad" value={money.format(inc.ipad)}/><Metric label="Watch" value={money.format(inc.watch)}/><Metric label="Accessories" value={money.format(inc.accessories)}/><Metric label="Qoala" value={money.format(inc.qoala)}/></div></>:null}
  </div>
 }
 
