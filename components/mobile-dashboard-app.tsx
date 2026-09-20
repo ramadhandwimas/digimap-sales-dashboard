@@ -108,6 +108,12 @@ function Skeleton(){return <div className="m238m-stack m238m-fade"><div classNam
 
 function Sheet({open,onClose,title,children}:{open:boolean;onClose:()=>void;title:string;children:ReactNode}){
   const[startY,setStartY]=useState<number|null>(null),[dragY,setDragY]=useState(0);
+  useEffect(()=>{
+    if(!open)return;
+    const body=document.body,key="m238SheetLocks",count=Number(body.dataset[key]||0)+1;
+    body.dataset[key]=String(count);body.style.overflow="hidden";
+    return()=>{const next=Math.max(0,Number(body.dataset[key]||1)-1);if(next)body.dataset[key]=String(next);else{delete body.dataset[key];body.style.overflow=""}};
+  },[open]);
   if(!open)return null;
   const move=(y:number)=>{if(startY==null)return;setDragY(Math.max(0,y-startY))};
   const end=()=>{if(dragY>90)onClose();setStartY(null);setDragY(0)};
@@ -835,16 +841,17 @@ function FeedbackView({data}:{data:Feedback;staff:Staff[]}){
  </div>
 }
 function CxView({data,staff}:{data:Cx;staff:Staff[]}){
- const[selectedDate,setSelectedDate]=useState(today()),[rows,setRows]=useState<Cx["rows"]>(data.rows),[activeStaff,setActiveStaff]=useState<Staff[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(""),[detail,setDetail]=useState<"cx"|"member"|null>(null);
+ const[selectedDate,setSelectedDate]=useState(today()),[rows,setRows]=useState<Cx["rows"]>(data.rows),[activeStaff,setActiveStaff]=useState<Staff[]>([]),[roster,setRoster]=useState<Array<{id:string;name:string}>>([]),[busy,setBusy]=useState(false),[error,setError]=useState(""),[detail,setDetail]=useState<"cx"|"member"|null>(null);
  const period=selectedDate.slice(0,7);
  const load=useCallback(async(date:string)=>{
   setBusy(true);setError("");
   try{
-   const[monthData,daily]=await Promise.all([
+   const[monthData,daily,targetData]=await Promise.all([
     cachedJson<Cx>(`/api/cx-member?period=${date.slice(0,7)}`,30000,true),
-    cachedJson<Daily>(`/api/daily-fast?date=${date}`,30000,true)
+    cachedJson<Daily>(`/api/daily-fast?date=${date}`,30000,true),
+    cachedJson<any>(`/api/manual-target?scope=monthly&period=${date.slice(0,7)}&group=lob-focus`,60000,true)
    ]);
-   setRows(monthData.rows||[]);setActiveStaff(daily.staff||[]);
+   setRows(monthData.rows||[]);setActiveStaff(daily.staff||[]);setRoster((targetData.staff||[]).map((x:any)=>({id:String(x.id),name:String(x.name)})));
   }catch(e){setError(e instanceof Error?e.message:"Gagal memuat CX / Member")}finally{setBusy(false)}
  },[]);
  useEffect(()=>{void load(selectedDate)},[selectedDate,load]);
@@ -853,11 +860,12 @@ function CxView({data,staff}:{data:Cx;staff:Staff[]}){
  const cx=rows.reduce((a,r)=>a+Number(r.cx||0),0),member=rows.reduce((a,r)=>a+Number(r.member||0),0);
  const allStaff=useMemo(()=>{
    const map=new Map<string,{id:string;name:string}>();
+   for(const s of roster)map.set(String(s.id),{id:String(s.id),name:s.name});
    for(const s of staff)map.set(String(s.id),{id:String(s.id),name:s.name});
    for(const s of activeStaff)map.set(String(s.id),{id:String(s.id),name:s.name});
    for(const r of rows)map.set(String(r.staffId),{id:String(r.staffId),name:r.name});
    return [...map.values()];
- },[staff,activeStaff,rows]);
+ },[roster,staff,activeStaff,rows]);
  const staffRecap=useMemo(()=>allStaff.map(person=>{
    const list=rows.filter(r=>String(r.staffId)===person.id),cxv=list.reduce((a,r)=>a+Number(r.cx||0),0),mem=list.reduce((a,r)=>a+Number(r.member||0),0),days=new Set(list.map(r=>r.date)).size;
    return{...person,cx:cxv,member:mem,daysCount:days,total:cxv+mem};
