@@ -76,8 +76,6 @@ const today=()=>new Intl.DateTimeFormat("sv-SE",{year:"numeric",month:"2-digit",
 const periodNow=()=>today().slice(0,7);
 const monthLabel=(p:string)=>new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(`${p}-01T00:00:00Z`));
 const months=Array.from({length:12},(_,i)=>`2026-${String(i+1).padStart(2,"0")}`);
-const compact=(v:number)=>Math.abs(v)>=1e9?`Rp ${(v/1e9).toLocaleString("id-ID",{maximumFractionDigits:2})} M`:Math.abs(v)>=1e6?`Rp ${(v/1e6).toLocaleString("id-ID",{maximumFractionDigits:0})} jt`:money.format(v);
-function retailWeek(){const now=new Date(`${today()}T00:00:00+07:00`),m=now.getMonth()+1,starts=[10,1,4,7],startMonth=starts.find(x=>x<=m)||10,startYear=startMonth===10&&m<10?now.getFullYear()-1:now.getFullYear(),start=new Date(startYear,startMonth-1,1),diff=Math.floor((now.getTime()-start.getTime())/86400000);return Math.max(1,Math.ceil((diff+start.getDay()+1)/7))}
 function initials(name:string){return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase()}
 function shortStaffName(name:string){
  const raw=name.trim(),key=raw.toLowerCase();
@@ -272,11 +270,11 @@ export default function MobileDashboardApp(){
       {refreshing?<div className="m238m-refreshing"><RefreshCw size={14} className="spin"/> Memperbarui data…</div>:null}
       {error?<Card className="m238m-error">{error}</Card>:null}
       {loading&&!overview?<Skeleton/>:null}
-      {!loading&&overview&&tab==="home"?<HomeScreen mode={homeMode} setMode={setHomeMode} overview={overview} traffic={traffic} cvr={cvr} achievement={achievement} onOpenSalesDetail={()=>void openHomeSalesDetail()}/>:null}
+      {!loading&&overview&&tab==="home"?<HomeScreen mode={homeMode} setMode={setHomeMode} overview={overview} traffic={traffic} cvr={cvr} achievement={achievement} periodMode={periodMode} onOpenSalesDetail={()=>void openHomeSalesDetail()}/>:null}
       {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange} onStaff={s=>void openStaff(s,"daily")} onDay={row=>{setDayDetail(row);setSheet("day")}}/>:null}
       {tab==="team"?<TeamScreen rows={team} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
       {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]}/>:null}
-      {tab==="admin"?<AdminScreen period={period}/>:null}
+      {tab==="admin"?<AdminScreen period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>:null}
       {tab==="more"?<MoreScreen dark={dark} toggleDark={toggleDark} onAction={handleMore}/>:null}
     </main>
 
@@ -322,7 +320,7 @@ export default function MobileDashboardApp(){
 }
 
 
-function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,onOpenSalesDetail}:{mode:HomeMode;setMode:(v:HomeMode)=>void;overview:Overview;traffic:Traffic|null;cvr:number;achievement:number;onOpenSalesDetail:()=>void}){
+function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,onOpenSalesDetail}:{mode:HomeMode;setMode:(v:HomeMode)=>void;overview:Overview;traffic:Traffic|null;cvr:number;achievement:number;periodMode:"month"|"week";onOpenSalesDetail:()=>void}){
  const salesRows=overview.daily||[],latestSales=salesRows.at(-1)?.amount||0,prevSales=salesRows.at(-2)?.amount||0,salesDelta=prevSales?((latestSales-prevSales)/prevSales)*100:null;
  const trafficRows=traffic?.daily||[],latestTraffic=trafficRows.at(-1)?.traffic||0,prevTraffic=trafficRows.at(-2)?.traffic||0,trafficDelta=prevTraffic?((latestTraffic-prevTraffic)/prevTraffic)*100:null;
  const insight=salesDelta==null
@@ -338,12 +336,12 @@ function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,onOpenSalesDe
 
   {mode==="monthly"?<>
     <button className="m238m-hero-button" onClick={onOpenSalesDetail}>
-      <Card className="m238m-hero m238m-home-hero"><div className="m238m-hero-title"><span>Total Sales</span><ChevronRight size={18}/></div><strong>{money.format(overview.summary.amount)}</strong><p>{pct(achievement)} dari Target</p><Progress value={achievement}/><div className="m238m-hero-meta"><span>Target <b>{money.format(overview.target.amount)}</b></span><span>Point Store <b>{overview.summary.point.total.toFixed(1)}</b></span></div></Card>
+      <Card className="m238m-hero m238m-home-hero"><div className="m238m-hero-title"><span>Total Sales</span><ChevronRight size={18}/></div><strong>{money.format(overview.summary.amount)}</strong><p>{pct(achievement)} dari Target</p><Progress value={achievement}/><div className="m238m-hero-meta"><span>Target <b>{money.format(overview.target.amount)}</b></span><span>{periodMode==="month"?"Point Store":"Periode"} <b>{periodMode==="month"?overview.summary.point.total.toFixed(1):overview.label}</b></span></div></Card>
     </button>
-    <div className="m238m-grid"><Metric label="Achievement" value={pct(achievement)} sub={overview.summary.status}/><Metric label="Gap / Variance" value={money.format(overview.summary.gap)} sub={overview.summary.gap>0?"Sisa ke target":"Target tercapai"}/><Metric label="Estimate" value={money.format(overview.summary.estimate.amount)} sub="Proyeksi bulan"/><Metric label="Pace" value={pct(overview.summary.pace)} sub={overview.summary.status}/></div>
-    <Card className="m238m-point-card"><div><span>Point Store</span><strong>{overview.summary.point.total.toFixed(1)}</strong></div><div className="m238m-point-breakdown"><span>Device {overview.summary.point.device.toFixed(1)}/60</span><span>ACC {overview.summary.point.accessories.toFixed(1)}/30</span><span>VAS {overview.summary.point.vas.toFixed(1)}/10</span></div></Card>
+    <div className="m238m-grid"><Metric label="Achievement" value={pct(achievement)} sub={overview.summary.status}/><Metric label="Gap / Variance" value={money.format(overview.summary.gap)} sub={overview.summary.gap>0?"Sisa ke target":"Target tercapai"}/><Metric label={periodMode==="week"?"Actual Periode":"Estimate"} value={money.format(overview.summary.estimate.amount)} sub={periodMode==="week"?"Range week aktif":"Proyeksi bulan"}/><Metric label="Pace" value={pct(overview.summary.pace)} sub={overview.summary.status}/></div>
+    {periodMode==="month"?<Card className="m238m-point-card"><div><span>Point Store</span><strong>{overview.summary.point.total.toFixed(1)}</strong></div><div className="m238m-point-breakdown"><span>Device {overview.summary.point.device.toFixed(1)}/60</span><span>ACC {overview.summary.point.accessories.toFixed(1)}/30</span><span>VAS {overview.summary.point.vas.toFixed(1)}/10</span></div></Card>:<Card className="m238m-copy-card"><strong>Point Store</strong><p>Point Device / ACC / VAS tidak dihitung pada mode Week karena source weekly existing tidak memiliki target value kategori. Target LOB dan Product Focus tetap mengikuti target weekly existing.</p></Card>}
     <div className="m238m-section-head"><h2>Penjualan per Kategori</h2><span>{overview.label}</span></div>
-    <div className="m238m-grid"><Metric label="Device" value={money.format(overview.summary.device)} sub={`Target ${money.format(overview.target.device)}`}/><Metric label="Accessories" value={money.format(overview.summary.accessories)} sub={`Target ${money.format(overview.target.accessories)}`}/><Metric label="VAS" value={money.format(overview.summary.vas)} sub={`Target ${money.format(overview.target.vas)}`}/></div>
+    <div className="m238m-grid"><Metric label="Device" value={money.format(overview.summary.device)} sub={periodMode==="month"?`Target ${money.format(overview.target.device)}`:"Actual Week"}/><Metric label="Accessories" value={money.format(overview.summary.accessories)} sub={periodMode==="month"?`Target ${money.format(overview.target.accessories)}`:"Actual Week"}/><Metric label="VAS" value={money.format(overview.summary.vas)} sub={periodMode==="month"?`Target ${money.format(overview.target.vas)}`:"Actual Week"}/></div>
     <div className="m238m-section-head"><h2>Traffic & Conversion</h2></div>
     <div className="m238m-grid"><Metric label="Traffic" value={num.format(traffic?.total||0)} sub={trafficDelta==null?undefined:`${trafficDelta>=0?"+":""}${pct(trafficDelta)} vs hari sebelumnya`}/><Metric label="Transaksi" value={num.format(overview.summary.invoices)} sub="Invoice unique"/><Metric label="CVR" value={pct(cvr)} sub="Traffic → transaksi"/><Metric label="UPT" value={overview.summary.upt.toFixed(1)} sub="Unit per transaksi"/><Metric label="Qty" value={num.format(overview.summary.qty)} sub="Total unit"/><Metric label="ATV" value={money.format(overview.summary.atv)} sub="Average ticket"/></div>
     <Card className="m238m-insight"><Lightbulb size={18}/><div><span>Insight Hari Ini</span><p>{insight}</p></div></Card>
@@ -683,7 +681,7 @@ function DailyDetail({row}:{row:DailyRow}){
 }
 function StaffRow({staff,onClick,shortName=false,fullMoney=false}:{staff:Staff;onClick:()=>void;shortName?:boolean;fullMoney?:boolean}){
  const target=staff.targets?.amount||staff.target||0,a=target?staff.amount/target*100:staff.achievement||0,gap=target?Math.max(0,target-staff.amount):staff.gap||0;
- return <button className="m238m-staff-row" onClick={onClick}><div className="m238m-avatar">{initials(staff.name)}</div><div className="m238m-staff-main"><div><strong>{shortName?shortStaffName(staff.name):staff.name}</strong><b>{fullMoney?money.format(staff.amount):compact(staff.amount)}</b></div><Progress value={a}/><small>{pct(a)} • Gap {fullMoney?money.format(gap):compact(gap)} • UPT {(staff.upt||0).toFixed(1)}</small></div><ChevronRight size={17}/></button>
+ return <button className="m238m-staff-row" onClick={onClick}><div className="m238m-avatar">{initials(staff.name)}</div><div className="m238m-staff-main"><div><strong>{shortName?shortStaffName(staff.name):staff.name}</strong><b>{money.format(staff.amount)}</b></div><Progress value={a}/><small>{pct(a)} • Gap {money.format(gap)} • UPT {(staff.upt||0).toFixed(1)}</small></div><ChevronRight size={17}/></button>
 }
 function TeamScreen({rows,filter,setFilter,onStaff}:{rows:Staff[];filter:string;setFilter:(v:string)=>void;onStaff:(s:Staff)=>void}){
  const label=filter==="top"?"3 staff penjualan tertinggi":filter==="low"?"3 staff penjualan terendah":"Semua staff store";
@@ -889,12 +887,12 @@ function CxView({data,staff}:{data:Cx;staff:Staff[]}){
   </Sheet>
  </div>
 }
-function AdminScreen({period}:{period:string}){
+function AdminScreen({period,periodMode,selectedWeek,activeRange}:{period:string;periodMode:"month"|"week";selectedWeek:string;activeRange:{from:string;to:string}|null}){
  const[tab,setTab]=useState<"soh"|"mading"|"stokan"|"bnpl">("soh");
  const items=[["soh","SOH"],["mading","Mading"],["stokan","Stokan"],["bnpl","BNPL"]] as const;
  return <div className="m238m-stack m238m-enter">
   <div className="m238m-admin-tabs">{items.map(([k,l])=><button key={k} className={tab===k?"active":""} onClick={()=>setTab(k)}>{l}</button>)}</div>
-  <MobileOperations kind={tab} period={period}/>
+  <MobileOperations kind={tab} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>
  </div>
 }
 function MoreScreen({dark,toggleDark,onAction}:{dark:boolean;toggleDark:()=>void;onAction:(action:string)=>void}){
@@ -931,9 +929,8 @@ function MoreDetail({kind,data,period}:{kind:string;data:any;period:string}){
  if(kind==="mobile-view")return <div className="m238m-stack"><Card className="m238m-copy-card"><strong>Versi Tampilan HP</strong><p>Pilih tampilan lama jika ingin menggunakan dashboard responsive sebelumnya, atau tampilan baru untuk UI khusus iPhone.</p></Card><div className="m238m-view-picker"><button onClick={()=>window.dispatchEvent(new CustomEvent("m238:mobile-view-change",{detail:"classic"}))}>Tampilan Lama</button><button className="active" onClick={()=>window.dispatchEvent(new CustomEvent("m238:mobile-view-change",{detail:"new"}))}>Tampilan Baru ✓</button></div></div>;
  if(kind==="settings")return <Card>Pengaturan tampilan utama tetap tersedia di bagian Appearance. Pengaturan akun mengikuti sistem M238 yang sama.</Card>;
  if(data?.error)return <Card className="m238m-error">{data.error}</Card>;
- if(kind==="incentive")return <div className="m238m-stack"><Card className="m238m-hero compact"><span>Total Estimasi Incentive</span><strong>{compact(data?.total||0)}</strong></Card><div className="m238m-list">{(data?.rows||[]).map((r:any)=><Card key={r.id} className="m238m-copy-card"><div className="m238m-copy-head"><strong>{r.name}</strong><b>{compact(r.incentive?.total||0)}</b></div><p>Mac {num.format(r.qty?.mac||0)} • iPhone {num.format(r.qty?.iphone||0)} • iPad {num.format(r.qty?.ipad||0)} • Watch {num.format(r.qty?.watch||0)}</p></Card>)}</div></div>;
- if(kind==="bnpl")return <div className="m238m-stack"><div className="m238m-grid"><Metric label="BNPL" value={compact(data?.bnpl?.amount||0)} sub={`${num.format(data?.bnpl?.qty||0)} trx`}/><Metric label="Trade-In" value={compact(data?.tradeIn?.amount||0)} sub={`${num.format(data?.tradeIn?.qty||0)} trx`}/></div><Card><div className="m238m-lob-list">{(data?.providerSummary||[]).map((r:any)=><div key={r.provider}><div><strong>{r.provider}</strong><span>{num.format(r.qty||0)}</span></div><small>{compact(r.amount||0)}</small></div>)}</div></Card></div>;
- if(kind==="target")return <div className="m238m-stack"><Card className="m238m-hero compact"><span>Product Fokus Aktif</span><strong>{num.format(data?.lob?.total?.qty||0)} unit</strong><p>{data?.periodLabel||""}</p></Card><div className="m238m-list">{(data?.productFocus||[]).map((name:string)=>{const p=(data?.lob?.products||[]).find((x:any)=>x.name===name);return <Card key={name} className="m238m-copy-card"><div className="m238m-copy-head"><strong>{name}</strong><b>{num.format(p?.qty||0)} unit</b></div></Card>})}</div></div>;
+ if(kind==="incentive")return <div className="m238m-stack"><Card className="m238m-hero compact"><span>Total Estimasi Incentive</span><strong>{money.format(data?.total||0)}</strong></Card><div className="m238m-list">{(data?.rows||[]).map((r:any)=><Card key={r.id} className="m238m-copy-card"><div className="m238m-copy-head"><strong>{r.name}</strong><b>{money.format(r.incentive?.total||0)}</b></div><p>Mac {num.format(r.qty?.mac||0)} • iPhone {num.format(r.qty?.iphone||0)} • iPad {num.format(r.qty?.ipad||0)} • Watch {num.format(r.qty?.watch||0)}</p></Card>)}</div></div>;
+ if(kind==="bnpl")return <div className="m238m-stack"><div className="m238m-grid"><Metric label="BNPL" value={money.format(data?.bnpl?.amount||0)} sub={`${num.format(data?.bnpl?.qty||0)} trx`}/><Metric label="Trade-In" value={money.format(data?.tradeIn?.amount||0)} sub={`${num.format(data?.tradeIn?.qty||0)} trx`}/></div><Card><div className="m238m-lob-list">{(data?.providerSummary||[]).map((r:any)=><div key={r.provider}><div><strong>{r.provider}</strong><span>{num.format(r.qty||0)}</span></div><small>{money.format(r.amount||0)}</small></div>)}</div></Card></div>;
  return <Card>Menu mobile siap digunakan.</Card>
 }
 
