@@ -66,7 +66,6 @@ export default function MobileOperations({kind,period,periodMode,selectedWeek,ac
  else if(kind==="stokan")view=<StokanMobile/>;
  else if(kind==="mading")view=<MadingMobile period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>;
  else if(kind==="bnpl")view=<BnplMobile period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>;
- else if(kind==="target")view=<TargetFocusMobile period={period}/>;
  return <>{view}<style jsx global>{operationCss}</style></>;
 }
 
@@ -201,24 +200,6 @@ function BnplMobile({period,periodMode,selectedWeek,activeRange}:{period:string;
   </div></div>:null}
  </div>
 }
-const PRODUCT_KEYS=["HASTAG","DINO","IGA","IBACKS","HANDAL","OMEGA","TORRAS"];
-const VAS_KEYS=["Qoala","Telkomsel","XL","Indosat"];
-function TargetFocusMobile({period}:{period:string}){
- const[tab,setTab]=useState<"lob"|"product"|"vas">("lob"),[lob,setLob]=useState<any>(null),[targets,setTargets]=useState<Record<string,number>>({}),[active,setActive]=useState<Record<string,number>>({}),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[msg,setMsg]=useState("");
- const group=tab==="lob"?"lob-focus":tab==="product"?"product-focus":"vas-focus",activeGroup=tab==="lob"?"lob-focus-active":tab==="product"?"product-focus-value":"vas-focus-value";
- const keys=tab==="lob"?(Object.values(lob?.productCatalog||{}).flat() as string[]):tab==="product"?PRODUCT_KEYS:VAS_KEYS;
- const load=async()=>{setLoading(true);try{const [l,t,a]=await Promise.all([fetch("/api/lob-target-focus?mode=month&month="+period).then(r=>r.json()),fetch("/api/manual-target?scope=monthly&period="+encodeURIComponent(period)+"&group="+group).then(r=>r.json()),fetch("/api/manual-target?scope=monthly&period="+encodeURIComponent(period)+"&group="+activeGroup).then(r=>r.json())]);setLob(l);setTargets(Object.fromEntries(Object.entries(t.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])));setActive(Object.fromEntries(Object.entries(a.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])));setMsg("")}finally{setLoading(false)}};
- useEffect(()=>{void load()},[period,tab]);
- const save=async()=>{setSaving(true);setMsg("");try{const r=await fetch("/api/manual-target",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scope:"monthly",period,group,targets})}),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal menyimpan target");if(tab==="lob"){await fetch("/api/manual-target",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scope:"monthly",period,group:activeGroup,targets:active})})}setMsg(j.message||"Target tersimpan.")}catch(e){setMsg(e instanceof Error?e.message:"Gagal menyimpan target")}finally{setSaving(false)}};
- const actualByName=new Map((lob?.lob?.products||[]).map((x:any)=>[x.name,x.qty]));
- return <div className="m238m-stack">
-  <div className="m238m-segment">{[["lob","LOB"],["product","3PP"],["vas","VAS"]].map(([k,l])=><button key={k} className={tab===k?"active":""} onClick={()=>setTab(k as "lob"|"product"|"vas")}>{l}</button>)}</div>
-  {tab==="lob"&&lob?<Card className="m238m-copy-card"><strong>Product Fokus Aktif</strong><p>{(lob.productFocus||[]).join(", ")||"Belum ada produk fokus aktif."}</p></Card>:null}
-  {loading?<Card>Memuat target…</Card>:<div className="m238m-list">{keys.map(k=><Card key={k} className="m238m-target-row"><div><strong>{k}</strong>{tab==="lob"?<span>Actual {num.format(Number(actualByName.get(k)||0))} unit</span>:null}</div><label><span>Target</span><input inputMode="numeric" type="number" min={0} value={targets[k]||0} onChange={e=>setTargets(v=>({...v,[k]:Number(e.target.value)}))}/></label>{tab==="lob"?<label className="m238m-toggle-row"><span>Aktif</span><input type="checkbox" checked={Number(active[k]||0)>0} onChange={e=>setActive(v=>({...v,[k]:e.target.checked?1:0}))}/></label>:null}</Card>)}</div>}
-  <button className="m238m-primary" disabled={saving} onClick={()=>void save()}>{saving?"Menyimpan…":"Simpan Target Fokus"}</button>{msg?<small className="m238m-notice">{msg}</small>:null}
- </div>
-}
-
 type StokanStaff={id:string;name:string;position:string};
 type PreviewRow={brand:string;article:string;description:string;serial:string;totalStock:number|null;sourceNo:string};
 type AssignedRow=PreviewRow&{stocker:string};
