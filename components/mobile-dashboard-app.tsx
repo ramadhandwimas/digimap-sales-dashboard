@@ -2,11 +2,13 @@
 
 import {useCallback,useEffect,useMemo,useRef,useState,type ReactNode} from "react";
 import {
-  Activity,CalendarDays,ChevronRight,ClipboardCheck,Copy,CreditCard,FileDown,
+  Activity,Box,CalendarDays,ChevronRight,ClipboardCheck,Copy,CreditCard,FileDown,
   FileSpreadsheet,Home,Lightbulb,LogOut,MessageCircle,MoreHorizontal,Moon,
-  RefreshCw,Settings,Share2,Sun,Target,TrendingUp,Users,WalletCards,X
+  PackageSearch,RefreshCw,Settings,Share2,Sun,Target,TrendingUp,Users,WalletCards,X
 } from "lucide-react";
 import {exportReportPdf,exportReportPng,exportReportXlsx} from "@/lib/dashboard-export";
+import MobileOperations from "@/components/mobile-operations";
+import {makeDailySalesPicture,makeLobPicture,makeVasPicture} from "@/components/daily-sales-alerts";
 
 type Tab="home"|"sales"|"team"|"report"|"more";
 type SalesMode="daily"|"summary"|"lob";
@@ -153,19 +155,28 @@ export default function MobileDashboardApp(){
     if(action==="cx"){setTab("report");setReportMode("cx");return}
     if(action==="activity"){setTab("sales");setSalesMode("summary");return}
     setMoreKind(action);setMoreData(null);setSheet("more");
-    if(!["incentive","bnpl","target"].includes(action))return;
+    if(action!=="incentive")return;
     setMoreBusy(true);
     try{
-      if(action==="incentive"){
-        const from=`${period}-01`,to=period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`;
-        setMoreData(await cachedJson<any>(`/api/incentive-range?from=${from}&to=${to}`,180000));
-      }else if(action==="bnpl"){
-        setMoreData(await cachedJson<any>(`/api/bnpl?period=${period}`,180000));
-      }else{
-        setMoreData(await cachedJson<any>(`/api/lob-target-focus?mode=month&month=${period}`,180000));
-      }
+      const from=`${period}-01`,to=period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`;
+      setMoreData(await cachedJson<any>(`/api/incentive-range?from=${from}&to=${to}`,180000));
     }catch(e){setMoreData({error:e instanceof Error?e.message:"Gagal memuat data"})}
     finally{setMoreBusy(false)}
+  };
+
+  const shareDailyKind=async(kind:"daily"|"lob"|"vas")=>{
+    try{
+      const d=daily||await cachedJson<Daily>(`/api/daily-fast?date=${today()}`,90000);
+      const stamp=new Intl.DateTimeFormat("id-ID",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:"Asia/Jakarta"}).format(new Date()).replace(":",".");
+      let blob:Blob,title="",fileName="",text="";
+      if(kind==="daily"){blob=await makeDailySalesPicture(d as any);title="M238 Daily Sales";fileName=`M238-Daily-Sales-${d.date}-${stamp}.png`;text=`M238 PIM 2\nUpdate sales jam ${stamp} WIB`}
+      else if(kind==="lob"){blob=await makeLobPicture(d as any,stamp);title="M238 LOB Daily";fileName=`M238-LOB-Daily-${d.date}-${stamp}.png`;text=`M238 PIM 2\nLOB Daily • Update sales jam ${stamp} WIB`}
+      else{blob=await makeVasPicture(d as any,stamp);title="M238 VAS Daily";fileName=`M238-VAS-Daily-${d.date}-${stamp}.png`;text=`M238 PIM 2\nVAS Daily • Update sales jam ${stamp} WIB`}
+      const file=new File([blob],fileName,{type:"image/png"});
+      if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]})))await navigator.share({files:[file],title,text});
+      else{const url=URL.createObjectURL(file),a=document.createElement("a");a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)}
+      setSheet(null);
+    }catch(e){setError(e instanceof Error?e.message:"Gagal membuat report share")}
   };
 
   const touchMove=(e:React.TouchEvent)=>{if(touchStart.current==null||window.scrollY>0)return;const delta=e.touches[0].clientY-touchStart.current;if(delta>90&&!refreshing){touchStart.current=null;void refresh()}};
@@ -201,7 +212,8 @@ export default function MobileDashboardApp(){
 
     <Sheet open={sheet==="share"} onClose={()=>setSheet(null)} title="Share Report">
       <div className="m238m-action-list">
-        <button onClick={()=>void doShare("wa")}><MessageCircle/>WhatsApp</button>
+        {tab==="sales"?<><button onClick={()=>void shareDailyKind("daily")}><MessageCircle/>Daily Sales Staff</button><button onClick={()=>void shareDailyKind("lob")}><Share2/>LOB Daily</button><button onClick={()=>void shareDailyKind("vas")}><Share2/>VAS Daily</button></>:null}
+        <button onClick={()=>void doShare("wa")}><MessageCircle/>WhatsApp Summary</button>
         <button onClick={()=>void doShare("copy")}><Copy/>Copy Summary</button>
         <button onClick={()=>void doShare("png")}><Share2/>Download Picture</button>
         <button onClick={()=>void doShare("pdf")}><FileDown/>Download PDF</button>
@@ -216,8 +228,8 @@ export default function MobileDashboardApp(){
     <Sheet open={sheet==="day"} onClose={()=>setSheet(null)} title={dayDetail?`Daily Detail • ${dayDetail.date}`:"Daily Detail"}>
       {dayDetail?<DailyDetail row={dayDetail}/>:<Skeleton/>}
     </Sheet>
-    <Sheet open={sheet==="more"} onClose={()=>setSheet(null)} title={moreKind==="incentive"?"Estimasi Incentive":moreKind==="bnpl"?"BNPL & Trade-In":moreKind==="target"?"Target & Program":moreKind==="checklist"?"Checklist Store":moreKind==="mobile-view"?"Versi Tampilan HP":"Detail"}>
-      {moreBusy?<Skeleton/>:<MoreDetail kind={moreKind} data={moreData}/>} 
+    <Sheet open={sheet==="more"} onClose={()=>setSheet(null)} title={moreKind==="incentive"?"Estimasi Incentive":moreKind==="bnpl"?"BNPL & Trade-In":moreKind==="target"?"Target & Program":moreKind==="soh"?"Stock On Hand":moreKind==="stokan"?"Stokan":moreKind==="mading"?"Mading Performance":moreKind==="checklist"?"Checklist Store":moreKind==="mobile-view"?"Versi Tampilan HP":"Detail"}>
+      {moreBusy?<Skeleton/>:<MoreDetail kind={moreKind} data={moreData} period={period}/>} 
     </Sheet>
     <style jsx global>{mobileCss}</style>
   </div>
@@ -356,11 +368,12 @@ function CxView({data,staff}:{data:Cx;staff:Staff[]}){
 }
 
 function MoreScreen({dark,toggleDark,onAction}:{dark:boolean;toggleDark:()=>void;onAction:(action:string)=>void}){
- const groups=[["Performance",[[WalletCards,"Incentive","incentive"],[CreditCard,"BNPL","bnpl"],[Target,"Target & Program","target"]]],["Operational",[[ClipboardCheck,"Checklist Store","checklist"],[Activity,"NPS / CX & Member","cx"],[TrendingUp,"Aktivitas Toko","activity"]]],["Appearance",[[Settings,"Versi Tampilan HP","mobile-view"],[dark?Sun:Moon,dark?"Light Mode":"Dark Mode","theme"]]],["Account",[[Settings,"Settings","settings"],[LogOut,"Logout","logout"]]]] as const;
+ const groups=[["Performance",[[WalletCards,"Incentive","incentive"],[CreditCard,"BNPL & Trade-In","bnpl"],[Target,"Target & Program","target"]]],["Operational",[[PackageSearch,"SOH","soh"],[Box,"Stokan","stokan"],[Activity,"Mading","mading"],[ClipboardCheck,"Checklist Store","checklist"],[Users,"NPS / CX & Member","cx"],[TrendingUp,"Aktivitas Toko","activity"]]],["Appearance",[[Settings,"Versi Tampilan HP","mobile-view"],[dark?Sun:Moon,dark?"Light Mode":"Dark Mode","theme"]]],["Account",[[Settings,"Settings","settings"],[LogOut,"Logout","logout"]]]] as const;
  return <div className="m238m-more">{groups.map(([title,items])=><section key={title}><h3>{title}</h3><div>{items.map(([Icon,label,action])=><button key={label} onClick={()=>{if(action==="theme")toggleDark();else if(action==="logout")void fetch("/api/auth/logout",{method:"POST"}).finally(()=>{window.location.href="/login"});else onAction(action)}}><span><i><Icon size={18}/></i>{label}</span><ChevronRight size={17}/></button>)}</div></section>)}</div>
 }
 
-function MoreDetail({kind,data}:{kind:string;data:any}){
+function MoreDetail({kind,data,period}:{kind:string;data:any;period:string}){
+ if(["soh","stokan","mading","bnpl","target"].includes(kind))return <MobileOperations kind={kind} period={period}/>;
  if(kind==="checklist")return <div className="m238m-action-list"><button onClick={()=>window.open("https://forms.cloud.microsoft/pages/responsepage.aspx?id=iAw5Rakbn0eYpYaKADRxVqklIyFb72JDrV7GtVMqEcNUMUdNM1Q1VU4zTU9PTlpVTERHVUpZUk9BQS4u&route=shorturl","_blank")}><ClipboardCheck/>Checklist SPV</button><button onClick={()=>window.open("https://forms.cloud.microsoft/pages/responsepage.aspx?id=iAw5Rakbn0eYpYaKADRxVqklIyFb72JDrV7GtVMqEcNUQVpVV1hBVTdHTDVDWVlMRkE0V0lRVDQySS4u&route=shorturl","_blank")}><ClipboardCheck/>Checklist Staff</button></div>;
  if(kind==="mobile-view")return <div className="m238m-stack"><Card className="m238m-copy-card"><strong>Versi Tampilan HP</strong><p>Pilih tampilan lama jika ingin menggunakan dashboard responsive sebelumnya, atau tampilan baru untuk UI khusus iPhone.</p></Card><div className="m238m-view-picker"><button onClick={()=>window.dispatchEvent(new CustomEvent("m238:mobile-view-change",{detail:"classic"}))}>Tampilan Lama</button><button className="active" onClick={()=>window.dispatchEvent(new CustomEvent("m238:mobile-view-change",{detail:"new"}))}>Tampilan Baru ✓</button></div></div>;
  if(kind==="settings")return <Card>Pengaturan tampilan utama tetap tersedia di bagian Appearance. Pengaturan akun mengikuti sistem M238 yang sama.</Card>;
@@ -395,7 +408,7 @@ const mobileCss=`
 .m238m-bottom{position:fixed;z-index:40;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(5,1fr);padding:7px 8px calc(7px + env(safe-area-inset-bottom));background:color-mix(in srgb,var(--m-surface) 90%,transparent);backdrop-filter:blur(22px);border-top:1px solid var(--m-line)}.m238m-bottom button{height:48px;border:0;background:transparent;color:var(--m-secondary);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:12px;font-size:10px;font-weight:700}.m238m-bottom button{position:relative}.m238m-bottom button.active{color:var(--m-blue);background:color-mix(in srgb,var(--m-blue) 9%,transparent)}.m238m-bottom button.active:before{content:"";position:absolute;top:2px;width:20px;height:3px;border-radius:999px;background:var(--m-blue)}.m238m-bottom button:active{transform:scale(.96);transition:transform var(--motion-fast)}
 .m238m-sheet-layer{position:fixed;z-index:100;inset:0;background:rgba(0,0,0,.28);backdrop-filter:blur(3px);display:flex;align-items:flex-end}.m238m-sheet{width:100%;max-height:86dvh;overflow:auto;background:var(--m-bg);color:var(--m-text);border-radius:24px 24px 0 0;padding:8px 16px calc(16px + env(safe-area-inset-bottom));animation:m238mSheet var(--motion-slow) cubic-bezier(.22,1,.36,1);will-change:transform}.m238m-handle-button{display:block;width:100%;height:24px;border:0;background:transparent;padding:8px 0}.m238m-handle{display:block;width:38px;height:5px;border-radius:999px;background:rgba(127,127,127,.35);margin:0 auto}.m238m-sheet-head{display:flex;justify-content:space-between;align-items:center;padding:7px 2px 12px}.m238m-sheet-head h3{font-size:19px;margin:0}.m238m-sheet-head button{border:0;background:var(--m-surface2);color:var(--m-text);width:32px;height:32px;border-radius:50%;display:grid;place-items:center}
 .m238m-form-card{display:flex;flex-direction:column;gap:10px}.m238m-form-card select,.m238m-form-card textarea,.m238m-form-card input{width:100%;border:0;background:var(--m-surface2);color:var(--m-text);border-radius:12px;padding:12px;font:inherit;outline:none}.m238m-form-card textarea{min-height:104px;resize:vertical}.m238m-form-card small{color:var(--m-secondary)}.m238m-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.m238m-sheet-list{background:var(--m-surface);border-radius:16px;overflow:hidden;margin:12px 0}.m238m-sheet-list button{display:flex;justify-content:space-between;width:100%;padding:14px;border:0;border-bottom:1px solid var(--m-line);background:transparent;color:var(--m-text);font-weight:700;text-align:left}.m238m-sheet-list button.selected{color:var(--m-blue)}.m238m-primary,.m238m-cancel{width:100%;border:0;border-radius:14px;padding:14px;font-size:15px;font-weight:850}.m238m-primary{background:var(--m-blue);color:white}.m238m-cancel{background:var(--m-surface);color:var(--m-text);margin-top:10px}.m238m-action-list{background:var(--m-surface);border-radius:16px;overflow:hidden}.m238m-action-list button{width:100%;height:54px;display:flex;align-items:center;gap:12px;border:0;border-bottom:1px solid var(--m-line);background:transparent;color:var(--m-text);font-size:14px;font-weight:750;padding:0 15px}.m238m-action-list button svg{width:19px;color:var(--m-blue)}
-.m238m-view-picker{display:grid;grid-template-columns:1fr 1fr;gap:8px}.m238m-view-picker button{border:0;border-radius:14px;background:var(--m-surface);color:var(--m-text);padding:14px 10px;font-weight:850}.m238m-view-picker button.active{background:var(--m-blue);color:white}.m238m-touch-chart{margin-top:12px}.m238m-touch-chart svg{width:100%;height:94px;color:rgba(255,255,255,.95);overflow:visible}.m238m-touch-chart circle{fill:rgba(255,255,255,.72);stroke:none;cursor:pointer}.m238m-touch-chart circle.active{fill:white}.m238m-chart-tip{display:flex;align-items:center;justify-content:space-between;font-size:11px;margin-bottom:3px}.m238m-chart-tip span{color:white!important;opacity:.9}.m238m-chart-days{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px}.m238m-chart-days button{border:0;background:transparent;color:rgba(255,255,255,.65);font-size:10px;font-weight:800;padding:4px 0;border-radius:8px}.m238m-chart-days button.active{background:rgba(255,255,255,.14);color:white}.m238m-skeleton{background:linear-gradient(90deg,var(--m-surface2),color-mix(in srgb,var(--m-surface) 75%,var(--m-surface2)),var(--m-surface2));background-size:200% 100%;animation:m238mShimmer 1.2s infinite;border-radius:18px}.m238m-skeleton.hero{height:190px;border-radius:22px}.m238m-skeleton.tile{height:92px}.m238m-skeleton.list{height:70px}.m238m-refreshing{display:flex;align-items:center;gap:6px;justify-content:center;font-size:11px;color:var(--m-secondary);padding-bottom:7px}.m238m-warning-card{background:color-mix(in srgb,#ff9f0a 12%,var(--m-surface));border:1px solid color-mix(in srgb,#ff9f0a 30%,transparent)}.m238m-success-card{background:color-mix(in srgb,#30d158 10%,var(--m-surface));border:1px solid color-mix(in srgb,#30d158 24%,transparent)}.m238m-error{color:#ff453a;font-size:13px}.spin{animation:m238mSpin .8s linear infinite}.m238m-enter{animation:m238mEnter var(--motion-normal) cubic-bezier(.22,1,.36,1)}
+.m238m-input-icon{display:flex;align-items:center;gap:8px;background:var(--m-surface2);border-radius:12px;padding:0 10px}.m238m-input-icon input{background:transparent!important;padding-left:0!important}.m238m-stock-row,.m238m-rank-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.m238m-stock-row>div:first-child{min-width:0;display:flex;flex-direction:column}.m238m-stock-row>div:first-child strong{font-size:13px}.m238m-stock-row>div:first-child span,.m238m-rank-row span{font-size:11px;color:var(--m-secondary)}.m238m-stock-row>div:last-child{text-align:right;display:flex;flex-direction:column}.m238m-stock-row>div:last-child b{font-size:18px}.m238m-stock-row>div:last-child small{font-size:10px;color:var(--m-secondary)}.m238m-kpi-detail>span{font-size:11px;color:var(--m-secondary);font-weight:800}.m238m-kpi-detail>strong{display:block;font-size:18px;margin:5px 0}.m238m-kpi-detail>p,.m238m-kpi-detail>small{font-size:10px;color:var(--m-secondary)}.m238m-kpi-detail .m238m-progress{margin:7px 0}.m238m-rank-row>div{display:flex;flex-direction:column;flex:1}.m238m-form-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.m238m-form-actions .m238m-cancel{margin-top:0}.m238m-primary{display:flex;align-items:center;justify-content:center;gap:7px}.m238m-cancel.danger,.m238m-row-actions .danger{color:#ff453a}.m238m-row-actions{display:flex;gap:8px;margin-top:10px}.m238m-row-actions button,.m238m-inline-link{border:0;background:var(--m-surface2);color:var(--m-text);border-radius:10px;padding:8px 10px;font-size:11px;font-weight:800;display:inline-flex;align-items:center;gap:5px}.m238m-inline-link{margin-top:10px;color:var(--m-blue)}.m238m-mini-list{margin-top:10px;display:flex;flex-direction:column;gap:6px}.m238m-mini-list>div{display:grid;grid-template-columns:1fr auto;gap:3px 10px;background:var(--m-surface2);padding:9px;border-radius:10px}.m238m-mini-list span,.m238m-mini-list b{font-size:11px}.m238m-mini-list small{grid-column:1/-1;font-size:10px;color:var(--m-secondary)}.m238m-target-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}.m238m-target-row>div{display:flex;flex-direction:column}.m238m-target-row>div span{font-size:10px;color:var(--m-secondary)}.m238m-target-row label{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--m-secondary)}.m238m-target-row input[type="number"]{width:76px;border:0;background:var(--m-surface2);color:var(--m-text);border-radius:9px;padding:8px;text-align:right}.m238m-toggle-row{grid-column:1/-1;justify-content:flex-end}.m238m-notice{display:block;text-align:center;color:var(--m-secondary)}.m238m-empty{text-align:center;color:var(--m-secondary);font-size:12px}.m238m-op-row .m238m-copy-head>div{display:flex;flex-direction:column}.m238m-op-row .m238m-copy-head span{font-size:10px;color:var(--m-secondary)}.m238m-view-picker{display:grid;grid-template-columns:1fr 1fr;gap:8px}.m238m-view-picker button{border:0;border-radius:14px;background:var(--m-surface);color:var(--m-text);padding:14px 10px;font-weight:850}.m238m-view-picker button.active{background:var(--m-blue);color:white}.m238m-touch-chart{margin-top:12px}.m238m-touch-chart svg{width:100%;height:94px;color:rgba(255,255,255,.95);overflow:visible}.m238m-touch-chart circle{fill:rgba(255,255,255,.72);stroke:none;cursor:pointer}.m238m-touch-chart circle.active{fill:white}.m238m-chart-tip{display:flex;align-items:center;justify-content:space-between;font-size:11px;margin-bottom:3px}.m238m-chart-tip span{color:white!important;opacity:.9}.m238m-chart-days{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px}.m238m-chart-days button{border:0;background:transparent;color:rgba(255,255,255,.65);font-size:10px;font-weight:800;padding:4px 0;border-radius:8px}.m238m-chart-days button.active{background:rgba(255,255,255,.14);color:white}.m238m-skeleton{background:linear-gradient(90deg,var(--m-surface2),color-mix(in srgb,var(--m-surface) 75%,var(--m-surface2)),var(--m-surface2));background-size:200% 100%;animation:m238mShimmer 1.2s infinite;border-radius:18px}.m238m-skeleton.hero{height:190px;border-radius:22px}.m238m-skeleton.tile{height:92px}.m238m-skeleton.list{height:70px}.m238m-refreshing{display:flex;align-items:center;gap:6px;justify-content:center;font-size:11px;color:var(--m-secondary);padding-bottom:7px}.m238m-warning-card{background:color-mix(in srgb,#ff9f0a 12%,var(--m-surface));border:1px solid color-mix(in srgb,#ff9f0a 30%,transparent)}.m238m-success-card{background:color-mix(in srgb,#30d158 10%,var(--m-surface));border:1px solid color-mix(in srgb,#30d158 24%,transparent)}.m238m-error{color:#ff453a;font-size:13px}.spin{animation:m238mSpin .8s linear infinite}.m238m-enter{animation:m238mEnter var(--motion-normal) cubic-bezier(.22,1,.36,1)}
 @keyframes m238mEnter{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}@keyframes m238mSheet{from{transform:translateY(100%)}to{transform:none}}@keyframes m238mShimmer{to{background-position:-200% 0}}@keyframes m238mSpin{to{transform:rotate(360deg)}}
 @media(min-width:769px){.m238m-app{display:none!important}}
 `;
