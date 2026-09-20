@@ -363,6 +363,20 @@ fileRef = useRef<HTMLInputElement>(null),
 
 
   useEffect(() => {
+    if (!window.matchMedia("(max-width: 768px)").matches) return;
+    if (localStorage.getItem("m238-mobile-view") !== "classic") return;
+
+    const resetScroll = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+
+    const frame = window.requestAnimationFrame(resetScroll);
+    return () => window.cancelAnimationFrame(frame);
+  }, [tab]);
+
+  useEffect(() => {
     const d = localStorage.getItem("m238-theme") === "dark";
     setDark(d);
     document.documentElement.classList.toggle("dark", d);
