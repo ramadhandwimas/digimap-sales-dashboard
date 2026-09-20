@@ -293,8 +293,7 @@ export default function DashboardV3() {
       system: false,
     }),
 fileRef = useRef<HTMLInputElement>(null),
-    uploadingRef = useRef(false),
-    mainRef = useRef<HTMLElement>(null);
+    uploadingRef = useRef(false);
 
   useEffect(() => {
     const closeNativeNavGroups = () => {
@@ -362,20 +361,6 @@ fileRef = useRef<HTMLInputElement>(null),
     };
   }, []);
 
-
-  useEffect(() => {
-    if (!window.matchMedia("(max-width: 768px)").matches) return;
-    if (localStorage.getItem("m238-mobile-view") !== "classic") return;
-
-    const resetScroll = () => {
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-      document.documentElement.scrollTop = 0;
-      document.body.scrollTop = 0;
-    };
-
-    const frame = window.requestAnimationFrame(resetScroll);
-    return () => window.cancelAnimationFrame(frame);
-  }, [tab]);
 
   useEffect(() => {
     const d = localStorage.getItem("m238-theme") === "dark";
@@ -506,36 +491,6 @@ fileRef = useRef<HTMLInputElement>(null),
       setSaving(false);
     }
   };
-  const navigateTab = (nextTab: string) => {
-    const isClassicMobile =
-      window.matchMedia("(max-width: 768px)").matches &&
-      localStorage.getItem("m238-mobile-view") === "classic";
-
-    if (isClassicMobile) {
-      const reset = () => {
-        const main = mainRef.current;
-        if (main) {
-          main.scrollTop = 0;
-          main.scrollLeft = 0;
-        }
-        const scrolling = document.scrollingElement as HTMLElement | null;
-        if (scrolling) scrolling.scrollTop = 0;
-        window.scrollTo(0, 0);
-      };
-
-      reset();
-      setTab(nextTab);
-      requestAnimationFrame(() => {
-        reset();
-        requestAnimationFrame(reset);
-      });
-      [80, 180, 360, 700, 1200].forEach((ms) => window.setTimeout(reset, ms));
-      return;
-    }
-
-    setTab(nextTab);
-  };
-
   const filtered = useMemo(
       () =>
         data?.monthlyStaff.filter((x) => staff === "ALL" || x.id === staff) ??
@@ -794,7 +749,7 @@ fileRef = useRef<HTMLInputElement>(null),
                                     "noopener,noreferrer",
                                   );
                                 else window.location.href = item.href;
-                              } else navigateTab(item.key);
+                              } else setTab(item.key);
                             }}
                             aria-current={tab === item.key ? "page" : undefined}
                             className={`m238-menu-item flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold lg:pl-7 ${tab === item.key ? "is-active" : "text-white/80 hover:bg-white/10"}`}
@@ -812,7 +767,7 @@ fileRef = useRef<HTMLInputElement>(null),
           </nav>
         </div>
       </aside>
-      <main ref={mainRef} className="m238-main min-w-0 pb-10">
+      <main className="m238-main min-w-0 pb-10">
         <header className="border-b bg-white/90 backdrop-blur-xl dark:bg-slate-950/90">
           <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-7">
             <div className="flex items-center gap-2 text-sm">
