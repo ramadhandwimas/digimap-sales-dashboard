@@ -15,7 +15,7 @@ const shareTime=()=>new Intl.DateTimeFormat("id-ID",{hour:"2-digit",minute:"2-di
 function rr(ctx:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,r:number){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
 function clip(ctx:CanvasRenderingContext2D,text:string,max:number){if(ctx.measureText(text).width<=max)return text;let s=text;while(s.length>2&&ctx.measureText(s+"…").width>max)s=s.slice(0,-1);return s+"…"}
 async function fetchDaily():Promise<DailyPayload>{const d=today(),r=await fetch(`/api/daily?date=${d}&t=${Date.now()}`,{cache:"no-store"}),j=await r.json();if(!r.ok||j?.error)throw new Error(j?.error||"Gagal membaca Daily Sales");return j}
-async function makeDailySalesPicture(data:DailyPayload){
+export async function makeDailySalesPicture(data:DailyPayload){
  const rows=data.staff||[],t=data.total,W=1800,p=58,g=20,cw=(W-p*2-g*3)/4,rh=72,hy=516,hh=64,H=Math.max(1050,hy+hh+rh*(rows.length+1)+100),c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");if(!x)throw new Error("Canvas tidak tersedia");
  x.fillStyle="#f8fafc";x.fillRect(0,0,W,H);x.fillStyle="#fff";rr(x,28,28,W-56,H-56,28);x.fill();x.fillStyle="#2563eb";x.font="800 22px Arial";x.fillText("M238 • DAILY SALES",p,78);x.fillStyle="#0f172a";x.font="800 42px Arial";x.fillText("Digimap PIM 2",p,130);x.fillStyle="#64748b";x.font="600 24px Arial";x.fillText(new Intl.DateTimeFormat("id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date()),p,170);x.textAlign="right";x.fillStyle="#94a3b8";x.font="500 18px Arial";x.fillText("Generated from M238 Dashboard",W-p,82);x.textAlign="left";
  const cards=[{a:"Target vs Achievement",b:`${money(t.amount)} / ${money(t.target)}`,c:pct(ach(t.amount,t.target)),d:"#2563eb"},{a:"VAS vs Achievement",b:`${money(t.vas)} / ${money(t.vasTarget)}`,c:pct(ach(t.vas,t.vasTarget)),d:"#059669"},{a:"ACC vs Achievement",b:`${money(t.accessories)} / ${money(t.accTarget)}`,c:pct(ach(t.accessories,t.accTarget)),d:"#7c3aed"},{a:"UPT",b:(t.upt||0).toFixed(1),c:`${num(t.qty)} unit / ${num(t.invoices)} transaksi`,d:"#d97706"}];
@@ -49,7 +49,7 @@ function drawGridRow(ctx:CanvasRenderingContext2D,p:number,y:number,w:number,h:n
  ctx.textAlign="left";
 }
 async function canvasBlob(canvas:HTMLCanvasElement){return new Promise<Blob>((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error("Gagal membuat PNG")),"image/png",1))}
-async function makeLobPicture(data:DailyPayload,stamp:string){
+export async function makeLobPicture(data:DailyPayload,stamp:string){
  const rows=data.staff||[],base=baseReportCanvas("LOB Apple Daily",`M238 PIM 2 • Update sales jam ${stamp} WIB • iPhone, MacBook, iPad, dan Watch = device Apple • AirPods = accessories Apple`,rows.length);
  const cols=[{label:"NAMA",width:520,align:"left" as const},{label:"IPHONE (DEVICE)",width:300,align:"right" as const},{label:"MACBOOK (DEVICE)",width:300,align:"right" as const},{label:"IPAD (DEVICE)",width:260,align:"right" as const},{label:"APPLE WATCH (DEVICE)",width:330,align:"right" as const},{label:"AIRPODS (ACCESSORIES)",width:282,align:"right" as const}];
  drawTableHeader(base.ctx,base.p,base.theadY,base.W-base.p*2,base.theadH,cols);
@@ -58,7 +58,7 @@ async function makeLobPicture(data:DailyPayload,stamp:string){
  drawGridRow(base.ctx,base.p,base.theadY+base.theadH+rows.length*base.rowH,base.W-base.p*2,base.rowH,cols,["TOTAL",String(totals.iphone),String(totals.mac),String(totals.ipad),String(totals.watch),String(totals.airpods)],rows.length,true);
  return canvasBlob(base.canvas)
 }
-async function makeVasPicture(data:DailyPayload,stamp:string){
+export async function makeVasPicture(data:DailyPayload,stamp:string){
  const rows=data.staff||[],base=baseReportCanvas("VAS Daily",`M238 PIM 2 • Update sales jam ${stamp} WIB • Sumber RAW SalesPerson AB–AR`,rows.length);
  const cols=[{label:"NAMA",width:560,align:"left" as const},{label:"QOALA QTY / VALUE",width:390,align:"right" as const},{label:"TELKOMSEL QTY / VALUE",width:390,align:"right" as const},{label:"XL QTY / VALUE",width:340,align:"right" as const},{label:"INDOSAT QTY / VALUE",width:310,align:"right" as const}];
  drawTableHeader(base.ctx,base.p,base.theadY,base.W-base.p*2,base.theadH,cols);
@@ -68,7 +68,7 @@ async function makeVasPicture(data:DailyPayload,stamp:string){
  drawGridRow(base.ctx,base.p,base.theadY+base.theadH+rows.length*base.rowH,base.W-base.p*2,base.rowH,cols,["TOTAL",...totalVals],rows.length,true);
  return canvasBlob(base.canvas)
 }
-async function makeShareFiles(data:DailyPayload){
+export async function makeShareFiles(data:DailyPayload){
  const stamp=shareTime();
  const [daily,lob,vas]=await Promise.all([makeDailySalesPicture(data),makeLobPicture(data,stamp),makeVasPicture(data,stamp)]);
  return{
