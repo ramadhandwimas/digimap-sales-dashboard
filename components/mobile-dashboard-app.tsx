@@ -721,7 +721,7 @@ function ReportScreen({mode,setMode,weekly,weeklySummary,feedback,cx,staff}:{mod
  return <div className="m238m-stack m238m-enter"><Segmented value={mode} onChange={setMode} items={[{value:"weekly",label:"Weekly"},{value:"feedback",label:"Feedback"},{value:"cx",label:"CX"}]}/>{mode==="weekly"?(weekly?<WeeklyView weekly={weekly} summary={weeklySummary}/>:<Skeleton/>):mode==="feedback"?(feedback?<FeedbackView data={feedback} staff={staff}/>:<Skeleton/>):(cx?<CxView data={cx} staff={staff}/>:<Skeleton/>)}</div>
 }
 function WeeklyView({weekly,summary}:{weekly:Weekly;summary:DailySummary|null}){
- const[showDetail,setShowDetail]=useState(false),[selectedLob,setSelectedLob]=useState<{name:string;key:string}|null>(null),[copyMsg,setCopyMsg]=useState("");
+ const[showDetail,setShowDetail]=useState(false),[detailTab,setDetailTab]=useState<"summary"|"lob"|"vas"|"reason">("summary"),[selectedLob,setSelectedLob]=useState<{name:string;key:string}|null>(null),[copyMsg,setCopyMsg]=useState("");
  const sum=(obj:Record<string,{qty:number;amount:number}>={})=>Object.values(obj).reduce((a,x)=>({qty:a.qty+x.qty,amount:a.amount+x.amount}),{qty:0,amount:0});
  const total=(side:Weekly["b"])=>sum(side.scheme),cur=total(weekly.b),prev=total(weekly.a),growth=prev.amount?(cur.amount-prev.amount)/prev.amount*100:0;
  const lobs=[["iPhone","IPHONE"],["iPad","IPAD"],["MacBook","MAC"],["Apple Watch","APPLE WATCH"],["AirPods","AIRPODS"]] as const;
@@ -738,7 +738,7 @@ function WeeklyView({weekly,summary}:{weekly:Weekly;summary:DailySummary|null}){
   try{await navigator.clipboard.writeText(lines.join("\n"));setCopyMsg("Compare berhasil disalin.");setTimeout(()=>setCopyMsg(""),1800)}catch{setCopyMsg("Gagal menyalin.")}
  };
  return <>
-  <button className="m238m-click-card" onClick={()=>setShowDetail(true)}><Card className="m238m-hero compact m238m-weekly-hero"><div className="m238m-weekly-hero-title"><span>Weekly Sales • {weekly.labelB}</span><ChevronRight size={18}/></div><strong>{money.format(cur.amount)}</strong><p>{growth>=0?"+":""}{pct(growth)} vs {weekly.labelA} • Qty {num.format(cur.qty)}</p>{summary?.dailyRows?.length?<TouchLineChart rows={summary.dailyRows}/>:null}<small className="m238m-tap-hint">Tap untuk detail compare {weekly.labelA} vs {weekly.labelB}</small></Card></button>
+  <button className="m238m-click-card" onClick={()=>{setDetailTab("summary");setShowDetail(true)}}><Card className="m238m-hero compact m238m-weekly-hero"><div className="m238m-weekly-hero-title"><span>Weekly Sales • {weekly.labelB}</span><ChevronRight size={18}/></div><strong>{money.format(cur.amount)}</strong><p>{growth>=0?"+":""}{pct(growth)} vs {weekly.labelA} • Qty {num.format(cur.qty)}</p>{summary?.dailyRows?.length?<TouchLineChart rows={summary.dailyRows}/>:null}<small className="m238m-tap-hint">Tap untuk detail compare {weekly.labelA} vs {weekly.labelB}</small></Card></button>
   {summary?<div className="m238m-grid"><Metric label="Traffic" value={num.format(summary.summary.traffic)}/><Metric label="CVR" value={pct(summary.summary.cvr)}/><Metric label="Transaction" value={num.format(summary.summary.transaction)}/><Metric label="UPT" value={summary.summary.upt.toFixed(1)}/><Metric label="ATV" value={money.format(summary.summary.atv)}/><Metric label="Qty" value={num.format(summary.summary.qty)}/></div>:null}
   <div className="m238m-section-head"><h2>Sales Summary</h2><span>{weekly.labelA} → {weekly.labelB}</span></div>
   <div className="m238m-list">{schemes.map(k=>{const a=weekly.a.scheme[k]||{qty:0,amount:0},b=weekly.b.scheme[k]||{qty:0,amount:0},d=delta(a.amount,b.amount);return <Card key={k} className="m238m-copy-card"><div className="m238m-copy-head"><strong>{k}</strong><b>{money.format(b.amount)}</b></div><p>{num.format(b.qty)} qty • {d>=0?"+":""}{pct(d)} amount vs {weekly.labelA}</p></Card>})}</div>
@@ -753,6 +753,8 @@ function WeeklyView({weekly,summary}:{weekly:Weekly;summary:DailySummary|null}){
 
   <Sheet open={showDetail} onClose={()=>setShowDetail(false)} title={`Weekly Compare • ${weekly.labelA} vs ${weekly.labelB}`}>
    <div className="m238m-stack">
+    <Segmented value={detailTab} onChange={setDetailTab} items={[{value:"summary",label:"Summary"},{value:"lob",label:"LOB"},{value:"vas",label:"VAS"},{value:"reason",label:"Reason"}]}/>
+    {detailTab==="summary"?<>
     <Card className="m238m-weekly-compare-total">
       <div className="m238m-section-head compact"><h2>Total Sales</h2><span>Week to Week</span></div>
       <div className="m238m-compare-pair"><div><span>{weekly.labelA}</span><strong>{money.format(prev.amount)}</strong><small>{num.format(prev.qty)} qty</small></div><div><span>{weekly.labelB}</span><strong>{money.format(cur.amount)}</strong><small>{num.format(cur.qty)} qty</small></div></div>
@@ -764,17 +766,27 @@ function WeeklyView({weekly,summary}:{weekly:Weekly;summary:DailySummary|null}){
     <div className="m238m-section-head"><h2>Sales Summary</h2><span>{weekly.labelA} → {weekly.labelB}</span></div>
     <div className="m238m-list">{schemes.map(k=>{const a=weekly.a.scheme[k]||{qty:0,amount:0},b=weekly.b.scheme[k]||{qty:0,amount:0},d=delta(a.amount,b.amount);return <Card key={k} className="m238m-week-compare-row"><div className="m238m-week-compare-head"><strong>{k}</strong><b className={d>=0?"positive":"negative"}>{d>=0?"+":""}{pct(d)}</b></div><div className="m238m-week-compare-values"><div><span>{weekly.labelA}</span><b>{money.format(a.amount)}</b><small>{num.format(a.qty)} qty</small></div><div><span>{weekly.labelB}</span><b>{money.format(b.amount)}</b><small>{num.format(b.qty)} qty</small></div></div></Card>})}</div>
 
+    </>:null}
+
+    {detailTab==="vas"?<>
     <div className="m238m-section-head"><h2>VAS</h2><span>Week to Week</span></div>
     <div className="m238m-list">{vasKeys.map(k=>{const a=weekly.a.vas[k]||{qty:0,amount:0},b=weekly.b.vas[k]||{qty:0,amount:0},d=delta(a.amount,b.amount);return <Card key={k} className="m238m-week-compare-row"><div className="m238m-week-compare-head"><strong>{k}</strong><b className={d>=0?"positive":"negative"}>{d>=0?"+":""}{pct(d)}</b></div><div className="m238m-week-compare-values"><div><span>{weekly.labelA}</span><b>{money.format(a.amount)}</b><small>{num.format(a.qty)} qty</small></div><div><span>{weekly.labelB}</span><b>{money.format(b.amount)}</b><small>{num.format(b.qty)} qty</small></div></div></Card>})}</div>
 
+    </>:null}
+
+    {detailTab==="lob"?<>
     <div className="m238m-section-head"><h2>LOB Performance</h2><span>Target vs Actual</span></div>
     <div className="m238m-list">{lobs.map(([name,key])=>{const a=sum(weekly.a.lob?.[key]||{}),b=sum(weekly.b.lob?.[key]||{}),target=weekly.targets?.lob?.[key]||0,ach=target?b.qty/target*100:0,d=delta(a.qty,b.qty);return <button key={key} className="m238m-click-card" onClick={()=>setSelectedLob({name,key})}><Card className="m238m-week-compare-row"><div className="m238m-week-compare-head"><strong>{name}</strong><div className="m238m-row-chevron"><b className={d>=0?"positive":"negative"}>{d>=0?"+":""}{pct(d)} Qty</b><ChevronRight size={16}/></div></div><div className="m238m-week-compare-values"><div><span>{weekly.labelA}</span><b>{num.format(a.qty)} unit</b><small>{money.format(a.amount)}</small></div><div><span>{weekly.labelB}</span><b>{num.format(b.qty)} unit</b><small>{money.format(b.amount)}</small></div></div>{target?<div className="m238m-week-target"><div><span>Target {num.format(target)}</span><b>{pct(ach)}</b></div><Progress value={ach}/><small>Gap {b.qty-target>=0?"+":""}{num.format(b.qty-target)} unit</small></div>:null}<small className="m238m-tap-hint">Tap untuk lihat detail type/model</small></Card></button>})}</div>
 
     {weekly.targets?.types?<><div className="m238m-section-head"><h2>Target LOB Focus</h2><span>{weekly.targets.sourceWeek||weekly.labelB}</span></div><div className="m238m-list">{Object.entries(weekly.targets.types).flatMap(([lob,types])=>Object.entries(types).filter(([,v])=>v.focus||v.target>0).map(([type,v])=>{const actual=weekly.b.lob?.[lob]?.[type]?.qty||0,ach=v.target?actual/v.target*100:0;return <Card key={lob+"-"+type+"-detail"} className="m238m-copy-card"><div className="m238m-copy-head"><strong>{type}</strong><b>{num.format(actual)} / {num.format(v.target)}</b></div><Progress value={ach}/><p>{pct(ach)} • Gap {actual-v.target>=0?"+":""}{num.format(actual-v.target)}{v.focus?" • Fokus":""}</p></Card>}))}</div></>:null}
 
+    </>:null}
+
+    {detailTab==="reason"?<>
     <div className="m238m-section-head"><h2>Reason & Action Plan</h2><span>{weekly.feedbackCount?weekly.feedbackCount+" feedback":""}</span></div>
     {weekly.feedbackSummary?<Card className="m238m-copy-card"><strong>Reason Store</strong><p>{weekly.feedbackSummary}</p></Card>:null}
     {Object.entries(weekly.analysis||{}).map(([k,v])=><Card key={k+"-detail"} className="m238m-week-analysis"><strong>{k==="APPLE WATCH"?"Apple Watch":k.charAt(0)+k.slice(1).toLowerCase()}</strong><span>Weekly Review</span><p>{v.review}</p><span>Action Plan</span><p>{v.actionPlan}</p></Card>)}
+    </>:null}
    </div>
   </Sheet>
 
