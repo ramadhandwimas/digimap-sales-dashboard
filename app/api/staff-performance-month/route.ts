@@ -13,13 +13,14 @@ function vasType(r:unknown[]){const t=`${s(r[4])} ${s(r[10])} ${s(r[13])} ${s(r[
 const accRate=(price:number)=>price<=599000?5000:price<=2000000?10000:price<=4000000?20000:price<=6000000?40000:80000;
 
 export async function GET(req:NextRequest){
- const period=req.nextUrl.searchParams.get("period")||"";
+ const period=req.nextUrl.searchParams.get("period")||"",from=req.nextUrl.searchParams.get("from")||"",to=req.nextUrl.searchParams.get("to")||"";
+ const rangeMode=/^20\d{2}-\d{2}-\d{2}$/.test(from)&&/^20\d{2}-\d{2}-\d{2}$/.test(to)&&from<=to;
  if(!/^2026-\d{2}$/.test(period))return NextResponse.json({error:"Period harus format YYYY-MM"},{status:400});
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
  if(!email||!key)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});
  try{
   const[dataRows,config]=await getSheetRanges(ID,["'Data Copas'!A2:S50000","Config!A1:AZ120"],email,key);
-  const rows=(dataRows||[]).filter(r=>iso(r[0]).startsWith(period)&&up(r[15])===STORE&&valid(r)&&s(r[1]));
+  const rows=(dataRows||[]).filter(r=>{const d=iso(r[0]);return (rangeMode?(d>=from&&d<=to):d.startsWith(period))&&up(r[15])===STORE&&valid(r)&&s(r[1])});
   const label=monthLabel(period).toLowerCase(),targetRow=(config||[]).find(r=>s(r[16]).toLowerCase()===label),target={amount:n(targetRow?.[17]),device:n(targetRow?.[18]),accessories:n(targetRow?.[19]),vas:n(targetRow?.[20])};
   const configById=new Map<string,{name:string;position:string;share:number}>();
   for(const r of (config||[]).slice(27,55)){if(s(r[7])!==STORE||!s(r[8])||/SUPERVISOR|ONLINE/i.test(s(r[10])))continue;configById.set(s(r[8]),{name:s(r[9]),position:s(r[10]),share:n(r[11])})}
