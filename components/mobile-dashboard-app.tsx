@@ -12,7 +12,7 @@ import {makeDailySalesPicture,makeLobPicture,makeVasPicture} from "@/components/
 
 type Tab="home"|"sales"|"team"|"report"|"admin"|"more";
 type SalesMode="daily"|"summary"|"lob";
-type FocusMode="achievement"|"lob"|"vas"|"third";
+type FocusMode="lob"|"vas"|"third";
 type ReportMode="weekly"|"feedback"|"cx";
 type HomeMode="monthly"|"ytd"|"compare";
 type CompareLob={lob:string;amount2025:number;amount2026:number|null;qty2025:number;qty2026:number|null;diff:number|null;growth:number|null;qtyDiff:number|null;qtyGrowth:number|null};
@@ -405,48 +405,117 @@ function SalesScreen({mode,setMode,daily,summary,period,onStaff,onDay}:{mode:Sal
  </div>
 }
 function FocusProductView({summary,period}:{summary:DailySummary;period:string}){
- const[tab,setTab]=useState<FocusMode>("achievement"),[focus,setFocus]=useState<any>(null),[lobTargets,setLobTargets]=useState<Record<string,number>>({}),[thirdTargets,setThirdTargets]=useState<Record<string,number>>({}),[loading,setLoading]=useState(true);
+ const[tab,setTab]=useState<FocusMode>("lob"),[focus,setFocus]=useState<any>(null),[staffPerf,setStaffPerf]=useState<Staff[]>([]);
+ const[lobTargets,setLobTargets]=useState<Record<string,number>>({}),[lobActive,setLobActive]=useState<Record<string,number>>({}),[vasTargets,setVasTargets]=useState<Record<string,number>>({}),[thirdTargets,setThirdTargets]=useState<Record<string,number>>({});
+ const[shares,setShares]=useState<Array<{id:string;name:string;share:number}>>([]),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[notice,setNotice]=useState("");
+ const[selectedLob,setSelectedLob]=useState<string|null>(null),[selectedProduct,setSelectedProduct]=useState<string|null>(null),[selectedVas,setSelectedVas]=useState<string|null>(null),[editFocus,setEditFocus]=useState(false);
  const lob=summary.breakdown.lob||{iphone:0,macbook:0,ipad:0,appleWatch:0,airpods:0};
  const vas=(summary.dailyRows||[]).reduce((a,r)=>({qoalaQty:a.qoalaQty+(r.vas?.qoalaQty||0),qoalaValue:a.qoalaValue+(r.vas?.qoalaValue||0),telkomselQty:a.telkomselQty+(r.vas?.telkomselQty||0),telkomselValue:a.telkomselValue+(r.vas?.telkomselValue||0),xlQty:a.xlQty+(r.vas?.xlQty||0),xlValue:a.xlValue+(r.vas?.xlValue||0),indosatQty:a.indosatQty+(r.vas?.indosatQty||0),indosatValue:a.indosatValue+(r.vas?.indosatValue||0)}),{qoalaQty:0,qoalaValue:0,telkomselQty:0,telkomselValue:0,xlQty:0,xlValue:0,indosatQty:0,indosatValue:0});
  const vasTotal=vas.qoalaValue+vas.telkomselValue+vas.xlValue+vas.indosatValue,vasQty=vas.qoalaQty+vas.telkomselQty+vas.xlQty+vas.indosatQty;
- const lobRows=[["iPhone",lob.iphone],["MacBook",lob.macbook],["iPad",lob.ipad],["Apple Watch",lob.appleWatch],["AirPods",lob.airpods]] as const;
+ const lobRows=[["iPhone","iPhone",lob.iphone],["MacBook","MacBook",lob.macbook],["iPad","iPad",lob.ipad],["Apple Watch","Apple Watch",lob.appleWatch],["AirPods","AirPods",lob.airpods]] as const;
  const thirdKeys=["HASTAG","DINO","IGA","IBACKS","HANDAL","OMEGA","TORRAS"];
- useEffect(()=>{let alive=true;setLoading(true);Promise.all([
-  cachedJson<any>(`/api/lob-target-focus?mode=month&month=${period}`,180000),
-  cachedJson<any>(`/api/manual-target?scope=monthly&period=${encodeURIComponent(period)}&group=lob-focus`,180000),
-  cachedJson<any>(`/api/manual-target?scope=monthly&period=${encodeURIComponent(period)}&group=product-focus`,180000)
- ]).then(([f,l,t])=>{if(!alive)return;setFocus(f);setLobTargets(Object.fromEntries(Object.entries(l.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])));setThirdTargets(Object.fromEntries(Object.entries(t.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])))}).finally(()=>alive&&setLoading(false));return()=>{alive=false}},[period]);
- const actualMap=new Map<string,number>((focus?.lob?.products||[]).map((x:any)=>[x.name,Number(x.qty||0)]));
- const activeProducts=(focus?.productFocus||[]) as string[];
+ const vasRows=[["Qoala","qoala",vas.qoalaValue,vas.qoalaQty],["Telkomsel","telkomsel",vas.telkomselValue,vas.telkomselQty],["XL","xl",vas.xlValue,vas.xlQty],["Indosat","indosat",vas.indosatValue,vas.indosatQty]] as const;
+
+ const load=useCallback(async(force=false)=>{
+  setLoading(true);
+  try{
+   const [fp,lt,la,vt,tt,sp]=await Promise.all([
+    cachedJson<any>(`/api/lob-target-focus?mode=month&month=${period}`,180000,force),
+    cachedJson<any>(`/api/manual-target?scope=monthly&period=${encodeURIComponent(period)}&group=lob-focus`,180000,force),
+    cachedJson<any>(`/api/manual-target?scope=monthly&period=${encodeURIComponent(period)}&group=lob-focus-active`,180000,force),
+    cachedJson<any>(`/api/manual-target?scope=monthly&period=${encodeURIComponent(period)}&group=vas-focus`,180000,force),
+    cachedJson<any>(`/api/manual-target?scope=monthly&period=${encodeURIComponent(period)}&group=product-focus`,180000,force),
+    cachedJson<{staff:Staff[]}>(`/api/staff-performance-month?period=${period}`,180000,force)
+   ]);
+   setFocus(fp);setStaffPerf(sp.staff||[]);
+   setLobTargets(Object.fromEntries(Object.entries(lt.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])));
+   setLobActive(Object.fromEntries(Object.entries(la.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])));
+   setVasTargets(Object.fromEntries(Object.entries(vt.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])));
+   setThirdTargets(Object.fromEntries(Object.entries(tt.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])));
+   setShares((vt.staff||lt.staff||[]).map((x:any)=>({id:String(x.id),name:String(x.name),share:Number(x.share||0)})));
+  }finally{setLoading(false)}
+ },[period]);
+ useEffect(()=>{void load()},[load]);
+
+ const products=(focus?.lob?.products||[]) as Array<{name:string;qty:number;value:number}>;
+ const productMap=new Map(products.map(x=>[x.name,x]));
+ const staffFocus=(focus?.lob?.staff||[]) as Array<{id:string;name:string;products:Record<string,{qty:number;value:number}>}>;
+ const catalog=(Object.values(focus?.productCatalog||{}).flat() as string[]);
+ const activeProducts=catalog.filter(name=>Number(lobActive[name]||0)>0);
+ const focusFallback=(focus?.productFocus||[]) as string[];
+ const selectedProducts=activeProducts.length?activeProducts:focusFallback;
+
+ const saveLob=async()=>{
+  setSaving(true);setNotice("");
+  try{
+   const [a,b]=await Promise.all([
+    fetch("/api/manual-target",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scope:"monthly",period,group:"lob-focus",targets:lobTargets})}),
+    fetch("/api/manual-target",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scope:"monthly",period,group:"lob-focus-active",targets:lobActive})})
+   ]);
+   const ja=await a.json(),jb=await b.json();if(!a.ok)throw new Error(ja.error||"Gagal menyimpan target LOB");if(!b.ok)throw new Error(jb.error||"Gagal menyimpan fokus unit");
+   setNotice("Target & unit fokus tersimpan.");setEditFocus(false);await load(true);
+  }catch(e){setNotice(e instanceof Error?e.message:"Gagal menyimpan")}finally{setSaving(false)}
+ };
+ const saveVas=async()=>{
+  setSaving(true);setNotice("");
+  try{const r=await fetch("/api/manual-target",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scope:"monthly",period,group:"vas-focus",targets:vasTargets})}),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal menyimpan target VAS");setNotice(j.message||"Target VAS tersimpan.");await load(true)}
+  catch(e){setNotice(e instanceof Error?e.message:"Gagal menyimpan")}finally{setSaving(false)}
+ };
+
+ const lobProductsFor=(group:string)=>{
+  if(group==="AirPods")return products.filter(x=>x.name.toLowerCase().includes("airpods"));
+  return products.filter(x=>x.name.startsWith(group));
+ };
+ const selectedProductStaff=selectedProduct?staffFocus.map(s=>({id:s.id,name:s.name,qty:Number(s.products?.[selectedProduct]?.qty||0)})).filter(x=>x.qty>0).sort((a,b)=>b.qty-a.qty):[];
+ const selectedVasRow=vasRows.find(x=>x[0]===selectedVas);
+ const selectedVasKey=selectedVasRow?.[1] as "qoala"|"telkomsel"|"xl"|"indosat"|undefined;
+ const vasTarget=selectedVas?Number(vasTargets[selectedVas]||0):0;
+ const selectedVasStaff=selectedVasKey?shares.map(sh=>{
+   const perf=staffPerf.find(s=>s.id===sh.id),actual=Number(perf?.vasDetail?.[selectedVasKey]?.value||0),qty=Number(perf?.vasDetail?.[selectedVasKey]?.qty||0),target=vasTarget*sh.share,ar=target?actual/target*100:0;
+   return{id:sh.id,name:sh.name,share:sh.share,actual,qty,target,ar};
+ }).sort((a,b)=>b.actual-a.actual):[];
+
  return <div className="m238m-stack">
-  <div className="m238m-focus-tabs">
-   {[["achievement","Achievement"],["lob","LOB"],["vas","VAS"],["third","Third Party"]].map(([k,l])=><button key={k} className={tab===k?"active":""} onClick={()=>setTab(k as FocusMode)}>{l}</button>)}
+  <div className="m238m-focus-tabs m238m-focus-tabs-three">
+   {[["lob","LOB"],["vas","VAS"],["third","Third Party"]].map(([k,l])=><button key={k} className={tab===k?"active":""} onClick={()=>setTab(k as FocusMode)}>{l}</button>)}
   </div>
 
-  {tab==="achievement"?<>
-    <Card className="m238m-lob-summary"><div><span>Device</span><strong>{money.format(summary.breakdown.device)}</strong></div><div><span>ACC</span><strong>{money.format(summary.breakdown.accessories)}</strong></div><div><span>VAS</span><strong>{money.format(summary.breakdown.vas)}</strong></div></Card>
-    <div className="m238m-section-head"><h2>Product Fokus Aktif</h2><span>{activeProducts.length} product</span></div>
-    {loading?<Card>Memuat fokus product…</Card>:activeProducts.length?<div className="m238m-list">{activeProducts.map(name=>{const actual=actualMap.get(name)||0,target=lobTargets[name]||0,ach=target?actual/target*100:0;return <Card key={name} className="m238m-focus-ach-row"><div><strong>{name}</strong><span>Actual {num.format(actual)} unit{target?` • Target ${num.format(target)}`:""}</span></div><div><b>{target?pct(ach):"—"}</b>{target?<Progress value={ach}/>:null}</div></Card>})}</div>:<Card className="m238m-empty">Belum ada Product Fokus Aktif untuk periode ini.</Card>}
-  </>:null}
-
   {tab==="lob"?<>
-    <div className="m238m-section-head"><h2>LOB Performance</h2><span>Qty periode</span></div>
-    <div className="m238m-list">{lobRows.map(([label,value])=><Card key={label} className="m238m-lob-row"><div><strong>{label}</strong><span>Quantity</span></div><b>{num.format(value)} unit</b></Card>)}</div>
+    <div className="m238m-section-head"><h2>Unit Fokus</h2><button className="m238m-text-action" onClick={()=>setEditFocus(!editFocus)}>{editFocus?"Tutup":"Atur Fokus & Target"}</button></div>
+    {selectedProducts.length?<div className="m238m-focus-unit-grid">{selectedProducts.map(name=>{const actual=Number(productMap.get(name)?.qty||0),target=Number(lobTargets[name]||0);return <button key={name} onClick={()=>setSelectedProduct(name)} className="m238m-focus-unit-card"><span>{name}</span><strong>{num.format(actual)} unit</strong><small>{target?`Target ${num.format(target)} • AR ${pct(actual/target*100)}`:"Target belum diisi"}</small><ChevronRight size={14}/></button>})}</div>:<Card className="m238m-empty">Belum ada unit fokus yang dipilih.</Card>}
+    {editFocus?<Card className="m238m-focus-editor"><strong>Pilih Unit Fokus & Target</strong><p>Centang unit yang ingin tampil di atas LOB, lalu isi target unitnya.</p><div className="m238m-focus-edit-list">{catalog.map(name=><div key={name}><label><input type="checkbox" checked={Number(lobActive[name]||0)>0} onChange={e=>setLobActive(v=>({...v,[name]:e.target.checked?1:0}))}/><span>{name}</span></label><input type="number" inputMode="numeric" min={0} value={lobTargets[name]||0} onChange={e=>setLobTargets(v=>({...v,[name]:Number(e.target.value)}))} placeholder="Target"/></div>)}</div><button className="m238m-primary" disabled={saving} onClick={()=>void saveLob()}>{saving?"Menyimpan…":"Simpan Fokus & Target"}</button></Card>:null}
+    {notice?<small className="m238m-notice">{notice}</small>:null}
+    <div className="m238m-section-head"><h2>LOB Performance</h2><span>Tap untuk detail</span></div>
+    <div className="m238m-list">{lobRows.map(([label,key,value])=><button key={label} className="m238m-click-card" onClick={()=>setSelectedLob(key)}><Card className="m238m-lob-row"><div><strong>{label}</strong><span>Lihat detail penjualan</span></div><div className="m238m-row-chevron"><b>{num.format(value)} unit</b><ChevronRight size={16}/></div></Card></button>)}</div>
   </>:null}
 
   {tab==="vas"?<>
     <div className="m238m-section-head"><h2>VAS</h2><span>{num.format(vasQty)} qty total</span></div>
     <Card className="m238m-vas-total"><span>Total VAS</span><strong>{money.format(vasTotal)}</strong></Card>
+    <Card className="m238m-vas-target-editor"><strong>Target Manual VAS</strong><p>Target otomatis dibagi ke staff mengikuti %T existing.</p>{vasRows.map(([label])=><label key={label}><span>{label}</span><input type="number" inputMode="numeric" min={0} value={vasTargets[label]||0} onChange={e=>setVasTargets(v=>({...v,[label]:Number(e.target.value)}))}/></label>)}<button className="m238m-primary" disabled={saving} onClick={()=>void saveVas()}>{saving?"Menyimpan…":"Simpan Target VAS"}</button></Card>
+    {notice?<small className="m238m-notice">{notice}</small>:null}
     <div className="m238m-list">
-     {[["Qoala",vas.qoalaValue,vas.qoalaQty],["Telkomsel",vas.telkomselValue,vas.telkomselQty],["XL",vas.xlValue,vas.xlQty],["Indosat",vas.indosatValue,vas.indosatQty]].map(([label,value,qty])=><Card key={String(label)} className="m238m-vas-row"><div><strong>{label}</strong><span>{num.format(Number(qty))} qty</span></div><b>{money.format(Number(value))}</b></Card>)}
+     {vasRows.map(([label,key,value,qty])=>{const target=Number(vasTargets[label]||0),ar=target?Number(value)/target*100:0;return <button key={label} className="m238m-click-card" onClick={()=>setSelectedVas(label)}><Card className="m238m-vas-row"><div><strong>{label}</strong><span>{num.format(Number(qty))} qty • Target {money.format(target)}</span></div><div className="m238m-row-chevron"><div><b>{money.format(Number(value))}</b><small>{target?`AR ${pct(ar)}`:"AR —"}</small></div><ChevronRight size={16}/></div></Card></button>})}
     </div>
   </>:null}
 
   {tab==="third"?<>
     <div className="m238m-section-head"><h2>Third Party</h2><span>Target program</span></div>
-    <Card className="m238m-copy-card"><strong>Target 3PP</strong><p>Menampilkan target existing. Actual 3PP tidak ditampilkan karena belum tersedia dari API Sales saat ini.</p></Card>
+    <Card className="m238m-copy-card"><strong>Target 3PP</strong><p>Menampilkan target existing. Actual 3PP belum tersedia dari API Sales saat ini.</p></Card>
     {loading?<Card>Memuat target Third Party…</Card>:<div className="m238m-list">{thirdKeys.map(name=><Card key={name} className="m238m-third-row"><strong>{name}</strong><div><span>Target</span><b>{num.format(thirdTargets[name]||0)}</b></div></Card>)}</div>}
   </>:null}
+
+  <Sheet open={!!selectedLob} onClose={()=>setSelectedLob(null)} title={selectedLob?`${selectedLob} • Detail Penjualan`:"Detail LOB"}>
+   {selectedLob?<div className="m238m-stack">{lobProductsFor(selectedLob).filter(x=>x.qty>0).map(p=><button key={p.name} className="m238m-click-card" onClick={()=>setSelectedProduct(p.name)}><Card className="m238m-product-detail-row"><div><strong>{p.name}</strong><span>Penjualan periode ini</span></div><div><b>{num.format(p.qty)} unit</b><ChevronRight size={15}/></div></Card></button>)}{!lobProductsFor(selectedLob).some(x=>x.qty>0)?<Card className="m238m-empty">Belum ada penjualan pada LOB ini.</Card>:null}</div>:null}
+  </Sheet>
+
+  <Sheet open={!!selectedProduct} onClose={()=>setSelectedProduct(null)} title={selectedProduct?`${selectedProduct} • Staff`:"Detail Product"}>
+   {selectedProduct?<div className="m238m-stack"><Card className="m238m-detail-sales"><span>Total Penjualan</span><strong>{num.format(Number(productMap.get(selectedProduct)?.qty||0))} unit</strong><small>Target {num.format(Number(lobTargets[selectedProduct]||0))} unit</small></Card><div className="m238m-section-head"><h2>Penjualan Staff</h2><span>{selectedProductStaff.length} staff</span></div><div className="m238m-list">{selectedProductStaff.map((r,i)=><Card key={r.id} className="m238m-staff-breakdown-row"><span>#{i+1}</span><strong>{shortStaffName(r.name)}</strong><b>{num.format(r.qty)} unit</b></Card>)}</div></div>:null}
+  </Sheet>
+
+  <Sheet open={!!selectedVas} onClose={()=>setSelectedVas(null)} title={selectedVas?`${selectedVas} • Detail Staff & AR`:"Detail VAS"}>
+   {selectedVas&&selectedVasRow?<div className="m238m-stack"><Card className="m238m-detail-sales"><span>{selectedVas}</span><strong>{money.format(Number(selectedVasRow[2]))}</strong><small>{num.format(Number(selectedVasRow[3]))} qty • Target {money.format(vasTarget)}</small></Card><div className="m238m-section-head"><h2>Breakdown Target & Actual</h2><span>%T Staff</span></div><div className="m238m-list">{selectedVasStaff.map((r,i)=><Card key={r.id} className="m238m-vas-staff-row"><div className="m238m-vas-staff-head"><span>#{i+1}</span><strong>{shortStaffName(r.name)}</strong><b className={r.target&&r.ar>=100?"positive":""}>{r.target?pct(r.ar):"AR —"}</b></div><div className="m238m-vas-staff-meta"><span>Actual <b>{money.format(r.actual)}</b> • {num.format(r.qty)} qty</span><span>Target <b>{money.format(r.target)}</b> • %T {pct(r.share*100)}</span></div><Progress value={r.ar}/></Card>)}</div></div>:null}
+  </Sheet>
  </div>
 }
 function DailyDetail({row}:{row:DailyRow}){
@@ -591,7 +660,7 @@ const mobileCss=`
 .m238m-insight{display:flex;gap:12px;align-items:flex-start}.m238m-insight>svg{color:#ff9f0a;flex:none}.m238m-insight span{font-weight:850;font-size:14px;color:var(--m-text)}.m238m-insight p{margin:4px 0 0;font-size:13px;color:var(--m-secondary);line-height:1.45}
 .m238m-section-head{display:flex;align-items:center;justify-content:space-between;padding:8px 2px 0}.m238m-section-head h2{font-size:19px;margin:0}.m238m-section-head span{font-size:12px;color:var(--m-secondary)}
 .m238m-segment{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:3px;background:var(--m-surface2);border-radius:12px;gap:2px}.m238m-segment button{border:0;background:transparent;color:var(--m-secondary);border-radius:10px;padding:9px 10px;font-size:13px;font-weight:800}.m238m-segment button.active{background:var(--m-surface);color:var(--m-text);box-shadow:0 1px 4px rgba(0,0,0,.08)}
-.m238m-list{display:flex;flex-direction:column;gap:8px}.m238m-sales-hero>strong{font-size:clamp(25px,7vw,31px);overflow-wrap:anywhere}.m238m-sales-hero>p{line-height:1.35}.m238m-day-row{width:100%;border:0;background:var(--m-surface);color:var(--m-text);border-radius:16px;padding:14px 13px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;text-align:left}.m238m-day-row:active{transform:scale(.99)}.m238m-day-main{min-width:0;display:flex;flex-direction:column;gap:6px}.m238m-day-main strong{font-size:14px;line-height:1.25}.m238m-day-main b{font-size:17px;letter-spacing:-.015em;overflow-wrap:anywhere}.m238m-day-main small{font-size:10px;line-height:1.35;color:var(--m-secondary)}.m238m-day-row>svg{color:var(--m-secondary)} .m238m-focus-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:3px;background:var(--m-surface2);border-radius:12px}.m238m-focus-tabs button{border:0;background:transparent;color:var(--m-secondary);border-radius:9px;padding:9px 4px;font-size:10px;font-weight:850;white-space:nowrap}.m238m-focus-tabs button.active{background:var(--m-surface);color:var(--m-blue);box-shadow:0 1px 4px rgba(0,0,0,.08)}.m238m-focus-ach-row{display:grid;grid-template-columns:1fr minmax(86px,34%);gap:12px;align-items:center}.m238m-focus-ach-row>div:first-child{display:flex;flex-direction:column;gap:3px}.m238m-focus-ach-row strong{font-size:13px}.m238m-focus-ach-row span{font-size:10px;color:var(--m-secondary);line-height:1.35}.m238m-focus-ach-row>div:last-child{text-align:right}.m238m-focus-ach-row>div:last-child b{font-size:13px}.m238m-focus-ach-row .m238m-progress{margin-top:6px}.m238m-third-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.m238m-third-row>strong{font-size:14px}.m238m-third-row>div{display:flex;flex-direction:column;text-align:right}.m238m-third-row span{font-size:10px;color:var(--m-secondary)}.m238m-third-row b{font-size:15px}.m238m-lob-summary{display:grid;grid-template-columns:1fr;gap:10px}.m238m-lob-summary>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--m-line)}.m238m-lob-summary>div:last-child{border-bottom:0;padding-bottom:0}.m238m-lob-summary span,.m238m-vas-total span{font-size:11px;color:var(--m-secondary);font-weight:800}.m238m-lob-summary strong{font-size:15px;text-align:right;overflow-wrap:anywhere}.m238m-lob-row,.m238m-vas-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.m238m-lob-row>div,.m238m-vas-row>div{display:flex;flex-direction:column;gap:3px}.m238m-lob-row strong,.m238m-vas-row strong{font-size:14px}.m238m-lob-row span,.m238m-vas-row span{font-size:10px;color:var(--m-secondary)}.m238m-lob-row b,.m238m-vas-row b{font-size:14px;text-align:right;overflow-wrap:anywhere}.m238m-vas-total{background:color-mix(in srgb,var(--m-blue) 7%,var(--m-surface))}.m238m-vas-total strong{display:block;margin-top:5px;font-size:20px;overflow-wrap:anywhere} .m238m-staff-row{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:11px;width:100%;border:0;background:var(--m-surface);color:var(--m-text);padding:13px;border-radius:16px;text-align:left}.m238m-avatar{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#dbeafe,#c4b5fd);color:#345; font-weight:900;font-size:13px}.dark .m238m-avatar{background:linear-gradient(145deg,#203450,#352d60);color:#eaf2ff}.m238m-avatar.big{width:58px;height:58px;font-size:17px}.m238m-staff-main>div{display:flex;justify-content:space-between;gap:8px;margin-bottom:7px}.m238m-staff-main strong{font-size:14px}.m238m-staff-main b{font-size:12px;text-align:right;overflow-wrap:anywhere;max-width:48%}.m238m-staff-main small{display:block;color:var(--m-secondary);font-size:10px;margin-top:4px}
+.m238m-list{display:flex;flex-direction:column;gap:8px}.m238m-sales-hero>strong{font-size:clamp(25px,7vw,31px);overflow-wrap:anywhere}.m238m-sales-hero>p{line-height:1.35}.m238m-day-row{width:100%;border:0;background:var(--m-surface);color:var(--m-text);border-radius:16px;padding:14px 13px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;text-align:left}.m238m-day-row:active{transform:scale(.99)}.m238m-day-main{min-width:0;display:flex;flex-direction:column;gap:6px}.m238m-day-main strong{font-size:14px;line-height:1.25}.m238m-day-main b{font-size:17px;letter-spacing:-.015em;overflow-wrap:anywhere}.m238m-day-main small{font-size:10px;line-height:1.35;color:var(--m-secondary)}.m238m-day-row>svg{color:var(--m-secondary)} .m238m-focus-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:3px;background:var(--m-surface2);border-radius:12px}.m238m-focus-tabs button{border:0;background:transparent;color:var(--m-secondary);border-radius:9px;padding:9px 4px;font-size:10px;font-weight:850;white-space:nowrap}.m238m-focus-tabs button.active{background:var(--m-surface);color:var(--m-blue);box-shadow:0 1px 4px rgba(0,0,0,.08)}.m238m-focus-tabs-three{grid-template-columns:repeat(3,minmax(0,1fr))}.m238m-text-action{border:0;background:transparent;color:var(--m-blue);font-size:11px;font-weight:850}.m238m-focus-unit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.m238m-focus-unit-card{position:relative;border:0;background:color-mix(in srgb,var(--m-blue) 7%,var(--m-surface));color:var(--m-text);border-radius:16px;padding:13px;text-align:left;display:flex;flex-direction:column;gap:5px}.m238m-focus-unit-card span{font-size:12px;font-weight:850;line-height:1.25}.m238m-focus-unit-card strong{font-size:16px}.m238m-focus-unit-card small{font-size:9px;color:var(--m-secondary);line-height:1.3}.m238m-focus-unit-card>svg{position:absolute;right:9px;top:10px;color:var(--m-blue)}.m238m-focus-editor>p,.m238m-vas-target-editor>p{font-size:11px;color:var(--m-secondary);line-height:1.4;margin:5px 0 12px}.m238m-focus-edit-list{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}.m238m-focus-edit-list>div{display:grid;grid-template-columns:1fr 88px;gap:8px;align-items:center}.m238m-focus-edit-list label{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700}.m238m-focus-edit-list input[type="number"],.m238m-vas-target-editor input{width:100%;border:0;background:var(--m-surface2);color:var(--m-text);border-radius:9px;padding:9px;font-size:11px;text-align:right}.m238m-row-chevron{display:flex!important;align-items:center!important;gap:8px!important}.m238m-row-chevron>div{display:flex;flex-direction:column;align-items:flex-end}.m238m-row-chevron small{font-size:9px;color:var(--m-secondary)}.m238m-vas-target-editor{display:flex;flex-direction:column;gap:8px}.m238m-vas-target-editor>label{display:grid;grid-template-columns:1fr 130px;align-items:center;gap:10px}.m238m-vas-target-editor>label>span{font-size:11px;font-weight:800}.m238m-product-detail-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.m238m-product-detail-row>div{display:flex;flex-direction:column;gap:3px}.m238m-product-detail-row>div:last-child{align-items:flex-end}.m238m-product-detail-row span{font-size:10px;color:var(--m-secondary)}.m238m-product-detail-row b{font-size:14px}.m238m-staff-breakdown-row{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center}.m238m-staff-breakdown-row>span{font-size:10px;color:var(--m-secondary)}.m238m-staff-breakdown-row>strong{font-size:13px}.m238m-staff-breakdown-row>b{font-size:13px}.m238m-vas-staff-row{display:flex;flex-direction:column;gap:8px}.m238m-vas-staff-head{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center}.m238m-vas-staff-head>span{font-size:10px;color:var(--m-secondary)}.m238m-vas-staff-head strong,.m238m-vas-staff-head b{font-size:12px}.m238m-vas-staff-meta{display:flex;flex-direction:column;gap:3px;font-size:9px;color:var(--m-secondary)}.m238m-vas-staff-meta b{color:var(--m-text)}.m238m-focus-ach-row{display:grid;grid-template-columns:1fr minmax(86px,34%);gap:12px;align-items:center}.m238m-focus-ach-row>div:first-child{display:flex;flex-direction:column;gap:3px}.m238m-focus-ach-row strong{font-size:13px}.m238m-focus-ach-row span{font-size:10px;color:var(--m-secondary);line-height:1.35}.m238m-focus-ach-row>div:last-child{text-align:right}.m238m-focus-ach-row>div:last-child b{font-size:13px}.m238m-focus-ach-row .m238m-progress{margin-top:6px}.m238m-third-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.m238m-third-row>strong{font-size:14px}.m238m-third-row>div{display:flex;flex-direction:column;text-align:right}.m238m-third-row span{font-size:10px;color:var(--m-secondary)}.m238m-third-row b{font-size:15px}.m238m-lob-summary{display:grid;grid-template-columns:1fr;gap:10px}.m238m-lob-summary>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--m-line)}.m238m-lob-summary>div:last-child{border-bottom:0;padding-bottom:0}.m238m-lob-summary span,.m238m-vas-total span{font-size:11px;color:var(--m-secondary);font-weight:800}.m238m-lob-summary strong{font-size:15px;text-align:right;overflow-wrap:anywhere}.m238m-lob-row,.m238m-vas-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.m238m-lob-row>div,.m238m-vas-row>div{display:flex;flex-direction:column;gap:3px}.m238m-lob-row strong,.m238m-vas-row strong{font-size:14px}.m238m-lob-row span,.m238m-vas-row span{font-size:10px;color:var(--m-secondary)}.m238m-lob-row b,.m238m-vas-row b{font-size:14px;text-align:right;overflow-wrap:anywhere}.m238m-vas-total{background:color-mix(in srgb,var(--m-blue) 7%,var(--m-surface))}.m238m-vas-total strong{display:block;margin-top:5px;font-size:20px;overflow-wrap:anywhere} .m238m-staff-row{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:11px;width:100%;border:0;background:var(--m-surface);color:var(--m-text);padding:13px;border-radius:16px;text-align:left}.m238m-avatar{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#dbeafe,#c4b5fd);color:#345; font-weight:900;font-size:13px}.dark .m238m-avatar{background:linear-gradient(145deg,#203450,#352d60);color:#eaf2ff}.m238m-avatar.big{width:58px;height:58px;font-size:17px}.m238m-staff-main>div{display:flex;justify-content:space-between;gap:8px;margin-bottom:7px}.m238m-staff-main strong{font-size:14px}.m238m-staff-main b{font-size:12px;text-align:right;overflow-wrap:anywhere;max-width:48%}.m238m-staff-main small{display:block;color:var(--m-secondary);font-size:10px;margin-top:4px}
 .m238m-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}.m238m-chips button{white-space:nowrap;border:0;border-radius:999px;background:var(--m-surface);color:var(--m-secondary);padding:9px 13px;font-size:12px;font-weight:800}.m238m-chips button.active{background:var(--m-text);color:var(--m-bg)}
 .m238m-profile{display:flex;align-items:center;gap:12px}.m238m-profile h2{font-size:20px;margin:0}.m238m-profile p{font-size:12px;color:var(--m-secondary);margin:2px 0 0}
 .m238m-copy-card strong{font-size:14px}.m238m-copy-card p{font-size:13px;line-height:1.48;color:var(--m-secondary);margin:7px 0}.m238m-copy-card small{display:block;margin-top:10px;color:var(--m-blue);font-weight:800}.m238m-copy-head{display:flex;justify-content:space-between;gap:10px}.m238m-copy-head span{font-size:11px;color:var(--m-secondary)}
