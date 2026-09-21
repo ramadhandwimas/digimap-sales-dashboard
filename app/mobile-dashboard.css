@@ -474,3 +474,23 @@
 }
 /* Bottom nav fixed guard */
 .m238m-app .m238m-bottom{position:fixed!important;left:30px;right:30px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:1000}
+/* Force More rows left aligned across every theme */
+.m238m-more-direct .m238m-direct-menu>button{
+ text-align:left!important;
+ justify-items:start;
+}
+.m238m-more-direct .m238m-direct-copy{
+ width:100%;
+ align-items:flex-start!important;
+ justify-self:start;
+ text-align:left!important;
+}
+.m238m-more-direct .m238m-direct-copy strong,
+.m238m-more-direct .m238m-direct-copy small{
+ width:100%;
+ display:block;
+ text-align:left!important;
+}
+.m238m-more-direct .m238m-direct-menu>button>svg{
+ justify-self:end;
+}
