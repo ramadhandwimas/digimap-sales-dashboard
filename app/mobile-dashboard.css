@@ -222,3 +222,155 @@
 .m238m-theme-choice[data-preview="webhero"] .m238m-theme-preview{background:linear-gradient(135deg,#d92135 0 48%,#153f8f 48% 100%)}
 .m238m-theme-choice[data-preview="mecha"] .m238m-theme-preview{background:linear-gradient(135deg,#151a20 0 58%,#59b6ff 58% 78%,#c82d3f 78%)}
 .m238m-theme-choice[data-preview="alliance"] .m238m-theme-preview{background:linear-gradient(135deg,#0c1728 0 55%,#5ca7ff 55% 78%,#c6d2e1 78%)}
+/* Smooth theme switching */
+.m238m-app,
+.m238m-app .m238m-header,
+.m238m-app .m238m-period,
+.m238m-app .m238m-card,
+.m238m-app .m238m-bottom,
+.m238m-app .m238m-direct-menu,
+.m238m-app .m238m-appearance-panel,
+.m238m-app .m238m-direct-icon,
+.m238m-app .m238m-nav-icon{
+ transition:
+  background-color .34s ease,
+  background .34s ease,
+  color .28s ease,
+  border-color .34s ease,
+  border-radius .34s cubic-bezier(.2,.8,.2,1),
+  box-shadow .34s ease,
+  transform .22s cubic-bezier(.2,.8,.2,1);
+}
+.m238m-app .m238m-direct-menu>button{transition:background .2s ease,transform .16s ease,color .2s ease}
+.m238m-app .m238m-direct-menu>button:active{transform:scale(.992)}
+.m238m-app .m238m-bottom button{transition:transform .22s cubic-bezier(.2,.8,.2,1),color .22s ease}
+.m238m-app .m238m-bottom button:active{transform:translateY(1px) scale(.97)}
+
+/* Web Hero — menu + settings */
+.m238m-app[data-theme="webhero"] .m238m-direct-menu{
+ border-radius:18px;
+ border-color:rgba(47,123,255,.20);
+ background:linear-gradient(145deg,#111a2c,#0c1424);
+ box-shadow:0 16px 34px rgba(0,0,0,.28),inset 3px 0 #d92135;
+}
+.m238m-app[data-theme="webhero"] .m238m-direct-menu>button{
+ min-height:64px;
+ border-bottom-color:rgba(255,255,255,.06);
+ background:linear-gradient(90deg,rgba(217,33,53,.025),transparent 45%,rgba(47,123,255,.025));
+}
+.m238m-app[data-theme="webhero"] .m238m-direct-menu>button:nth-child(even){
+ background:linear-gradient(90deg,rgba(47,123,255,.04),transparent 55%);
+}
+.m238m-app[data-theme="webhero"] .m238m-direct-icon{
+ border-radius:50% 50% 42% 58%;
+ background:linear-gradient(135deg,#d92135,#183f91);
+ color:#fff;
+ box-shadow:0 5px 14px rgba(217,33,53,.18);
+}
+.m238m-app[data-theme="webhero"] .m238m-settings-head>button,
+.m238m-app[data-theme="webhero"] .m238m-appearance-panel{
+ border:1px solid rgba(47,123,255,.18);
+ background:linear-gradient(145deg,#141e31,#0d1627);
+}
+.m238m-app[data-theme="webhero"] .m238m-appearance-summary>svg{color:#e34b5c}
+.m238m-app[data-theme="webhero"] .m238m-theme-choice.active{
+ outline-color:#e6374a;
+ box-shadow:0 0 0 3px rgba(47,123,255,.10);
+}
+.m238m-app[data-theme="webhero"] .m238m-bottom{
+ border-radius:26px;
+}
+.m238m-app[data-theme="webhero"] .m238m-bottom button.active .m238m-nav-icon{
+ transform:translateY(-3px) rotate(-4deg) scale(1.06);
+}
+
+/* Mecha — menu + settings */
+.m238m-app[data-theme="mecha"] .m238m-direct-menu{
+ border-radius:8px;
+ border:1px solid #3a4652;
+ background:#11171d;
+ box-shadow:0 14px 28px rgba(0,0,0,.34),inset 4px 0 #59b6ff;
+}
+.m238m-app[data-theme="mecha"] .m238m-direct-menu>button{
+ min-height:60px;
+ border-bottom:1px solid #2b3540;
+ background:linear-gradient(90deg,#151d24,#11171d 55%,#15191f);
+}
+.m238m-app[data-theme="mecha"] .m238m-direct-menu>button:nth-child(3n){
+ box-shadow:inset -3px 0 #c82d3f;
+}
+.m238m-app[data-theme="mecha"] .m238m-direct-icon{
+ border-radius:6px;
+ background:#1d2832;
+ color:#73c6ff;
+ border:1px solid #3a4a58;
+ box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
+}
+.m238m-app[data-theme="mecha"] .m238m-settings-head>button,
+.m238m-app[data-theme="mecha"] .m238m-appearance-panel{
+ border-radius:8px;
+ border:1px solid #36424e;
+ background:linear-gradient(180deg,#171e25,#11171d);
+}
+.m238m-app[data-theme="mecha"] .m238m-appearance-summary{
+ min-height:54px;
+}
+.m238m-app[data-theme="mecha"] .m238m-theme-choice{
+ border-radius:8px!important;
+}
+.m238m-app[data-theme="mecha"] .m238m-bottom button.active .m238m-nav-icon{
+ transform:translateY(-2px) scale(1.03);
+ box-shadow:0 0 0 1px rgba(89,182,255,.30),0 0 18px rgba(89,182,255,.16);
+}
+
+/* Hero Alliance — menu + settings */
+.m238m-app[data-theme="alliance"] .m238m-direct-menu{
+ border-radius:24px;
+ border:1px solid rgba(199,218,242,.12);
+ background:linear-gradient(145deg,#12213a,#0c1728);
+ box-shadow:0 18px 38px rgba(0,0,0,.30);
+}
+.m238m-app[data-theme="alliance"] .m238m-direct-menu>button{
+ min-height:64px;
+ border-bottom-color:rgba(199,218,242,.07);
+ background:linear-gradient(90deg,rgba(216,228,242,.018),transparent);
+}
+.m238m-app[data-theme="alliance"] .m238m-direct-icon{
+ border-radius:12px;
+ color:#0a1625;
+ background:linear-gradient(145deg,#dce7f4,#6caeff);
+ box-shadow:0 8px 20px rgba(108,174,255,.14);
+}
+.m238m-app[data-theme="alliance"] .m238m-settings-head>button,
+.m238m-app[data-theme="alliance"] .m238m-appearance-panel{
+ border:1px solid rgba(199,218,242,.12);
+ background:linear-gradient(145deg,#14233c,#0d192b);
+ box-shadow:0 10px 24px rgba(0,0,0,.16);
+}
+.m238m-app[data-theme="alliance"] .m238m-theme-choice.active{
+ outline-color:#a9c8ec;
+ box-shadow:0 0 0 3px rgba(92,167,255,.08);
+}
+.m238m-app[data-theme="alliance"] .m238m-bottom button.active .m238m-nav-icon{
+ transform:translateY(-3px) scale(1.05);
+}
+
+/* Theme personality for top-level controls */
+.m238m-app[data-theme="webhero"] .m238m-period{border-radius:18px;background:linear-gradient(90deg,#131c30,#11192a)}
+.m238m-app[data-theme="mecha"] .m238m-home-tabs,
+.m238m-app[data-theme="mecha"] .m238m-segment{border-radius:8px}
+.m238m-app[data-theme="mecha"] .m238m-home-tabs button,
+.m238m-app[data-theme="mecha"] .m238m-segment button{border-radius:6px}
+.m238m-app[data-theme="alliance"] .m238m-period{border-radius:22px;background:linear-gradient(145deg,#13223a,#0d192b)}
+.m238m-app[data-theme="webhero"] .m238m-home-tabs,
+.m238m-app[data-theme="alliance"] .m238m-home-tabs{box-shadow:0 10px 24px rgba(0,0,0,.14)}
+
+/* make theme previews echo their actual menu language */
+.m238m-theme-choice[data-preview="webhero"] .m238m-theme-preview span{background:linear-gradient(90deg,#d92135,#173f8f);transform:skewX(-8deg)}
+.m238m-theme-choice[data-preview="mecha"] .m238m-theme-preview span{background:#1f2b35;border-left:4px solid #59b6ff;border-right:3px solid #c82d3f;border-radius:4px}
+.m238m-theme-choice[data-preview="alliance"] .m238m-theme-preview span{background:linear-gradient(135deg,#d7e3f0,#5ca7ff);border-radius:14px}
+
+/* Respect reduced motion even with theme transitions */
+@media (prefers-reduced-motion:reduce){
+ .m238m-app,.m238m-app *{transition-duration:0ms!important;animation-duration:0ms!important}
+}
