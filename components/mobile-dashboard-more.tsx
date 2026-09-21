@@ -2,7 +2,7 @@
 import {useState} from "react";
 import {Box,ChevronLeft,ChevronRight,Clock3,CreditCard,LogOut,MessageCircle,Settings,Type,Users,WalletCards} from "lucide-react";
 
-type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono";
+type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono"|"webhero"|"mecha"|"alliance";
 type MotionPreset="minimal"|"smooth"|"dynamic";
 type MotionStyle="clean"|"ios-spring"|"glass-flow"|"playful-bounce"|"executive"|"stagger"|"blur"|"elastic";
 type FontPreset="system"|"rounded"|"compact";
@@ -19,7 +19,10 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
   {id:"graphite",name:"Graphite",desc:"Industrial dark"},
   {id:"sunset",name:"Sunset",desc:"Warm & soft"},
   {id:"forest",name:"Forest",desc:"Calm green"},
-  {id:"mono",name:"Mono OLED",desc:"High contrast"}
+  {id:"mono",name:"Mono OLED",desc:"High contrast"},
+  {id:"webhero",name:"Web Hero",desc:"Red & blue sporty"},
+  {id:"mecha",name:"Mecha",desc:"Industrial electric"},
+  {id:"alliance",name:"Hero Alliance",desc:"Navy silver premium"}
  ];
  const motionLabels:Record<MotionPreset,string>={minimal:"Minimal",smooth:"Smooth",dynamic:"Dynamic"};
  const styleLabels:Record<MotionStyle,string>={clean:"Clean","ios-spring":"iOS Spring","glass-flow":"Glass Flow","playful-bounce":"Bounce",executive:"Executive",stagger:"Stagger",blur:"Blur",elastic:"Elastic"};
