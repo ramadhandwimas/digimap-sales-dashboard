@@ -28,7 +28,22 @@ function Card({children,className=""}:{children:ReactNode;className?:string}){re
 function Progress({value}:{value:number}){return <div className="m238m-progress"><i style={{width:`${Math.max(0,Math.min(100,value))}%`}}/></div>}
 function Metric({label,value,sub}:{label:string;value:string;sub?:string}){return <Card className="m238m-metric"><span>{label}</span><strong>{value}</strong>{sub?<small>{sub}</small>:null}</Card>}
 function Segmented<T extends string>({value,onChange,items}:{value:T;onChange:(v:T)=>void;items:{value:T;label:string}[]}){return <div className="m238m-segment">{items.map(x=><button key={x.value} onClick={()=>onChange(x.value)} className={value===x.value?"active":""}>{x.label}</button>)}</div>}
-function Sheet({open,onClose,title,children}:{open:boolean;onClose:()=>void;title:string;children:ReactNode}){if(!open)return null;return <div className="m238m-sheet-layer" onClick={onClose}><div className="m238m-sheet" onClick={e=>e.stopPropagation()}><button className="m238m-handle-button" aria-label="Tutup" onClick={onClose}><span className="m238m-handle"/></button><div className="m238m-sheet-head"><h3>{title}</h3><button onClick={onClose}><X size={18}/></button></div>{children}</div></div>}
+function Sheet({open,onClose,title,children}:{open:boolean;onClose:()=>void;title:string;children:ReactNode}){
+ useEffect(()=>{
+  if(!open)return;
+  const body=document.body,key="m238ReportSheetLocks",count=Number(body.dataset[key]||0)+1;
+  body.dataset[key]=String(count);body.style.overflow="hidden";
+  return()=>{const next=Math.max(0,Number(body.dataset[key]||1)-1);if(next)body.dataset[key]=String(next);else{delete body.dataset[key];body.style.overflow=""}};
+ },[open]);
+ if(!open)return null;
+ return <div className="m238m-sheet-layer" onClick={onClose}>
+  <div className="m238m-sheet" onClick={e=>e.stopPropagation()}>
+   <button className="m238m-handle-button" aria-label="Tutup" onClick={onClose}><span className="m238m-handle"/></button>
+   <div className="m238m-sheet-head"><h3>{title}</h3><button onClick={onClose}><X size={18}/></button></div>
+   <div className="m238m-sheet-scroll">{children}</div>
+  </div>
+ </div>
+}
 function Skeleton(){return <div className="m238m-stack m238m-fade"><div className="m238m-skeleton hero"/><div className="m238m-grid">{Array.from({length:4},(_,i)=><div key={i} className="m238m-skeleton tile"/>)}</div></div>}
 
 export default function ReportScreen({mode,setMode,weekly,weeklySummary,feedback,cx,staff,period,periodMode,activeRange}:{mode:ReportMode;setMode:(v:ReportMode)=>void;weekly:Weekly|null;weeklySummary:DailySummary|null;feedback:Feedback|null;cx:Cx|null;staff:Staff[];period:string;periodMode:"month"|"week";activeRange:{from:string;to:string}|null}){
