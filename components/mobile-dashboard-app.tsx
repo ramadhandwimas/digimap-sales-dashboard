@@ -560,7 +560,7 @@ function HomeSalesDetail({overview,traffic,summary}:{overview:Overview;traffic:T
 }
 
 function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,activeRange,onStaff,onDay,onShare}:{mode:SalesMode;setMode:(v:SalesMode)=>void;daily:Daily|null;summary:DailySummary|null;period:string;periodMode:"month"|"week";selectedWeek:string;activeRange:{from:string;to:string}|null;onStaff:(s:Staff)=>void;onDay:(r:DailyRow)=>void;onShare:()=>void}){
- const[showTodayDetail,setShowTodayDetail]=useState(false),[dailyLobPick,setDailyLobPick]=useState<{label:string;key:"iphone"|"mac"|"ipad"|"watch"|"airpods"}|null>(null),[dailyVasPick,setDailyVasPick]=useState<{label:string;key:"qoala"|"telkomsel"|"xl"|"indosat"}|null>(null),[dailyDrillStaff,setDailyDrillStaff]=useState<Staff|null>(null),[dailyProductDetail,setDailyProductDetail]=useState<any>(null),[dailyProductBusy,setDailyProductBusy]=useState(false);
+ const[showTodayDetail,setShowTodayDetail]=useState(false),[dailyLobPick,setDailyLobPick]=useState<{label:string;key:"iphone"|"mac"|"ipad"|"watch"|"airpods"}|null>(null),[dailyVasPick,setDailyVasPick]=useState<{label:string;key:"qoala"|"telkomsel"|"xl"|"indosat"}|null>(null),[dailyDrillStaff,setDailyDrillStaff]=useState<Staff|null>(null),[dailyProductDetail,setDailyProductDetail]=useState<any>(null),[dailyVasDetail,setDailyVasDetail]=useState<any>(null),[dailyProductBusy,setDailyProductBusy]=useState(false),[dailyVasBusy,setDailyVasBusy]=useState(false);
  const ach=daily?.total.target?daily.total.amount/daily.total.target*100:0,device=daily?Math.max(0,daily.total.amount-daily.total.accessories-daily.total.vas):0,dailyGap=daily?Math.max(0,daily.total.target-daily.total.amount):0,accAch=daily?.total.accTarget?daily.total.accessories/daily.total.accTarget*100:0,vasAch=daily?.total.vasTarget?daily.total.vas/daily.total.vasTarget*100:0;
  const dailyLob=daily?.staff.reduce((a,s)=>({iphone:a.iphone+Number(s.lob?.iphone||0),mac:a.mac+Number(s.lob?.mac||0),ipad:a.ipad+Number(s.lob?.ipad||0),watch:a.watch+Number(s.lob?.watch||0),airpods:a.airpods+Number(s.lob?.airpods||0)}),{iphone:0,mac:0,ipad:0,watch:0,airpods:0})||{iphone:0,mac:0,ipad:0,watch:0,airpods:0};
  const dailyVas=daily?.staff.reduce((a,s)=>({qoalaQty:a.qoalaQty+Number(s.vasDetail?.qoala?.qty||0),qoalaValue:a.qoalaValue+Number(s.vasDetail?.qoala?.value||0),telkomselQty:a.telkomselQty+Number(s.vasDetail?.telkomsel?.qty||0),telkomselValue:a.telkomselValue+Number(s.vasDetail?.telkomsel?.value||0),xlQty:a.xlQty+Number(s.vasDetail?.xl?.qty||0),xlValue:a.xlValue+Number(s.vasDetail?.xl?.value||0),indosatQty:a.indosatQty+Number(s.vasDetail?.indosat?.qty||0),indosatValue:a.indosatValue+Number(s.vasDetail?.indosat?.value||0)}),{qoalaQty:0,qoalaValue:0,telkomselQty:0,telkomselValue:0,xlQty:0,xlValue:0,indosatQty:0,indosatValue:0})||{qoalaQty:0,qoalaValue:0,telkomselQty:0,telkomselValue:0,xlQty:0,xlValue:0,indosatQty:0,indosatValue:0};
@@ -574,6 +574,14 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
    try{setDailyProductDetail(await cachedJson<any>(`/api/daily-lob-detail?date=${daily?.date||today()}`,30000,true))}
    catch{setDailyProductDetail(null)}finally{setDailyProductBusy(false)}
  };
+
+ const openDailyVas=async(label:string,key:"qoala"|"telkomsel"|"xl"|"indosat")=>{
+   setDailyVasPick({label,key});setDailyDrillStaff(null);
+   if(dailyVasDetail)return;
+   setDailyVasBusy(true);
+   try{setDailyVasDetail(await cachedJson<any>(`/api/daily-vas-detail?date=${daily?.date||today()}`,30000,true))}
+   catch{setDailyVasDetail(null)}finally{setDailyVasBusy(false)}
+ };
  const dailyLobKey=dailyLobPick?.key,dailyVasKey=dailyVasPick?.key;
  const lobStaff=dailyLobKey&&daily?daily.staff.filter(st=>Number(st.lob?.[dailyLobKey]||0)>0).sort((a,b)=>Number(b.lob?.[dailyLobKey]||0)-Number(a.lob?.[dailyLobKey]||0)):[];
  const vasStaff=dailyVasKey&&daily?daily.staff.filter(st=>Number(st.vasDetail?.[dailyVasKey]?.qty||0)>0||Number(st.vasDetail?.[dailyVasKey]?.value||0)>0).sort((a,b)=>Number(b.vasDetail?.[dailyVasKey]?.value||0)-Number(a.vasDetail?.[dailyVasKey]?.value||0)):[];
@@ -581,6 +589,8 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
  const dailyGroupProducts=dailyLobKey?((dailyProductDetail?.lob?.products||[]) as Array<{name:string;qty:number;value:number}>).filter(p=>Number(p.qty||0)>0&&(dailyLobKey==="iphone"?p.name.startsWith("iPhone"):dailyLobKey==="mac"?p.name.startsWith("MacBook"):dailyLobKey==="ipad"?p.name.startsWith("iPad"):dailyLobKey==="watch"?p.name.startsWith("Apple Watch"):p.name.startsWith("AirPods"))).sort((a,b)=>Number(b.qty||0)-Number(a.qty||0)):[];
  const selectedProductStaff=dailyDrillStaff&&dailyLobKey?(dailyProductDetail?.lob?.staff||[]).find((x:any)=>String(x.id)===String(dailyDrillStaff.id)):undefined;
  const selectedProducts=dailyDrillStaff&&dailyLobKey?Object.entries(selectedProductStaff?.products||{}).filter(([name,v]:any)=>name.startsWith(productPrefix(dailyLobKey))&&Number(v?.qty||0)>0).map(([name,v]:any)=>({name,qty:Number(v.qty||0),value:Number(v.value||0)})).sort((a,b)=>b.qty-a.qty):[];
+ const selectedVasStaff=dailyDrillStaff&&dailyVasKey?(dailyVasDetail?.staff||[]).find((x:any)=>String(x.id)===String(dailyDrillStaff.id)):undefined;
+ const selectedVasProducts=dailyDrillStaff&&dailyVasKey?((selectedVasStaff?.providers?.[dailyVasKey]?.products||[]) as Array<{label:string;article:string;description:string;qty:number;value:number;invoices:string[]}>):[];
  return <div className="m238m-stack m238m-enter">
   <Segmented value={mode} onChange={setMode} items={[{value:"daily",label:"Daily"},{value:"summary",label:"Summary"},{value:"lob",label:"Fokus Product"}]}/>
   {mode==="daily"?(daily?<>
@@ -640,7 +650,7 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
     <div className="m238m-grid">{lobMeta.map(([label,key,value])=><button key={label} className="m238m-metric-button" onClick={()=>void openDailyLob(label,key)}><Card className="m238m-metric m238m-drill-card"><span>{label}</span><strong>{num.format(Number(value))}</strong><small>Total unit</small><ChevronRight size={15}/></Card></button>)}</div>
 
     <div className="m238m-section-head"><h2>VAS</h2><span>Tap untuk detail penjualan</span></div>
-    <div className="m238m-list">{vasMeta.map(([label,key,value,qty])=><button key={label} className="m238m-click-card" onClick={()=>{setDailyVasPick({label,key});setDailyDrillStaff(null)}}><Card className="m238m-vas-row"><div><strong>{label}</strong><span>{num.format(Number(qty))} qty</span></div><div className="m238m-row-chevron"><b>{money.format(Number(value))}</b><ChevronRight size={16}/></div></Card></button>)}</div>
+    <div className="m238m-list">{vasMeta.map(([label,key,value,qty])=><button key={label} className="m238m-click-card" onClick={()=>void openDailyVas(label,key)}><Card className="m238m-vas-row"><div><strong>{label}</strong><span>{num.format(Number(qty))} qty</span></div><div className="m238m-row-chevron"><b>{money.format(Number(value))}</b><ChevronRight size={16}/></div></Card></button>)}</div>
 
     <div className="m238m-section-head"><h2>Staff Sales</h2><span>{daily.staff.length} staff</span></div>
     <div className="m238m-list">{daily.staff.filter(x=>x.amount>0).sort((a,b)=>b.amount-a.amount).map((staff,i)=><Card key={staff.id} className="m238m-staff-breakdown-row"><span>#{i+1}</span><strong>{shortStaffName(staff.name)}</strong><b>{money.format(staff.amount)}</b></Card>)}</div>
@@ -671,9 +681,9 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
     <div className="m238m-section-head"><h2>Unit / Model Terjual</h2><span>{selectedProducts.length} type</span></div>
     {dailyProductBusy?<Skeleton/>:selectedProducts.length?<div className="m238m-list">{selectedProducts.map(p=><Card key={p.name} className="m238m-product-detail-row"><div><strong>{p.name}</strong><span>Penjualan hari ini</span></div><b>{num.format(p.qty)} unit</b></Card>)}</div>:<Card className="m238m-empty">{dailyLobPick.key==="airpods"?"Breakdown model AirPods belum tersedia dari source detail harian; total unit staff tetap ditampilkan di atas.":"Tidak ada breakdown model yang cocok pada source detail harian."}</Card>}
    </div>:dailyDrillStaff&&dailyVasPick?<div className="m238m-stack">
-    <Card className="m238m-detail-sales"><span>VAS Staff • {shortStaffName(dailyDrillStaff.name)}</span><strong>{money.format(Number(dailyDrillStaff.vasDetail?.[dailyVasKey!]?.value||0))}</strong><small>{dailyVasPick.label} • {num.format(Number(dailyDrillStaff.vasDetail?.[dailyVasKey!]?.qty||0))} qty</small></Card>
-    <div className="m238m-section-head"><h2>VAS yang Dijual</h2><span>Hari ini</span></div>
-    <div className="m238m-list">{(["qoala","telkomsel","xl","indosat"] as const).map(key=>{const x=dailyDrillStaff.vasDetail?.[key];if(!x||(!x.qty&&!x.value))return null;const label=key==="qoala"?"Qoala":key==="telkomsel"?"Telkomsel":key==="xl"?"XL":"Indosat";return <Card key={key} className="m238m-vas-row"><div><strong>{label}</strong><span>{num.format(Number(x.qty||0))} qty</span></div><b>{money.format(Number(x.value||0))}</b></Card>})}</div>
+    <Card className="m238m-detail-sales"><span>{dailyVasPick.label} • {shortStaffName(dailyDrillStaff.name)}</span><strong>{money.format(Number(dailyDrillStaff.vasDetail?.[dailyVasKey!]?.value||0))}</strong><small>{num.format(Number(dailyDrillStaff.vasDetail?.[dailyVasKey!]?.qty||0))} qty • Hari ini</small></Card>
+    <div className="m238m-section-head"><h2>Detail {dailyVasPick.label}</h2><span>{selectedVasProducts.length} item</span></div>
+    {dailyVasBusy?<Skeleton/>:selectedVasProducts.length?<div className="m238m-list">{selectedVasProducts.map((p,i)=><Card key={p.article+"-"+i} className="m238m-product-detail-row"><div><strong>{p.label}</strong><span>{p.description||p.article}{p.qty>1?` • ${num.format(p.qty)} qty`:""}</span></div><b>{money.format(Number(p.value||0))}</b></Card>)}</div>:<Card className="m238m-empty">Belum ada detail produk {dailyVasPick.label} pada source harian.</Card>}
    </div>:null}
   </Sheet>
  </div>
