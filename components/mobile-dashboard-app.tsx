@@ -8,7 +8,6 @@ import {
   PackageSearch,RefreshCw,Settings,Share2,Sun,Target,TrendingUp,Users,WalletCards,X
 } from "lucide-react";
 import {exportReportPdf,exportReportPng,exportReportXlsx} from "@/lib/dashboard-export";
-import {mobileDashboardCss} from "@/components/mobile-dashboard-styles";
 
 const ReportScreen=dynamic(()=>import("@/components/mobile-dashboard-report"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton hero"/><div className="m238m-skeleton list"/></div>});
 const MoreScreen=dynamic(()=>import("@/components/mobile-dashboard-more"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton list"/><div className="m238m-skeleton list"/></div>});
@@ -143,11 +142,11 @@ export default function MobileDashboardApp(){
     const monthlyFrom=`${period}-01`,monthlyTo=period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`;
     const from=periodMode==="week"&&activeRange?activeRange.from:monthlyFrom,to=periodMode==="week"&&activeRange?activeRange.to:monthlyTo;
     const overviewUrl=periodMode==="week"&&activeRange?`/api/overview?lite=1&period=${from.slice(0,7)}&from=${from}&to=${to}&label=${encodeURIComponent(selectedWeek)}`:`/api/overview?lite=1&period=${period}`;
-    const[o,t]=await Promise.all([
-      cachedJson<Overview>(overviewUrl,180000,force),
-      cachedJson<Traffic>(`/api/traffic?from=${from}&to=${to}`,180000,force)
-    ]);
-    setOverview(o);setTraffic(t);
+    const overviewPromise=cachedJson<Overview>(overviewUrl,180000,force);
+    const trafficPromise=cachedJson<Traffic>(`/api/traffic?from=${from}&to=${to}`,180000,force);
+    const o=await overviewPromise;
+    setOverview(o);
+    try{setTraffic(await trafficPromise)}catch{setTraffic(null)}
   },[period,periodMode,activeRange,selectedWeek]);
 
   const loadFullOverview=useCallback(async(force=false)=>{
@@ -377,7 +376,6 @@ export default function MobileDashboardApp(){
     <Sheet open={sheet==="more"} onClose={()=>setSheet(null)} title={moreKind==="incentive"?"Estimasi Incentive":moreKind==="bnpl"?"BNPL & Trade-In":moreKind==="soh"?"Stock On Hand":moreKind==="stokan"?"Stokan":moreKind==="mading"?"Mading Performance":moreKind==="checklist"?"Checklist Store":moreKind==="mobile-view"?"Versi Tampilan HP":moreKind==="add-feedback"?"Tambah Feedback":moreKind==="add-cx"?"Input CX & Member":"Detail"}>
       {moreBusy?<Skeleton/>:<MoreDetail kind={moreKind} data={moreData} period={period}/>} 
     </Sheet>
-    <style jsx global>{mobileDashboardCss}</style>
   </div>
 }
 
