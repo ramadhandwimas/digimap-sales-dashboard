@@ -172,9 +172,24 @@ export default function MobileDashboardApp(){
   },[]);
 
   const loadDaily=useCallback(async(force=false)=>{
-    const period=today().slice(0,7),url=`/api/data?period=${period}${force?`&refresh=1&t=${Date.now()}`:""}`;
-    const legacy=await cachedJson<any>(url,force?0:60000,force);
-    const rows=(legacy.dailyStaff||[]) as Staff[];
+    const date=today(),period=date.slice(0,7),legacyUrl=`/api/data?period=${period}${force?`&refresh=1&t=${Date.now()}`:""}`,scheduleUrl=`/api/daily?date=${date}`;
+    const[legacy,schedule]=await Promise.all([
+      cachedJson<any>(legacyUrl,force?0:60000,force),
+      cachedJson<any>(scheduleUrl,force?0:60000,force)
+    ]);
+    const legacyRows=(legacy.dailyStaff||[]) as Staff[],scheduleRows=(schedule.staff||[]) as Staff[],legacyById=new Map(legacyRows.map(s=>[String(s.id),s]));
+    const activeIds=new Set(scheduleRows.map(s=>String(s.id)));
+    const rows:Staff[]=[
+      ...scheduleRows.map(meta=>{
+        const actual=legacyById.get(String(meta.id));
+        return actual?{...meta,
+          amount:Number(actual.amount||0),device:Number(actual.device||0),accessories:Number(actual.accessories||0),vas:Number(actual.vas||0),
+          qty:Number(actual.qty||0),invoices:Number(actual.invoices||0),upt:Number(actual.upt||0),atv:Number(actual.atv||0),
+          lob:actual.lob||meta.lob,vasDetail:actual.vasDetail||meta.vasDetail
+        }:meta
+      }),
+      ...legacyRows.filter(s=>!activeIds.has(String(s.id))&&Number(s.amount||0)>0).map(s=>({...s,status:s.status||"EXTRA",share:0,targets:{...(s.targets||{}),amount:0,device:0,accessories:0,vas:0}}))
+    ];
     const total=rows.reduce((a,s)=>({
       amount:a.amount+Number(s.amount||0),
       accessories:a.accessories+Number(s.accessories||0),
@@ -186,10 +201,10 @@ export default function MobileDashboardApp(){
       vasTarget:a.vasTarget+Number(s.targets?.vas||0)
     }),{amount:0,accessories:0,vas:0,qty:0,invoices:0,target:0,accTarget:0,vasTarget:0});
     setDaily({
-      date:String(legacy.latestDate||today()),
+      date:String(legacy.latestDate||date),
       staff:rows,
       total:{...total,upt:total.invoices?total.qty/total.invoices:0},
-      fastSource:"legacy-dashboard",
+      fastSource:"legacy-sales+daily-schedule",
       fastUpdatedAt:String(legacy.generatedAt||new Date().toISOString())
     });
   },[]);
