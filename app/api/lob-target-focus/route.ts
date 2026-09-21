@@ -9,7 +9,8 @@ const SUPPORTED=[
 "iPhone 17 Pro Max","iPhone 17 Pro","iPhone 17","iPhone Air","iPhone 16","iPhone 15",
 "MacBook Neo","MacBook Air M5","MacBook Air M4","MacBook Pro M5","MacBook Pro M4",
 "iPad 11","iPad Air 11 M4","iPad Air 13 M4","iPad Pro 11","iPad Pro 13","iPad mini",
-"Apple Watch Series 11","Apple Watch SE 3","Apple Watch Ultra 3"
+"Apple Watch Series 11","Apple Watch SE 3","Apple Watch Ultra 3",
+"AirPods Pro 3","AirPods 4 ANC","AirPods 4"
 ] as const;
 
 function productName(type:string,desc:string,category:string){
@@ -38,6 +39,10 @@ function productName(type:string,desc:string,category:string){
  if(/WATCH.*ULTRA.*3|AW.*ULTRA.*3/.test(x))return "Apple Watch Ultra 3";
  if(/WATCH.*SE.*3|AW.*SE.*3/.test(x))return "Apple Watch SE 3";
  if(/WATCH.*SERIES.*11|WATCH.*S11|AW.*S11/.test(x))return "Apple Watch Series 11";
+
+ if(/AIRPODS.*PRO.*3|APP.*PRO.*3/.test(x))return "AirPods Pro 3";
+ if(/AIRPODS.*4.*ANC|AIRPODS.*ANC.*4/.test(x))return "AirPods 4 ANC";
+ if(/AIRPODS.*4/.test(x))return "AirPods 4";
 
  return "";
 }
@@ -75,7 +80,8 @@ export async function GET(req:NextRequest){const email=process.env.GOOGLE_SERVIC
  iPhone:SUPPORTED.filter(p=>p.startsWith("iPhone")),
  MacBook:SUPPORTED.filter(p=>p.startsWith("MacBook")),
  iPad:SUPPORTED.filter(p=>p.startsWith("iPad")),
- "Apple Watch":SUPPORTED.filter(p=>p.startsWith("Apple Watch"))
+ "Apple Watch":SUPPORTED.filter(p=>p.startsWith("Apple Watch")),
+ AirPods:SUPPORTED.filter(p=>p.startsWith("AirPods"))
 };
  return NextResponse.json({mode,periodLabel,week,month,from,to,availableWeeks,availableMonths,productCatalog,productFocus,focusSource:productFocus.length?"Config/Product Focus":"Actual fallback",lob:{products,staff:rows,total}},{headers:{"cache-control":"no-store"}})
 }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Gagal membaca LOB Target Fokus"},{status:500})}}
