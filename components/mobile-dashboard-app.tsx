@@ -875,8 +875,8 @@ function StaffDetail({staff,mode}:{staff:Staff;mode:"daily"|"monthly"}){
  </div>
 }
 function AdminScreen({period,periodMode,selectedWeek,activeRange}:{period:string;periodMode:"month"|"week";selectedWeek:string;activeRange:{from:string;to:string}|null}){
- const[tab,setTab]=useState<"soh"|"stokan"|"bnpl">("soh");
- const items=[["soh","SOH"],["stokan","Stokan"],["bnpl","BNPL"]] as const;
+ const[tab,setTab]=useState<"soh"|"bnpl">("soh");
+ const items=[["soh","SOH"],["bnpl","BNPL"]] as const;
  return <div className="m238m-stack m238m-enter">
   <div className="m238m-admin-tabs">{items.map(([k,l])=><button key={k} className={tab===k?"active":""} onClick={()=>setTab(k)}>{l}</button>)}</div>
   <MobileOperations kind={tab} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>
