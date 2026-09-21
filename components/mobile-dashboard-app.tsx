@@ -171,7 +171,28 @@ export default function MobileDashboardApp(){
     const isDark=initial==="midnight"||initial==="graphite"||initial==="mono"||initial==="webhero"||initial==="mecha"||initial==="alliance";setDark(isDark);document.documentElement.classList.toggle("dark",isDark);
   },[]);
 
-  const loadDaily=useCallback(async(force=false)=>{const url=`/api/daily-fast?date=${today()}${force?"&fresh=1":""}`;const d=await cachedJson<Daily>(url,force?0:90000,force);setDaily(d)},[]);
+  const loadDaily=useCallback(async(force=false)=>{
+    const period=today().slice(0,7),url=`/api/data?period=${period}${force?`&refresh=1&t=${Date.now()}`:""}`;
+    const legacy=await cachedJson<any>(url,force?0:60000,force);
+    const rows=(legacy.dailyStaff||[]) as Staff[];
+    const total=rows.reduce((a,s)=>({
+      amount:a.amount+Number(s.amount||0),
+      accessories:a.accessories+Number(s.accessories||0),
+      vas:a.vas+Number(s.vas||0),
+      qty:a.qty+Number(s.qty||0),
+      invoices:a.invoices+Number(s.invoices||0),
+      target:a.target+Number(s.targets?.amount||0),
+      accTarget:a.accTarget+Number(s.targets?.accessories||0),
+      vasTarget:a.vasTarget+Number(s.targets?.vas||0)
+    }),{amount:0,accessories:0,vas:0,qty:0,invoices:0,target:0,accTarget:0,vasTarget:0});
+    setDaily({
+      date:String(legacy.latestDate||today()),
+      staff:rows,
+      total:{...total,upt:total.invoices?total.qty/total.invoices:0},
+      fastSource:"legacy-dashboard",
+      fastUpdatedAt:String(legacy.generatedAt||new Date().toISOString())
+    });
+  },[]);
   const loadSummary=useCallback(async(force=false)=>{const monthlyFrom=`${period}-01`,monthlyTo=period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`,from=periodMode==="week"&&activeRange?activeRange.from:monthlyFrom,to=periodMode==="week"&&activeRange?activeRange.to:monthlyTo,mode=periodMode==="week"&&activeRange?"range":"monthly";const d=await cachedJson<DailySummary>(`/api/daily-summary-fast?from=${from}&to=${to}&mode=${mode}`,180000,force);setSummary(d)},[period,periodMode,activeRange]);
   const loadWeekly=useCallback(async(force=false,weekOverride="")=>{
     let url="/api/weekly-stable";
