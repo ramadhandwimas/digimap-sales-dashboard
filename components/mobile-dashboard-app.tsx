@@ -670,7 +670,7 @@ function FocusProductView({summary,period,periodMode,selectedWeek,activeRange}:{
     setShares((lt.staff||[]).map((x:any)=>({id:String(x.id),name:String(x.name),share:Number(x.share||0)})));
    }else if(tab==="vas"){
     const [fp,vt,sp]=await Promise.all([
-      focus?Promise.resolve(focus):cachedJson<any>(focusUrl,180000,force),
+      cachedJson<any>(focusUrl,180000,force),
       cachedJson<any>(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=vas-focus`,180000,force),
       cachedJson<{staff:Staff[]}>(staffUrl,180000,force)
     ]);
@@ -688,7 +688,7 @@ function FocusProductView({summary,period,periodMode,selectedWeek,activeRange}:{
     setShares((vt.staff||[]).map((x:any)=>({id:String(x.id),name:String(x.name),share:Number(x.share||0)})));
    }
   }finally{setLoading(false)}
- },[tab,period,periodMode,selectedWeek,activeRange,focusUrl,thirdUrl,staffUrl,targetScope,targetPeriod,focus]);
+ },[tab,period,periodMode,selectedWeek,activeRange,focusUrl,thirdUrl,staffUrl,targetScope,targetPeriod]);
  useEffect(()=>{void load()},[load]);
  useEffect(()=>{setThirdData(null);setSelectedThird(null)},[period,periodMode,selectedWeek,activeRange]);
 
@@ -910,4 +910,3 @@ function MoreDetail({kind,data,period}:{kind:string;data:any;period:string}){
  if(kind==="incentive")return <div className="m238m-stack"><Card className="m238m-hero compact"><span>Total Estimasi Incentive</span><strong>{money.format(data?.total||0)}</strong></Card><div className="m238m-list">{(data?.rows||[]).map((r:any)=><Card key={r.id} className="m238m-copy-card"><div className="m238m-copy-head"><strong>{r.name}</strong><b>{money.format(r.incentive?.total||0)}</b></div><p>Mac {num.format(r.qty?.mac||0)} • iPhone {num.format(r.qty?.iphone||0)} • iPad {num.format(r.qty?.ipad||0)} • Watch {num.format(r.qty?.watch||0)}</p></Card>)}</div></div>;
  return <Card>Menu mobile siap digunakan.</Card>
 }
-
