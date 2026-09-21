@@ -494,3 +494,26 @@
 .m238m-more-direct .m238m-direct-menu>button>svg{
  justify-self:end;
 }
+/* Scrollable mobile bottom sheets */
+.m238m-sheet{
+ display:flex;
+ flex-direction:column;
+ max-height:min(82dvh,820px);
+ overflow:hidden!important;
+}
+.m238m-sheet-head{
+ flex:0 0 auto;
+ position:relative;
+ z-index:2;
+}
+.m238m-sheet-scroll{
+ flex:1 1 auto;
+ min-height:0;
+ overflow-y:auto;
+ -webkit-overflow-scrolling:touch;
+ overscroll-behavior:contain;
+ padding-bottom:calc(120px + env(safe-area-inset-bottom));
+ scrollbar-width:none;
+}
+.m238m-sheet-scroll::-webkit-scrollbar{display:none}
+.m238m-sheet-scroll>.m238m-stack{padding-bottom:8px}
