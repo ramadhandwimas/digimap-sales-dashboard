@@ -179,16 +179,18 @@ export default function MobileDashboardApp(){
     return w;
   },[]);
   const loadFeedback=useCallback(async(force=false)=>{
-    const basePeriod=periodMode==="week"&&activeRange?activeRange.from.slice(0,7):period;
-    const data=await cachedJson<Feedback>(`/api/feedback?period=${basePeriod}`,180000,force);
-    const rows=periodMode==="week"&&activeRange?data.rows.filter(r=>r.date>=activeRange.from&&r.date<=activeRange.to):data.rows;
-    setFeedback({...data,rows});
+    const periods=periodMode==="week"&&activeRange?[...new Set([activeRange.from.slice(0,7),activeRange.to.slice(0,7)])]:[period];
+    const parts=await Promise.all(periods.map(p=>cachedJson<Feedback>(`/api/feedback?period=${p}`,180000,force)));
+    const merged=[...new Map(parts.flatMap(x=>x.rows||[]).map(r=>[`${r.date}:${r.staffId}`,r])).values()];
+    const rows=periodMode==="week"&&activeRange?merged.filter(r=>r.date>=activeRange.from&&r.date<=activeRange.to):merged;
+    setFeedback({rows,summary:parts.map(x=>x.summary||"").find(Boolean)||""});
   },[period,periodMode,activeRange]);
   const loadCx=useCallback(async(force=false)=>{
-    const basePeriod=periodMode==="week"&&activeRange?activeRange.from.slice(0,7):period;
-    const data=await cachedJson<Cx>(`/api/cx-member?period=${basePeriod}`,180000,force);
-    const rows=periodMode==="week"&&activeRange?data.rows.filter(r=>r.date>=activeRange.from&&r.date<=activeRange.to):data.rows;
-    setCx({...data,rows});
+    const periods=periodMode==="week"&&activeRange?[...new Set([activeRange.from.slice(0,7),activeRange.to.slice(0,7)])]:[period];
+    const parts=await Promise.all(periods.map(p=>cachedJson<Cx>(`/api/cx-member?period=${p}`,180000,force)));
+    const merged=[...new Map(parts.flatMap(x=>x.rows||[]).map(r=>[`${r.date}:${r.staffId}`,r])).values()];
+    const rows=periodMode==="week"&&activeRange?merged.filter(r=>r.date>=activeRange.from&&r.date<=activeRange.to):merged;
+    setCx({rows});
   },[period,periodMode,activeRange]);
 
   useEffect(()=>{if(tab==="sales"){if(salesMode==="daily"&&!daily)void loadDaily();if((salesMode==="summary"||salesMode==="lob")&&!summary)void loadSummary()}},[tab,salesMode,daily,summary,loadDaily,loadSummary]);
@@ -246,12 +248,12 @@ export default function MobileDashboardApp(){
   const applyMotion=(preset:MotionPreset)=>{setMotionPreset(preset);localStorage.setItem("m238-motion-preset",preset)};
   const applyMotionStyle=(preset:MotionStyle)=>{setMotionStyle(preset);localStorage.setItem("m238-motion-style",preset)};
   const transaction=overview?.summary.invoices||0,trafficValue=traffic?.total||0,cvr=trafficValue?transaction/trafficValue*100:0,achievement=overview?.target.amount?((overview.summary.amount/overview.target.amount)*100):0;
+  const teamAll=useMemo(()=>(overview?.staff||[]).filter(x=>!/digimap\.co\.id|online/i.test(`${x.name} ${x.position||""}`)).sort((a,b)=>b.amount-a.amount),[overview]);
   const team=useMemo(()=>{
-    const rows=(overview?.staff||[]).filter(x=>!/digimap\.co\.id|online/i.test(`${x.name} ${x.position||""}`));
-    if(teamFilter==="top")return [...rows].sort((a,b)=>b.amount-a.amount).slice(0,3);
-    if(teamFilter==="low")return [...rows].sort((a,b)=>a.amount-b.amount).slice(0,3);
-    return [...rows].sort((a,b)=>b.amount-a.amount);
-  },[overview,teamFilter]);
+    if(teamFilter==="top")return [...teamAll].slice(0,3);
+    if(teamFilter==="low")return teamAll.filter(s=>{const target=s.targets?.amount||s.target||0,ar=target?s.amount/target*100:(s.achievement||0);return ar<100}).sort((a,b)=>{const ta=a.targets?.amount||a.target||0,tb=b.targets?.amount||b.target||0,aa=ta?a.amount/ta*100:(a.achievement||0),ab=tb?b.amount/tb*100:(b.achievement||0);return aa-ab||(tb-b.amount)-(ta-a.amount)});
+    return teamAll;
+  },[teamAll,teamFilter]);
 
   const openPeriodSheet=()=>{setDraftPeriod(period);setDraftPeriodMode(periodMode);setDraftWeek(selectedWeek||weekly?.labelB||"");setSheet("period");if(!weekly)void loadWeekly()};
   const applyPeriod=async()=>{
@@ -314,8 +316,8 @@ export default function MobileDashboardApp(){
       {loading&&!overview?<Skeleton/>:null}
       {!loading&&overview&&tab==="home"?<HomeScreen mode={homeMode} setMode={setHomeMode} overview={homeMode==="monthly"?overview:(fullOverview||overview)} traffic={traffic} cvr={cvr} achievement={achievement} periodMode={periodMode} fullLoading={homeMode!=="monthly"&&!fullOverview} onOpenSalesDetail={()=>void openHomeSalesDetail()} onGoSales={()=>setTab("sales")} onGoTeam={()=>setTab("team")} onGoReport={()=>setTab("report")} onShare={()=>setSheet("share")}/>:null}
       {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange} onStaff={s=>void openStaff(s,"daily")} onDay={row=>{setDayDetail(row);setSheet("day")}} onShare={()=>setSheet("share")}/>:null}
-      {tab==="team"?<TeamScreen rows={team} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
-      {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]}/>:null}
+      {tab==="team"?<TeamScreen rows={team} allRows={teamAll} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
+      {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]} period={period} periodMode={periodMode} activeRange={activeRange}/>:null}
       {tab==="admin"?<AdminScreen period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>:null}
       {tab==="more"?<MoreScreen theme={themePreset} motion={motionPreset} motionStyle={motionStyle} onTheme={applyTheme} onMotion={applyMotion} onMotionStyle={applyMotionStyle} onAction={handleMore}/>:null}
     </main>
@@ -792,12 +794,13 @@ function StaffRow({staff,onClick,shortName=false}:{staff:Staff;onClick:()=>void;
  const target=staff.targets?.amount||staff.target||0,a=target?staff.amount/target*100:staff.achievement||0,gap=target?Math.max(0,target-staff.amount):staff.gap||0;
  return <button className="m238m-staff-row" onClick={onClick}><div className="m238m-avatar">{initials(staff.name)}</div><div className="m238m-staff-main"><div><strong>{shortName?shortStaffName(staff.name):staff.name}</strong><b>{money.format(staff.amount)}</b></div><Progress value={a}/><small>{pct(a)} • Gap {money.format(gap)} • UPT {(staff.upt||0).toFixed(1)}</small></div><ChevronRight size={17}/></button>
 }
-function TeamScreen({rows,filter,setFilter,onStaff}:{rows:Staff[];filter:string;setFilter:(v:string)=>void;onStaff:(s:Staff)=>void}){
- const label=filter==="top"?"3 staff penjualan tertinggi":filter==="low"?"3 staff penjualan terendah":"Semua staff store";
+function TeamScreen({rows,allRows,filter,setFilter,onStaff}:{rows:Staff[];allRows:Staff[];filter:string;setFilter:(v:string)=>void;onStaff:(s:Staff)=>void}){
+ const label=filter==="top"?"3 staff penjualan tertinggi":filter==="low"?"Staff dengan AR di bawah 100%":"Semua staff store";
  const scored=rows.map((s,i)=>{const target=s.targets?.amount||s.target||0,ar=target?s.amount/target*100:(s.achievement||0);return{...s,rank:i+1,ar,target}});
- const achieved=scored.filter(s=>s.ar>=100).length;
- const follow=scored.filter(s=>s.ar<100).length;
- const avgUpt=scored.length?scored.reduce((a,s)=>a+Number(s.upt||0),0)/scored.length:0;
+ const allScored=allRows.map(s=>{const target=s.targets?.amount||s.target||0,ar=target?s.amount/target*100:(s.achievement||0);return{...s,ar,target}});
+ const achieved=allScored.filter(s=>s.ar>=100).length;
+ const follow=allScored.filter(s=>s.ar<100).length;
+ const avgUpt=allScored.length?allScored.reduce((a,s)=>a+Number(s.upt||0),0)/allScored.length:0;
  return <div className="m238m-stack m238m-enter">
   <div className="m238m-team-summary">
     <Card><span>Achieve</span><strong>{num.format(achieved)}</strong><small>staff ≥ 100%</small></Card>
@@ -817,9 +820,9 @@ function TeamScreen({rows,filter,setFilter,onStaff}:{rows:Staff[];filter:string;
       <div className="m238m-team-sales"><span>Sales</span><strong>{money.format(s.amount)}</strong><b>{pct(s.ar)}</b></div>
       <Progress value={s.ar}/>
       <div className="m238m-team-metrics">
-        <div><span>Device</span><b>{money.format(s.device||Math.max(0,s.amount-s.accessories-s.vas))}</b></div>
-        <div><span>ACC</span><b>{money.format(s.accessories||0)}</b></div>
-        <div><span>VAS</span><b>{money.format(s.vas||0)}</b></div>
+        <div><span>Device</span><b>{money.format(Number(s.device||Math.max(0,Number(s.amount||0)-Number(s.accessories||0)-Number(s.vas||0))))}</b></div>
+        <div><span>ACC</span><b>{money.format(Number(s.accessories||0))}</b></div>
+        <div><span>VAS</span><b>{money.format(Number(s.vas||0))}</b></div>
         <div><span>UPT</span><b>{(s.upt||0).toFixed(1)}</b></div>
       </div>
       <div className="m238m-team-card-foot"><span>{s.target?("Target "+money.format(s.target)):"Target mengikuti periode aktif"}</span><ChevronRight size={16}/></div>
@@ -853,8 +856,8 @@ function StaffDetail({staff,mode}:{staff:Staff;mode:"daily"|"monthly"}){
   </>:null}
  </div>
 }
-function ReportScreen({mode,setMode,weekly,weeklySummary,feedback,cx,staff}:{mode:ReportMode;setMode:(v:ReportMode)=>void;weekly:Weekly|null;weeklySummary:DailySummary|null;feedback:Feedback|null;cx:Cx|null;staff:Staff[]}){
- return <div className="m238m-stack m238m-enter"><Segmented value={mode} onChange={setMode} items={[{value:"weekly",label:"Weekly"},{value:"feedback",label:"Feedback"},{value:"cx",label:"CX"}]}/>{mode==="weekly"?(weekly?<WeeklyView weekly={weekly} summary={weeklySummary}/>:<Skeleton/>):mode==="feedback"?(feedback?<FeedbackView data={feedback} staff={staff}/>:<Skeleton/>):(cx?<CxView data={cx} staff={staff}/>:<Skeleton/>)}</div>
+function ReportScreen({mode,setMode,weekly,weeklySummary,feedback,cx,staff,period,periodMode,activeRange}:{mode:ReportMode;setMode:(v:ReportMode)=>void;weekly:Weekly|null;weeklySummary:DailySummary|null;feedback:Feedback|null;cx:Cx|null;staff:Staff[];period:string;periodMode:"month"|"week";activeRange:{from:string;to:string}|null}){
+ return <div className="m238m-stack m238m-enter"><Segmented value={mode} onChange={setMode} items={[{value:"weekly",label:"Weekly"},{value:"feedback",label:"Feedback"},{value:"cx",label:"CX"}]}/>{mode==="weekly"?(weekly?<WeeklyView weekly={weekly} summary={weeklySummary}/>:<Skeleton/>):mode==="feedback"?(feedback?<FeedbackView data={feedback} staff={staff} period={period} activeRange={activeRange}/>:<Skeleton/>):(cx?<CxView data={cx} staff={staff} period={period} activeRange={activeRange}/>:<Skeleton/>)}</div>
 }
 function WeeklyView({weekly,summary}:{weekly:Weekly;summary:DailySummary|null}){
  const[showDetail,setShowDetail]=useState(false),[detailTab,setDetailTab]=useState<"summary"|"lob"|"vas"|"reason">("summary"),[selectedLob,setSelectedLob]=useState<{name:string;key:string}|null>(null),[copyMsg,setCopyMsg]=useState("");
@@ -958,90 +961,71 @@ function TouchLineChart({rows}:{rows:NonNullable<DailySummary["dailyRows"]>}){
  </div>
 }
 
-function FeedbackView({data}:{data:Feedback;staff:Staff[]}){
- const[selectedDate,setSelectedDate]=useState(today()),[rows,setRows]=useState(data.rows.filter(r=>r.date===today())),[compiled,setCompiled]=useState(data.summary||""),[dailyStaff,setDailyStaff]=useState<Staff[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState("");
+function FeedbackView({data,period,activeRange}:{data:Feedback;staff:Staff[];period:string;activeRange:{from:string;to:string}|null}){
+ const initialDate=activeRange?(today()>=activeRange.from&&today()<=activeRange.to?today():activeRange.to):(period===periodNow()?today():([...data.rows].sort((a,b)=>b.date.localeCompare(a.date))[0]?.date||`${period}-01`));
+ const[selectedDate,setSelectedDate]=useState(initialDate),[rows,setRows]=useState(data.rows.filter(r=>r.date===initialDate)),[compiled,setCompiled]=useState(""),[dailyStaff,setDailyStaff]=useState<Staff[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState("");
  const load=useCallback(async(date:string)=>{
-  setBusy(true);setError("");
+  setRows(data.rows.filter(r=>r.date===date));setCompiled("");setBusy(true);setError("");
   try{
-   const[fd,dd]=await Promise.all([
-    cachedJson<Feedback>(`/api/feedback?date=${date}`,30000,true),
-    cachedJson<Daily>(`/api/daily-fast?date=${date}`,30000,true)
-   ]);
-   setRows(fd.rows||[]);setCompiled(fd.summary||"");setDailyStaff(dd.staff||[]);
+   const dd=await cachedJson<Daily>(`/api/daily-fast?date=${date}`,30000);
+   setDailyStaff(dd.staff||[]);
+   void cachedJson<Feedback>(`/api/feedback?date=${date}`,60000).then(fd=>{setRows(fd.rows||[]);setCompiled(fd.summary||"")}).catch(()=>{});
   }catch(e){setError(e instanceof Error?e.message:"Gagal memuat feedback")}finally{setBusy(false)}
- },[]);
+ },[data.rows]);
  useEffect(()=>{void load(selectedDate)},[selectedDate,load]);
  const submitted=new Set(rows.map(r=>String(r.staffId)));
  const required=dailyStaff.filter(s=>{const target=Number(s.targets?.amount||s.target||0);return target>0&&Number(s.amount||0)<target});
  const missing=required.filter(s=>!submitted.has(String(s.id)));
  const achieved=dailyStaff.filter(s=>{const target=Number(s.targets?.amount||s.target||0);return target>0&&Number(s.amount||0)>=target});
  return <div className="m238m-stack">
-  <Card className="m238m-feedback-date-card"><div><strong>Feedback Per Tanggal</strong><span>Pilih tanggal yang ingin direview</span></div><input type="date" value={selectedDate} max={today()} onChange={e=>setSelectedDate(e.target.value)}/></Card>
-  {busy?<Skeleton/>:<>
-   <Card className={missing.length?"m238m-warning-card":"m238m-success-card"}><div className="m238m-copy-head"><strong>Reminder Feedback</strong><b>{missing.length?missing.length+" belum isi":"Lengkap"}</b></div><p>{missing.length?`Staff belum achieve yang masih wajib feedback: ${missing.map(x=>shortStaffName(x.name)).join(", ")}`:"Semua staff yang belum achieve pada tanggal ini sudah mengisi feedback."}</p></Card>
-   <div className="m238m-grid"><Metric label="Wajib Feedback" value={num.format(required.length)} sub="Staff belum achieve"/><Metric label="Sudah Isi" value={num.format(required.filter(s=>submitted.has(String(s.id))).length)}/><Metric label="Belum Isi" value={num.format(missing.length)}/><Metric label="Achieve" value={num.format(achieved.length)} sub="Tidak wajib feedback"/></div>
-   {error?<Card className="m238m-error">{error}</Card>:null}
-   {compiled?<Card className="m238m-compiled-feedback"><div className="m238m-copy-head"><strong>Compile Feedback Store</strong><span>{rows.length} feedback</span></div><p>{compiled}</p></Card>:null}
-   <div className="m238m-section-head"><h2>Feedback Staff</h2><span>{salesDateLabel(selectedDate)}</span></div>
-   <div className="m238m-list">{rows.length?rows.map((r,i)=><Card key={`${r.date}-${r.staffId}-${i}`} className="m238m-copy-card"><div className="m238m-copy-head"><strong>{shortStaffName(r.name)}</strong><span>{r.category}</span></div><p>{r.professional||r.raw}</p></Card>):<Card className="m238m-empty">Belum ada feedback pada tanggal ini.</Card>}</div>
-  </>}
+  <Card className="m238m-feedback-date-card"><div><strong>Feedback Per Tanggal</strong><span>Pilih tanggal yang ingin direview</span></div><input type="date" value={selectedDate} max={today()} min={activeRange?.from} onChange={e=>setSelectedDate(e.target.value)}/></Card>
+  {busy?<div className="m238m-refreshing"><RefreshCw size={14} className="spin"/> Memuat roster harian…</div>:null}
+  <Card className={missing.length?"m238m-warning-card":"m238m-success-card"}><div className="m238m-copy-head"><strong>Reminder Feedback</strong><b>{busy?"…":missing.length?missing.length+" belum isi":"Lengkap"}</b></div><p>{busy?"Memuat status staff…":missing.length?`Staff belum achieve yang masih wajib feedback: ${missing.map(x=>shortStaffName(x.name)).join(", ")}`:"Semua staff yang belum achieve pada tanggal ini sudah mengisi feedback."}</p></Card>
+  <div className="m238m-grid"><Metric label="Wajib Feedback" value={num.format(required.length)} sub="Staff belum achieve"/><Metric label="Sudah Isi" value={num.format(required.filter(s=>submitted.has(String(s.id))).length)}/><Metric label="Belum Isi" value={num.format(missing.length)}/><Metric label="Achieve" value={num.format(achieved.length)} sub="Tidak wajib feedback"/></div>
+  {error?<Card className="m238m-error">{error}</Card>:null}
+  {compiled?<Card className="m238m-compiled-feedback"><div className="m238m-copy-head"><strong>Compile Feedback Store</strong><span>{rows.length} feedback</span></div><p>{compiled}</p></Card>:null}
+  <div className="m238m-section-head"><h2>Feedback Staff</h2><span>{salesDateLabel(selectedDate)}</span></div>
+  <div className="m238m-list">{rows.length?rows.map((r,i)=><Card key={`${r.date}-${r.staffId}-${i}`} className="m238m-copy-card"><div className="m238m-copy-head"><strong>{shortStaffName(r.name)}</strong><span>{r.category}</span></div><p>{r.professional||r.raw}</p></Card>):<Card className="m238m-empty">Belum ada feedback pada tanggal ini.</Card>}</div>
  </div>
 }
-function CxView({data,staff}:{data:Cx;staff:Staff[]}){
- const[selectedDate,setSelectedDate]=useState(today()),[rows,setRows]=useState<Cx["rows"]>(data.rows),[activeStaff,setActiveStaff]=useState<Staff[]>([]),[roster,setRoster]=useState<Array<{id:string;name:string}>>([]),[busy,setBusy]=useState(false),[error,setError]=useState(""),[detail,setDetail]=useState<"cx"|"member"|null>(null);
- const period=selectedDate.slice(0,7);
+function CxView({data,staff,period,activeRange}:{data:Cx;staff:Staff[];period:string;activeRange:{from:string;to:string}|null}){
+ const initialDate=activeRange?(today()>=activeRange.from&&today()<=activeRange.to?today():activeRange.to):(period===periodNow()?today():([...data.rows].sort((a,b)=>b.date.localeCompare(a.date))[0]?.date||`${period}-01`));
+ const[selectedDate,setSelectedDate]=useState(initialDate),[activeStaff,setActiveStaff]=useState<Staff[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(""),[detail,setDetail]=useState<"cx"|"member"|null>(null);
+ const rows=data.rows,displayPeriod=selectedDate.slice(0,7);
  const load=useCallback(async(date:string)=>{
   setBusy(true);setError("");
-  try{
-   const[monthData,daily,targetData]=await Promise.all([
-    cachedJson<Cx>(`/api/cx-member?period=${date.slice(0,7)}`,30000,true),
-    cachedJson<Daily>(`/api/daily-fast?date=${date}`,30000,true),
-    cachedJson<any>(`/api/manual-target?scope=monthly&period=${date.slice(0,7)}&group=lob-focus`,60000,true)
-   ]);
-   setRows(monthData.rows||[]);setActiveStaff(daily.staff||[]);setRoster((targetData.staff||[]).map((x:any)=>({id:String(x.id),name:String(x.name)})));
-  }catch(e){setError(e instanceof Error?e.message:"Gagal memuat CX / Member")}finally{setBusy(false)}
+  try{const daily=await cachedJson<Daily>(`/api/daily-fast?date=${date}`,30000);setActiveStaff(daily.staff||[])}
+  catch(e){setError(e instanceof Error?e.message:"Gagal memuat roster harian")}finally{setBusy(false)}
  },[]);
  useEffect(()=>{void load(selectedDate)},[selectedDate,load]);
-
  const dayRows=rows.filter(r=>r.date===selectedDate),submitted=new Set(dayRows.map(r=>String(r.staffId))),missing=activeStaff.filter(r=>!submitted.has(String(r.id)));
  const cx=rows.reduce((a,r)=>a+Number(r.cx||0),0),member=rows.reduce((a,r)=>a+Number(r.member||0),0);
  const allStaff=useMemo(()=>{
    const map=new Map<string,{id:string;name:string}>();
-   for(const s of roster)map.set(String(s.id),{id:String(s.id),name:s.name});
    for(const s of staff)map.set(String(s.id),{id:String(s.id),name:s.name});
    for(const s of activeStaff)map.set(String(s.id),{id:String(s.id),name:s.name});
    for(const r of rows)map.set(String(r.staffId),{id:String(r.staffId),name:r.name});
    return [...map.values()];
- },[roster,staff,activeStaff,rows]);
- const staffRecap=useMemo(()=>allStaff.map(person=>{
-   const list=rows.filter(r=>String(r.staffId)===person.id),cxv=list.reduce((a,r)=>a+Number(r.cx||0),0),mem=list.reduce((a,r)=>a+Number(r.member||0),0),days=new Set(list.map(r=>r.date)).size;
-   return{...person,cx:cxv,member:mem,daysCount:days,total:cxv+mem};
- }).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name)),[allStaff,rows]);
+ },[staff,activeStaff,rows]);
+ const staffRecap=useMemo(()=>allStaff.map(person=>{const list=rows.filter(r=>String(r.staffId)===person.id),cxv=list.reduce((a,r)=>a+Number(r.cx||0),0),mem=list.reduce((a,r)=>a+Number(r.member||0),0),days=new Set(list.map(r=>r.date)).size;return{...person,cx:cxv,member:mem,daysCount:days,total:cxv+mem}}).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name)),[allStaff,rows]);
  const metricRows=staffRecap.slice().sort((a,b)=>detail==="member"?b.member-a.member:b.cx-a.cx||a.name.localeCompare(b.name));
  return <div className="m238m-stack">
-  <Card className="m238m-feedback-date-card"><div><strong>CX & Member Per Tanggal</strong><span>Pilih tanggal untuk reminder dan detail harian</span></div><input type="date" value={selectedDate} max={today()} onChange={e=>setSelectedDate(e.target.value)}/></Card>
-  {busy?<Skeleton/>:<>
-   <Card className={missing.length?"m238m-warning-card":"m238m-success-card"}><div className="m238m-copy-head"><strong>Reminder Staff</strong><b>{missing.length?missing.length+" belum isi":"Lengkap"}</b></div><p>{missing.length?missing.map(x=>shortStaffName(x.name)).join(", "):"Semua staff yang masuk pada tanggal ini sudah mengisi CX / New Member."}</p></Card>
-   {error?<Card className="m238m-error">{error}</Card>:null}
-   <div className="m238m-grid">
-    <button className="m238m-metric-button" onClick={()=>setDetail("cx")}><Card className="m238m-metric m238m-drill-card"><span>CX Bulan</span><strong>{num.format(cx)}</strong><small>Tap detail staff</small><ChevronRight size={15}/></Card></button>
-    <button className="m238m-metric-button" onClick={()=>setDetail("member")}><Card className="m238m-metric m238m-drill-card"><span>New Member Bulan</span><strong>{num.format(member)}</strong><small>Tap detail staff</small><ChevronRight size={15}/></Card></button>
-    <Metric label="Input Tanggal Ini" value={num.format(dayRows.length)} sub={salesDateLabel(selectedDate)}/>
-    <Metric label="Belum Isi" value={num.format(missing.length)}/>
-   </div>
-
-   <div className="m238m-section-head"><h2>Rekap Per Staff</h2><span>{staffRecap.length} staff</span></div>
-   <div className="m238m-list">{staffRecap.map((r,i)=><Card key={r.id} className="m238m-copy-card"><div className="m238m-copy-head"><strong>#{i+1} {shortStaffName(r.name)}</strong><b>{r.total}</b></div><p>{r.daysCount} hari input • CX {r.cx} • New Member {r.member}</p></Card>)}</div>
-
-   <div className="m238m-section-head"><h2>Detail Tanggal</h2><span>{salesDateLabel(selectedDate)}</span></div>
-   <div className="m238m-list">{dayRows.length?dayRows.map((r,i)=><Card key={r.staffId+"-"+i} className="m238m-copy-card"><div className="m238m-copy-head"><strong>{shortStaffName(r.name)}</strong><span>{r.date}</span></div><p>CX {num.format(r.cx)} • New Member {num.format(r.member)}</p></Card>):<Card className="m238m-empty">Belum ada input CX / Member pada tanggal ini.</Card>}</div>
-  </>}
-
-  <Sheet open={!!detail} onClose={()=>setDetail(null)} title={detail==="member"?`New Member • ${monthLabel(period)}`:`CX • ${monthLabel(period)}`}>
-   <div className="m238m-stack">
-    <Card className="m238m-detail-sales"><span>{detail==="member"?"New Member Bulan":"CX Bulan"}</span><strong>{num.format(detail==="member"?member:cx)}</strong><small>Detail seluruh staff, termasuk nilai 0</small></Card>
-    <div className="m238m-list">{metricRows.map((r,i)=><Card key={r.id} className="m238m-staff-breakdown-row"><span>#{i+1}</span><strong>{shortStaffName(r.name)}</strong><b>{num.format(detail==="member"?r.member:r.cx)}</b></Card>)}</div>
-   </div>
+  <Card className="m238m-feedback-date-card"><div><strong>CX & Member Per Tanggal</strong><span>Pilih tanggal untuk reminder dan detail harian</span></div><input type="date" value={selectedDate} max={today()} min={activeRange?.from} onChange={e=>setSelectedDate(e.target.value)}/></Card>
+  {busy?<div className="m238m-refreshing"><RefreshCw size={14} className="spin"/> Memuat roster harian…</div>:null}
+  <Card className={missing.length?"m238m-warning-card":"m238m-success-card"}><div className="m238m-copy-head"><strong>Reminder Staff</strong><b>{busy?"…":missing.length?missing.length+" belum isi":"Lengkap"}</b></div><p>{busy?"Memuat status staff…":missing.length?missing.map(x=>shortStaffName(x.name)).join(", "):"Semua staff yang masuk pada tanggal ini sudah mengisi CX / New Member."}</p></Card>
+  {error?<Card className="m238m-error">{error}</Card>:null}
+  <div className="m238m-grid">
+   <button className="m238m-metric-button" onClick={()=>setDetail("cx")}><Card className="m238m-metric m238m-drill-card"><span>CX Periode</span><strong>{num.format(cx)}</strong><small>Tap detail staff</small><ChevronRight size={15}/></Card></button>
+   <button className="m238m-metric-button" onClick={()=>setDetail("member")}><Card className="m238m-metric m238m-drill-card"><span>New Member Periode</span><strong>{num.format(member)}</strong><small>Tap detail staff</small><ChevronRight size={15}/></Card></button>
+   <Metric label="Input Tanggal Ini" value={num.format(dayRows.length)} sub={salesDateLabel(selectedDate)}/>
+   <Metric label="Belum Isi" value={num.format(missing.length)}/>
+  </div>
+  <div className="m238m-section-head"><h2>Rekap Per Staff</h2><span>{staffRecap.length} staff</span></div>
+  <div className="m238m-list">{staffRecap.map((r,i)=><Card key={r.id} className="m238m-copy-card"><div className="m238m-copy-head"><strong>#{i+1} {shortStaffName(r.name)}</strong><b>{r.total}</b></div><p>{r.daysCount} hari input • CX {r.cx} • New Member {r.member}</p></Card>)}</div>
+  <div className="m238m-section-head"><h2>Detail Tanggal</h2><span>{salesDateLabel(selectedDate)}</span></div>
+  <div className="m238m-list">{dayRows.length?dayRows.map((r,i)=><Card key={r.staffId+"-"+i} className="m238m-copy-card"><div className="m238m-copy-head"><strong>{shortStaffName(r.name)}</strong><span>{r.date}</span></div><p>CX {num.format(r.cx)} • New Member {num.format(r.member)}</p></Card>):<Card className="m238m-empty">Belum ada input CX / Member pada tanggal ini.</Card>}</div>
+  <Sheet open={!!detail} onClose={()=>setDetail(null)} title={detail==="member"?`New Member • ${activeRange?"Week aktif":monthLabel(displayPeriod)}`:`CX • ${activeRange?"Week aktif":monthLabel(displayPeriod)}`}>
+   <div className="m238m-stack"><Card className="m238m-detail-sales"><span>{detail==="member"?"New Member Periode":"CX Periode"}</span><strong>{num.format(detail==="member"?member:cx)}</strong><small>Detail seluruh staff, termasuk nilai 0</small></Card><div className="m238m-list">{metricRows.map((r,i)=><Card key={r.id} className="m238m-staff-breakdown-row"><span>#{i+1}</span><strong>{shortStaffName(r.name)}</strong><b>{num.format(detail==="member"?r.member:r.cx)}</b></Card>)}</div></div>
   </Sheet>
  </div>
 }
@@ -1054,47 +1038,24 @@ function AdminScreen({period,periodMode,selectedWeek,activeRange}:{period:string
  </div>
 }
 function MoreScreen({theme,motion,motionStyle,onTheme,onMotion,onMotionStyle,onAction}:{theme:ThemePreset;motion:MotionPreset;motionStyle:MotionStyle;onTheme:(v:ThemePreset)=>void;onMotion:(v:MotionPreset)=>void;onMotionStyle:(v:MotionStyle)=>void;onAction:(action:string)=>void}){
- const[openPanel,setOpenPanel]=useState<"theme"|"speed"|"style"|null>(null);
+ const[openPanel,setOpenPanel]=useState<"theme"|"speed"|"style"|"operasional"|"performance"|"account"|null>(null);
  const themes:{id:ThemePreset;name:string;desc:string}[]=[
-  {id:"classic",name:"Classic iOS",desc:"Floating nav · clean cards"},
-  {id:"midnight",name:"Midnight Pro",desc:"Neon dock · pro panels"},
-  {id:"aurora",name:"Aurora",desc:"Glass nav · soft cards"},
-  {id:"playful",name:"Playful",desc:"Chunky icons · fun blocks"},
-  {id:"graphite",name:"Graphite",desc:"Industrial · sharp panels"},
-  {id:"sunset",name:"Sunset",desc:"Warm · soft glow"},
-  {id:"forest",name:"Forest",desc:"Calm · organic cards"},
-  {id:"mono",name:"Mono OLED",desc:"Black · high contrast"}
+  {id:"classic",name:"Classic iOS",desc:"Floating nav · clean cards"},{id:"midnight",name:"Midnight Pro",desc:"Neon dock · pro panels"},{id:"aurora",name:"Aurora",desc:"Glass nav · soft cards"},{id:"playful",name:"Playful",desc:"Chunky icons · fun blocks"},{id:"graphite",name:"Graphite",desc:"Industrial · sharp panels"},{id:"sunset",name:"Sunset",desc:"Warm · soft glow"},{id:"forest",name:"Forest",desc:"Calm · organic cards"},{id:"mono",name:"Mono OLED",desc:"Black · high contrast"}
  ];
- const motionLabels:Record<MotionPreset,string>={minimal:"Minimal",smooth:"Smooth",dynamic:"Dynamic"};
- const styleLabels:Record<MotionStyle,string>={clean:"Clean","ios-spring":"iOS Spring","glass-flow":"Glass Flow","playful-bounce":"Bounce",executive:"Executive",stagger:"Stagger",blur:"Blur",elastic:"Elastic"};
- const activeTheme=themes.find(t=>t.id===theme);
- const toggle=(panel:"theme"|"speed"|"style")=>setOpenPanel(v=>v===panel?null:panel);
+ const motionLabels:Record<MotionPreset,string>={minimal:"Minimal",smooth:"Smooth",dynamic:"Dynamic"},styleLabels:Record<MotionStyle,string>={clean:"Clean","ios-spring":"iOS Spring","glass-flow":"Glass Flow","playful-bounce":"Bounce",executive:"Executive",stagger:"Stagger",blur:"Blur",elastic:"Elastic"},activeTheme=themes.find(t=>t.id===theme);
+ const toggle=(panel:typeof openPanel)=>setOpenPanel(v=>v===panel?null:panel);
  const groups=[
-  ["Operasional",[[Briefcase,"Administrasi","admin"],[ClipboardCheck,"Checklist Store","checklist"],[TrendingUp,"Aktivitas Toko","activity"]]],
-  ["Performance",[[MessageCircle,"Tambah Feedback","add-feedback"],[WalletCards,"Incentive","incentive"],[Users,"Input CX & Member","add-cx"]]],
-  ["Account",[[Settings,"Settings","settings"],[LogOut,"Logout","logout"]]]
- ] as const;
+  {id:"operasional" as const,title:"Operasional",sub:"3 menu",items:[[Briefcase,"Administrasi","admin"],[ClipboardCheck,"Checklist Store","checklist"],[TrendingUp,"Aktivitas Toko","activity"]]},
+  {id:"performance" as const,title:"Performance",sub:"3 menu",items:[[MessageCircle,"Tambah Feedback","add-feedback"],[WalletCards,"Incentive","incentive"],[Users,"Input CX & Member","add-cx"]]},
+  {id:"account" as const,title:"Account",sub:"2 menu",items:[[Settings,"Settings","settings"],[LogOut,"Logout","logout"]]}
+ ];
  return <div className="m238m-more">
-  <section className="m238m-theme-section">
-   <h3>Tampilan Dashboard</h3>
-   <div className="m238m-appearance-accordion">
-    <div className={"m238m-appearance-panel "+(openPanel==="theme"?"open":"")}>
-     <button className="m238m-appearance-summary" onClick={()=>toggle("theme")}><span><strong>Theme</strong><small>{activeTheme?.name||"Classic iOS"}</small></span><ChevronRight size={18}/></button>
-     {openPanel==="theme"?<div className="m238m-appearance-body"><div className="m238m-theme-grid">{themes.map(t=><button key={t.id} className={"m238m-theme-choice "+(theme===t.id?"active":"")} data-preview={t.id} onClick={()=>{onTheme(t.id);setOpenPanel(null)}}><i className="m238m-theme-preview"><span/><b/><em/></i><strong>{t.name}</strong><small>{t.desc}</small>{theme===t.id?<span className="m238m-theme-check">✓</span>:null}</button>)}</div></div>:null}
-    </div>
-
-    <div className={"m238m-appearance-panel "+(openPanel==="speed"?"open":"")}>
-     <button className="m238m-appearance-summary" onClick={()=>toggle("speed")}><span><strong>Animation Speed</strong><small>{motionLabels[motion]}</small></span><ChevronRight size={18}/></button>
-     {openPanel==="speed"?<div className="m238m-appearance-body"><div className="m238m-motion-pills">{([["minimal","Minimal"],["smooth","Smooth"],["dynamic","Dynamic"]] as [MotionPreset,string][]).map(([id,label])=><button key={id} className={motion===id?"active":""} onClick={()=>{onMotion(id);setOpenPanel(null)}}>{label}</button>)}</div></div>:null}
-    </div>
-
-    <div className={"m238m-appearance-panel "+(openPanel==="style"?"open":"")}>
-     <button className="m238m-appearance-summary" onClick={()=>toggle("style")}><span><strong>Animation Style</strong><small>{styleLabels[motionStyle]}</small></span><ChevronRight size={18}/></button>
-     {openPanel==="style"?<div className="m238m-appearance-body"><div className="m238m-motion-style-grid">{([["clean","Clean"],["ios-spring","iOS Spring"],["glass-flow","Glass Flow"],["playful-bounce","Bounce"],["executive","Executive"],["stagger","Stagger"],["blur","Blur"],["elastic","Elastic"]] as [MotionStyle,string][]).map(([id,label])=><button key={id} className={motionStyle===id?"active":""} onClick={()=>{onMotionStyle(id);setOpenPanel(null)}}>{label}</button>)}</div></div>:null}
-    </div>
-   </div>
-  </section>
-  {groups.map(([title,items])=><section key={title}><h3>{title}</h3><div>{items.map(([Icon,label,action])=><button key={label} onClick={()=>{if(action==="logout")void fetch("/api/auth/logout",{method:"POST"}).finally(()=>{window.location.href="/login"});else onAction(action)}}><span><i><Icon size={18}/></i>{label}</span><ChevronRight size={17}/></button>)}</div></section>)}
+  <section className="m238m-theme-section"><h3>Tampilan Dashboard</h3><div className="m238m-appearance-accordion">
+   <div className={"m238m-appearance-panel "+(openPanel==="theme"?"open":"")}><button className="m238m-appearance-summary" onClick={()=>toggle("theme")}><span><strong>Theme</strong><small>{activeTheme?.name||"Classic iOS"}</small></span><ChevronRight size={18}/></button>{openPanel==="theme"?<div className="m238m-appearance-body"><div className="m238m-theme-grid">{themes.map(t=><button key={t.id} className={"m238m-theme-choice "+(theme===t.id?"active":"")} data-preview={t.id} onClick={()=>{onTheme(t.id);setOpenPanel(null)}}><i className="m238m-theme-preview"><span/><b/><em/></i><strong>{t.name}</strong><small>{t.desc}</small>{theme===t.id?<span className="m238m-theme-check">✓</span>:null}</button>)}</div></div>:null}</div>
+   <div className={"m238m-appearance-panel "+(openPanel==="speed"?"open":"")}><button className="m238m-appearance-summary" onClick={()=>toggle("speed")}><span><strong>Animation Speed</strong><small>{motionLabels[motion]}</small></span><ChevronRight size={18}/></button>{openPanel==="speed"?<div className="m238m-appearance-body"><div className="m238m-motion-pills">{([["minimal","Minimal"],["smooth","Smooth"],["dynamic","Dynamic"]] as [MotionPreset,string][]).map(([id,label])=><button key={id} className={motion===id?"active":""} onClick={()=>{onMotion(id);setOpenPanel(null)}}>{label}</button>)}</div></div>:null}</div>
+   <div className={"m238m-appearance-panel "+(openPanel==="style"?"open":"")}><button className="m238m-appearance-summary" onClick={()=>toggle("style")}><span><strong>Animation Style</strong><small>{styleLabels[motionStyle]}</small></span><ChevronRight size={18}/></button>{openPanel==="style"?<div className="m238m-appearance-body"><div className="m238m-motion-style-grid">{([["clean","Clean"],["ios-spring","iOS Spring"],["glass-flow","Glass Flow"],["playful-bounce","Bounce"],["executive","Executive"],["stagger","Stagger"],["blur","Blur"],["elastic","Elastic"]] as [MotionStyle,string][]).map(([id,label])=><button key={id} className={motionStyle===id?"active":""} onClick={()=>{onMotionStyle(id);setOpenPanel(null)}}>{label}</button>)}</div></div>:null}</div>
+  </div></section>
+  {groups.map(g=><section key={g.id}><div className="m238m-appearance-panel"><button className="m238m-appearance-summary" onClick={()=>toggle(g.id)}><span><strong>{g.title}</strong><small>{g.sub}</small></span><ChevronRight size={18} className={openPanel===g.id?"m238m-chevron-open":""}/></button>{openPanel===g.id?<div className="m238m-more-group-body">{g.items.map(([Icon,label,action])=><button key={String(label)} onClick={()=>{if(action==="logout")void fetch("/api/auth/logout",{method:"POST"}).finally(()=>{window.location.href="/login"});else onAction(String(action))}}><span><i><Icon size={18}/></i>{String(label)}</span><ChevronRight size={17}/></button>)}</div>:null}</div></section>)}
  </div>
 }
 function FeedbackInput(){
@@ -1270,7 +1231,9 @@ const mobileCss=`
 @keyframes m238mStagger{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:none}}
 @keyframes m238mBlurIn{0%{opacity:0;filter:blur(10px)}100%{opacity:1;filter:blur(0)}}
 @keyframes m238mElasticIn{0%{opacity:0;transform:translateY(12px) scale(.96)}65%{opacity:1;transform:translateY(-2px) scale(1.01)}100%{transform:none}}
-.m238m-appearance-accordion{display:flex;flex-direction:column;gap:8px}.m238m-appearance-panel{background:var(--m-surface);border:1px solid var(--m-line);border-radius:16px;overflow:hidden}.m238m-appearance-summary{width:100%;min-height:58px;border:0;background:transparent;color:var(--m-text);padding:11px 13px;display:flex;align-items:center;justify-content:space-between;text-align:left}.m238m-appearance-summary>span{display:flex;flex-direction:column;gap:3px}.m238m-appearance-summary strong{font-size:13px}.m238m-appearance-summary small{font-size:10px;color:var(--m-secondary)}.m238m-appearance-summary>svg{color:var(--m-secondary);transition:transform var(--motion-normal)}.m238m-appearance-panel.open .m238m-appearance-summary>svg{transform:rotate(90deg)}.m238m-appearance-body{padding:0 10px 10px;animation:m238mAccordionIn var(--motion-normal) ease-out}.m238m-appearance-body .m238m-motion-pills,.m238m-appearance-body .m238m-motion-style-grid{margin-top:0}.m238m-appearance-body .m238m-theme-grid{margin-top:0}@keyframes m238mAccordionIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.m238m-appearance-accordion{display:flex;flex-direction:column;gap:8px}.m238m-appearance-panel{background:var(--m-surface);border:1px solid var(--m-line);border-radius:16px;overflow:hidden}.m238m-appearance-summary{width:100%;min-height:58px;border:0;background:transparent;color:var(--m-text);padding:11px 13px;display:flex;align-items:center;justify-content:space-between;text-align:left}.m238m-appearance-summary>span{display:flex;flex-direction:column;gap:3px}.m238m-appearance-summary strong{font-size:13px}.m238m-appearance-summary small{font-size:10px;color:var(--m-secondary)}.m238m-appearance-summary>svg{color:var(--m-secondary);transition:transform var(--motion-normal)}.m238m-appearance-panel.open .m238m-appearance-summary>svg{transform:rotate(90deg)}.m238m-appearance-body{padding:0 10px 10px;animation:m238mAccordionIn var(--motion-normal) ease-out}.m238m-appearance-body .m238m-motion-pills,.m238m-appearance-body .m238m-motion-style-grid{margin-top:0}.m238m-appearance-body .m238m-theme-grid{margin-top:0}@keyframes m238mAccordionIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}.m238m-more-group-body{border-top:1px solid var(--m-line);animation:m238mAccordionIn var(--motion-normal) ease-out}.m238m-more-group-body>button{width:100%;height:52px;border:0;border-bottom:1px solid var(--m-line);background:transparent;color:var(--m-text);display:flex;align-items:center;justify-content:space-between;padding:0 13px}.m238m-more-group-body>button:last-child{border-bottom:0}.m238m-more-group-body>button>span{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:750}.m238m-more-group-body i{width:30px;height:30px;border-radius:9px;background:var(--m-surface2);display:grid;place-items:center;color:var(--m-blue)}.m238m-chevron-open{transform:rotate(90deg)}
+@media (prefers-reduced-motion:reduce){.m238m-app{--motion-fast:0ms;--motion-normal:0ms;--motion-slow:0ms}.m238m-app *{scroll-behavior:auto!important}.m238m-app[data-theme="aurora"] .m238m-card,.m238m-app[data-theme="aurora"] .m238m-bottom,.m238m-app[data-theme="aurora"] .m238m-period{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}}
+
 .m238m-theme-section>h3{margin-bottom:10px}.m238m-theme-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px!important;background:transparent!important;border-radius:0!important;overflow:visible!important}.m238m-theme-choice{position:relative!important;height:auto!important;min-height:132px!important;padding:10px!important;border:1px solid var(--m-line)!important;border-radius:16px!important;background:var(--m-surface)!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:flex-start!important;gap:4px!important;text-align:left!important;color:var(--m-text)!important}.m238m-theme-choice.active{outline:2px solid var(--m-blue);outline-offset:1px}.m238m-theme-choice>strong{font-size:12px}.m238m-theme-choice>small{font-size:9px;color:var(--m-secondary)}.m238m-theme-check{position:absolute;right:8px;top:8px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--m-blue);color:white;font-size:11px;font-weight:900}.m238m-theme-preview{width:100%;height:72px;border-radius:12px;display:block;position:relative;overflow:hidden;margin-bottom:4px}.m238m-theme-preview span,.m238m-theme-preview b,.m238m-theme-preview em{position:absolute;display:block;border-radius:7px}.m238m-theme-preview span{left:8px;right:8px;top:8px;height:25px}.m238m-theme-preview b{left:8px;bottom:8px;width:42%;height:23px}.m238m-theme-preview em{right:8px;bottom:8px;width:42%;height:23px}.m238m-theme-choice[data-preview="classic"] .m238m-theme-preview{background:#f2f2f7}.m238m-theme-choice[data-preview="classic"] .m238m-theme-preview span{background:linear-gradient(135deg,#0a66d6,#5241b8)}.m238m-theme-choice[data-preview="classic"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="classic"] .m238m-theme-preview em{background:white}.m238m-theme-choice[data-preview="midnight"] .m238m-theme-preview{background:#080b14}.m238m-theme-choice[data-preview="midnight"] .m238m-theme-preview span{background:linear-gradient(135deg,#163b65,#452f78)}.m238m-theme-choice[data-preview="midnight"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="midnight"] .m238m-theme-preview em{background:#1b2230}.m238m-theme-choice[data-preview="aurora"] .m238m-theme-preview{background:linear-gradient(135deg,#dfd5ff,#d9fff6)}.m238m-theme-choice[data-preview="aurora"] .m238m-theme-preview span{background:linear-gradient(135deg,#7557e8,#27a8c7)}.m238m-theme-choice[data-preview="aurora"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="aurora"] .m238m-theme-preview em{background:rgba(255,255,255,.7)}.m238m-theme-choice[data-preview="playful"] .m238m-theme-preview{background:#fff1b8}.m238m-theme-choice[data-preview="playful"] .m238m-theme-preview span{background:linear-gradient(135deg,#5864e8,#ec6aa7)}.m238m-theme-choice[data-preview="playful"] .m238m-theme-preview b{background:#aee8ff}.m238m-theme-choice[data-preview="playful"] .m238m-theme-preview em{background:#ffd3e7}.m238m-theme-choice[data-preview="graphite"] .m238m-theme-preview{background:#111315}.m238m-theme-choice[data-preview="graphite"] .m238m-theme-preview span{background:#2c3237;border-left:4px solid #b7ff5a}.m238m-theme-choice[data-preview="graphite"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="graphite"] .m238m-theme-preview em{background:#202428}.m238m-theme-choice[data-preview="sunset"] .m238m-theme-preview{background:#fff1e8}.m238m-theme-choice[data-preview="sunset"] .m238m-theme-preview span{background:linear-gradient(135deg,#f07a5e,#c9568c)}.m238m-theme-choice[data-preview="sunset"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="sunset"] .m238m-theme-preview em{background:#fffaf6}.m238m-theme-choice[data-preview="forest"] .m238m-theme-preview{background:#eef6ef}.m238m-theme-choice[data-preview="forest"] .m238m-theme-preview span{background:linear-gradient(135deg,#3f8a5c,#315f49)}.m238m-theme-choice[data-preview="forest"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="forest"] .m238m-theme-preview em{background:#f9fcf9}.m238m-theme-choice[data-preview="mono"] .m238m-theme-preview{background:#050505}.m238m-theme-choice[data-preview="mono"] .m238m-theme-preview span{background:#222}.m238m-theme-choice[data-preview="mono"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="mono"] .m238m-theme-preview em{background:#111;border:1px solid rgba(255,255,255,.2)}.m238m-motion-settings{margin-top:12px;background:var(--m-surface);border:1px solid var(--m-line);border-radius:16px;padding:13px}.m238m-motion-settings>div:first-child strong,.m238m-motion-settings>div:first-child small{display:block}.m238m-motion-settings>div:first-child strong{font-size:12px}.m238m-motion-settings>div:first-child small{font-size:9px;color:var(--m-secondary);margin-top:2px}.m238m-motion-pills{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}.m238m-motion-pills button{border:0;border-radius:10px;background:var(--m-surface2);color:var(--m-secondary);padding:8px 4px;font-size:9px;font-weight:850}.m238m-motion-pills button.active{background:var(--m-blue);color:white}.m238m-motion-style-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:10px}.m238m-motion-style-grid button{border:0;border-radius:10px;background:var(--m-surface2);color:var(--m-secondary);padding:9px 6px;font-size:9px;font-weight:850}.m238m-motion-style-grid button.active{background:var(--m-blue);color:white}
 @media(min-width:769px){.m238m-app{display:none!important}}
 `;
