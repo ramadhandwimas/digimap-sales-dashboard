@@ -658,24 +658,39 @@ function FocusProductView({summary,period,periodMode,selectedWeek,activeRange}:{
  const load=useCallback(async(force=false)=>{
   setLoading(true);
   try{
-   const [fp,third,lt,la,vt,tt,sp]=await Promise.all([
-    cachedJson<any>(focusUrl,180000,force),
-    cachedJson<any>(thirdUrl,180000,force),
-    cachedJson<any>(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=lob-focus`,180000,force),
-    cachedJson<any>(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=lob-focus-active`,180000,force),
-    cachedJson<any>(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=vas-focus`,180000,force),
-    cachedJson<any>(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=product-focus-value`,180000,force),
-    cachedJson<{staff:Staff[]}>(staffUrl,180000,force)
-   ]);
-   setFocus(fp);setThirdData(third);setStaffPerf(sp.staff||[]);
-   setLobTargets(Object.fromEntries(Object.entries(lt.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])));
-   setLobActive(Object.fromEntries(Object.entries(la.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])));
-   setVasTargets(Object.fromEntries(Object.entries(vt.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])));
-   setThirdTargets(Object.fromEntries(thirdKeys.map(k=>[k,Number(tt.targets?.[k]?.target??(k==="IGA"?tt.targets?.Iga?.target:0)??0)])));
-   setShares((vt.staff||lt.staff||[]).map((x:any)=>({id:String(x.id),name:String(x.name),share:Number(x.share||0)})));
+   if(tab==="lob"){
+    const [fp,lt,la]=await Promise.all([
+      cachedJson<any>(focusUrl,180000,force),
+      cachedJson<any>(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=lob-focus`,180000,force),
+      cachedJson<any>(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=lob-focus-active`,180000,force)
+    ]);
+    setFocus(fp);
+    setLobTargets(Object.fromEntries(Object.entries(lt.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])));
+    setLobActive(Object.fromEntries(Object.entries(la.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])));
+    setShares((lt.staff||[]).map((x:any)=>({id:String(x.id),name:String(x.name),share:Number(x.share||0)})));
+   }else if(tab==="vas"){
+    const [fp,vt,sp]=await Promise.all([
+      focus?Promise.resolve(focus):cachedJson<any>(focusUrl,180000,force),
+      cachedJson<any>(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=vas-focus`,180000,force),
+      cachedJson<{staff:Staff[]}>(staffUrl,180000,force)
+    ]);
+    setFocus(fp);setStaffPerf(sp.staff||[]);
+    setVasTargets(Object.fromEntries(Object.entries(vt.targets||{}).map(([k,v]:any)=>[k,Number(v.target||0)])));
+    setShares((vt.staff||[]).map((x:any)=>({id:String(x.id),name:String(x.name),share:Number(x.share||0)})));
+   }else{
+    const [third,tt,vt]=await Promise.all([
+      cachedJson<any>(thirdUrl,180000,force),
+      cachedJson<any>(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=product-focus-value`,180000,force),
+      cachedJson<any>(`/api/manual-target?scope=${targetScope}&period=${encodeURIComponent(targetPeriod)}&group=vas-focus`,180000,force)
+    ]);
+    setThirdData(third);
+    setThirdTargets(Object.fromEntries(thirdKeys.map(k=>[k,Number(tt.targets?.[k]?.target??(k==="IGA"?tt.targets?.Iga?.target:0)??0)])));
+    setShares((vt.staff||[]).map((x:any)=>({id:String(x.id),name:String(x.name),share:Number(x.share||0)})));
+   }
   }finally{setLoading(false)}
- },[period,periodMode,selectedWeek,activeRange,focusUrl,thirdUrl,staffUrl,targetScope,targetPeriod]);
+ },[tab,period,periodMode,selectedWeek,activeRange,focusUrl,thirdUrl,staffUrl,targetScope,targetPeriod,focus]);
  useEffect(()=>{void load()},[load]);
+ useEffect(()=>{setThirdData(null);setSelectedThird(null)},[period,periodMode,selectedWeek,activeRange]);
 
  const products=(focus?.lob?.products||[]) as Array<{name:string;qty:number;value:number}>;
  const productMap=new Map(products.map(x=>[x.name,x]));
