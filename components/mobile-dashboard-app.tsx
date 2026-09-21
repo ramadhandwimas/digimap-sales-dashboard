@@ -15,8 +15,9 @@ type SalesMode="daily"|"summary"|"lob";
 type FocusMode="lob"|"vas"|"third";
 type ReportMode="weekly"|"feedback"|"cx";
 type HomeMode="monthly"|"ytd"|"compare";
-type ThemePreset="classic"|"midnight"|"aurora"|"playful";
+type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono";
 type MotionPreset="minimal"|"smooth"|"dynamic";
+type MotionStyle="clean"|"ios-spring"|"glass-flow"|"playful-bounce"|"executive"|"stagger"|"blur"|"elastic";
 type CompareLob={lob:string;amount2025:number;amount2026:number|null;qty2025:number;qty2026:number|null;diff:number|null;growth:number|null;qtyDiff:number|null;qtyGrowth:number|null};
 type CompareMonth={month:number;period2025:string;period2026:string;amount2025:number;amount2026:number|null;qty2025:number;qty2026:number|null;diff:number|null;growth:number|null;qtyDiff:number|null;qtyGrowth:number|null;device2025:number;device2026:number|null;deviceQty2025:number;deviceQty2026:number|null;deviceDiff:number|null;deviceGrowth:number|null;deviceQtyDiff:number|null;deviceQtyGrowth:number|null;lobs:CompareLob[];started:boolean};
 type SheetName="period"|"share"|"staff"|"day"|"home-sales"|"more"|null;
@@ -130,7 +131,7 @@ function Sheet({open,onClose,title,children}:{open:boolean;onClose:()=>void;titl
 export default function MobileDashboardApp(){
   const[tab,setTab]=useState<Tab>("home"),[period,setPeriod]=useState(periodNow()),[draftPeriod,setDraftPeriod]=useState(periodNow()),[periodMode,setPeriodMode]=useState<"month"|"week">("month"),[draftPeriodMode,setDraftPeriodMode]=useState<"month"|"week">("month"),[selectedWeek,setSelectedWeek]=useState(""),[draftWeek,setDraftWeek]=useState(""),[activeRange,setActiveRange]=useState<{from:string;to:string}|null>(null),[sheet,setSheet]=useState<SheetName>(null),[moreKind,setMoreKind]=useState(""),[moreData,setMoreData]=useState<any>(null),[moreBusy,setMoreBusy]=useState(false);
   const[overview,setOverview]=useState<Overview|null>(null),[fullOverview,setFullOverview]=useState<Overview|null>(null),[traffic,setTraffic]=useState<Traffic|null>(null),[daily,setDaily]=useState<Daily|null>(null),[summary,setSummary]=useState<DailySummary|null>(null),[weekly,setWeekly]=useState<Weekly|null>(null),[weeklySummary,setWeeklySummary]=useState<DailySummary|null>(null),[feedback,setFeedback]=useState<Feedback|null>(null),[cx,setCx]=useState<Cx|null>(null),[staffDetail,setStaffDetail]=useState<Staff|null>(null),[staffDetailMode,setStaffDetailMode]=useState<"daily"|"monthly">("monthly"),[dayDetail,setDayDetail]=useState<DailyRow|null>(null);
-  const[homeMode,setHomeMode]=useState<HomeMode>("monthly"),[salesMode,setSalesMode]=useState<SalesMode>("daily"),[reportMode,setReportMode]=useState<ReportMode>("weekly"),[teamFilter,setTeamFilter]=useState("all"),[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[error,setError]=useState(""),[dark,setDark]=useState(false),[themePreset,setThemePreset]=useState<ThemePreset>("classic"),[motionPreset,setMotionPreset]=useState<MotionPreset>("smooth");
+  const[homeMode,setHomeMode]=useState<HomeMode>("monthly"),[salesMode,setSalesMode]=useState<SalesMode>("daily"),[reportMode,setReportMode]=useState<ReportMode>("weekly"),[teamFilter,setTeamFilter]=useState("all"),[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[error,setError]=useState(""),[dark,setDark]=useState(false),[themePreset,setThemePreset]=useState<ThemePreset>("classic"),[motionPreset,setMotionPreset]=useState<MotionPreset>("smooth"),[motionStyle,setMotionStyle]=useState<MotionStyle>("clean");
   const rootRef=useRef<HTMLDivElement>(null),touchStart=useRef<number|null>(null);
 
   const loadOverview=useCallback(async(force=false)=>{
@@ -155,10 +156,12 @@ export default function MobileDashboardApp(){
   useEffect(()=>{
     const saved=(localStorage.getItem("m238-theme-preset")||"") as ThemePreset;
     const legacyDark=localStorage.getItem("m238-theme")==="dark";
-    const initial:ThemePreset=["classic","midnight","aurora","playful"].includes(saved)?saved:(legacyDark?"midnight":"classic");
+    const initial:ThemePreset=["classic","midnight","aurora","playful","graphite","sunset","forest","mono"].includes(saved)?saved:(legacyDark?"midnight":"classic");
     const motion=(localStorage.getItem("m238-motion-preset")||"smooth") as MotionPreset;
+    const style=(localStorage.getItem("m238-motion-style")||"clean") as MotionStyle;
     setThemePreset(initial);setMotionPreset(["minimal","smooth","dynamic"].includes(motion)?motion:"smooth");
-    const isDark=initial==="midnight";setDark(isDark);document.documentElement.classList.toggle("dark",isDark);
+    setMotionStyle(["clean","ios-spring","glass-flow","playful-bounce","executive","stagger","blur","elastic"].includes(style)?style:"clean");
+    const isDark=initial==="midnight"||initial==="graphite"||initial==="mono";setDark(isDark);document.documentElement.classList.toggle("dark",isDark);
   },[]);
 
   const loadDaily=useCallback(async(force=false)=>{const d=await cachedJson<Daily>(`/api/daily-fast?date=${today()}`,90000,force);setDaily(d)},[]);
@@ -236,11 +239,12 @@ export default function MobileDashboardApp(){
   };
   const applyTheme=(preset:ThemePreset)=>{
     setThemePreset(preset);localStorage.setItem("m238-theme-preset",preset);
-    const isDark=preset==="midnight";setDark(isDark);localStorage.setItem("m238-theme",isDark?"dark":"light");document.documentElement.classList.toggle("dark",isDark);
+    const isDark=preset==="midnight"||preset==="graphite"||preset==="mono";setDark(isDark);localStorage.setItem("m238-theme",isDark?"dark":"light");document.documentElement.classList.toggle("dark",isDark);
     let meta=document.querySelector('meta[name="theme-color"]') as HTMLMetaElement|null;if(!meta){meta=document.createElement("meta");meta.name="theme-color";document.head.appendChild(meta)}
-    meta.content=preset==="midnight"?"#080b14":preset==="aurora"?"#ece9ff":preset==="playful"?"#fff7df":"#f2f2f7";
+    meta.content=preset==="midnight"?"#080b14":preset==="graphite"?"#111315":preset==="mono"?"#050505":preset==="aurora"?"#ece9ff":preset==="playful"?"#fff7df":preset==="sunset"?"#fff1e8":preset==="forest"?"#eef6ef":"#f2f2f7";
   };
   const applyMotion=(preset:MotionPreset)=>{setMotionPreset(preset);localStorage.setItem("m238-motion-preset",preset)};
+  const applyMotionStyle=(preset:MotionStyle)=>{setMotionStyle(preset);localStorage.setItem("m238-motion-style",preset)};
   const transaction=overview?.summary.invoices||0,trafficValue=traffic?.total||0,cvr=trafficValue?transaction/trafficValue*100:0,achievement=overview?.target.amount?((overview.summary.amount/overview.target.amount)*100):0;
   const team=useMemo(()=>{
     const rows=(overview?.staff||[]).filter(x=>!/digimap\.co\.id|online/i.test(`${x.name} ${x.position||""}`));
@@ -298,7 +302,7 @@ export default function MobileDashboardApp(){
 
   const touchMove=(e:React.TouchEvent)=>{if(touchStart.current==null||window.scrollY>0)return;const delta=e.touches[0].clientY-touchStart.current;if(delta>90&&!refreshing){touchStart.current=null;void refresh()}};
 
-  return <div ref={rootRef} className="m238m-app" data-theme={themePreset} data-motion={motionPreset} onTouchStart={e=>{if(window.scrollY===0)touchStart.current=e.touches[0].clientY}} onTouchMove={touchMove} onTouchEnd={()=>{touchStart.current=null}}>
+  return <div ref={rootRef} className="m238m-app" data-theme={themePreset} data-motion={motionPreset} data-motion-style={motionStyle} onTouchStart={e=>{if(window.scrollY===0)touchStart.current=e.touches[0].clientY}} onTouchMove={touchMove} onTouchEnd={()=>{touchStart.current=null}}>
     <header className="m238m-header">
       <div><span>M238 Dashboard</span><strong>PIM 2</strong></div>
       <div className="m238m-header-actions"><button onClick={()=>setSheet("share")} aria-label="Share"><Share2 size={19}/></button><button onClick={()=>void refresh()} aria-label="Refresh"><RefreshCw size={19} className={refreshing?"spin":""}/></button></div>
@@ -313,7 +317,7 @@ export default function MobileDashboardApp(){
       {tab==="team"?<TeamScreen rows={team} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
       {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]}/>:null}
       {tab==="admin"?<AdminScreen period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>:null}
-      {tab==="more"?<MoreScreen theme={themePreset} motion={motionPreset} onTheme={applyTheme} onMotion={applyMotion} onAction={handleMore}/>:null}
+      {tab==="more"?<MoreScreen theme={themePreset} motion={motionPreset} motionStyle={motionStyle} onTheme={applyTheme} onMotion={applyMotion} onMotionStyle={applyMotionStyle} onAction={handleMore}/>:null}
     </main>
 
     <nav className="m238m-bottom" style={{"--m238m-active-index":String(["home","sales","team","report","more"].indexOf(tab==="admin"?"more":tab))} as CSSProperties}>
@@ -324,6 +328,14 @@ export default function MobileDashboardApp(){
         ?[["home","Home",Lightbulb],["sales","Sales",TrendingUp],["team","Team",Users],["report","Report",Share2],["more","More",MoreHorizontal]]
         :themePreset==="playful"
         ?[["home","Home",Box],["sales","Sales",Target],["team","Team",Users],["report","Report",ClipboardCheck],["more","More",Settings]]
+        :themePreset==="graphite"
+        ?[["home","Home",Activity],["sales","Sales",TrendingUp],["team","Team",Briefcase],["report","Report",FileSpreadsheet],["more","More",Settings]]
+        :themePreset==="sunset"
+        ?[["home","Home",Sun],["sales","Sales",TrendingUp],["team","Team",Users],["report","Report",FileDown],["more","More",MoreHorizontal]]
+        :themePreset==="forest"
+        ?[["home","Home",Home],["sales","Sales",Target],["team","Team",Users],["report","Report",ClipboardCheck],["more","More",Settings]]
+        :themePreset==="mono"
+        ?[["home","Home",Activity],["sales","Sales",CreditCard],["team","Team",Users],["report","Report",FileSpreadsheet],["more","More",MoreHorizontal]]
         :[["home","Home",Home],["sales","Sales",TrendingUp],["team","Team",Users],["report","Report",FileDown],["more","More",MoreHorizontal]]
       ).map(([key,label,Icon])=><button key={String(key)} onClick={()=>setTab(key as Tab)} className={(tab===key||(tab==="admin"&&key==="more"))?"active":""}><span className="m238m-nav-icon"><Icon size={themePreset==="playful"?22:21}/></span><span className="m238m-nav-label">{String(label)}</span></button>)}
     </nav>
@@ -1041,12 +1053,16 @@ function AdminScreen({period,periodMode,selectedWeek,activeRange}:{period:string
   <MobileOperations kind={tab} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>
  </div>
 }
-function MoreScreen({theme,motion,onTheme,onMotion,onAction}:{theme:ThemePreset;motion:MotionPreset;onTheme:(v:ThemePreset)=>void;onMotion:(v:MotionPreset)=>void;onAction:(action:string)=>void}){
+function MoreScreen({theme,motion,motionStyle,onTheme,onMotion,onMotionStyle,onAction}:{theme:ThemePreset;motion:MotionPreset;motionStyle:MotionStyle;onTheme:(v:ThemePreset)=>void;onMotion:(v:MotionPreset)=>void;onMotionStyle:(v:MotionStyle)=>void;onAction:(action:string)=>void}){
  const themes:{id:ThemePreset;name:string;desc:string}[]=[
   {id:"classic",name:"Classic iOS",desc:"Floating nav · clean cards"},
   {id:"midnight",name:"Midnight Pro",desc:"Neon dock · pro panels"},
   {id:"aurora",name:"Aurora",desc:"Glass nav · soft cards"},
-  {id:"playful",name:"Playful",desc:"Chunky icons · fun blocks"}
+  {id:"playful",name:"Playful",desc:"Chunky icons · fun blocks"},
+  {id:"graphite",name:"Graphite",desc:"Industrial · sharp panels"},
+  {id:"sunset",name:"Sunset",desc:"Warm · soft glow"},
+  {id:"forest",name:"Forest",desc:"Calm · organic cards"},
+  {id:"mono",name:"Mono OLED",desc:"Black · high contrast"}
  ];
  const groups=[
   ["Operasional",[[Briefcase,"Administrasi","admin"],[ClipboardCheck,"Checklist Store","checklist"],[TrendingUp,"Aktivitas Toko","activity"]]],
@@ -1057,7 +1073,8 @@ function MoreScreen({theme,motion,onTheme,onMotion,onAction}:{theme:ThemePreset;
   <section className="m238m-theme-section">
    <h3>Tampilan Dashboard</h3>
    <div className="m238m-theme-grid">{themes.map(t=><button key={t.id} className={"m238m-theme-choice "+(theme===t.id?"active":"")} data-preview={t.id} onClick={()=>onTheme(t.id)}><i className="m238m-theme-preview"><span/><b/><em/></i><strong>{t.name}</strong><small>{t.desc}</small>{theme===t.id?<span className="m238m-theme-check">✓</span>:null}</button>)}</div>
-   <div className="m238m-motion-settings"><div><strong>Animation</strong><small>Atur seberapa hidup transisinya</small></div><div className="m238m-motion-pills">{([["minimal","Minimal"],["smooth","Smooth"],["dynamic","Dynamic"]] as [MotionPreset,string][]).map(([id,label])=><button key={id} className={motion===id?"active":""} onClick={()=>onMotion(id)}>{label}</button>)}</div></div>
+   <div className="m238m-motion-settings"><div><strong>Animation Speed</strong><small>Atur seberapa cepat gerakannya</small></div><div className="m238m-motion-pills">{([["minimal","Minimal"],["smooth","Smooth"],["dynamic","Dynamic"]] as [MotionPreset,string][]).map(([id,label])=><button key={id} className={motion===id?"active":""} onClick={()=>onMotion(id)}>{label}</button>)}</div></div>
+   <div className="m238m-motion-settings"><div><strong>Animation Style</strong><small>Pilih karakter transisi dashboard</small></div><div className="m238m-motion-style-grid">{([["clean","Clean"],["ios-spring","iOS Spring"],["glass-flow","Glass Flow"],["playful-bounce","Bounce"],["executive","Executive"],["stagger","Stagger"],["blur","Blur"],["elastic","Elastic"]] as [MotionStyle,string][]).map(([id,label])=><button key={id} className={motionStyle===id?"active":""} onClick={()=>onMotionStyle(id)}>{label}</button>)}</div></div>
   </section>
   {groups.map(([title,items])=><section key={title}><h3>{title}</h3><div>{items.map(([Icon,label,action])=><button key={label} onClick={()=>{if(action==="logout")void fetch("/api/auth/logout",{method:"POST"}).finally(()=>{window.location.href="/login"});else onAction(action)}}><span><i><Icon size={18}/></i>{label}</span><ChevronRight size={17}/></button>)}</div></section>)}
  </div>
@@ -1098,6 +1115,10 @@ const mobileCss=`
 .m238m-app[data-theme="midnight"]{--m-bg:#080b14;--m-surface:#121722;--m-surface2:#1b2230;--m-text:#f7f9ff;--m-secondary:#98a2b3;--m-blue:#64d2ff;--m-line:rgba(255,255,255,.08);--m-radius:19px;--m-hero-a:#163b65;--m-hero-b:#452f78;background:radial-gradient(circle at 85% 0%,rgba(78,100,255,.18),transparent 30%),#080b14}
 .m238m-app[data-theme="aurora"]{--m-bg:#f2efff;--m-surface:rgba(255,255,255,.72);--m-surface2:rgba(255,255,255,.48);--m-text:#19152a;--m-secondary:#746e88;--m-blue:#7456e8;--m-line:rgba(104,80,180,.12);--m-radius:22px;--m-hero-a:#7557e8;--m-hero-b:#27a8c7;background:radial-gradient(circle at 10% 0%,rgba(140,105,255,.25),transparent 32%),radial-gradient(circle at 90% 18%,rgba(71,220,197,.22),transparent 30%),linear-gradient(180deg,#f3efff,#eef8f9)}
 .m238m-app[data-theme="playful"]{--m-bg:#fff7df;--m-surface:#fffdf7;--m-surface2:#f5f1e7;--m-text:#22223a;--m-secondary:#77718a;--m-blue:#5b63e8;--m-line:rgba(69,63,92,.10);--m-radius:20px;--m-hero-a:#5864e8;--m-hero-b:#ec6aa7;background:radial-gradient(circle at 12% 4%,rgba(255,214,92,.35),transparent 24%),radial-gradient(circle at 95% 10%,rgba(116,211,255,.30),transparent 25%),#fff7df}
+.m238m-app[data-theme="graphite"]{--m-bg:#111315;--m-surface:#1a1d20;--m-surface2:#24282c;--m-text:#f4f5f6;--m-secondary:#9ba2aa;--m-blue:#b7ff5a;--m-line:rgba(255,255,255,.07);--m-radius:12px;--m-hero-a:#23272b;--m-hero-b:#30363b;background:linear-gradient(180deg,#111315,#0d0f10)}
+.m238m-app[data-theme="sunset"]{--m-bg:#fff1e8;--m-surface:#fffaf6;--m-surface2:#fbe8dc;--m-text:#3b211a;--m-secondary:#8b6d63;--m-blue:#ef6c4d;--m-line:rgba(120,64,45,.10);--m-radius:22px;--m-hero-a:#f07a5e;--m-hero-b:#c9568c;background:radial-gradient(circle at 10% 0%,rgba(255,166,117,.25),transparent 30%),linear-gradient(180deg,#fff4ec,#fffaf7)}
+.m238m-app[data-theme="forest"]{--m-bg:#eef6ef;--m-surface:#f9fcf9;--m-surface2:#e6f0e7;--m-text:#193321;--m-secondary:#66766a;--m-blue:#3f8a5c;--m-line:rgba(45,92,58,.10);--m-radius:20px;--m-hero-a:#3f8a5c;--m-hero-b:#315f49;background:radial-gradient(circle at 85% 0%,rgba(125,189,143,.18),transparent 30%),#eef6ef}
+.m238m-app[data-theme="mono"]{--m-bg:#050505;--m-surface:#0d0d0d;--m-surface2:#171717;--m-text:#fff;--m-secondary:#9b9b9b;--m-blue:#fff;--m-line:rgba(255,255,255,.09);--m-radius:10px;--m-hero-a:#111;--m-hero-b:#2b2b2b;background:#050505}
 .m238m-app[data-motion="minimal"]{--motion-fast:60ms;--motion-normal:90ms;--motion-slow:120ms}.m238m-app[data-motion="dynamic"]{--motion-fast:150ms;--motion-normal:280ms;--motion-slow:440ms}
 .m238m-app{min-height:100dvh;background:var(--m-bg);color:var(--m-text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Inter,system-ui,sans-serif;overflow-x:hidden;-webkit-tap-highlight-color:transparent}.m238m-enter{animation:m238mPageIn var(--motion-slow) cubic-bezier(.22,1,.36,1)}@keyframes m238mPageIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 .m238m-header{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 10px) 18px 10px;background:color-mix(in srgb,var(--m-bg) 88%,transparent);backdrop-filter:blur(18px)}
@@ -1184,6 +1205,53 @@ const mobileCss=`
 .m238m-app[data-theme="playful"] .m238m-nav-label{font-size:9px;font-weight:900}
 .m238m-app[data-theme="playful"] .m238m-bottom button.active .m238m-nav-label{transform:none;color:#34305f}
 .m238m-app[data-theme="playful"] .m238m-bottom button:not(.active) .m238m-nav-label{opacity:.72;max-height:14px;transform:none}
-.m238m-theme-section>h3{margin-bottom:10px}.m238m-theme-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px!important;background:transparent!important;border-radius:0!important;overflow:visible!important}.m238m-theme-choice{position:relative!important;height:auto!important;min-height:132px!important;padding:10px!important;border:1px solid var(--m-line)!important;border-radius:16px!important;background:var(--m-surface)!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:flex-start!important;gap:4px!important;text-align:left!important;color:var(--m-text)!important}.m238m-theme-choice.active{outline:2px solid var(--m-blue);outline-offset:1px}.m238m-theme-choice>strong{font-size:12px}.m238m-theme-choice>small{font-size:9px;color:var(--m-secondary)}.m238m-theme-check{position:absolute;right:8px;top:8px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--m-blue);color:white;font-size:11px;font-weight:900}.m238m-theme-preview{width:100%;height:72px;border-radius:12px;display:block;position:relative;overflow:hidden;margin-bottom:4px}.m238m-theme-preview span,.m238m-theme-preview b,.m238m-theme-preview em{position:absolute;display:block;border-radius:7px}.m238m-theme-preview span{left:8px;right:8px;top:8px;height:25px}.m238m-theme-preview b{left:8px;bottom:8px;width:42%;height:23px}.m238m-theme-preview em{right:8px;bottom:8px;width:42%;height:23px}.m238m-theme-choice[data-preview="classic"] .m238m-theme-preview{background:#f2f2f7}.m238m-theme-choice[data-preview="classic"] .m238m-theme-preview span{background:linear-gradient(135deg,#0a66d6,#5241b8)}.m238m-theme-choice[data-preview="classic"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="classic"] .m238m-theme-preview em{background:white}.m238m-theme-choice[data-preview="midnight"] .m238m-theme-preview{background:#080b14}.m238m-theme-choice[data-preview="midnight"] .m238m-theme-preview span{background:linear-gradient(135deg,#163b65,#452f78)}.m238m-theme-choice[data-preview="midnight"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="midnight"] .m238m-theme-preview em{background:#1b2230}.m238m-theme-choice[data-preview="aurora"] .m238m-theme-preview{background:linear-gradient(135deg,#dfd5ff,#d9fff6)}.m238m-theme-choice[data-preview="aurora"] .m238m-theme-preview span{background:linear-gradient(135deg,#7557e8,#27a8c7)}.m238m-theme-choice[data-preview="aurora"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="aurora"] .m238m-theme-preview em{background:rgba(255,255,255,.7)}.m238m-theme-choice[data-preview="playful"] .m238m-theme-preview{background:#fff1b8}.m238m-theme-choice[data-preview="playful"] .m238m-theme-preview span{background:linear-gradient(135deg,#5864e8,#ec6aa7)}.m238m-theme-choice[data-preview="playful"] .m238m-theme-preview b{background:#aee8ff}.m238m-theme-choice[data-preview="playful"] .m238m-theme-preview em{background:#ffd3e7}.m238m-motion-settings{margin-top:12px;background:var(--m-surface);border:1px solid var(--m-line);border-radius:16px;padding:13px}.m238m-motion-settings>div:first-child strong,.m238m-motion-settings>div:first-child small{display:block}.m238m-motion-settings>div:first-child strong{font-size:12px}.m238m-motion-settings>div:first-child small{font-size:9px;color:var(--m-secondary);margin-top:2px}.m238m-motion-pills{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}.m238m-motion-pills button{border:0;border-radius:10px;background:var(--m-surface2);color:var(--m-secondary);padding:8px 4px;font-size:9px;font-weight:850}.m238m-motion-pills button.active{background:var(--m-blue);color:white}
+/* Extra themes */
+.m238m-app[data-theme="graphite"] .m238m-card{border-radius:12px;background:linear-gradient(180deg,#1b1f22,#171a1d);border-left:3px solid rgba(183,255,90,.28);box-shadow:none}
+.m238m-app[data-theme="graphite"] .m238m-hero{border-radius:12px;border-left:4px solid #b7ff5a;background:linear-gradient(135deg,#202428,#30353a)}
+.m238m-app[data-theme="graphite"] .m238m-bottom{border-radius:12px;background:#15181a;border-color:rgba(183,255,90,.12);box-shadow:0 10px 26px rgba(0,0,0,.28)}
+.m238m-app[data-theme="graphite"] .m238m-liquid-bubble{display:none}
+.m238m-app[data-theme="graphite"] .m238m-nav-icon{border-radius:8px}
+.m238m-app[data-theme="graphite"] .m238m-bottom button.active .m238m-nav-icon{transform:none;background:#b7ff5a;color:#111}
+.m238m-app[data-theme="graphite"] .m238m-bottom button:not(.active) .m238m-nav-label{opacity:.45;max-height:14px;transform:none}
+
+.m238m-app[data-theme="sunset"] .m238m-card{border-radius:26px 18px 26px 18px;box-shadow:0 12px 28px rgba(192,100,74,.10)}
+.m238m-app[data-theme="sunset"] .m238m-hero{border-radius:30px 20px 30px 20px;box-shadow:0 18px 38px rgba(201,86,140,.18)}
+.m238m-app[data-theme="sunset"] .m238m-bottom{border-radius:26px;background:rgba(255,250,246,.92);box-shadow:0 14px 34px rgba(192,100,74,.14)}
+.m238m-app[data-theme="sunset"] .m238m-liquid-bubble{background:rgba(239,108,77,.12);border-color:var(--m-bg)}
+.m238m-app[data-theme="sunset"] .m238m-bottom button.active .m238m-nav-icon{color:#ef6c4d}
+
+.m238m-app[data-theme="forest"] .m238m-card{border-radius:22px 22px 14px 22px;border-color:rgba(63,138,92,.12);box-shadow:0 8px 24px rgba(49,95,73,.08)}
+.m238m-app[data-theme="forest"] .m238m-hero{border-radius:28px 28px 18px 28px;background:linear-gradient(135deg,#3f8a5c,#315f49)}
+.m238m-app[data-theme="forest"] .m238m-bottom{border-radius:28px;background:rgba(249,252,249,.94);box-shadow:0 12px 30px rgba(49,95,73,.12)}
+.m238m-app[data-theme="forest"] .m238m-liquid-bubble{background:#e4f2e7;border-color:#eef6ef}
+.m238m-app[data-theme="forest"] .m238m-nav-icon{border-radius:50%}
+.m238m-app[data-theme="forest"] .m238m-bottom button.active .m238m-nav-icon{color:#3f8a5c}
+
+.m238m-app[data-theme="mono"] .m238m-card{border-radius:10px;background:#0d0d0d;border:1px solid rgba(255,255,255,.11);box-shadow:none}
+.m238m-app[data-theme="mono"] .m238m-hero{border-radius:10px;background:linear-gradient(135deg,#151515,#2c2c2c);border:1px solid rgba(255,255,255,.16);box-shadow:none}
+.m238m-app[data-theme="mono"] .m238m-bottom{border-radius:10px;background:#090909;border-color:rgba(255,255,255,.15);box-shadow:none}
+.m238m-app[data-theme="mono"] .m238m-liquid-bubble{display:none}
+.m238m-app[data-theme="mono"] .m238m-nav-icon{border-radius:6px}
+.m238m-app[data-theme="mono"] .m238m-bottom button.active .m238m-nav-icon{transform:none;background:#fff;color:#000}
+.m238m-app[data-theme="mono"] .m238m-bottom button.active .m238m-nav-label{color:#fff;transform:none}
+.m238m-app[data-theme="mono"] .m238m-bottom button:not(.active) .m238m-nav-label{opacity:.35;max-height:14px;transform:none}
+
+/* Motion styles */
+.m238m-app[data-motion-style="clean"] .m238m-enter{animation:m238mEnter var(--motion-normal) ease-out}
+.m238m-app[data-motion-style="ios-spring"] .m238m-enter{animation:m238mSpringIn var(--motion-slow) cubic-bezier(.16,1.15,.32,1)}.m238m-app[data-motion-style="ios-spring"] .m238m-card:active{transform:scale(.982)}
+.m238m-app[data-motion-style="glass-flow"] .m238m-enter{animation:m238mGlassFlow var(--motion-slow) ease-out}.m238m-app[data-motion-style="glass-flow"] .m238m-card{transition:transform var(--motion-normal),filter var(--motion-normal),background var(--motion-normal)}
+.m238m-app[data-motion-style="playful-bounce"] .m238m-enter{animation:m238mBounceIn var(--motion-slow) cubic-bezier(.18,1.35,.4,1)}.m238m-app[data-motion-style="playful-bounce"] .m238m-card:active{transform:scale(.965) rotate(-.3deg)}
+.m238m-app[data-motion-style="executive"] .m238m-enter{animation:m238mExecutiveIn var(--motion-normal) ease-out}.m238m-app[data-motion-style="executive"] .m238m-card{transition:opacity var(--motion-normal),transform var(--motion-normal)}
+.m238m-app[data-motion-style="stagger"] .m238m-stack>.m238m-card{animation:m238mStagger var(--motion-slow) both}.m238m-app[data-motion-style="stagger"] .m238m-stack>.m238m-card:nth-child(2){animation-delay:35ms}.m238m-app[data-motion-style="stagger"] .m238m-stack>.m238m-card:nth-child(3){animation-delay:70ms}.m238m-app[data-motion-style="stagger"] .m238m-stack>.m238m-card:nth-child(4){animation-delay:105ms}.m238m-app[data-motion-style="stagger"] .m238m-stack>.m238m-card:nth-child(5){animation-delay:140ms}
+.m238m-app[data-motion-style="blur"] .m238m-enter{animation:m238mBlurIn var(--motion-slow) ease-out}
+.m238m-app[data-motion-style="elastic"] .m238m-enter{animation:m238mElasticIn var(--motion-slow) cubic-bezier(.2,1.4,.3,1)}.m238m-app[data-motion-style="elastic"] .m238m-bottom button.active .m238m-nav-icon{transition:transform var(--motion-slow) cubic-bezier(.2,1.4,.3,1)}
+@keyframes m238mSpringIn{0%{opacity:0;transform:translateY(10px) scale(.97)}70%{opacity:1;transform:translateY(-1px) scale(1.01)}100%{transform:none}}
+@keyframes m238mGlassFlow{0%{opacity:0;filter:blur(8px);transform:translateY(8px)}100%{opacity:1;filter:blur(0);transform:none}}
+@keyframes m238mBounceIn{0%{opacity:0;transform:scale(.92) translateY(8px)}70%{opacity:1;transform:scale(1.02) translateY(-2px)}100%{transform:none}}
+@keyframes m238mExecutiveIn{0%{opacity:0;transform:translateY(6px)}100%{opacity:1;transform:none}}
+@keyframes m238mStagger{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:none}}
+@keyframes m238mBlurIn{0%{opacity:0;filter:blur(10px)}100%{opacity:1;filter:blur(0)}}
+@keyframes m238mElasticIn{0%{opacity:0;transform:translateY(12px) scale(.96)}65%{opacity:1;transform:translateY(-2px) scale(1.01)}100%{transform:none}}
+.m238m-theme-section>h3{margin-bottom:10px}.m238m-theme-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px!important;background:transparent!important;border-radius:0!important;overflow:visible!important}.m238m-theme-choice{position:relative!important;height:auto!important;min-height:132px!important;padding:10px!important;border:1px solid var(--m-line)!important;border-radius:16px!important;background:var(--m-surface)!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:flex-start!important;gap:4px!important;text-align:left!important;color:var(--m-text)!important}.m238m-theme-choice.active{outline:2px solid var(--m-blue);outline-offset:1px}.m238m-theme-choice>strong{font-size:12px}.m238m-theme-choice>small{font-size:9px;color:var(--m-secondary)}.m238m-theme-check{position:absolute;right:8px;top:8px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--m-blue);color:white;font-size:11px;font-weight:900}.m238m-theme-preview{width:100%;height:72px;border-radius:12px;display:block;position:relative;overflow:hidden;margin-bottom:4px}.m238m-theme-preview span,.m238m-theme-preview b,.m238m-theme-preview em{position:absolute;display:block;border-radius:7px}.m238m-theme-preview span{left:8px;right:8px;top:8px;height:25px}.m238m-theme-preview b{left:8px;bottom:8px;width:42%;height:23px}.m238m-theme-preview em{right:8px;bottom:8px;width:42%;height:23px}.m238m-theme-choice[data-preview="classic"] .m238m-theme-preview{background:#f2f2f7}.m238m-theme-choice[data-preview="classic"] .m238m-theme-preview span{background:linear-gradient(135deg,#0a66d6,#5241b8)}.m238m-theme-choice[data-preview="classic"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="classic"] .m238m-theme-preview em{background:white}.m238m-theme-choice[data-preview="midnight"] .m238m-theme-preview{background:#080b14}.m238m-theme-choice[data-preview="midnight"] .m238m-theme-preview span{background:linear-gradient(135deg,#163b65,#452f78)}.m238m-theme-choice[data-preview="midnight"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="midnight"] .m238m-theme-preview em{background:#1b2230}.m238m-theme-choice[data-preview="aurora"] .m238m-theme-preview{background:linear-gradient(135deg,#dfd5ff,#d9fff6)}.m238m-theme-choice[data-preview="aurora"] .m238m-theme-preview span{background:linear-gradient(135deg,#7557e8,#27a8c7)}.m238m-theme-choice[data-preview="aurora"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="aurora"] .m238m-theme-preview em{background:rgba(255,255,255,.7)}.m238m-theme-choice[data-preview="playful"] .m238m-theme-preview{background:#fff1b8}.m238m-theme-choice[data-preview="playful"] .m238m-theme-preview span{background:linear-gradient(135deg,#5864e8,#ec6aa7)}.m238m-theme-choice[data-preview="playful"] .m238m-theme-preview b{background:#aee8ff}.m238m-theme-choice[data-preview="playful"] .m238m-theme-preview em{background:#ffd3e7}.m238m-theme-choice[data-preview="graphite"] .m238m-theme-preview{background:#111315}.m238m-theme-choice[data-preview="graphite"] .m238m-theme-preview span{background:#2c3237;border-left:4px solid #b7ff5a}.m238m-theme-choice[data-preview="graphite"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="graphite"] .m238m-theme-preview em{background:#202428}.m238m-theme-choice[data-preview="sunset"] .m238m-theme-preview{background:#fff1e8}.m238m-theme-choice[data-preview="sunset"] .m238m-theme-preview span{background:linear-gradient(135deg,#f07a5e,#c9568c)}.m238m-theme-choice[data-preview="sunset"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="sunset"] .m238m-theme-preview em{background:#fffaf6}.m238m-theme-choice[data-preview="forest"] .m238m-theme-preview{background:#eef6ef}.m238m-theme-choice[data-preview="forest"] .m238m-theme-preview span{background:linear-gradient(135deg,#3f8a5c,#315f49)}.m238m-theme-choice[data-preview="forest"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="forest"] .m238m-theme-preview em{background:#f9fcf9}.m238m-theme-choice[data-preview="mono"] .m238m-theme-preview{background:#050505}.m238m-theme-choice[data-preview="mono"] .m238m-theme-preview span{background:#222}.m238m-theme-choice[data-preview="mono"] .m238m-theme-preview b,.m238m-theme-choice[data-preview="mono"] .m238m-theme-preview em{background:#111;border:1px solid rgba(255,255,255,.2)}.m238m-motion-settings{margin-top:12px;background:var(--m-surface);border:1px solid var(--m-line);border-radius:16px;padding:13px}.m238m-motion-settings>div:first-child strong,.m238m-motion-settings>div:first-child small{display:block}.m238m-motion-settings>div:first-child strong{font-size:12px}.m238m-motion-settings>div:first-child small{font-size:9px;color:var(--m-secondary);margin-top:2px}.m238m-motion-pills{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}.m238m-motion-pills button{border:0;border-radius:10px;background:var(--m-surface2);color:var(--m-secondary);padding:8px 4px;font-size:9px;font-weight:850}.m238m-motion-pills button.active{background:var(--m-blue);color:white}.m238m-motion-style-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:10px}.m238m-motion-style-grid button{border:0;border-radius:10px;background:var(--m-surface2);color:var(--m-secondary);padding:9px 6px;font-size:9px;font-weight:850}.m238m-motion-style-grid button.active{background:var(--m-blue);color:white}
 @media(min-width:769px){.m238m-app{display:none!important}}
 `;
