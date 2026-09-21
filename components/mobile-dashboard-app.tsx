@@ -127,7 +127,8 @@ function Sheet({open,onClose,title,children}:{open:boolean;onClose:()=>void;titl
   return <div className="m238m-sheet-layer" onClick={onClose}>
     <div className="m238m-sheet" style={{transform:dragY?`translateY(${dragY}px)`:undefined,transition:dragY?"none":undefined}} onClick={e=>e.stopPropagation()} onTouchMove={e=>move(e.touches[0].clientY)} onTouchEnd={end}>
       <button className="m238m-handle-button" aria-label="Geser untuk menutup" onTouchStart={e=>setStartY(e.touches[0].clientY)}><span className="m238m-handle"/></button>
-      <div className="m238m-sheet-head"><h3>{title}</h3><button onClick={onClose}><X size={18}/></button></div>{children}
+      <div className="m238m-sheet-head"><h3>{title}</h3><button onClick={onClose}><X size={18}/></button></div>
+      <div className="m238m-sheet-scroll">{children}</div>
     </div>
   </div>
 }
