@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./mobile-dashboard.css";
 import IdleLogout from "@/components/idle-logout";
 
 export const viewport: Viewport = {
