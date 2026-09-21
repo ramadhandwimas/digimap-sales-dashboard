@@ -517,3 +517,36 @@
 }
 .m238m-sheet-scroll::-webkit-scrollbar{display:none}
 .m238m-sheet-scroll>.m238m-stack{padding-bottom:8px}
+/* Strong iOS sheet scroll fix */
+.m238m-sheet-layer{
+ z-index:3000!important;
+ touch-action:none;
+}
+.m238m-sheet{
+ height:min(86dvh,820px);
+ max-height:none!important;
+ padding-bottom:0!important;
+ overflow:hidden!important;
+ display:flex;
+ flex-direction:column;
+}
+.m238m-handle-button,
+.m238m-sheet-head{
+ flex:0 0 auto;
+}
+.m238m-handle-button{
+ touch-action:none;
+}
+.m238m-sheet-scroll{
+ flex:1 1 0%;
+ min-height:0!important;
+ height:auto;
+ overflow-y:scroll!important;
+ -webkit-overflow-scrolling:touch;
+ touch-action:pan-y!important;
+ overscroll-behavior-y:contain;
+ padding:0 0 calc(132px + env(safe-area-inset-bottom));
+}
+.m238m-sheet-scroll>*{
+ touch-action:pan-y;
+}
