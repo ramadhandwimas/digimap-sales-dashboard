@@ -21,13 +21,18 @@ export function parseSpwToNormalized(rows:unknown[][],classification:Map<string,
   const a=text(rows[i]?.[0]),b=text(rows[i]?.[1]);const d=isoDate(a);if(d){date=d;continue}
   const staff=a.match(/^(\d{6,10})\s*\/\s*(.+)$/);if(staff){id=staff[1];name=titleCase(staff[2].trim());continue}
   if(!date||!id||!a||!b||/^TOTAL\s+FOR|^GRAND\s+TOTAL|^PAGE\s*:/i.test(a))continue;
-  const next=rows[i+1]||[];if(typeof next[0]!=="number"||!text(next[1]))continue;
-  const invoice=text(next[1]),amount=num(next[2]);sourceItems++;i++;if(!invoice||amount===0)continue;
   const article=up(b),description=a;if(/VOUCHER/i.test(`${article} ${description}`))continue;
-  let c=classification.get(article);if(!c)c=conservativeFallback(article,description);if(!c){unknownClassification++;unclassified.push({article,description,amount,id})}
-  const key=`${store}|${date}|${invoice}|${article}|${id}`;const existing=out.get(key);
-  if(existing){existing.qty+=1;existing.amount+=amount;duplicateSkipped++;continue}
-  out.set(key,{date,id,name,invoice,article,description,type:c?.type||"",qty:1,amount,category:c?.category||"",brand:c?.brand||"",core:c?.core||"",scheme:c?.scheme||"",vendor:c?.vendor||"",week:c?.week||"",store,key});
+  let c=classification.get(article);if(!c)c=conservativeFallback(article,description);
+  let j=i+1,consumed=0;
+  while(j<rows.length&&typeof rows[j]?.[0]==="number"&&text(rows[j]?.[1])){
+   const tx=rows[j]||[],invoice=text(tx[1]),amount=num(tx[2]);sourceItems++;consumed++;j++;
+   if(!invoice||amount===0)continue;
+   if(!c){unknownClassification++;unclassified.push({article,description,amount,id})}
+   const key=`${store}|${date}|${invoice}|${article}|${id}`;const existing=out.get(key);
+   if(existing){existing.qty+=1;existing.amount+=amount;duplicateSkipped++;continue}
+   out.set(key,{date,id,name,invoice,article,description,type:c?.type||"",qty:1,amount,category:c?.category||"",brand:c?.brand||"",core:c?.core||"",scheme:c?.scheme||"",vendor:c?.vendor||"",week:c?.week||"",store,key});
+  }
+  if(consumed)i=j-1;
  }
  return{rows:[...out.values()],duplicateSkipped,unknownClassification,sourceItems,unclassified};
 }
