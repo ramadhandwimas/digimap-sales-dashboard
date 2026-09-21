@@ -549,7 +549,7 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
    setDailyLobPick({label,key});setDailyDrillStaff(null);
    if(dailyProductDetail)return;
    setDailyProductBusy(true);
-   try{setDailyProductDetail(await cachedJson<any>(`/api/lob-target-focus?mode=range&from=${daily?.date||today()}&to=${daily?.date||today()}`,120000))}
+   try{setDailyProductDetail(await cachedJson<any>(`/api/daily-lob-detail?date=${daily?.date||today()}`,30000,true))}
    catch{setDailyProductDetail(null)}finally{setDailyProductBusy(false)}
  };
  const dailyLobKey=dailyLobPick?.key,dailyVasKey=dailyVasPick?.key;
