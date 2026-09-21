@@ -550,3 +550,17 @@
 .m238m-sheet-scroll>*{
  touch-action:pan-y;
 }
+/* Daily Sales freshness */
+.m238m-data-freshness{
+ display:flex;align-items:center;justify-content:space-between;gap:8px;
+ padding:0 3px 2px;font-size:10px;color:var(--m-secondary);font-weight:750
+}
+.m238m-data-freshness b{
+ padding:5px 8px;border-radius:999px;
+ background:color-mix(in srgb,#ff9f0a 14%,var(--m-surface));
+ color:#b26a00;font-size:9px
+}
+.m238m-data-freshness b.live{
+ background:color-mix(in srgb,#34c759 14%,var(--m-surface));
+ color:#248a3d
+}
