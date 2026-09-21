@@ -163,7 +163,7 @@ export default function MobileDashboardApp(){
   const loadFeedback=useCallback(async(force=false)=>setFeedback(await cachedJson<Feedback>(`/api/feedback?period=${period}`,180000,force)),[period]);
   const loadCx=useCallback(async(force=false)=>setCx(await cachedJson<Cx>(`/api/cx-member?period=${period}`,180000,force)),[period]);
 
-  useEffect(()=>{if(tab==="sales"){if(salesMode==="daily"&&!daily)void loadDaily();if((salesMode==="summary"||salesMode==="lob")&&!summary)void loadSummary()}},[tab,salesMode,daily,summary,loadDaily,loadSummary]);
+  useEffect(()=>{if(tab==="home"&&!summary)void loadSummary();if(tab==="sales"){if(salesMode==="daily"&&!daily)void loadDaily();if((salesMode==="summary"||salesMode==="lob")&&!summary)void loadSummary()}},[tab,salesMode,daily,summary,loadDaily,loadSummary]);
   useEffect(()=>{if(tab!=="report")return;if(reportMode==="weekly"&&!weekly)void loadWeekly();if(reportMode==="feedback"&&!feedback)void loadFeedback();if(reportMode==="cx"&&!cx)void loadCx()},[tab,reportMode,weekly,feedback,cx,loadWeekly,loadFeedback,loadCx]);
   useEffect(()=>{if(sheet==="period"&&draftPeriodMode==="week"&&!draftWeek&&weekly?.labelB)setDraftWeek(weekly.labelB)},[sheet,draftPeriodMode,draftWeek,weekly]);
 
@@ -277,7 +277,7 @@ export default function MobileDashboardApp(){
       {refreshing?<div className="m238m-refreshing"><RefreshCw size={14} className="spin"/> Memperbarui data…</div>:null}
       {error?<Card className="m238m-error">{error}</Card>:null}
       {loading&&!overview?<Skeleton/>:null}
-      {!loading&&overview&&tab==="home"?<HomeScreen mode={homeMode} setMode={setHomeMode} overview={overview} traffic={traffic} cvr={cvr} achievement={achievement} periodMode={periodMode} onOpenSalesDetail={()=>void openHomeSalesDetail()}/>:null}
+      {!loading&&overview&&tab==="home"?<HomeScreen mode={homeMode} setMode={setHomeMode} overview={overview} traffic={traffic} summary={summary} cvr={cvr} achievement={achievement} periodMode={periodMode} onOpenSalesDetail={()=>void openHomeSalesDetail()} onGoSales={()=>setTab("sales")} onGoTeam={()=>setTab("team")} onGoReport={()=>setTab("report")} onShare={()=>setSheet("share")}/>:null}
       {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange} onStaff={s=>void openStaff(s,"daily")} onDay={row=>{setDayDetail(row);setSheet("day")}}/>:null}
       {tab==="team"?<TeamScreen rows={team} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
       {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]}/>:null}
@@ -327,13 +327,29 @@ export default function MobileDashboardApp(){
 }
 
 
-function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,onOpenSalesDetail}:{mode:HomeMode;setMode:(v:HomeMode)=>void;overview:Overview;traffic:Traffic|null;cvr:number;achievement:number;periodMode:"month"|"week";onOpenSalesDetail:()=>void}){
+function HomeScreen({mode,setMode,overview,traffic,summary,cvr,achievement,periodMode,onOpenSalesDetail,onGoSales,onGoTeam,onGoReport,onShare}:{mode:HomeMode;setMode:(v:HomeMode)=>void;overview:Overview;traffic:Traffic|null;summary:DailySummary|null;cvr:number;achievement:number;periodMode:"month"|"week";onOpenSalesDetail:()=>void;onGoSales:()=>void;onGoTeam:()=>void;onGoReport:()=>void;onShare:()=>void}){
  const salesRows=overview.daily||[],latestSales=salesRows.at(-1)?.amount||0,prevSales=salesRows.at(-2)?.amount||0,salesDelta=prevSales?((latestSales-prevSales)/prevSales)*100:null;
  const trafficRows=traffic?.daily||[],latestTraffic=trafficRows.at(-1)?.traffic||0,prevTraffic=trafficRows.at(-2)?.traffic||0,trafficDelta=prevTraffic?((latestTraffic-prevTraffic)/prevTraffic)*100:null;
  const insight=salesDelta==null
   ? (achievement>=100?"Target bulan ini sudah tercapai. Pertahankan momentum penjualan.":achievement>=80?"Achievement sudah mendekati target. Fokuskan opportunity yang siap closing.":"Achievement masih perlu didorong. Prioritaskan opportunity dan follow-up yang aktif.")
   : `Sales hari terakhir ${salesDelta>=0?"naik":"turun"} ${pct(Math.abs(salesDelta))} dibanding hari sebelumnya.`;
  const selectedCompare=overview.compare?.find(x=>x.month===Number(overview.period.slice(5,7)))||overview.lfl;
+ const categoryAttention=[
+  {label:"Device",actual:overview.summary.device,target:overview.target.device},
+  {label:"Accessories",actual:overview.summary.accessories,target:overview.target.accessories},
+  {label:"VAS",actual:overview.summary.vas,target:overview.target.vas}
+ ].filter(x=>x.target>0&&x.actual<x.target).sort((a,b)=>(a.actual/a.target)-(b.actual/b.target));
+ const staffRows=(overview.staff||[]).filter(x=>!/digimap\.co\.id|online/i.test(`${x.name} ${x.position||""}`));
+ const ranked=[...staffRows].sort((a,b)=>b.amount-a.amount);
+ const topStaff=ranked[0]||null;
+ const followStaff=[...staffRows].filter(s=>(s.achievement??((s.target||s.targets?.amount||0)>0?s.amount/(s.target||s.targets?.amount||1)*100:100))<100).sort((a,b)=>(a.achievement??0)-(b.achievement??0))[0]||null;
+ const lobRows=summary?[
+  ["iPhone",summary.breakdown.lob.iphone],
+  ["iPad",summary.breakdown.lob.ipad],
+  ["MacBook",summary.breakdown.lob.macbook],
+  ["Apple Watch",summary.breakdown.lob.appleWatch],
+  ["AirPods",summary.breakdown.lob.airpods]
+ ].sort((a,b)=>Number(b[1])-Number(a[1])):[];
  return <div className="m238m-stack m238m-enter">
   <div className="m238m-home-tabs">
     <button className={mode==="monthly"?"active":""} onClick={()=>setMode("monthly")}>Overview Bulanan</button>
@@ -346,11 +362,30 @@ function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,on
       <Card className="m238m-hero m238m-home-hero"><div className="m238m-hero-title"><span>Total Sales</span><ChevronRight size={18}/></div><strong>{money.format(overview.summary.amount)}</strong><p>{pct(achievement)} dari Target</p><Progress value={achievement}/><div className="m238m-hero-meta"><span>Target <b>{money.format(overview.target.amount)}</b></span><span>{periodMode==="month"?"Point Store":"Periode"} <b>{periodMode==="month"?overview.summary.point.total.toFixed(1):overview.label}</b></span></div></Card>
     </button>
     <div className="m238m-grid m238m-home-kpis"><Metric label="Achievement" value={pct(achievement)} sub={overview.summary.status}/><Metric label="Gap ke Target" value={money.format(overview.summary.gap)} sub={overview.summary.gap>0?"Sisa ke target":"Target tercapai"}/><Metric label="CVR" value={pct(cvr)} sub="Traffic → transaksi"/><Metric label="UPT" value={overview.summary.upt.toFixed(1)} sub="Unit per transaksi"/></div>
-    {periodMode==="month"?<Card className="m238m-point-card"><div><span>Point Store</span><strong>{overview.summary.point.total.toFixed(1)}</strong></div><div className="m238m-point-breakdown"><span>Device {overview.summary.point.device.toFixed(1)}/60</span><span>ACC {overview.summary.point.accessories.toFixed(1)}/30</span><span>VAS {overview.summary.point.vas.toFixed(1)}/10</span></div></Card>:<Card className="m238m-copy-card"><strong>Point Store</strong><p>Point Device / ACC / VAS tidak dihitung pada mode Week karena source weekly existing tidak memiliki target value kategori. Target LOB dan Product Focus tetap mengikuti target weekly existing.</p></Card>}
-    <div className="m238m-section-head"><h2>Penjualan per Kategori</h2><span>{overview.label}</span></div>
-    <div className="m238m-grid"><Metric label="Device" value={money.format(overview.summary.device)} sub={periodMode==="month"?`Target ${money.format(overview.target.device)}`:"Actual Week"}/><Metric label="Accessories" value={money.format(overview.summary.accessories)} sub={periodMode==="month"?`Target ${money.format(overview.target.accessories)}`:"Actual Week"}/><Metric label="VAS" value={money.format(overview.summary.vas)} sub={periodMode==="month"?`Target ${money.format(overview.target.vas)}`:"Actual Week"}/></div>
-    <div className="m238m-section-head"><h2>Traffic & Conversion</h2></div>
-    <div className="m238m-grid"><Metric label="Traffic" value={num.format(traffic?.total||0)} sub={trafficDelta==null?undefined:`${trafficDelta>=0?"+":""}${pct(trafficDelta)} vs hari sebelumnya`}/><Metric label="Transaksi" value={num.format(overview.summary.invoices)} sub="Invoice unique"/><Metric label="CVR" value={pct(cvr)} sub="Traffic → transaksi"/><Metric label="UPT" value={overview.summary.upt.toFixed(1)} sub="Unit per transaksi"/><Metric label="Qty" value={num.format(overview.summary.qty)} sub="Total unit"/><Metric label="ATV" value={money.format(overview.summary.atv)} sub="Average ticket"/></div>
+    <div className="m238m-section-head"><h2>Needs Attention</h2><span>{categoryAttention.length+(followStaff?1:0)} item</span></div>
+    <div className="m238m-attention-grid">
+      {categoryAttention.slice(0,3).map(x=>{const a=x.target?x.actual/x.target*100:0;return <Card key={x.label} className="m238m-attention-card"><span>{x.label}</span><strong>{pct(a)}</strong><small>Belum achieve • gap {money.format(Math.max(0,x.target-x.actual))}</small></Card>})}
+      {followStaff?<button className="m238m-click-card" onClick={onGoTeam}><Card className="m238m-attention-card staff"><span>Staff perlu follow-up</span><strong>{shortStaffName(followStaff.name)}</strong><small>Achievement {pct(followStaff.achievement??0)} • cek Team</small></Card></button>:null}
+      {!categoryAttention.length&&!followStaff?<Card className="m238m-attention-ok"><Target size={18}/><div><strong>Tidak ada warning utama</strong><small>Target kategori dan staff berada di jalur yang baik.</small></div></Card>:null}
+    </div>
+
+    <div className="m238m-section-head"><h2>LOB Performance</h2><button className="m238m-link-button" onClick={onGoSales}>Lihat Semua</button></div>
+    {lobRows.length?<div className="m238m-lob-strip">{lobRows.map(([label,value])=><Card key={String(label)} className="m238m-lob-mini"><span>{label}</span><strong>{money.format(Number(value))}</strong></Card>)}</div>:<Card className="m238m-copy-card"><strong>LOB Performance</strong><p>Data LOB sedang dimuat dari Daily Summary.</p></Card>}
+
+    <div className="m238m-section-head"><h2>Team Hari Ini</h2><button className="m238m-link-button" onClick={onGoTeam}>Lihat Semua</button></div>
+    <div className="m238m-team-highlight">
+      {topStaff?<button className="m238m-click-card" onClick={onGoTeam}><Card className="m238m-team-tile top"><span>Top Performer</span><strong>{shortStaffName(topStaff.name)}</strong><b>{money.format(topStaff.amount)}</b></Card></button>:null}
+      {followStaff?<button className="m238m-click-card" onClick={onGoTeam}><Card className="m238m-team-tile follow"><span>Perlu Follow-up</span><strong>{shortStaffName(followStaff.name)}</strong><b>{money.format(followStaff.amount)}</b></Card></button>:null}
+    </div>
+
+    <div className="m238m-section-head"><h2>Quick Actions</h2></div>
+    <div className="m238m-quick-actions">
+      <button onClick={onGoSales}><TrendingUp size={17}/><span>Daily Sales</span></button>
+      <button onClick={onGoReport}><FileDown size={17}/><span>Weekly Report</span></button>
+      <button onClick={onGoReport}><MessageCircle size={17}/><span>Feedback</span></button>
+      <button onClick={onShare}><Share2 size={17}/><span>Share</span></button>
+    </div>
+
     <Card className="m238m-insight"><Lightbulb size={18}/><div><span>Insight Hari Ini</span><p>{insight}</p></div></Card>
   </>:mode==="ytd"?<YtdOverview overview={overview}/>:<CompareOverview overview={overview} compare={selectedCompare as CompareMonth|undefined}/>}
  </div>
@@ -957,6 +992,7 @@ const mobileCss=`
 .m238m-hero{border-radius:22px;background:linear-gradient(145deg,#0a66d6,#5241b8);color:white;padding:20px;box-shadow:0 12px 28px rgba(10,102,214,.14)}.m238m-hero>span{display:block;font-size:13px;opacity:.78;font-weight:800}.m238m-hero>strong{display:block;font-size:32px;letter-spacing:-.04em;margin-top:7px}.m238m-hero>p{font-size:13px;opacity:.82;margin:6px 0 12px}.m238m-hero>div:last-child{display:flex;justify-content:space-between;margin-top:13px;font-size:12px}.m238m-hero.compact>strong{font-size:29px}
 .m238m-progress{height:6px;border-radius:999px;background:rgba(127,127,127,.16);overflow:hidden}.m238m-progress i{display:block;height:100%;border-radius:inherit;background:var(--m-blue);transition:width var(--motion-slow) cubic-bezier(.22,1,.36,1)}.m238m-hero .m238m-progress{background:rgba(255,255,255,.2)}.m238m-hero .m238m-progress i{background:white}
 .m238m-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.m238m-metric{padding:14px;min-height:92px}.m238m-metric>span{display:block;font-size:12px;color:var(--m-secondary);font-weight:700}.m238m-metric>strong{display:block;font-size:22px;letter-spacing:-.025em;margin-top:7px;overflow-wrap:anywhere}.m238m-grid .m238m-metric>strong{font-size:clamp(17px,5vw,22px)}.m238m-metric>small{display:block;font-size:11px;color:var(--m-secondary);margin-top:4px}
+.m238m-attention-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.m238m-attention-card{min-height:108px;border:1px solid color-mix(in srgb,#ff3b30 18%,var(--m-line));background:color-mix(in srgb,#ff3b30 5%,var(--m-surface))}.m238m-attention-card.staff{border-color:color-mix(in srgb,#ff9f0a 24%,var(--m-line));background:color-mix(in srgb,#ff9f0a 7%,var(--m-surface))}.m238m-attention-card>span,.m238m-team-tile>span,.m238m-lob-mini>span{display:block;font-size:11px;color:var(--m-secondary);font-weight:800}.m238m-attention-card>strong{display:block;font-size:20px;margin:7px 0 4px}.m238m-attention-card>small{display:block;font-size:10px;line-height:1.35;color:var(--m-secondary)}.m238m-attention-ok{grid-column:1/-1;display:flex;align-items:center;gap:10px}.m238m-attention-ok svg{color:#34c759}.m238m-attention-ok strong,.m238m-attention-ok small{display:block}.m238m-attention-ok small{font-size:11px;color:var(--m-secondary);margin-top:2px}.m238m-link-button{border:0;background:transparent;color:var(--m-blue);font-size:12px;font-weight:800}.m238m-lob-strip{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(140px,46%);gap:9px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}.m238m-lob-strip::-webkit-scrollbar{display:none}.m238m-lob-mini{min-height:88px}.m238m-lob-mini>strong{display:block;font-size:14px;margin-top:8px;overflow-wrap:anywhere}.m238m-team-highlight{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.m238m-team-tile{min-height:112px}.m238m-team-tile.top{background:color-mix(in srgb,#34c759 7%,var(--m-surface));border:1px solid color-mix(in srgb,#34c759 18%,var(--m-line))}.m238m-team-tile.follow{background:color-mix(in srgb,#ff3b30 5%,var(--m-surface));border:1px solid color-mix(in srgb,#ff3b30 17%,var(--m-line))}.m238m-team-tile>strong{display:block;font-size:17px;margin:8px 0 6px}.m238m-team-tile>b{font-size:12px;overflow-wrap:anywhere}.m238m-quick-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.m238m-quick-actions button{min-width:0;border:0;border-radius:15px;background:var(--m-surface);color:var(--m-text);padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:7px;font-size:10px;font-weight:800;box-shadow:0 1px 2px rgba(0,0,0,.025)}.m238m-quick-actions button svg{color:var(--m-blue)}
 .m238m-insight{display:flex;gap:12px;align-items:flex-start}.m238m-insight>svg{color:#ff9f0a;flex:none}.m238m-insight span{font-weight:850;font-size:14px;color:var(--m-text)}.m238m-insight p{margin:4px 0 0;font-size:13px;color:var(--m-secondary);line-height:1.45}
 .m238m-section-head{display:flex;align-items:center;justify-content:space-between;padding:8px 2px 0}.m238m-section-head h2{font-size:19px;margin:0}.m238m-section-head span{font-size:12px;color:var(--m-secondary)}
 .m238m-segment{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:3px;background:var(--m-surface2);border-radius:12px;gap:2px}.m238m-segment button{border:0;background:transparent;color:var(--m-secondary);border-radius:10px;padding:9px 10px;font-size:13px;font-weight:800}.m238m-segment button.active{background:var(--m-surface);color:var(--m-text);box-shadow:0 1px 4px rgba(0,0,0,.08)}
