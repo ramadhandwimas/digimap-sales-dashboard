@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import {
   Activity,Box,Briefcase,CalendarDays,ChevronRight,ClipboardCheck,Copy,CreditCard,FileDown,
   FileSpreadsheet,Home,Lightbulb,LogOut,MessageCircle,MoreHorizontal,Moon,
-  PackageSearch,RefreshCw,Settings,Share2,Sun,Target,TrendingUp,Users,WalletCards,X
+  PackageSearch,RefreshCw,Settings,Share2,Sun,Target,TrendingUp,Users,WalletCards,X,Cpu,Shield,Zap
 } from "lucide-react";
 import {exportReportPdf,exportReportPng,exportReportXlsx} from "@/lib/dashboard-export";
 
@@ -347,6 +347,12 @@ export default function MobileDashboardApp(){
         ?[["home","Home",Home],["sales","Sales",Target],["team","Team",Users],["report","Report",ClipboardCheck],["more","More",Settings]]
         :themePreset==="mono"
         ?[["home","Home",Activity],["sales","Sales",CreditCard],["team","Team",Users],["report","Report",FileSpreadsheet],["more","More",MoreHorizontal]]
+        :themePreset==="webhero"
+        ?[["home","Home",Home],["sales","Sales",Zap],["team","Team",Users],["report","Report",Shield],["more","More",Settings]]
+        :themePreset==="mecha"
+        ?[["home","Home",Cpu],["sales","Sales",Target],["team","Team",Users],["report","Report",FileSpreadsheet],["more","More",Settings]]
+        :themePreset==="alliance"
+        ?[["home","Home",Shield],["sales","Sales",TrendingUp],["team","Team",Users],["report","Report",ClipboardCheck],["more","More",Settings]]
         :[["home","Home",Home],["sales","Sales",TrendingUp],["team","Team",Users],["report","Report",FileDown],["more","More",MoreHorizontal]]
       ).map(([key,label,Icon])=><button key={String(key)} onClick={()=>setTab(key as Tab)} className={(tab===key||(tab==="admin"&&key==="more"))?"active":""}><span className="m238m-nav-icon"><Icon size={themePreset==="playful"?22:21}/></span><span className="m238m-nav-label">{String(label)}</span></button>)}
     </nav>
