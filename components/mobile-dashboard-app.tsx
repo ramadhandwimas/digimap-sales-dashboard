@@ -860,7 +860,8 @@ function ReportScreen({mode,setMode,weekly,weeklySummary,feedback,cx,staff,perio
  return <div className="m238m-stack m238m-enter"><Segmented value={mode} onChange={setMode} items={[{value:"weekly",label:"Weekly"},{value:"feedback",label:"Feedback"},{value:"cx",label:"CX"}]}/>{mode==="weekly"?(weekly?<WeeklyView weekly={weekly} summary={weeklySummary}/>:<Skeleton/>):mode==="feedback"?(feedback?<FeedbackView data={feedback} staff={staff} period={period} activeRange={activeRange}/>:<Skeleton/>):(cx?<CxView data={cx} staff={staff} period={period} activeRange={activeRange}/>:<Skeleton/>)}</div>
 }
 function WeeklyView({weekly,summary}:{weekly:Weekly;summary:DailySummary|null}){
- const[showDetail,setShowDetail]=useState(false),[detailTab,setDetailTab]=useState<"summary"|"lob"|"vas"|"reason">("summary"),[selectedLob,setSelectedLob]=useState<{name:string;key:string}|null>(null),[copyMsg,setCopyMsg]=useState("");
+ const[showDetail,setShowDetail]=useState(false),[showExport,setShowExport]=useState(false),[exportBusy,setExportBusy]=useState(false),[detailTab,setDetailTab]=useState<"summary"|"lob"|"vas"|"reason">("summary"),[selectedLob,setSelectedLob]=useState<{name:string;key:string}|null>(null),[copyMsg,setCopyMsg]=useState("");
+ const reportRef=useRef<HTMLDivElement>(null);
  const sum=(obj:Record<string,{qty:number;amount:number}>={})=>Object.values(obj).reduce((a,x)=>({qty:a.qty+x.qty,amount:a.amount+x.amount}),{qty:0,amount:0});
  const total=(side:Weekly["b"])=>sum(side.scheme),cur=total(weekly.b),prev=total(weekly.a),growth=prev.amount?(cur.amount-prev.amount)/prev.amount*100:0;
  const lobs=[["iPhone","IPHONE"],["iPad","IPAD"],["MacBook","MAC"],["Apple Watch","APPLE WATCH"],["AirPods","AIRPODS"]] as const;
@@ -875,12 +876,43 @@ function WeeklyView({weekly,summary}:{weekly:Weekly;summary:DailySummary|null}){
    const a=weekly.a.lob?.[selectedLob.key]?.[type]||{qty:0,amount:0},b=weekly.b.lob?.[selectedLob.key]?.[type]||{qty:0,amount:0};
    return{type,a,b,qtyDelta:b.qty-a.qty,qtyPct:delta(a.qty,b.qty),amountDelta:b.amount-a.amount,amountPct:delta(a.amount,b.amount)};
  }).sort((x,y)=>x.qtyDelta-y.qtyDelta||x.amountDelta-y.amountDelta):[];
+ const weeklyShareText=()=>[
+  `*M238 DIGIMAP PIM 2*`,
+  `*${weekly.labelB}*`,
+  `Sales ${money.format(cur.amount)}`,
+  `${growth>=0?"+":""}${pct(growth)} vs ${weekly.labelA}`,
+  `Qty ${num.format(cur.qty)}`,
+  summary?`Traffic ${num.format(summary.summary.traffic)} • CVR ${pct(summary.summary.cvr)} • UPT ${summary.summary.upt.toFixed(1)}`:"",
+  reasonText?`\nReason:\n${reasonText}`:"",
+  actionText?`\nAction Plan:\n${actionText}`:""
+ ].filter(Boolean).join("\n");
+ const doWeeklyExport=async(kind:"share"|"copy"|"png"|"pdf"|"xlsx")=>{
+  setExportBusy(true);
+  try{
+   const text=weeklyShareText();
+   if(kind==="share"){
+    if(navigator.share)await navigator.share({title:`M238 ${weekly.labelB}`,text});
+    else await navigator.clipboard.writeText(text);
+   }else if(kind==="copy")await navigator.clipboard.writeText(text);
+   else if(kind==="png"&&reportRef.current)await exportReportPng(reportRef.current,`M238-${weekly.labelB}`);
+   else if(kind==="pdf"&&reportRef.current)await exportReportPdf(reportRef.current,`M238-${weekly.labelB}`);
+   else if(kind==="xlsx")await exportReportXlsx([{name:"Weekly",rows:[
+    ["Metric",weekly.labelA,weekly.labelB],
+    ["Sales",prev.amount,cur.amount],["Qty",prev.qty,cur.qty],["Growth %",growth],
+    ...(summary?[["Traffic","",summary.summary.traffic],["Transaction","",summary.summary.transaction],["CVR %","",summary.summary.cvr],["UPT","",summary.summary.upt],["ATV","",summary.summary.atv]]:[]),
+    [],["LOB","Prev Qty","Current Qty","Prev Amount","Current Amount","Growth %"],
+    ...lobSummary.map(r=>[r.name,r.a.qty,r.b.qty,r.a.amount,r.b.amount,r.growth]),
+    [],["Reason",reasonText],["Action Plan",actionText]
+   ]}],`M238-${weekly.labelB}`);
+   setShowExport(false);
+  }finally{setExportBusy(false)}
+ };
  const copyLobCompare=async()=>{
   if(!selectedLob)return;
   const lines=[`*${selectedLob.name} • ${weekly.labelA} vs ${weekly.labelB}*`,...lobDetailRows.map(r=>`${r.type}: ${r.a.qty} → ${r.b.qty} unit (${r.qtyDelta>=0?"+":""}${r.qtyDelta}; ${r.qtyPct>=0?"+":""}${pct(r.qtyPct)}) | ${money.format(r.a.amount)} → ${money.format(r.b.amount)} (${r.amountPct>=0?"+":""}${pct(r.amountPct)})`)];
   try{await navigator.clipboard.writeText(lines.join("\n"));setCopyMsg("Compare berhasil disalin.");setTimeout(()=>setCopyMsg(""),1800)}catch{setCopyMsg("Gagal menyalin.")}
  };
- return <>
+ return <><div ref={reportRef} className="m238m-stack">
   <button className="m238m-click-card" onClick={()=>{setDetailTab("summary");setShowDetail(true)}}><Card className="m238m-hero compact m238m-weekly-hero"><div className="m238m-weekly-hero-title"><span>Weekly Sales • {weekly.labelB}</span><ChevronRight size={18}/></div><strong>{money.format(cur.amount)}</strong><p>{growth>=0?"+":""}{pct(growth)} vs {weekly.labelA} • Qty {num.format(cur.qty)}</p>{summary?.dailyRows?.length?<TouchLineChart rows={summary.dailyRows}/>:null}<small className="m238m-tap-hint">Tap untuk detail compare {weekly.labelA} vs {weekly.labelB}</small></Card></button>
 
   {summary?<><div className="m238m-section-head"><h2>Key Metrics</h2><span>{weekly.labelB}</span></div><div className="m238m-weekly-kpi-grid"><Metric label="Traffic" value={num.format(summary.summary.traffic)}/><Metric label="CVR" value={pct(summary.summary.cvr)}/><Metric label="UPT" value={summary.summary.upt.toFixed(1)}/><Metric label="Transaction" value={num.format(summary.summary.transaction)}/></div></>:null}
@@ -895,8 +927,19 @@ function WeeklyView({weekly,summary}:{weekly:Weekly;summary:DailySummary|null}){
 
   <div className="m238m-weekly-actions">
     <button onClick={()=>{setDetailTab("reason");setShowDetail(true)}}><FileDown size={17}/><span>Open Full Report</span></button>
-    <button onClick={()=>{setDetailTab("summary");setShowDetail(true)}}><Share2 size={17}/><span>Share / Export</span></button>
+    <button onClick={()=>setShowExport(true)}><Share2 size={17}/><span>Share / Export</span></button>
   </div>
+  </div>
+
+  <Sheet open={showExport} onClose={()=>setShowExport(false)} title="Share / Export Weekly">
+   <div className="m238m-action-list">
+    <button disabled={exportBusy} onClick={()=>void doWeeklyExport("share")}><Share2/>Share</button>
+    <button disabled={exportBusy} onClick={()=>void doWeeklyExport("copy")}><Copy/>Copy Text</button>
+    <button disabled={exportBusy} onClick={()=>void doWeeklyExport("png")}><FileDown/>PNG</button>
+    <button disabled={exportBusy} onClick={()=>void doWeeklyExport("pdf")}><FileDown/>PDF</button>
+    <button disabled={exportBusy} onClick={()=>void doWeeklyExport("xlsx")}><FileSpreadsheet/>XLSX</button>
+   </div>
+  </Sheet>
 
   <Sheet open={showDetail} onClose={()=>setShowDetail(false)} title={`Weekly Compare • ${weekly.labelA} vs ${weekly.labelB}`}>
    <div className="m238m-stack">
