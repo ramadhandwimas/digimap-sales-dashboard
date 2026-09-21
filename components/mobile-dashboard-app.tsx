@@ -127,7 +127,7 @@ function Sheet({open,onClose,title,children}:{open:boolean;onClose:()=>void;titl
 
 export default function MobileDashboardApp(){
   const[tab,setTab]=useState<Tab>("home"),[period,setPeriod]=useState(periodNow()),[draftPeriod,setDraftPeriod]=useState(periodNow()),[periodMode,setPeriodMode]=useState<"month"|"week">("month"),[draftPeriodMode,setDraftPeriodMode]=useState<"month"|"week">("month"),[selectedWeek,setSelectedWeek]=useState(""),[draftWeek,setDraftWeek]=useState(""),[activeRange,setActiveRange]=useState<{from:string;to:string}|null>(null),[sheet,setSheet]=useState<SheetName>(null),[moreKind,setMoreKind]=useState(""),[moreData,setMoreData]=useState<any>(null),[moreBusy,setMoreBusy]=useState(false);
-  const[overview,setOverview]=useState<Overview|null>(null),[traffic,setTraffic]=useState<Traffic|null>(null),[daily,setDaily]=useState<Daily|null>(null),[summary,setSummary]=useState<DailySummary|null>(null),[weekly,setWeekly]=useState<Weekly|null>(null),[weeklySummary,setWeeklySummary]=useState<DailySummary|null>(null),[feedback,setFeedback]=useState<Feedback|null>(null),[cx,setCx]=useState<Cx|null>(null),[staffDetail,setStaffDetail]=useState<Staff|null>(null),[staffDetailMode,setStaffDetailMode]=useState<"daily"|"monthly">("monthly"),[dayDetail,setDayDetail]=useState<DailyRow|null>(null);
+  const[overview,setOverview]=useState<Overview|null>(null),[fullOverview,setFullOverview]=useState<Overview|null>(null),[traffic,setTraffic]=useState<Traffic|null>(null),[daily,setDaily]=useState<Daily|null>(null),[summary,setSummary]=useState<DailySummary|null>(null),[weekly,setWeekly]=useState<Weekly|null>(null),[weeklySummary,setWeeklySummary]=useState<DailySummary|null>(null),[feedback,setFeedback]=useState<Feedback|null>(null),[cx,setCx]=useState<Cx|null>(null),[staffDetail,setStaffDetail]=useState<Staff|null>(null),[staffDetailMode,setStaffDetailMode]=useState<"daily"|"monthly">("monthly"),[dayDetail,setDayDetail]=useState<DailyRow|null>(null);
   const[homeMode,setHomeMode]=useState<HomeMode>("monthly"),[salesMode,setSalesMode]=useState<SalesMode>("daily"),[reportMode,setReportMode]=useState<ReportMode>("weekly"),[teamFilter,setTeamFilter]=useState("all"),[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[error,setError]=useState(""),[dark,setDark]=useState(false);
   const rootRef=useRef<HTMLDivElement>(null),touchStart=useRef<number|null>(null);
 
@@ -135,7 +135,7 @@ export default function MobileDashboardApp(){
     setError("");
     const monthlyFrom=`${period}-01`,monthlyTo=period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`;
     const from=periodMode==="week"&&activeRange?activeRange.from:monthlyFrom,to=periodMode==="week"&&activeRange?activeRange.to:monthlyTo;
-    const overviewUrl=periodMode==="week"&&activeRange?`/api/overview?period=${from.slice(0,7)}&from=${from}&to=${to}&label=${encodeURIComponent(selectedWeek)}`:`/api/overview?period=${period}`;
+    const overviewUrl=periodMode==="week"&&activeRange?`/api/overview?lite=1&period=${from.slice(0,7)}&from=${from}&to=${to}&label=${encodeURIComponent(selectedWeek)}`:`/api/overview?lite=1&period=${period}`;
     const[o,t]=await Promise.all([
       cachedJson<Overview>(overviewUrl,180000,force),
       cachedJson<Traffic>(`/api/traffic?from=${from}&to=${to}`,180000,force)
@@ -143,7 +143,13 @@ export default function MobileDashboardApp(){
     setOverview(o);setTraffic(t);
   },[period,periodMode,activeRange,selectedWeek]);
 
+  const loadFullOverview=useCallback(async(force=false)=>{
+    const d=await cachedJson<Overview>(`/api/overview?period=${period}`,180000,force);
+    setFullOverview(d);
+    return d;
+  },[period]);
   useEffect(()=>{setLoading(true);loadOverview().catch(e=>setError(e instanceof Error?e.message:"Gagal memuat dashboard")).finally(()=>setLoading(false))},[loadOverview]);
+  useEffect(()=>{if(tab==="home"&&homeMode!=="monthly"&&!fullOverview)void loadFullOverview()},[tab,homeMode,fullOverview,loadFullOverview]);
   useEffect(()=>{const d=localStorage.getItem("m238-theme")==="dark";setDark(d);document.documentElement.classList.toggle("dark",d)},[]);
 
   const loadDaily=useCallback(async(force=false)=>{const d=await cachedJson<Daily>(`/api/daily-fast?date=${today()}`,90000,force);setDaily(d)},[]);
@@ -173,7 +179,7 @@ export default function MobileDashboardApp(){
     setCx({...data,rows});
   },[period,periodMode,activeRange]);
 
-  useEffect(()=>{if(tab==="home"&&!summary)void loadSummary();if(tab==="sales"){if(salesMode==="daily"&&!daily)void loadDaily();if((salesMode==="summary"||salesMode==="lob")&&!summary)void loadSummary()}},[tab,salesMode,daily,summary,loadDaily,loadSummary]);
+  useEffect(()=>{if(tab==="sales"){if(salesMode==="daily"&&!daily)void loadDaily();if((salesMode==="summary"||salesMode==="lob")&&!summary)void loadSummary()}},[tab,salesMode,daily,summary,loadDaily,loadSummary]);
   useEffect(()=>{if(tab!=="report")return;if(reportMode==="weekly"&&!weekly)void loadWeekly();if(reportMode==="feedback"&&!feedback)void loadFeedback();if(reportMode==="cx"&&!cx)void loadCx()},[tab,reportMode,weekly,feedback,cx,loadWeekly,loadFeedback,loadCx]);
   useEffect(()=>{if(sheet==="period"&&draftPeriodMode==="week"&&!draftWeek&&weekly?.labelB)setDraftWeek(weekly.labelB)},[sheet,draftPeriodMode,draftWeek,weekly]);
 
@@ -237,12 +243,12 @@ export default function MobileDashboardApp(){
         const w=await loadWeekly(true,draftWeek);
         if(w?.periodB?.start&&w?.periodB?.end){
           setPeriodMode("week");setSelectedWeek(w.labelB||draftWeek);setActiveRange({from:w.periodB.start,to:w.periodB.end});setPeriod(w.periodB.start.slice(0,7));
-          setDaily(null);setSummary(null);setWeeklySummary(null);setFeedback(null);setCx(null);setOverview(null);setTraffic(null);setSheet(null);
+          setDaily(null);setSummary(null);setWeeklySummary(null);setFeedback(null);setCx(null);setOverview(null);setFullOverview(null);setTraffic(null);setSheet(null);
         }
       }finally{setRefreshing(false)}
       return;
     }
-    setPeriodMode("month");setActiveRange(null);setSelectedWeek("");setPeriod(draftPeriod);setDaily(null);setSummary(null);setWeekly(null);setWeeklySummary(null);setFeedback(null);setCx(null);setOverview(null);setTraffic(null);setSheet(null);
+    setPeriodMode("month");setActiveRange(null);setSelectedWeek("");setPeriod(draftPeriod);setDaily(null);setSummary(null);setWeekly(null);setWeeklySummary(null);setFeedback(null);setCx(null);setOverview(null);setFullOverview(null);setTraffic(null);setSheet(null);
   };
   const shareText=`M238 PIM 2 • ${overview?.label||monthLabel(period)}\nSales ${money.format(overview?.summary.amount||0)}\nAchievement ${pct(achievement)}\nUPT ${(overview?.summary.upt||0).toFixed(1)}`;
   const doShare=async(kind:string)=>{if(kind==="wa")window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`,"_blank");else if(kind==="copy")await navigator.clipboard.writeText(shareText);else if(rootRef.current&&kind==="png")await exportReportPng(rootRef.current,`M238-${period}`);else if(rootRef.current&&kind==="pdf")await exportReportPdf(rootRef.current,`M238-${period}`);else if(kind==="xlsx"&&overview)await exportReportXlsx([{name:"Overview",rows:[["Periode",overview.label],["Sales",overview.summary.amount],["Target",overview.target.amount],["Achievement",achievement],["UPT",overview.summary.upt],[],["Staff","Sales","Achievement"],...overview.staff.map(s=>[s.name,s.amount,s.achievement??0])]}],`M238-${period}`);setSheet(null)};
@@ -287,7 +293,7 @@ export default function MobileDashboardApp(){
       {refreshing?<div className="m238m-refreshing"><RefreshCw size={14} className="spin"/> Memperbarui data…</div>:null}
       {error?<Card className="m238m-error">{error}</Card>:null}
       {loading&&!overview?<Skeleton/>:null}
-      {!loading&&overview&&tab==="home"?<HomeScreen mode={homeMode} setMode={setHomeMode} overview={overview} traffic={traffic} summary={summary} cvr={cvr} achievement={achievement} periodMode={periodMode} onOpenSalesDetail={()=>void openHomeSalesDetail()} onGoSales={()=>setTab("sales")} onGoTeam={()=>setTab("team")} onGoReport={()=>setTab("report")} onShare={()=>setSheet("share")}/>:null}
+      {!loading&&overview&&tab==="home"?<HomeScreen mode={homeMode} setMode={setHomeMode} overview={homeMode==="monthly"?overview:(fullOverview||overview)} traffic={traffic} cvr={cvr} achievement={achievement} periodMode={periodMode} fullLoading={homeMode!=="monthly"&&!fullOverview} onOpenSalesDetail={()=>void openHomeSalesDetail()} onGoSales={()=>setTab("sales")} onGoTeam={()=>setTab("team")} onGoReport={()=>setTab("report")} onShare={()=>setSheet("share")}/>:null}
       {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange} onStaff={s=>void openStaff(s,"daily")} onDay={row=>{setDayDetail(row);setSheet("day")}} onShare={()=>setSheet("share")}/>:null}
       {tab==="team"?<TeamScreen rows={team} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
       {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]}/>:null}
@@ -337,7 +343,7 @@ export default function MobileDashboardApp(){
 }
 
 
-function HomeScreen({mode,setMode,overview,traffic,summary,cvr,achievement,periodMode,onOpenSalesDetail,onGoSales,onGoTeam,onGoReport,onShare}:{mode:HomeMode;setMode:(v:HomeMode)=>void;overview:Overview;traffic:Traffic|null;summary:DailySummary|null;cvr:number;achievement:number;periodMode:"month"|"week";onOpenSalesDetail:()=>void;onGoSales:()=>void;onGoTeam:()=>void;onGoReport:()=>void;onShare:()=>void}){
+function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fullLoading,onOpenSalesDetail,onGoSales,onGoTeam,onGoReport,onShare}:{mode:HomeMode;setMode:(v:HomeMode)=>void;overview:Overview;traffic:Traffic|null;cvr:number;achievement:number;periodMode:"month"|"week";fullLoading:boolean;onOpenSalesDetail:()=>void;onGoSales:()=>void;onGoTeam:()=>void;onGoReport:()=>void;onShare:()=>void}){
  const salesRows=overview.daily||[],latestSales=salesRows.at(-1)?.amount||0,prevSales=salesRows.at(-2)?.amount||0,salesDelta=prevSales?((latestSales-prevSales)/prevSales)*100:null;
  const trafficRows=traffic?.daily||[],latestTraffic=trafficRows.at(-1)?.traffic||0,prevTraffic=trafficRows.at(-2)?.traffic||0,trafficDelta=prevTraffic?((latestTraffic-prevTraffic)/prevTraffic)*100:null;
  const insight=salesDelta==null
@@ -353,13 +359,8 @@ function HomeScreen({mode,setMode,overview,traffic,summary,cvr,achievement,perio
  const ranked=[...staffRows].sort((a,b)=>b.amount-a.amount);
  const topStaff=ranked[0]||null;
  const followStaff=[...staffRows].filter(s=>(s.achievement??((s.target||s.targets?.amount||0)>0?s.amount/(s.target||s.targets?.amount||1)*100:100))<100).sort((a,b)=>(a.achievement??0)-(b.achievement??0))[0]||null;
- const lobRows=summary?[
-  ["iPhone",summary.breakdown.lob.iphone],
-  ["iPad",summary.breakdown.lob.ipad],
-  ["MacBook",summary.breakdown.lob.macbook],
-  ["Apple Watch",summary.breakdown.lob.appleWatch],
-  ["AirPods",summary.breakdown.lob.airpods]
- ].sort((a,b)=>Number(b[1])-Number(a[1])):[];
+ const lobQty=staffRows.reduce((a,s)=>({iphone:a.iphone+Number(s.lob?.iphone||0),ipad:a.ipad+Number(s.lob?.ipad||0),mac:a.mac+Number(s.lob?.mac||0),watch:a.watch+Number(s.lob?.watch||0),airpods:a.airpods+Number(s.lob?.airpods||0)}),{iphone:0,ipad:0,mac:0,watch:0,airpods:0});
+ const lobRows=[["iPhone",lobQty.iphone],["iPad",lobQty.ipad],["MacBook",lobQty.mac],["Apple Watch",lobQty.watch],["AirPods",lobQty.airpods]].sort((a,b)=>Number(b[1])-Number(a[1]));
  return <div className="m238m-stack m238m-enter">
   <div className="m238m-home-tabs">
     <button className={mode==="monthly"?"active":""} onClick={()=>setMode("monthly")}>Overview Bulanan</button>
@@ -367,7 +368,7 @@ function HomeScreen({mode,setMode,overview,traffic,summary,cvr,achievement,perio
     <button className={mode==="compare"?"active":""} onClick={()=>setMode("compare")}>Compare<br/>2025 vs 2026</button>
   </div>
 
-  {mode==="monthly"?<>
+  {fullLoading?<Skeleton/>:mode==="monthly"?<>
     <button className="m238m-hero-button" onClick={onOpenSalesDetail}>
       <Card className="m238m-hero m238m-home-hero"><div className="m238m-hero-title"><span>Total Sales</span><ChevronRight size={18}/></div><strong>{money.format(overview.summary.amount)}</strong><p>{pct(achievement)} dari Target</p><Progress value={achievement}/><div className="m238m-hero-meta"><span>Target <b>{money.format(overview.target.amount)}</b></span><span>{periodMode==="month"?"Point Store":"Periode"} <b>{periodMode==="month"?overview.summary.point.total.toFixed(1):overview.label}</b></span></div></Card>
     </button>
@@ -380,7 +381,7 @@ function HomeScreen({mode,setMode,overview,traffic,summary,cvr,achievement,perio
     </div>
 
     <div className="m238m-section-head"><h2>LOB Performance</h2><button className="m238m-link-button" onClick={onGoSales}>Lihat Semua</button></div>
-    {lobRows.length?<div className="m238m-lob-strip">{lobRows.map(([label,value])=><Card key={String(label)} className="m238m-lob-mini"><span>{label}</span><strong>{money.format(Number(value))}</strong></Card>)}</div>:<Card className="m238m-copy-card"><strong>LOB Performance</strong><p>Data LOB sedang dimuat dari Daily Summary.</p></Card>}
+    <div className="m238m-lob-strip">{lobRows.map(([label,value])=><Card key={String(label)} className="m238m-lob-mini"><span>{label}</span><strong>{num.format(Number(value))} unit</strong></Card>)}</div>
 
     <div className="m238m-section-head"><h2>Team Hari Ini</h2><button className="m238m-link-button" onClick={onGoTeam}>Lihat Semua</button></div>
     <div className="m238m-team-highlight">
