@@ -46,7 +46,7 @@ type Overview={
  ytd?:{amount2025:number;amount2026:number;growth:number;qty2025:number;qty2026:number;qtyGrowth:number;diff?:number;qtyDiff?:number;device2025?:number;device2026?:number;deviceQty2025?:number;deviceQty2026?:number;deviceDiff?:number;deviceGrowth?:number;deviceQtyDiff?:number;deviceQtyGrowth?:number;lobs?:CompareLob[];throughMonth?:number};
 };
 type Traffic={total:number;daily?:{date:string;traffic:number}[]};
-type Daily={date:string;staff:Staff[];total:{amount:number;target:number;accessories:number;accTarget:number;vas:number;vasTarget:number;qty:number;invoices:number;upt:number}};
+type Daily={date:string;staff:Staff[];total:{amount:number;target:number;accessories:number;accTarget:number;vas:number;vasTarget:number;qty:number;invoices:number;upt:number};fastUpdatedAt?:string;fastSource?:string;fastWarning?:string};
 type DailyRow={
  date:string;day?:string;totalSales:number;target:number;achievementPct:number;traffic:number;cvr:number;upt:number;atv:number;transaction:number;invoice:number;qty:number;
  breakdown:{device:number;accessories:number;vas:number};
@@ -171,7 +171,7 @@ export default function MobileDashboardApp(){
     const isDark=initial==="midnight"||initial==="graphite"||initial==="mono"||initial==="webhero"||initial==="mecha"||initial==="alliance";setDark(isDark);document.documentElement.classList.toggle("dark",isDark);
   },[]);
 
-  const loadDaily=useCallback(async(force=false)=>{const d=await cachedJson<Daily>(`/api/daily-fast?date=${today()}`,90000,force);setDaily(d)},[]);
+  const loadDaily=useCallback(async(force=false)=>{const url=`/api/daily-fast?date=${today()}${force?"&fresh=1":""}`;const d=await cachedJson<Daily>(url,force?0:90000,force);setDaily(d)},[]);
   const loadSummary=useCallback(async(force=false)=>{const monthlyFrom=`${period}-01`,monthlyTo=period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`,from=periodMode==="week"&&activeRange?activeRange.from:monthlyFrom,to=periodMode==="week"&&activeRange?activeRange.to:monthlyTo,mode=periodMode==="week"&&activeRange?"range":"monthly";const d=await cachedJson<DailySummary>(`/api/daily-summary-fast?from=${from}&to=${to}&mode=${mode}`,180000,force);setSummary(d)},[period,periodMode,activeRange]);
   const loadWeekly=useCallback(async(force=false,weekOverride="")=>{
     let url="/api/weekly-stable";
@@ -563,6 +563,7 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
  return <div className="m238m-stack m238m-enter">
   <Segmented value={mode} onChange={setMode} items={[{value:"daily",label:"Daily"},{value:"summary",label:"Summary"},{value:"lob",label:"Fokus Product"}]}/>
   {mode==="daily"?(daily?<>
+    {daily.fastUpdatedAt?<div className="m238m-data-freshness"><span>Data terakhir {new Intl.DateTimeFormat("id-ID",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jakarta"}).format(new Date(daily.fastUpdatedAt))} WIB</span>{daily.fastSource==="live-refresh"?<b className="live">Live Refresh</b>:Date.now()-new Date(daily.fastUpdatedAt).getTime()>30*60*1000?<b>Perlu Refresh</b>:null}</div>:null}
     <button className="m238m-click-card" onClick={()=>setShowTodayDetail(true)}><Card className="m238m-hero compact m238m-sales-hero m238m-tappable-card"><div className="m238m-weekly-hero-title"><span>Sales Today</span><ChevronRight size={18}/></div><strong>{money.format(daily.total.amount)}</strong><p>Target {money.format(daily.total.target)} • {pct(ach)}</p><Progress value={ach}/><small className="m238m-tap-hint">Tap untuk lihat detail penjualan hari ini</small></Card></button>
 
     <div className="m238m-sales-status-grid">
