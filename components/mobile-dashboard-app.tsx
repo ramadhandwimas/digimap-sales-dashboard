@@ -1,17 +1,18 @@
 "use client";
 
 import {useCallback,useEffect,useMemo,useRef,useState,type CSSProperties,type ReactNode} from "react";
+import dynamic from "next/dynamic";
 import {
   Activity,Box,Briefcase,CalendarDays,ChevronRight,ClipboardCheck,Copy,CreditCard,FileDown,
   FileSpreadsheet,Home,Lightbulb,LogOut,MessageCircle,MoreHorizontal,Moon,
   PackageSearch,RefreshCw,Settings,Share2,Sun,Target,TrendingUp,Users,WalletCards,X
 } from "lucide-react";
 import {exportReportPdf,exportReportPng,exportReportXlsx} from "@/lib/dashboard-export";
-import MobileOperations from "@/components/mobile-operations";
-import {makeDailySalesPicture,makeLobPicture,makeVasPicture} from "@/components/daily-sales-alerts";
 import {mobileDashboardCss} from "@/components/mobile-dashboard-styles";
-import ReportScreen from "@/components/mobile-dashboard-report";
-import MoreScreen from "@/components/mobile-dashboard-more";
+
+const ReportScreen=dynamic(()=>import("@/components/mobile-dashboard-report"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton hero"/><div className="m238m-skeleton list"/></div>});
+const MoreScreen=dynamic(()=>import("@/components/mobile-dashboard-more"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton list"/><div className="m238m-skeleton list"/></div>});
+const MobileOperations=dynamic(()=>import("@/components/mobile-operations"),{ssr:false,loading:()=> <div className="m238m-card">Memuat menu operasional…</div>});
 
 type Tab="home"|"sales"|"team"|"report"|"admin"|"more";
 type SalesMode="daily"|"summary"|"lob";
@@ -294,6 +295,7 @@ export default function MobileDashboardApp(){
     try{
       const d=daily||await cachedJson<Daily>(`/api/daily-fast?date=${today()}`,90000);
       const stamp=new Intl.DateTimeFormat("id-ID",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:"Asia/Jakarta"}).format(new Date()).replace(":",".");
+      const {makeDailySalesPicture,makeLobPicture,makeVasPicture}=await import("@/components/daily-sales-alerts");
       let blob:Blob,title="",fileName="",text="";
       if(kind==="daily"){blob=await makeDailySalesPicture(d as any);title="M238 Daily Sales";fileName=`M238-Daily-Sales-${d.date}-${stamp}.png`;text=`M238 PIM 2\nUpdate sales jam ${stamp} WIB`}
       else if(kind==="lob"){blob=await makeLobPicture(d as any,stamp);title="M238 LOB Daily";fileName=`M238-LOB-Daily-${d.date}-${stamp}.png`;text=`M238 PIM 2\nLOB Daily • Update sales jam ${stamp} WIB`}
