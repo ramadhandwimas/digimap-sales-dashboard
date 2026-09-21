@@ -21,6 +21,7 @@ type HomeMode="monthly"|"ytd"|"compare";
 type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono";
 type MotionPreset="minimal"|"smooth"|"dynamic";
 type MotionStyle="clean"|"ios-spring"|"glass-flow"|"playful-bounce"|"executive"|"stagger"|"blur"|"elastic";
+type FontPreset="system"|"rounded"|"compact";
 type CompareLob={lob:string;amount2025:number;amount2026:number|null;qty2025:number;qty2026:number|null;diff:number|null;growth:number|null;qtyDiff:number|null;qtyGrowth:number|null};
 type CompareMonth={month:number;period2025:string;period2026:string;amount2025:number;amount2026:number|null;qty2025:number;qty2026:number|null;diff:number|null;growth:number|null;qtyDiff:number|null;qtyGrowth:number|null;device2025:number;device2026:number|null;deviceQty2025:number;deviceQty2026:number|null;deviceDiff:number|null;deviceGrowth:number|null;deviceQtyDiff:number|null;deviceQtyGrowth:number|null;lobs:CompareLob[];started:boolean};
 type SheetName="period"|"share"|"staff"|"day"|"home-sales"|"more"|null;
@@ -134,7 +135,7 @@ function Sheet({open,onClose,title,children}:{open:boolean;onClose:()=>void;titl
 export default function MobileDashboardApp(){
   const[tab,setTab]=useState<Tab>("home"),[period,setPeriod]=useState(periodNow()),[draftPeriod,setDraftPeriod]=useState(periodNow()),[periodMode,setPeriodMode]=useState<"month"|"week">("month"),[draftPeriodMode,setDraftPeriodMode]=useState<"month"|"week">("month"),[selectedWeek,setSelectedWeek]=useState(""),[draftWeek,setDraftWeek]=useState(""),[activeRange,setActiveRange]=useState<{from:string;to:string}|null>(null),[sheet,setSheet]=useState<SheetName>(null),[moreKind,setMoreKind]=useState(""),[moreData,setMoreData]=useState<any>(null),[moreBusy,setMoreBusy]=useState(false);
   const[overview,setOverview]=useState<Overview|null>(null),[fullOverview,setFullOverview]=useState<Overview|null>(null),[traffic,setTraffic]=useState<Traffic|null>(null),[daily,setDaily]=useState<Daily|null>(null),[summary,setSummary]=useState<DailySummary|null>(null),[weekly,setWeekly]=useState<Weekly|null>(null),[weeklySummary,setWeeklySummary]=useState<DailySummary|null>(null),[feedback,setFeedback]=useState<Feedback|null>(null),[cx,setCx]=useState<Cx|null>(null),[staffDetail,setStaffDetail]=useState<Staff|null>(null),[staffDetailMode,setStaffDetailMode]=useState<"daily"|"monthly">("monthly"),[dayDetail,setDayDetail]=useState<DailyRow|null>(null);
-  const[homeMode,setHomeMode]=useState<HomeMode>("monthly"),[salesMode,setSalesMode]=useState<SalesMode>("daily"),[reportMode,setReportMode]=useState<ReportMode>("weekly"),[teamFilter,setTeamFilter]=useState("all"),[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[error,setError]=useState(""),[dark,setDark]=useState(false),[themePreset,setThemePreset]=useState<ThemePreset>("classic"),[motionPreset,setMotionPreset]=useState<MotionPreset>("smooth"),[motionStyle,setMotionStyle]=useState<MotionStyle>("clean");
+  const[homeMode,setHomeMode]=useState<HomeMode>("monthly"),[salesMode,setSalesMode]=useState<SalesMode>("daily"),[reportMode,setReportMode]=useState<ReportMode>("weekly"),[teamFilter,setTeamFilter]=useState("all"),[adminStart,setAdminStart]=useState<"soh"|"bnpl">("soh"),[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[error,setError]=useState(""),[dark,setDark]=useState(false),[themePreset,setThemePreset]=useState<ThemePreset>("classic"),[motionPreset,setMotionPreset]=useState<MotionPreset>("smooth"),[motionStyle,setMotionStyle]=useState<MotionStyle>("clean"),[fontPreset,setFontPreset]=useState<FontPreset>("system");
   const rootRef=useRef<HTMLDivElement>(null),touchStart=useRef<number|null>(null);
 
   const loadOverview=useCallback(async(force=false)=>{
@@ -162,8 +163,10 @@ export default function MobileDashboardApp(){
     const initial:ThemePreset=["classic","midnight","aurora","playful","graphite","sunset","forest","mono"].includes(saved)?saved:(legacyDark?"midnight":"classic");
     const motion=(localStorage.getItem("m238-motion-preset")||"smooth") as MotionPreset;
     const style=(localStorage.getItem("m238-motion-style")||"clean") as MotionStyle;
+    const font=(localStorage.getItem("m238-font-preset")||"system") as FontPreset;
     setThemePreset(initial);setMotionPreset(["minimal","smooth","dynamic"].includes(motion)?motion:"smooth");
     setMotionStyle(["clean","ios-spring","glass-flow","playful-bounce","executive","stagger","blur","elastic"].includes(style)?style:"clean");
+    setFontPreset(["system","rounded","compact"].includes(font)?font:"system");
     const isDark=initial==="midnight"||initial==="graphite"||initial==="mono";setDark(isDark);document.documentElement.classList.toggle("dark",isDark);
   },[]);
 
@@ -250,6 +253,7 @@ export default function MobileDashboardApp(){
   };
   const applyMotion=(preset:MotionPreset)=>{setMotionPreset(preset);localStorage.setItem("m238-motion-preset",preset)};
   const applyMotionStyle=(preset:MotionStyle)=>{setMotionStyle(preset);localStorage.setItem("m238-motion-style",preset)};
+  const applyFont=(preset:FontPreset)=>{setFontPreset(preset);localStorage.setItem("m238-font-preset",preset)};
   const transaction=overview?.summary.invoices||0,trafficValue=traffic?.total||0,cvr=trafficValue?transaction/trafficValue*100:0,achievement=overview?.target.amount?((overview.summary.amount/overview.target.amount)*100):0;
   const teamAll=useMemo(()=>(overview?.staff||[]).filter(x=>!/digimap\.co\.id|online/i.test(`${x.name} ${x.position||""}`)).sort((a,b)=>b.amount-a.amount),[overview]);
   const team=useMemo(()=>{
@@ -278,7 +282,8 @@ export default function MobileDashboardApp(){
   const doShare=async(kind:string)=>{if(kind==="wa")window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`,"_blank");else if(kind==="copy")await navigator.clipboard.writeText(shareText);else if(rootRef.current&&kind==="png")await exportReportPng(rootRef.current,`M238-${period}`);else if(rootRef.current&&kind==="pdf")await exportReportPdf(rootRef.current,`M238-${period}`);else if(kind==="xlsx"&&overview)await exportReportXlsx([{name:"Overview",rows:[["Periode",overview.label],["Sales",overview.summary.amount],["Target",overview.target.amount],["Achievement",achievement],["UPT",overview.summary.upt],[],["Staff","Sales","Achievement"],...overview.staff.map(s=>[s.name,s.amount,s.achievement??0])]}],`M238-${period}`);setSheet(null)};
 
   const handleMore=async(action:string)=>{
-    if(action==="admin"){setTab("admin");setSheet(null);return}
+    if(action==="soh"||action==="bnpl"){setAdminStart(action);setTab("admin");setSheet(null);return}
+    if(action==="mobile-view"){window.dispatchEvent(new CustomEvent("m238:mobile-view-change",{detail:"classic"}));return}
     if(action==="activity"){setTab("sales");setSalesMode("summary");return}
     setMoreKind(action);setMoreData(null);setSheet("more");
     if(action!=="incentive")return;
@@ -308,7 +313,7 @@ export default function MobileDashboardApp(){
 
   const touchMove=(e:React.TouchEvent)=>{if(touchStart.current==null||window.scrollY>0)return;const delta=e.touches[0].clientY-touchStart.current;if(delta>90&&!refreshing){touchStart.current=null;void refresh()}};
 
-  return <div ref={rootRef} className="m238m-app" data-theme={themePreset} data-motion={motionPreset} data-motion-style={motionStyle} onTouchStart={e=>{if(window.scrollY===0)touchStart.current=e.touches[0].clientY}} onTouchMove={touchMove} onTouchEnd={()=>{touchStart.current=null}}>
+  return <div ref={rootRef} className="m238m-app" data-theme={themePreset} data-motion={motionPreset} data-motion-style={motionStyle} data-font={fontPreset} onTouchStart={e=>{if(window.scrollY===0)touchStart.current=e.touches[0].clientY}} onTouchMove={touchMove} onTouchEnd={()=>{touchStart.current=null}}>
     <header className="m238m-header">
       <div><span>M238 Dashboard</span><strong>PIM 2</strong></div>
       <div className="m238m-header-actions"><button onClick={()=>setSheet("share")} aria-label="Share"><Share2 size={19}/></button><button onClick={()=>void refresh()} aria-label="Refresh"><RefreshCw size={19} className={refreshing?"spin":""}/></button></div>
@@ -322,8 +327,8 @@ export default function MobileDashboardApp(){
       {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange} onStaff={s=>void openStaff(s,"daily")} onDay={row=>{setDayDetail(row);setSheet("day")}} onShare={()=>setSheet("share")}/>:null}
       {tab==="team"?<TeamScreen rows={team} allRows={teamAll} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
       {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]} period={period} periodMode={periodMode} activeRange={activeRange}/>:null}
-      {tab==="admin"?<AdminScreen period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>:null}
-      {tab==="more"?<MoreScreen theme={themePreset} motion={motionPreset} motionStyle={motionStyle} onTheme={applyTheme} onMotion={applyMotion} onMotionStyle={applyMotionStyle} onAction={handleMore}/>:null}
+      {tab==="admin"?<AdminScreen initialTab={adminStart} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>:null}
+      {tab==="more"?<MoreScreen theme={themePreset} motion={motionPreset} motionStyle={motionStyle} font={fontPreset} onTheme={applyTheme} onMotion={applyMotion} onMotionStyle={applyMotionStyle} onFont={applyFont} onAction={handleMore}/>:null}
     </main>
 
     <nav className="m238m-bottom" style={{"--m238m-active-index":String(["home","sales","team","report","more"].indexOf(tab==="admin"?"more":tab))} as CSSProperties}>
@@ -874,8 +879,9 @@ function StaffDetail({staff,mode}:{staff:Staff;mode:"daily"|"monthly"}){
   </>:null}
  </div>
 }
-function AdminScreen({period,periodMode,selectedWeek,activeRange}:{period:string;periodMode:"month"|"week";selectedWeek:string;activeRange:{from:string;to:string}|null}){
- const[tab,setTab]=useState<"soh"|"bnpl">("soh");
+function AdminScreen({initialTab,period,periodMode,selectedWeek,activeRange}:{initialTab:"soh"|"bnpl";period:string;periodMode:"month"|"week";selectedWeek:string;activeRange:{from:string;to:string}|null}){
+ const[tab,setTab]=useState<"soh"|"bnpl">(initialTab);
+ useEffect(()=>setTab(initialTab),[initialTab]);
  const items=[["soh","SOH"],["bnpl","BNPL"]] as const;
  return <div className="m238m-stack m238m-enter">
   <div className="m238m-admin-tabs">{items.map(([k,l])=><button key={k} className={tab===k?"active":""} onClick={()=>setTab(k)}>{l}</button>)}</div>
