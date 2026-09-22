@@ -896,7 +896,7 @@ function DailyDetail({row}:{row:DailyRow}){
 
   <Sheet open={!!selectedStaff} onClose={()=>{setSelectedStaff(null);setDetail(null)}} title={selectedStaff?`${shortStaffName(selectedStaff.name)} • Detail Harian`:"Detail Staff"}>
    {detailBusy?<Skeleton/>:detail?<div className="m238m-stack">
-    <Card className="m238m-detail-sales"><span>Sales Staff</span><strong>{money.format(Number(detail.amount||0))}</strong><small>{salesDateLabel(row.date)}</small></Card>
+    <Card className="m238m-detail-sales"><span>{selectedStaff?shortStaffName(selectedStaff.name):"Sales Staff"}</span><strong>{money.format(Number(detail.amount||0))}</strong><small>Sales Staff • {salesDateLabel(row.date)}</small></Card>
     <div className="m238m-grid"><Metric label="Device" value={money.format(Number(detail.device||0))}/><Metric label="ACC" value={money.format(Number(detail.accessories||0))}/><Metric label="VAS" value={money.format(Number(detail.vas||0))}/><Metric label="Qty" value={num.format(Number(detail.qty||0))}/><Metric label="Invoice" value={num.format(Number(detail.invoices||0))}/><Metric label="UPT" value={Number(detail.upt||0).toFixed(1)}/></div>
 
     {(()=>{const units=(detail.products||[]).filter((p:any)=>p.kind==="device"),acc=(detail.products||[]).filter((p:any)=>p.kind==="accessories");return <>
@@ -907,8 +907,8 @@ function DailyDetail({row}:{row:DailyRow}){
       {acc.length?<div className="m238m-list">{acc.map((p:any,i:number)=><Card key={(p.article||p.name)+"-acc-"+i} className="m238m-product-detail-row"><div><strong>{p.name}</strong><span>{p.supplier?<><b className="m238m-focus-badge">{p.supplier}</b>{p.brandName?` • ${p.brandName}`:""}{p.article?` • ${p.article}`:""}</>:<>Accessories{p.article?` • ${p.article}`:""}</>}</span></div><div><b>{num.format(Number(p.qty||0))} qty</b><small>{money.format(Number(p.value||0))}</small></div></Card>)}</div>:<Card className="m238m-empty">Tidak ada accessories terjual.</Card>}
     </>})()}
 
-    <div className="m238m-section-head"><h2>VAS Detail</h2><span>{(detail.vas||[]).length} item</span></div>
-    {(detail.vas||[]).length?<div className="m238m-list">{(detail.vas||[]).map((v:any,i:number)=><Card key={v.provider+"-"+v.name+"-"+i} className="m238m-product-detail-row"><div><strong>{v.name}</strong><span>{num.format(Number(v.qty||0))} qty</span></div><b>{money.format(Number(v.value||0))}</b></Card>)}</div>:<Card className="m238m-empty">Tidak ada VAS pada staff ini.</Card>}
+    <div className="m238m-section-head"><h2>VAS Detail</h2><span>{(detail.vasItems||[]).length} item</span></div>
+    {(detail.vasItems||[]).length?<div className="m238m-list">{(detail.vasItems||[]).map((v:any,i:number)=><Card key={v.provider+"-"+v.name+"-"+i} className="m238m-product-detail-row"><div><strong>{v.name}</strong><span>{num.format(Number(v.qty||0))} qty</span></div><b>{money.format(Number(v.value||0))}</b></Card>)}</div>:<Card className="m238m-empty">Tidak ada VAS pada staff ini.</Card>}
    </div>:<Card className="m238m-empty">Detail staff belum tersedia.</Card>}
   </Sheet>
  </div>
