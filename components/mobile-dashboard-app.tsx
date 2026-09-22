@@ -8,6 +8,7 @@ import {
   PackageSearch,RefreshCw,Settings,Share2,Sun,Target,TrendingUp,Users,WalletCards,X,Cpu,Shield,Zap
 } from "lucide-react";
 import {exportReportPdf,exportReportPng,exportReportXlsx} from "@/lib/dashboard-export";
+import {cachedJson,swrJson,peekJsonCache,prefetchJson,abortCacheScope,clearExpiredLocalCache,getM238PerfStats} from "@/lib/m238-client-cache";
 
 const ReportScreen=dynamic(()=>import("@/components/mobile-dashboard-report"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton hero"/><div className="m238m-skeleton list"/></div>});
 const MoreScreen=dynamic(()=>import("@/components/mobile-dashboard-more"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton list"/><div className="m238m-skeleton list"/></div>});
@@ -62,19 +63,6 @@ type DailySummary={
 type Weekly={labelA:string;labelB:string;availableWeeks?:string[];periodA?:{start:string;end:string};periodB:{start:string;end:string};a:{scheme:Record<string,{qty:number;amount:number}>;vas:Record<string,{qty:number;amount:number}>;lob:Record<string,Record<string,{qty:number;amount:number}>>};b:{scheme:Record<string,{qty:number;amount:number}>;vas:Record<string,{qty:number;amount:number}>;lob:Record<string,Record<string,{qty:number;amount:number}>>};targets:{configured?:boolean;sourceWeek?:string;lob:Record<string,number>;types?:Record<string,Record<string,{target:number;focus:boolean}>>;grandTotal:number};analysis:Record<string,{review:string;actionPlan:string;target:number;achievement:number;gap:number}>;feedbackCount?:number;feedbackSummary?:string};
 type Feedback={rows:{date:string;staffId:string;name:string;category:string;raw:string;professional:string}[];summary?:string};
 type Cx={rows:{date:string;staffId:string;name:string;cx:number;member:number}[]};
-
-const cache=new Map<string,{at:number,data:unknown}>();
-const inflight=new Map<string,Promise<unknown>>();
-async function cachedJson<T>(url:string,ttl=180000,force=false):Promise<T>{
-  if(force)cache.delete(url);
-  const hit=cache.get(url);
-  if(hit&&Date.now()-hit.at<ttl)return hit.data as T;
-  const active=inflight.get(url);
-  if(active)return active as Promise<T>;
-  const task=fetch(url,force?{cache:"no-store"}:undefined).then(async r=>{const j=await r.json();if(!r.ok||j?.error)throw new Error(j?.error||"Data gagal dimuat");cache.set(url,{at:Date.now(),data:j});return j}).finally(()=>inflight.delete(url));
-  inflight.set(url,task);
-  return task as Promise<T>;
-}
 
 const money=new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0});
 const num=new Intl.NumberFormat("id-ID");
@@ -139,25 +127,58 @@ export default function MobileDashboardApp(){
   const[homeMode,setHomeMode]=useState<HomeMode>("monthly"),[salesMode,setSalesMode]=useState<SalesMode>("daily"),[reportMode,setReportMode]=useState<ReportMode>("weekly"),[teamFilter,setTeamFilter]=useState("all"),[adminStart,setAdminStart]=useState<"soh"|"bnpl">("soh"),[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[error,setError]=useState(""),[dark,setDark]=useState(false),[themePreset,setThemePreset]=useState<ThemePreset>("classic"),[motionPreset,setMotionPreset]=useState<MotionPreset>("smooth"),[motionStyle,setMotionStyle]=useState<MotionStyle>("clean"),[fontPreset,setFontPreset]=useState<FontPreset>("system");
   const rootRef=useRef<HTMLDivElement>(null),touchStart=useRef<number|null>(null);
 
+  const activeDates=useMemo(()=>{
+    const monthlyFrom=`${period}-01`,monthlyTo=period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`;
+    return periodMode==="week"&&activeRange?{from:activeRange.from,to:activeRange.to}:{from:monthlyFrom,to:monthlyTo};
+  },[period,periodMode,activeRange]);
+  const overviewUrl=useMemo(()=>periodMode==="week"&&activeRange?`/api/overview?lite=1&period=${activeDates.from.slice(0,7)}&from=${activeDates.from}&to=${activeDates.to}&label=${encodeURIComponent(selectedWeek)}`:`/api/overview?lite=1&period=${period}`,[period,periodMode,activeRange,activeDates,selectedWeek]);
+  const trafficUrl=useMemo(()=>`/api/traffic?from=${activeDates.from}&to=${activeDates.to}`,[activeDates]);
+
   const loadOverview=useCallback(async(force=false)=>{
     setError("");
-    const monthlyFrom=`${period}-01`,monthlyTo=period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`;
-    const from=periodMode==="week"&&activeRange?activeRange.from:monthlyFrom,to=periodMode==="week"&&activeRange?activeRange.to:monthlyTo;
-    const overviewUrl=periodMode==="week"&&activeRange?`/api/overview?lite=1&period=${from.slice(0,7)}&from=${from}&to=${to}&label=${encodeURIComponent(selectedWeek)}`:`/api/overview?lite=1&period=${period}`;
-    const overviewPromise=cachedJson<Overview>(overviewUrl,180000,force);
-    const trafficPromise=cachedJson<Traffic>(`/api/traffic?from=${from}&to=${to}`,180000,force);
-    const o=await overviewPromise;
-    setOverview(o);
-    try{setTraffic(await trafficPromise)}catch{setTraffic(null)}
-  },[period,periodMode,activeRange,selectedWeek]);
+    const hadOverview=!!peekJsonCache<Overview>(overviewUrl)||!!overview;
+    if(!hadOverview)setLoading(true);else setRefreshing(true);
+    const warning=(e:Error)=>setError(e.message==="OFFLINE"?"Offline. Menampilkan data terakhir.":"Gagal memperbarui data. Menampilkan data terakhir.");
+    const overviewPromise=swrJson<Overview>(overviewUrl,180000,(data)=>setOverview(data),{force,scope:"overview",onRefreshError:warning});
+    const trafficPromise=swrJson<Traffic>(trafficUrl,180000,(data)=>setTraffic(data),{force,scope:"traffic",onRefreshError:warning});
+    try{
+      const[o]=await Promise.all([overviewPromise,trafficPromise.catch(()=>traffic||{total:0})]);
+      return o;
+    }finally{setLoading(false);setRefreshing(false)}
+  },[overviewUrl,trafficUrl,overview,traffic]);
 
   const loadFullOverview=useCallback(async(force=false)=>{
-    const d=await cachedJson<Overview>(`/api/overview?period=${period}`,180000,force);
-    setFullOverview(d);
+    const url=`/api/overview?period=${period}`;
+    const cached=peekJsonCache<Overview>(url);if(cached)setFullOverview(cached.data);
+    const d=await swrJson<Overview>(url,180000,(data)=>setFullOverview(data),{force,scope:"overview-full",onRefreshError:()=>setError("Gagal memperbarui data. Menampilkan data terakhir.")});
     return d;
   },[period]);
-  useEffect(()=>{setLoading(true);loadOverview().catch(e=>setError(e instanceof Error?e.message:"Gagal memuat dashboard")).finally(()=>setLoading(false))},[loadOverview]);
+  useEffect(()=>{
+    let cancelled=false;
+    void loadOverview().catch(e=>{if(!cancelled)setError(e instanceof Error?e.message:"Gagal memuat dashboard")}).finally(()=>{if(!cancelled)setLoading(false)});
+    return()=>{cancelled=true};
+  },[loadOverview]);
   useEffect(()=>{if(tab==="home"&&homeMode!=="monthly"&&!fullOverview)void loadFullOverview()},[tab,homeMode,fullOverview,loadFullOverview]);
+  useEffect(()=>{
+    clearExpiredLocalCache();
+    const started=performance.now();
+    const warm=()=>{
+      void prefetchJson<DailySummary>(`/api/daily-summary-fast?from=${activeDates.from}&to=${activeDates.to}&mode=${periodMode==="week"&&activeRange?"range":"monthly"}`,180000,{scope:"prefetch-summary"});
+      if(period===periodNow())void prefetchJson<any>(`/api/data?period=${period}`,120000,{scope:"prefetch-daily-sales"});
+      void prefetchJson<{staff:Staff[]}>(periodMode==="week"&&activeRange?`/api/staff-performance-month?period=${activeRange.from.slice(0,7)}&from=${activeRange.from}&to=${activeRange.to}`:`/api/staff-performance-month?period=${period}`,180000,{scope:"prefetch-staff"});
+    };
+    const id=window.setTimeout(warm,350);
+    if(process.env.NODE_ENV!=="production")console.debug("[M238 PERF] mobile-mounted",{ms:Math.round(performance.now()-started),stats:getM238PerfStats()});
+    return()=>window.clearTimeout(id);
+  },[period,periodMode,activeRange,activeDates]);
+  useEffect(()=>{
+    let backgroundAt=0;
+    const onVisibility=()=>{if(document.hidden){backgroundAt=Date.now();return}if(backgroundAt&&Date.now()-backgroundAt>180000)void loadOverview(false)};
+    const onOnline=()=>void loadOverview(true);
+    document.addEventListener("visibilitychange",onVisibility);
+    window.addEventListener("online",onOnline);
+    return()=>{document.removeEventListener("visibilitychange",onVisibility);window.removeEventListener("online",onOnline)};
+  },[loadOverview]);
   useEffect(()=>{
     const saved=(localStorage.getItem("m238-theme-preset")||"") as ThemePreset;
     const legacyDark=localStorage.getItem("m238-theme")==="dark";
@@ -308,12 +329,12 @@ export default function MobileDashboardApp(){
         const w=await loadWeekly(true,draftWeek);
         if(w?.periodB?.start&&w?.periodB?.end){
           setPeriodMode("week");setSelectedWeek(w.labelB||draftWeek);setActiveRange({from:w.periodB.start,to:w.periodB.end});setPeriod(w.periodB.start.slice(0,7));
-          setDaily(null);setSummary(null);setWeeklySummary(null);setFeedback(null);setCx(null);setOverview(null);setFullOverview(null);setTraffic(null);setSheet(null);
+          setWeeklySummary(null);setFeedback(null);setCx(null);setSheet(null);
         }
       }finally{setRefreshing(false)}
       return;
     }
-    setPeriodMode("month");setActiveRange(null);setSelectedWeek("");setPeriod(draftPeriod);setDaily(null);setSummary(null);setWeekly(null);setWeeklySummary(null);setFeedback(null);setCx(null);setOverview(null);setFullOverview(null);setTraffic(null);setSheet(null);
+    setPeriodMode("month");setActiveRange(null);setSelectedWeek("");setPeriod(draftPeriod);setWeeklySummary(null);setFeedback(null);setCx(null);setSheet(null);
   };
   const shareText=`M238 PIM 2 • ${overview?.label||monthLabel(period)}\nSales ${money.format(overview?.summary.amount||0)}\nAchievement ${pct(achievement)}\nUPT ${(overview?.summary.upt||0).toFixed(1)}`;
   const doShare=async(kind:string)=>{if(kind==="wa")window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`,"_blank");else if(kind==="copy")await navigator.clipboard.writeText(shareText);else if(rootRef.current&&kind==="png")await exportReportPng(rootRef.current,`M238-${period}`);else if(rootRef.current&&kind==="pdf")await exportReportPdf(rootRef.current,`M238-${period}`);else if(kind==="xlsx"&&overview)await exportReportXlsx([{name:"Overview",rows:[["Periode",overview.label],["Sales",overview.summary.amount],["Target",overview.target.amount],["Achievement",achievement],["UPT",overview.summary.upt],[],["Staff","Sales","Achievement"],...overview.staff.map(s=>[s.name,s.amount,s.achievement??0])]}],`M238-${period}`);setSheet(null)};
@@ -360,7 +381,7 @@ export default function MobileDashboardApp(){
       {refreshing?<div className="m238m-refreshing"><RefreshCw size={14} className="spin"/> Memperbarui data…</div>:null}
       {error?<Card className="m238m-error">{error}</Card>:null}
       {loading&&!overview?<Skeleton/>:null}
-      {!loading&&overview&&tab==="home"?<HomeScreen mode={homeMode} setMode={setHomeMode} overview={homeMode==="monthly"?overview:(fullOverview||overview)} traffic={traffic} cvr={cvr} achievement={achievement} periodMode={periodMode} fullLoading={homeMode!=="monthly"&&!fullOverview} onOpenSalesDetail={()=>void openHomeSalesDetail()} onGoSales={()=>setTab("sales")} onGoTeam={()=>setTab("team")} onGoReport={()=>setTab("report")} onShare={()=>setSheet("share")}/>:null}
+      {overview&&tab==="home"?<HomeScreen mode={homeMode} setMode={setHomeMode} overview={homeMode==="monthly"?overview:(fullOverview||overview)} traffic={traffic} cvr={cvr} achievement={achievement} periodMode={periodMode} fullLoading={homeMode!=="monthly"&&!fullOverview} onOpenSalesDetail={()=>void openHomeSalesDetail()} onGoSales={()=>setTab("sales")} onGoTeam={()=>setTab("team")} onGoReport={()=>setTab("report")} onShare={()=>setSheet("share")}/>:null}
       {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange} onStaff={s=>void openStaff(s,"daily")} onDay={row=>{setDayDetail(row);setSheet("day")}} onShare={()=>setSheet("share")}/>:null}
       {tab==="team"?<TeamScreen rows={team} allRows={teamAll} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
       {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]} period={period} periodMode={periodMode} activeRange={activeRange}/>:null}
