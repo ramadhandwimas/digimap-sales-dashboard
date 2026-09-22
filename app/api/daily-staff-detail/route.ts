@@ -79,7 +79,11 @@ function vasLabel(kind:string,article:string,desc:string){
 const FOCUS_SUPPLIERS:Record<string,Array<[string,string,string[]]>>={
  Hastag:[["KTS","Kate Spade",["KATESPADE","KATE SPADE"]],["MUUM","Mutuall",["MUTUALL","MUTURAL"]],["FLTFT","Flaunt",["FLAUNT"]]],
  Dino:[["AMN","A.ELEMENTS",["A.ELEMENTS","AELEMENTS"]],["GE4","Gear4",["GEAR4"]],["MOK","MICROPACK",["MICROPACK"]],["MPI","MOPHIE",["MOPHIE"]],["ZAG","ZAAG",["ZAAG","ZAGG"]],["IFG","Ifrog",["IFROG","IFROGZ"]],["VBT","Verbatim",["VERBATIM"]],["AAV","AVANA",["AVANA"]],["INC","INCASE",["INCASE"]],["INP","INCIPIO",["INCIPIO"]],["ITS","ITSKIN",["ITSKIN"]],["RIV","RIVACASE",["RIVACASE"]],["TCA","TUCANO",["TUCANO"]],["UAQ","UAG",["UAG"]],["CRR","Care",["CARE"]]],
- IGA:[["ADP","ADIDAS",["ADIDAS"]],["ECS","ELEMENCASE",["ELEMENCASE"]],["GSH","GOSH",["GOSH"]],["INT","INTELIAMOR",["INTELIAMOR"]],["LFP","LIFEPROOF",["LIFEPROOF"]],["MDN","Master Dynamic",["MASTER DYNAMIC"]],["NIP","PINIT",["PINIT"]],["OTB","OTTERBOX",["OTTERBOX"]],["RPC","Raptic",["RAPTIC"]],["SD0","Sudio",["SUDIO"]],["ST1","STM",["STM"]],["RSQ","Rollingsquare",["ROLLING SQUARE","ROLLINGSQUARE"]],["ARU","ARC Pulse",["ARC PULSE"]],["RAT","Kratos",["KRATOS"]]]
+ IGA:[["ADP","ADIDAS",["ADIDAS"]],["ECS","ELEMENCASE",["ELEMENCASE"]],["GSH","GOSH",["GOSH"]],["INT","INTELIAMOR",["INTELIAMOR"]],["LFP","LIFEPROOF",["LIFEPROOF"]],["MDN","Master Dynamic",["MASTER DYNAMIC"]],["NIP","PINIT",["PINIT"]],["OTB","OTTERBOX",["OTTERBOX"]],["RPC","Raptic",["RAPTIC"]],["SD0","Sudio",["SUDIO"]],["ST1","STM",["STM"]],["RSQ","Rollingsquare",["ROLLING SQUARE","ROLLINGSQUARE"]],["ARU","ARC Pulse",["ARC PULSE"]],["RAT","Kratos",["KRATOS"]]],
+ IBacks:[["IBS","Ibacks",["IBACKS"]]],
+ Handal:[["CTU","CASESTUDI",["CASESTUDI"]],["IUV","ILUV",["ILUV"]],["MHO","MACHINO",["MACHINO"]],["UNQ","UNIQ",["UNIQ"]]],
+ Omega:[["LYC","Lycus",["LYCUS"]],["OMZ","Optimuz",["OPTIMUZ"]]],
+ Torras:[["TORRAS","Torras",["TORRAS"]]]
 };
 const norm=(v:string)=>up(v).replace(/[^A-Z0-9]/g,"");
 function supplierHint(vendor:string){
@@ -87,6 +91,10 @@ function supplierHint(vendor:string){
  if(v.includes("HASTAG"))return"Hastag";
  if(v==="DINO"||v.includes(" DINO"))return"Dino";
  if(v==="IGA"||v.includes(" IGA"))return"IGA";
+ if(v.includes("IBACKS"))return"IBacks";
+ if(v.includes("HANDAL"))return"Handal";
+ if(v.includes("OMEGA"))return"Omega";
+ if(v.includes("TORRAS"))return"Torras";
  return"";
 }
 function matchFocusSupplier(article:string,brand:string,vendor:string){
