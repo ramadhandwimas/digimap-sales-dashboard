@@ -136,16 +136,16 @@ export default function MobileDashboardApp(){
 
   const loadOverview=useCallback(async(force=false)=>{
     setError("");
-    const hadOverview=!!peekJsonCache<Overview>(overviewUrl)||!!overview;
+    const hadOverview=!!peekJsonCache<Overview>(overviewUrl);
     if(!hadOverview)setLoading(true);else setRefreshing(true);
     const warning=(e:Error)=>setError(e.message==="OFFLINE"?"Offline. Menampilkan data terakhir.":"Gagal memperbarui data. Menampilkan data terakhir.");
     const overviewPromise=swrJson<Overview>(overviewUrl,180000,(data)=>setOverview(data),{force,scope:"overview",onRefreshError:warning});
     const trafficPromise=swrJson<Traffic>(trafficUrl,180000,(data)=>setTraffic(data),{force,scope:"traffic",onRefreshError:warning});
     try{
-      const[o]=await Promise.all([overviewPromise,trafficPromise.catch(()=>traffic||{total:0})]);
+      const[o]=await Promise.all([overviewPromise,trafficPromise.catch(()=>undefined)]);
       return o;
     }finally{setLoading(false);setRefreshing(false)}
-  },[overviewUrl,trafficUrl,overview,traffic]);
+  },[overviewUrl,trafficUrl]);
 
   const loadFullOverview=useCallback(async(force=false)=>{
     const url=`/api/overview?period=${period}`;
@@ -160,6 +160,7 @@ export default function MobileDashboardApp(){
   },[loadOverview]);
   useEffect(()=>{if(tab==="home"&&homeMode!=="monthly"&&!fullOverview)void loadFullOverview()},[tab,homeMode,fullOverview,loadFullOverview]);
   useEffect(()=>{
+    if(!overview)return;
     clearExpiredLocalCache();
     const started=performance.now();
     const warm=()=>{
@@ -167,10 +168,10 @@ export default function MobileDashboardApp(){
       if(period===periodNow())void prefetchJson<any>(`/api/data?period=${period}`,120000,{scope:"prefetch-daily-sales"});
       void prefetchJson<{staff:Staff[]}>(periodMode==="week"&&activeRange?`/api/staff-performance-month?period=${activeRange.from.slice(0,7)}&from=${activeRange.from}&to=${activeRange.to}`:`/api/staff-performance-month?period=${period}`,180000,{scope:"prefetch-staff"});
     };
-    const id=window.setTimeout(warm,350);
-    if(process.env.NODE_ENV!=="production")console.debug("[M238 PERF] mobile-mounted",{ms:Math.round(performance.now()-started),stats:getM238PerfStats()});
+    const id=window.setTimeout(warm,500);
+    if(process.env.NODE_ENV!=="production")console.debug("[M238 PERF] home-ready",{ms:Math.round(performance.now()-started),stats:getM238PerfStats()});
     return()=>window.clearTimeout(id);
-  },[period,periodMode,activeRange,activeDates]);
+  },[overview,period,periodMode,activeRange,activeDates]);
   useEffect(()=>{
     let backgroundAt=0;
     const onVisibility=()=>{if(document.hidden){backgroundAt=Date.now();return}if(backgroundAt&&Date.now()-backgroundAt>180000)void loadOverview(false)};
@@ -229,7 +230,11 @@ export default function MobileDashboardApp(){
       fastUpdatedAt:String(legacy.generatedAt||new Date().toISOString())
     });
   },[]);
-  const loadSummary=useCallback(async(force=false)=>{const monthlyFrom=`${period}-01`,monthlyTo=period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`,from=periodMode==="week"&&activeRange?activeRange.from:monthlyFrom,to=periodMode==="week"&&activeRange?activeRange.to:monthlyTo,mode=periodMode==="week"&&activeRange?"range":"monthly";const d=await cachedJson<DailySummary>(`/api/daily-summary-fast?from=${from}&to=${to}&mode=${mode}`,180000,force);setSummary(d)},[period,periodMode,activeRange]);
+  const loadSummary=useCallback(async(force=false)=>{
+    const mode=periodMode==="week"&&activeRange?"range":"monthly",url=`/api/daily-summary-fast?from=${activeDates.from}&to=${activeDates.to}&mode=${mode}`;
+    const d=await swrJson<DailySummary>(url,180000,(data)=>setSummary(data),{force,scope:"summary",onRefreshError:()=>setError("Gagal memperbarui data. Menampilkan data terakhir.")});
+    return d;
+  },[periodMode,activeRange,activeDates]);
   const loadWeekly=useCallback(async(force=false,weekOverride="")=>{
     let url="/api/weekly-stable";
     if(weekOverride){
@@ -257,8 +262,8 @@ export default function MobileDashboardApp(){
     setCx({rows});
   },[period,periodMode,activeRange]);
 
-  useEffect(()=>{if(tab==="sales"){if(salesMode==="daily"&&!daily)void loadDaily();if((salesMode==="summary"||salesMode==="lob")&&!summary)void loadSummary()}},[tab,salesMode,daily,summary,loadDaily,loadSummary]);
-  useEffect(()=>{if(tab!=="report")return;if(reportMode==="weekly"&&!weekly)void loadWeekly();if(reportMode==="feedback"&&!feedback)void loadFeedback();if(reportMode==="cx"&&!cx)void loadCx()},[tab,reportMode,weekly,feedback,cx,loadWeekly,loadFeedback,loadCx]);
+  useEffect(()=>{if(tab==="sales"){if(salesMode==="daily"&&!daily)void loadDaily();if(salesMode==="summary"||salesMode==="lob")void loadSummary()}},[tab,salesMode,daily,loadDaily,loadSummary]);
+  useEffect(()=>{if(tab!=="report")return;if(reportMode==="weekly")void loadWeekly();if(reportMode==="feedback")void loadFeedback();if(reportMode==="cx")void loadCx()},[tab,reportMode,loadWeekly,loadFeedback,loadCx]);
   useEffect(()=>{if(sheet==="period"&&draftPeriodMode==="week"&&!draftWeek&&weekly?.labelB)setDraftWeek(weekly.labelB)},[sheet,draftPeriodMode,draftWeek,weekly]);
 
   const refresh=useCallback(async()=>{
