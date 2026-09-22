@@ -27,6 +27,7 @@ export default function ResponsiveDashboardEntry(){
       }
     };
     window.addEventListener("m238:mobile-view-change",onChange);
+    if("serviceWorker" in navigator)window.setTimeout(()=>navigator.serviceWorker.register("/m238-sw.js",{scope:"/"}).catch(()=>undefined),1200);
     return()=>{
       media.removeEventListener?.("change",sync);
       window.removeEventListener("m238:mobile-view-change",onChange);
