@@ -150,24 +150,19 @@ export async function GET(req:NextRequest){
   const mine=rows.filter(r=>r.id===staffId),person=staff.find(x=>x.id===staffId);
   if(!person)return NextResponse.json({date,staff,detail:null,source},{headers:{"cache-control":"private, max-age=30"}});
 
-  const productMap=new Map<string,{name:string;lob:string;qty:number;value:number}>(),vasMap=new Map<string,{provider:string;name:string;qty:number;value:number}>(),focusMap=new Map<string,{supplier:string;brandCode:string;brandName:string;name:string;article:string;qty:number;value:number}>();
+  const productMap=new Map<string,{name:string;lob:string;kind:"device"|"accessories";qty:number;value:number;supplier?:string;brandCode?:string;brandName?:string;article?:string}>(),vasMap=new Map<string,{provider:string;name:string;qty:number;value:number}>();
   for(const r of mine){
    const k=kind(r.scheme,r.category,r.type,r.desc);
    if(k==="device"||k==="accessories"){
-    const name=productName(r.type,r.desc,r.category),lob=lobKey(r.category,r.type,r.desc)||"Accessories",key2=lob+"|"+name,x=productMap.get(key2)||{name,lob,qty:0,value:0};x.qty+=r.qty;x.value+=r.amount;productMap.set(key2,x);
-    if(k==="accessories"){
-      const hit=matchFocusSupplier(r.article,r.brand,r.vendor);
-      if(hit){
-        const focusName=s(r.type)||s(r.desc)||s(r.article),fk=hit.supplier+"|"+hit.brandCode+"|"+focusName+"|"+r.article;
-        const fx=focusMap.get(fk)||{...hit,name:focusName,article:r.article,qty:0,value:0};fx.qty+=r.qty;fx.value+=r.amount;focusMap.set(fk,fx);
-      }
-    }
+    const name=productName(r.type,r.desc,r.category),lob=lobKey(r.category,r.type,r.desc)||"Accessories",hit=k==="accessories"?matchFocusSupplier(r.article,r.brand,r.vendor):null,key2=k+"|"+lob+"|"+name+"|"+(r.article||"");
+    const x=productMap.get(key2)||{name,lob,kind:k,qty:0,value:0,...(hit?{...hit,article:r.article}:{article:r.article})};
+    x.qty+=r.qty;x.value+=r.amount;productMap.set(key2,x);
    }
    if(k==="vas"){
     const p=provider(r.article,r.brand,r.vendor,r.desc);if(!p)continue;const name=vasLabel(p,r.article,r.desc),key2=p+"|"+name,x=vasMap.get(key2)||{provider:p,name,qty:0,value:0};x.qty+=r.qty;x.value+=r.amount;vasMap.set(key2,x);
    }
   }
-  const week=mine.map(r=>r.week).find(Boolean)||"",products=[...productMap.values()].sort((a,b)=>b.qty-a.qty||b.value-a.value),focusProducts=[...focusMap.values()].sort((a,b)=>a.supplier.localeCompare(b.supplier)||b.qty-a.qty||b.value-a.value),vas=[...vasMap.values()].sort((a,b)=>b.value-a.value);
-  return NextResponse.json({date,staff,detail:{...person,products,vas,focusProducts,week},source},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
+  const week=mine.map(r=>r.week).find(Boolean)||"",products=[...productMap.values()].sort((a,b)=>a.kind.localeCompare(b.kind)||b.qty-a.qty||b.value-a.value),vas=[...vasMap.values()].sort((a,b)=>b.value-a.value);
+  return NextResponse.json({date,staff,detail:{...person,products,vas,week},source},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Gagal membaca detail staff harian"},{status:500})}
 }
