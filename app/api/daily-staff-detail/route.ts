@@ -11,6 +11,7 @@ const today=()=>new Intl.DateTimeFormat("sv-SE",{year:"numeric",month:"2-digit",
 
 function kind(scheme:string,category:string,type:string,desc:string){
  const sc=up(scheme),text=[up(category),up(type),up(desc)].join(" ");
+ if(/HALO\s*IPHONE|HALOIPHONE|\bHALO\b/.test(text))return"vas";
  if(sc==="VAS")return"vas";
  if(sc==="ACCESSORIES")return"accessories";
  if(sc==="DEVICES"||/IPHONE|IPAD|MACBOOK|APPLE WATCH|AIRPODS/.test(text))return"device";
@@ -70,7 +71,7 @@ function productVariantName(type:string,desc:string,category:string){
 function provider(article:string,brand:string,vendor:string,desc:string){
  const t=[article,brand,vendor,desc].join(" ").toUpperCase();
  if(t.includes("QOALA")||t.includes("PROTEKSI")||/(^|\s)KLA/.test(t))return"qoala";
- if(t.includes("TELKOMSEL")||/(^|\s)TSL(\s|$)/.test(t))return"telkomsel";
+ if(t.includes("TELKOMSEL")||t.includes("HALO IPHONE")||t.includes("HALOIPHONE")||/\bHALO\b/.test(t)||/(^|\s)TSL(\s|$)/.test(t))return"telkomsel";
  if(t.includes("INDOSAT")||/(^|\s)IDT(\s|$)/.test(t))return"indosat";
  if(/(^|\s)XL(\s|$)|XXL/.test(t))return"xl";
  return"";
@@ -167,7 +168,7 @@ export async function GET(req:NextRequest){
     x.qty+=r.qty;x.value+=r.amount;productMap.set(key2,x);
    }
    if(k==="vas"){
-    const p=provider(r.article,r.brand,r.vendor,r.desc);if(!p)continue;const name=vasLabel(p,r.article,r.desc),key2=p+"|"+name,x=vasMap.get(key2)||{provider:p,name,qty:0,value:0};x.qty+=r.qty;x.value+=r.amount;vasMap.set(key2,x);
+    const p=provider(r.article,r.brand,r.vendor,[r.type,r.category,r.desc].filter(Boolean).join(" "));if(!p)continue;const name=vasLabel(p,r.article,r.desc),key2=p+"|"+name,x=vasMap.get(key2)||{provider:p,name,qty:0,value:0};x.qty+=r.qty;x.value+=r.amount;vasMap.set(key2,x);
    }
   }
   const week=mine.map(r=>r.week).find(Boolean)||"";
