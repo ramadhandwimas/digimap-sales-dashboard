@@ -165,7 +165,11 @@ export default function MobileDashboardApp(){
     const started=performance.now();
     const warm=()=>{
       void prefetchJson<DailySummary>(`/api/daily-summary-fast?from=${activeDates.from}&to=${activeDates.to}&mode=${periodMode==="week"&&activeRange?"range":"monthly"}`,180000,{scope:"prefetch-summary"});
-      if(period===periodNow())void prefetchJson<any>(`/api/data?period=${period}`,120000,{scope:"prefetch-daily-sales"});
+      if(period===periodNow()){
+        void prefetchJson<any>(`/api/data?period=${period}`,120000,{scope:"prefetch-daily-sales"});
+        void prefetchJson<Daily>(`/api/daily?date=${today()}`,120000,{scope:"prefetch-daily-roster"});
+        void prefetchJson<Daily>(`/api/daily-fast?date=${today()}`,90000,{scope:"prefetch-daily-fast"});
+      }
       void prefetchJson<{staff:Staff[]}>(periodMode==="week"&&activeRange?`/api/staff-performance-month?period=${activeRange.from.slice(0,7)}&from=${activeRange.from}&to=${activeRange.to}`:`/api/staff-performance-month?period=${period}`,180000,{scope:"prefetch-staff"});
     };
     const id=window.setTimeout(warm,500);
@@ -348,13 +352,13 @@ export default function MobileDashboardApp(){
     if(action==="soh"||action==="bnpl"){setAdminStart(action);setTab("admin");setSheet(null);return}
     if(action==="mobile-view"){window.dispatchEvent(new CustomEvent("m238:mobile-view-change",{detail:"classic"}));return}
     if(action==="activity"){setTab("sales");setSalesMode("summary");return}
-    setMoreKind(action);setMoreData(null);setSheet("more");
-    if(action!=="incentive")return;
-    setMoreBusy(true);
-    try{
-      const from=periodMode==="week"&&activeRange?activeRange.from:`${period}-01`,to=periodMode==="week"&&activeRange?activeRange.to:(period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`);
-      setMoreData(await cachedJson<any>(`/api/incentive-range?from=${from}&to=${to}`,180000));
-    }catch(e){setMoreData({error:e instanceof Error?e.message:"Gagal memuat data"})}
+    setMoreKind(action);setSheet("more");
+    if(action!=="incentive"){setMoreData(null);return}
+    const from=periodMode==="week"&&activeRange?activeRange.from:`${period}-01`,to=periodMode==="week"&&activeRange?activeRange.to:(period===periodNow()?today():`${period}-${String(new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate()).padStart(2,"0")}`),url=`/api/incentive-range?from=${from}&to=${to}`,hit=peekJsonCache<any>(url);
+    if(hit)setMoreData(hit.data);else setMoreData(null);
+    setMoreBusy(!hit);
+    try{setMoreData(await cachedJson<any>(url,180000,false,{scope:"incentive",onRefreshError:()=>setError("Gagal memperbarui data. Menampilkan data terakhir.")}))}
+    catch(e){if(!hit)setMoreData({error:e instanceof Error?e.message:"Gagal memuat data"})}
     finally{setMoreBusy(false)}
   };
 
