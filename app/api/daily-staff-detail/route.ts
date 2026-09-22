@@ -162,7 +162,7 @@ export async function GET(req:NextRequest){
     const p=provider(r.article,r.brand,r.vendor,r.desc);if(!p)continue;const name=vasLabel(p,r.article,r.desc),key2=p+"|"+name,x=vasMap.get(key2)||{provider:p,name,qty:0,value:0};x.qty+=r.qty;x.value+=r.amount;vasMap.set(key2,x);
    }
   }
-  const week=mine.map(r=>r.week).find(Boolean)||"",products=[...productMap.values()].sort((a,b)=>a.kind.localeCompare(b.kind)||b.qty-a.qty||b.value-a.value),vas=[...vasMap.values()].sort((a,b)=>b.value-a.value);
-  return NextResponse.json({date,staff,detail:{...person,products,vas,week},source},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
+  const week=mine.map(r=>r.week).find(Boolean)||"",products=[...productMap.values()].sort((a,b)=>a.kind.localeCompare(b.kind)||b.qty-a.qty||b.value-a.value),vasItems=[...vasMap.values()].sort((a,b)=>b.value-a.value);
+  return NextResponse.json({date,staff,detail:{...person,products,vasItems,week},source},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Gagal membaca detail staff harian"},{status:500})}
 }
