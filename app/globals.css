@@ -57,3 +57,88 @@ button,select{font:inherit}::selection{background:#bcd4ff;color:#0b326f}
 .dark .border-blue-100{border-color:rgb(59 130 246/.28)}
 .dark .ring-blue-100{--tw-ring-color:rgb(59 130 246/.28)}
 .dark input,.dark select{background-color:#172033;color:#e2e8f0}
+
+
+/* M238 Theme Layer — visual only, no KPI/data logic */
+.theme-natalia,
+.theme-bumblebee{
+  color-scheme:dark;
+}
+.theme-natalia{
+  --background:#090b10; --foreground:#f5f7fb; --card:#12151c; --card-foreground:#f8fafc;
+  --popover:#12151c; --popover-foreground:#f8fafc; --primary:#d9233f; --primary-foreground:#fff;
+  --secondary:#1b1427; --secondary-foreground:#e8d8ff; --muted:#181c25; --muted-foreground:#9aa3b2;
+  --accent:#25152f; --accent-foreground:#e8c8ff; --border:#2a2f39; --input:#343a46; --ring:#d9233f;
+  --chart-1:#d9233f; --chart-2:#7c3aed; --chart-3:#f43f5e; --chart-4:#a855f7; --chart-5:#fb7185;
+}
+.theme-bumblebee{
+  --background:#080b0f; --foreground:#f7f8fa; --card:#10161c; --card-foreground:#f8fafc;
+  --popover:#10161c; --popover-foreground:#f8fafc; --primary:#f6c90e; --primary-foreground:#111827;
+  --secondary:#1a2027; --secondary-foreground:#f9e879; --muted:#161c22; --muted-foreground:#a5acb7;
+  --accent:#20251a; --accent-foreground:#fff2a8; --border:#303840; --input:#39424b; --ring:#f6c90e;
+  --chart-1:#f6c90e; --chart-2:#19a7ff; --chart-3:#ffd54a; --chart-4:#f59e0b; --chart-5:#38bdf8;
+}
+.theme-natalia body,
+.theme-bumblebee body{
+  min-height:100vh;
+  background-attachment:fixed;
+}
+.theme-natalia body{
+  background:
+    radial-gradient(circle at 84% 8%,rgb(217 35 63/.16),transparent 26rem),
+    radial-gradient(circle at 18% 24%,rgb(109 60 203/.13),transparent 24rem),
+    linear-gradient(180deg,#090b10 0%,#0b0e14 100%);
+}
+.theme-bumblebee body{
+  background:
+    linear-gradient(135deg,transparent 0 48%,rgb(246 201 14/.045) 48% 52%,transparent 52% 100%),
+    radial-gradient(circle at 88% 10%,rgb(246 201 14/.17),transparent 25rem),
+    radial-gradient(circle at 12% 78%,rgb(25 167 255/.08),transparent 24rem),
+    linear-gradient(180deg,#080b0f 0%,#0b1015 100%);
+}
+.theme-natalia .bg-white,
+.theme-bumblebee .bg-white{background-color:color-mix(in srgb,var(--card) 96%,transparent)}
+.theme-natalia .bg-white\/90,
+.theme-bumblebee .bg-white\/90{background-color:color-mix(in srgb,var(--card) 90%,transparent)}
+.theme-natalia .bg-slate-50,
+.theme-bumblebee .bg-slate-50{background-color:var(--muted)}
+.theme-natalia .text-blue-700,.theme-natalia .text-blue-600{color:#ff4f70}
+.theme-bumblebee .text-blue-700,.theme-bumblebee .text-blue-600{color:#f6c90e}
+.theme-natalia .bg-blue-600{background:#d9233f}
+.theme-bumblebee .bg-blue-600{background:#f6c90e;color:#111827}
+.theme-natalia .bg-blue-50{background-color:rgb(217 35 63/.13)}
+.theme-bumblebee .bg-blue-50{background-color:rgb(246 201 14/.12)}
+.theme-natalia .bg-blue-50\/70{background-color:rgb(217 35 63/.10)}
+.theme-bumblebee .bg-blue-50\/70{background-color:rgb(246 201 14/.09)}
+.theme-natalia .border-blue-100,.theme-natalia .ring-blue-100{border-color:rgb(217 35 63/.28);--tw-ring-color:rgb(217 35 63/.28)}
+.theme-bumblebee .border-blue-100,.theme-bumblebee .ring-blue-100{border-color:rgb(246 201 14/.30);--tw-ring-color:rgb(246 201 14/.30)}
+.theme-natalia .theme-brand{
+  background:linear-gradient(145deg,#e22d4d,#6d3ccb);
+  box-shadow:0 0 0 1px rgb(255 255 255/.06),0 0 26px rgb(217 35 63/.22);
+}
+.theme-bumblebee .theme-brand{
+  background:linear-gradient(145deg,#ffd91a,#e7ad00);
+  color:#111827;
+  box-shadow:0 0 0 1px rgb(255 255 255/.08),0 0 26px rgb(246 201 14/.22);
+}
+.theme-natalia .dashboard-shell section,
+.theme-bumblebee .dashboard-shell section{
+  box-shadow:0 10px 30px rgb(0 0 0/.16);
+}
+.theme-natalia .dashboard-shell section{border-color:rgb(217 35 63/.12)}
+.theme-bumblebee .dashboard-shell section{border-color:rgb(246 201 14/.13)}
+.theme-natalia [role="progressbar"]>div{
+  background:linear-gradient(90deg,#d9233f,#8b5cf6);
+  box-shadow:0 0 14px rgb(217 35 63/.32);
+}
+.theme-bumblebee [role="progressbar"]>div{
+  background:linear-gradient(90deg,#f6c90e,#ffd84d);
+  box-shadow:0 0 14px rgb(246 201 14/.28);
+}
+.theme-picker select{min-width:112px}
+@media (max-width:640px){
+  .theme-picker select{min-width:96px;max-width:112px;padding-left:.65rem;padding-right:.65rem}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
+}
