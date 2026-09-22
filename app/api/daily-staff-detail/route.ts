@@ -60,6 +60,13 @@ function productName(type:string,desc:string,category:string){
  if(/AIRPODS.*4/.test(x))return"AirPods 4";
  return s(type)||s(desc)||s(category)||"Produk";
 }
+function productVariantName(type:string,desc:string,category:string){
+ const base=productName(type,desc,category),raw=[type,desc,category].join(" ").toUpperCase().replace(/\s+/g," ");
+ if(!/^(iPhone|MacBook|iPad|Apple Watch|AirPods)/.test(base))return base;
+ const storage=raw.match(/\b(64|128|256|512)\s*GB\b|\b(1|2|4)\s*TB\b/i);
+ const cap=storage?(storage[1]?storage[1]+"GB":storage[2]+"TB"):"";
+ return cap&&!base.toUpperCase().includes(cap.toUpperCase())?base+" "+cap:base;
+}
 function provider(article:string,brand:string,vendor:string,desc:string){
  const t=[article,brand,vendor,desc].join(" ").toUpperCase();
  if(t.includes("QOALA")||t.includes("PROTEKSI")||/(^|\s)KLA/.test(t))return"qoala";
@@ -154,7 +161,8 @@ export async function GET(req:NextRequest){
   for(const r of mine){
    const k=kind(r.scheme,r.category,r.type,r.desc);
    if(k==="device"||k==="accessories"){
-    const name=productName(r.type,r.desc,r.category),lob=lobKey(r.category,r.type,r.desc)||"Accessories",hit=k==="accessories"?matchFocusSupplier(r.article,r.brand,r.vendor):null,key2=k+"|"+lob+"|"+name+"|"+(r.article||"");
+    const name=k==="device"?productVariantName(r.type,r.desc,r.category):(s(r.type)||s(r.desc)||s(r.article)||"Accessories"),lob=lobKey(r.category,r.type,r.desc)||"Accessories",hit=k==="accessories"?matchFocusSupplier(r.article,r.brand,r.vendor):null;
+    const key2=k==="device"?k+"|"+lob+"|"+name:k+"|"+(r.article||name).toUpperCase();
     const x=productMap.get(key2)||{name,lob,kind:k,qty:0,value:0,...(hit?{...hit,article:r.article}:{article:r.article})};
     x.qty+=r.qty;x.value+=r.amount;productMap.set(key2,x);
    }
