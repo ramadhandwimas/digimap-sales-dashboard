@@ -870,7 +870,46 @@ function FocusProductView({summary,period,periodMode,selectedWeek,activeRange}:{
   </Sheet> </div>
 }
 function DailyDetail({row}:{row:DailyRow}){
- return <div className="m238m-stack"><Card className="m238m-hero compact m238m-sales-hero"><span>{salesDateLabel(row.date)}</span><strong>{money.format(row.totalSales)}</strong><p>Target {money.format(row.target)} • {pct(row.achievementPct)}</p><Progress value={row.achievementPct}/></Card><div className="m238m-grid"><Metric label="Traffic" value={num.format(row.traffic)}/><Metric label="CVR" value={pct(row.cvr)}/><Metric label="Transaction" value={num.format(row.transaction)}/><Metric label="Qty" value={num.format(row.qty)}/><Metric label="UPT" value={row.upt.toFixed(1)}/><Metric label="ATV" value={money.format(row.atv)}/></div><div className="m238m-section-head"><h2>Sales Breakdown</h2></div><div className="m238m-grid"><Metric label="Device" value={money.format(row.breakdown.device)}/><Metric label="ACC" value={money.format(row.breakdown.accessories)}/><Metric label="VAS" value={money.format(row.breakdown.vas)}/></div><div className="m238m-section-head"><h2>LOB Qty</h2></div><div className="m238m-grid"><Metric label="iPhone" value={num.format(row.lob.iphoneQty)}/><Metric label="MacBook" value={num.format(row.lob.macbookQty)}/><Metric label="iPad" value={num.format(row.lob.ipadQty)}/><Metric label="Apple Watch" value={num.format(row.lob.appleWatchQty)}/><Metric label="AirPods" value={num.format(row.lob.airpodsQty)}/></div><div className="m238m-section-head"><h2>VAS Provider</h2></div><div className="m238m-grid"><Metric label="Qoala" value={money.format(row.vas.qoalaValue)} sub={`${num.format(row.vas.qoalaQty)} qty`}/><Metric label="Telkomsel" value={money.format(row.vas.telkomselValue)} sub={`${num.format(row.vas.telkomselQty)} qty`}/><Metric label="XL" value={money.format(row.vas.xlValue)} sub={`${num.format(row.vas.xlQty)} qty`}/><Metric label="Indosat" value={money.format(row.vas.indosatValue)} sub={`${num.format(row.vas.indosatQty)} qty`}/></div></div>
+ const[staffRows,setStaffRows]=useState<any[]>([]),[staffBusy,setStaffBusy]=useState(true),[selectedStaff,setSelectedStaff]=useState<any|null>(null),[detail,setDetail]=useState<any|null>(null),[detailBusy,setDetailBusy]=useState(false);
+ useEffect(()=>{
+  let alive=true;setStaffBusy(true);
+  cachedJson<any>(`/api/daily-staff-detail?date=${row.date}`,30000).then(d=>{if(alive)setStaffRows(d.staff||[])}).catch(()=>alive&&setStaffRows([])).finally(()=>alive&&setStaffBusy(false));
+  return()=>{alive=false};
+ },[row.date]);
+ const openStaff=async(st:any)=>{
+  setSelectedStaff(st);setDetail(null);setDetailBusy(true);
+  try{const d=await cachedJson<any>(`/api/daily-staff-detail?date=${row.date}&staffId=${encodeURIComponent(String(st.id))}`,30000);setDetail(d.detail||null)}
+  catch{setDetail(null)}finally{setDetailBusy(false)}
+ };
+ return <div className="m238m-stack">
+  <Card className="m238m-hero compact m238m-sales-hero"><span>{salesDateLabel(row.date)}</span><strong>{money.format(row.totalSales)}</strong><p>Target {money.format(row.target)} • {pct(row.achievementPct)}</p><Progress value={row.achievementPct}/></Card>
+  <div className="m238m-grid"><Metric label="Traffic" value={num.format(row.traffic)}/><Metric label="CVR" value={pct(row.cvr)}/><Metric label="Transaction" value={num.format(row.transaction)}/><Metric label="Qty" value={num.format(row.qty)}/><Metric label="UPT" value={row.upt.toFixed(1)}/><Metric label="ATV" value={money.format(row.atv)}/></div>
+  <div className="m238m-section-head"><h2>Sales Breakdown</h2></div>
+  <div className="m238m-grid"><Metric label="Device" value={money.format(row.breakdown.device)}/><Metric label="ACC" value={money.format(row.breakdown.accessories)}/><Metric label="VAS" value={money.format(row.breakdown.vas)}/></div>
+  <div className="m238m-section-head"><h2>LOB Qty</h2></div>
+  <div className="m238m-grid"><Metric label="iPhone" value={num.format(row.lob.iphoneQty)}/><Metric label="MacBook" value={num.format(row.lob.macbookQty)}/><Metric label="iPad" value={num.format(row.lob.ipadQty)}/><Metric label="Apple Watch" value={num.format(row.lob.appleWatchQty)}/><Metric label="AirPods" value={num.format(row.lob.airpodsQty)}/></div>
+  <div className="m238m-section-head"><h2>VAS Provider</h2></div>
+  <div className="m238m-grid"><Metric label="Qoala" value={money.format(row.vas.qoalaValue)} sub={`${num.format(row.vas.qoalaQty)} qty`}/><Metric label="Telkomsel" value={money.format(row.vas.telkomselValue)} sub={`${num.format(row.vas.telkomselQty)} qty`}/><Metric label="XL" value={money.format(row.vas.xlValue)} sub={`${num.format(row.vas.xlQty)} qty`}/><Metric label="Indosat" value={money.format(row.vas.indosatValue)} sub={`${num.format(row.vas.indosatQty)} qty`}/></div>
+
+  <div className="m238m-section-head"><h2>Penjualan Staff</h2><span>{staffRows.length} staff</span></div>
+  {staffBusy?<Skeleton/>:staffRows.length?<div className="m238m-list">{staffRows.map((st:any)=><button key={st.id} className="m238m-click-card" onClick={()=>void openStaff(st)}><Card className="m238m-product-detail-row"><div><strong>{shortStaffName(st.name)}</strong><span>Device {money.format(Number(st.device||0))} • ACC {money.format(Number(st.accessories||0))} • VAS {money.format(Number(st.vas||0))}</span></div><div><b>{money.format(Number(st.amount||0))}</b><small>UPT {Number(st.upt||0).toFixed(1)}</small><ChevronRight size={15}/></div></Card></button>)}</div>:<Card className="m238m-empty">Belum ada penjualan staff pada tanggal ini.</Card>}
+
+  <Sheet open={!!selectedStaff} onClose={()=>{setSelectedStaff(null);setDetail(null)}} title={selectedStaff?`${shortStaffName(selectedStaff.name)} • Detail Harian`:"Detail Staff"}>
+   {detailBusy?<Skeleton/>:detail?<div className="m238m-stack">
+    <Card className="m238m-detail-sales"><span>Sales Staff</span><strong>{money.format(Number(detail.amount||0))}</strong><small>{salesDateLabel(row.date)}</small></Card>
+    <div className="m238m-grid"><Metric label="Device" value={money.format(Number(detail.device||0))}/><Metric label="ACC" value={money.format(Number(detail.accessories||0))}/><Metric label="VAS" value={money.format(Number(detail.vas||0))}/><Metric label="Qty" value={num.format(Number(detail.qty||0))}/><Metric label="Invoice" value={num.format(Number(detail.invoices||0))}/><Metric label="UPT" value={Number(detail.upt||0).toFixed(1)}/></div>
+
+    <div className="m238m-section-head"><h2>Produk Terjual</h2><span>{(detail.products||[]).length} item</span></div>
+    {(detail.products||[]).length?<div className="m238m-list">{(detail.products||[]).map((p:any,i:number)=><Card key={p.lob+"-"+p.name+"-"+i} className="m238m-product-detail-row"><div><strong>{p.name}</strong><span>{p.lob}</span></div><div><b>{num.format(Number(p.qty||0))} unit</b><small>{money.format(Number(p.value||0))}</small></div></Card>)}</div>:<Card className="m238m-empty">Belum ada detail produk.</Card>}
+
+    <div className="m238m-section-head"><h2>VAS Detail</h2><span>{(detail.vas||[]).length} item</span></div>
+    {(detail.vas||[]).length?<div className="m238m-list">{(detail.vas||[]).map((v:any,i:number)=><Card key={v.provider+"-"+v.name+"-"+i} className="m238m-product-detail-row"><div><strong>{v.name}</strong><span>{num.format(Number(v.qty||0))} qty</span></div><b>{money.format(Number(v.value||0))}</b></Card>)}</div>:<Card className="m238m-empty">Tidak ada VAS pada staff ini.</Card>}
+
+    <div className="m238m-section-head"><h2>Product Focus Terjual</h2><span>{(detail.focusProducts||[]).length} item</span></div>
+    {(detail.focusProducts||[]).length?<div className="m238m-list">{(detail.focusProducts||[]).map((p:any,i:number)=><Card key={p.name+"-"+i} className="m238m-product-detail-row"><div><strong>{p.name}</strong><span>{p.lob}</span></div><div><b>{num.format(Number(p.qty||0))} unit</b><small>{money.format(Number(p.value||0))}</small></div></Card>)}</div>:<Card className="m238m-empty">Tidak ada Product Focus yang terjual oleh staff ini hari itu.</Card>}
+   </div>:<Card className="m238m-empty">Detail staff belum tersedia.</Card>}
+  </Sheet>
+ </div>
 }
 function StaffRow({staff,onClick,shortName=false}:{staff:Staff;onClick:()=>void;shortName?:boolean;fullMoney?:boolean}){
  const target=staff.targets?.amount||staff.target||0,a=target?staff.amount/target*100:staff.achievement||0,gap=target?Math.max(0,target-staff.amount):staff.gap||0;
