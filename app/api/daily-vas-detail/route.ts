@@ -20,8 +20,8 @@ function provider(article:string,brand:string,vendor:string,desc:string){
 function productLabel(kind:string,article:string,desc:string){
  const a=up(article),d=s(desc);
  if(kind==="qoala"){
-  if(a.startsWith("KLA")&&a.length>=4)return a.slice(0,4);
-  return a||d||"Qoala";
+  const type=d.replace(/^PROTEKSI\s+/i,"").trim();
+  return type?`Qoala ${type}`:"Qoala";
  }
  return d||a||kind.toUpperCase();
 }
