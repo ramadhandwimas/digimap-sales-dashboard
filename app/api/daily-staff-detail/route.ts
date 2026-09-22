@@ -75,6 +75,28 @@ function vasLabel(kind:string,article:string,desc:string){
  }
  return s(desc)||s(article)||kind.toUpperCase();
 }
+
+const FOCUS_SUPPLIERS:Record<string,Array<[string,string,string[]]>>={
+ Hastag:[["KTS","Kate Spade",["KATESPADE","KATE SPADE"]],["MUUM","Mutuall",["MUTUALL","MUTURAL"]],["FLTFT","Flaunt",["FLAUNT"]]],
+ Dino:[["AMN","A.ELEMENTS",["A.ELEMENTS","AELEMENTS"]],["GE4","Gear4",["GEAR4"]],["MOK","MICROPACK",["MICROPACK"]],["MPI","MOPHIE",["MOPHIE"]],["ZAG","ZAAG",["ZAAG","ZAGG"]],["IFG","Ifrog",["IFROG","IFROGZ"]],["VBT","Verbatim",["VERBATIM"]],["AAV","AVANA",["AVANA"]],["INC","INCASE",["INCASE"]],["INP","INCIPIO",["INCIPIO"]],["ITS","ITSKIN",["ITSKIN"]],["RIV","RIVACASE",["RIVACASE"]],["TCA","TUCANO",["TUCANO"]],["UAQ","UAG",["UAG"]],["CRR","Care",["CARE"]]],
+ IGA:[["ADP","ADIDAS",["ADIDAS"]],["ECS","ELEMENCASE",["ELEMENCASE"]],["GSH","GOSH",["GOSH"]],["INT","INTELIAMOR",["INTELIAMOR"]],["LFP","LIFEPROOF",["LIFEPROOF"]],["MDN","Master Dynamic",["MASTER DYNAMIC"]],["NIP","PINIT",["PINIT"]],["OTB","OTTERBOX",["OTTERBOX"]],["RPC","Raptic",["RAPTIC"]],["SD0","Sudio",["SUDIO"]],["ST1","STM",["STM"]],["RSQ","Rollingsquare",["ROLLING SQUARE","ROLLINGSQUARE"]],["ARU","ARC Pulse",["ARC PULSE"]],["RAT","Kratos",["KRATOS"]]]
+};
+const norm=(v:string)=>up(v).replace(/[^A-Z0-9]/g,"");
+function supplierHint(vendor:string){
+ const v=up(vendor);
+ if(v.includes("HASTAG"))return"Hastag";
+ if(v==="DINO"||v.includes(" DINO"))return"Dino";
+ if(v==="IGA"||v.includes(" IGA"))return"IGA";
+ return"";
+}
+function matchFocusSupplier(article:string,brand:string,vendor:string){
+ const a=norm(article),b=norm(brand),preferred=supplierHint(vendor),order=preferred?[preferred,...Object.keys(FOCUS_SUPPLIERS).filter(x=>x!==preferred)]:Object.keys(FOCUS_SUPPLIERS);
+ for(const supplier of order)for(const[code,name,aliases]of FOCUS_SUPPLIERS[supplier]){
+  const cc=norm(code),aliasMatch=!!b&&aliases.some(x=>b===norm(x)||b.includes(norm(x))||norm(x).includes(b)),codeMatch=!!a&&a.startsWith(cc);
+  if((codeMatch&&(!b||aliasMatch))||aliasMatch)return{supplier,brandCode:code,brandName:name};
+ }
+ return null;
+}
 function focusCell(v:unknown){return productName(s(v),s(v),s(v))}
 function weekKey(v:unknown){const m=s(v).match(/Week\s*(\d+)\s*Q(\d+)/i);return m?"Week "+Number(m[1])+" Q"+Number(m[2]):""}
 function activeFocusFromConfig(rows:unknown[][],week:string){
@@ -96,8 +118,8 @@ export async function GET(req:NextRequest){
   const first=await getSheetRanges(ID,["'RAW SalesPerson'!AB2:AB65536"],email,key),dates=first[0]||[],matches:number[]=[];
   dates.forEach((r,i)=>{if(iso(r[0])===date)matches.push(i+2)});
   if(!matches.length)return NextResponse.json({date,staff:[],detail:null,source:"RAW SalesPerson"},{headers:{"cache-control":"private, max-age=30"}});
-  const range="'RAW SalesPerson'!AB"+matches[0]+":AR"+matches[matches.length-1],ranges=staffId?[range,"Config!A1:AZ120"]:[range];
-  const data=await getSheetRanges(ID,ranges,email,key),raw=data[0]||[],config=data[1]||[];
+  const range="'RAW SalesPerson'!AB"+matches[0]+":AR"+matches[matches.length-1],ranges=[range];
+  const data=await getSheetRanges(ID,ranges,email,key),raw=data[0]||[];
   const rows=raw.map(r=>({date:iso(r[0]),id:s(r[1]),name:s(r[2]),invoice:s(r[3]),article:s(r[4]),desc:s(r[5]),type:s(r[6]),qty:n(r[7]),amount:n(r[8]),category:s(r[9]),brand:s(r[10]),scheme:s(r[12]),vendor:s(r[13]),week:weekKey(r[14]),store:up(r[15])})).filter(r=>r.date===date&&(!r.store||r.store===STORE)&&up(r.scheme)!=="VOUCHER");
 
   const staffMap=new Map<string,{id:string;name:string;amount:number;device:number;accessories:number;vas:number;qty:number;invoices:Set<string>;lob:Record<string,number>}>();
@@ -114,17 +136,24 @@ export async function GET(req:NextRequest){
   const mine=rows.filter(r=>r.id===staffId),person=staff.find(x=>x.id===staffId);
   if(!person)return NextResponse.json({date,staff,detail:null,source:"RAW SalesPerson"},{headers:{"cache-control":"private, max-age=30"}});
 
-  const productMap=new Map<string,{name:string;lob:string;qty:number;value:number}>(),vasMap=new Map<string,{provider:string;name:string;qty:number;value:number}>();
+  const productMap=new Map<string,{name:string;lob:string;qty:number;value:number}>(),vasMap=new Map<string,{provider:string;name:string;qty:number;value:number}>(),focusMap=new Map<string,{supplier:string;brandCode:string;brandName:string;name:string;article:string;qty:number;value:number}>();
   for(const r of mine){
    const k=kind(r.scheme,r.category,r.type,r.desc);
    if(k==="device"||k==="accessories"){
     const name=productName(r.type,r.desc,r.category),lob=lobKey(r.category,r.type,r.desc)||"Accessories",key2=lob+"|"+name,x=productMap.get(key2)||{name,lob,qty:0,value:0};x.qty+=r.qty;x.value+=r.amount;productMap.set(key2,x);
+    if(k==="accessories"){
+      const hit=matchFocusSupplier(r.article,r.brand,r.vendor);
+      if(hit){
+        const focusName=s(r.type)||s(r.desc)||s(r.article),fk=hit.supplier+"|"+hit.brandCode+"|"+focusName+"|"+r.article;
+        const fx=focusMap.get(fk)||{...hit,name:focusName,article:r.article,qty:0,value:0};fx.qty+=r.qty;fx.value+=r.amount;focusMap.set(fk,fx);
+      }
+    }
    }
    if(k==="vas"){
     const p=provider(r.article,r.brand,r.vendor,r.desc);if(!p)continue;const name=vasLabel(p,r.article,r.desc),key2=p+"|"+name,x=vasMap.get(key2)||{provider:p,name,qty:0,value:0};x.qty+=r.qty;x.value+=r.amount;vasMap.set(key2,x);
    }
   }
-  const week=mine.map(r=>r.week).find(Boolean)||"",focusNames=activeFocusFromConfig(config,week),products=[...productMap.values()].sort((a,b)=>b.qty-a.qty||b.value-a.value),focusProducts=products.filter(p=>focusNames.includes(p.name)),vas=[...vasMap.values()].sort((a,b)=>b.value-a.value);
-  return NextResponse.json({date,staff,detail:{...person,products,vas,focusProducts,focusNames,week},source:"RAW SalesPerson + Config"},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
+  const week=mine.map(r=>r.week).find(Boolean)||"",products=[...productMap.values()].sort((a,b)=>b.qty-a.qty||b.value-a.value),focusProducts=[...focusMap.values()].sort((a,b)=>a.supplier.localeCompare(b.supplier)||b.qty-a.qty||b.value-a.value),vas=[...vasMap.values()].sort((a,b)=>b.value-a.value);
+  return NextResponse.json({date,staff,detail:{...person,products,vas,focusProducts,week},source:"RAW SalesPerson"},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Gagal membaca detail staff harian"},{status:500})}
 }
