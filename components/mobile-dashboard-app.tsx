@@ -906,7 +906,7 @@ function DailyDetail({row}:{row:DailyRow}){
     {(detail.vas||[]).length?<div className="m238m-list">{(detail.vas||[]).map((v:any,i:number)=><Card key={v.provider+"-"+v.name+"-"+i} className="m238m-product-detail-row"><div><strong>{v.name}</strong><span>{num.format(Number(v.qty||0))} qty</span></div><b>{money.format(Number(v.value||0))}</b></Card>)}</div>:<Card className="m238m-empty">Tidak ada VAS pada staff ini.</Card>}
 
     <div className="m238m-section-head"><h2>Product Focus Terjual</h2><span>{(detail.focusProducts||[]).length} item</span></div>
-    {(detail.focusProducts||[]).length?<div className="m238m-list">{(detail.focusProducts||[]).map((p:any,i:number)=><Card key={p.name+"-"+i} className="m238m-product-detail-row"><div><strong>{p.name}</strong><span>{p.lob}</span></div><div><b>{num.format(Number(p.qty||0))} unit</b><small>{money.format(Number(p.value||0))}</small></div></Card>)}</div>:<Card className="m238m-empty">Tidak ada Product Focus yang terjual oleh staff ini hari itu.</Card>}
+    {(detail.focusProducts||[]).length?<div className="m238m-list">{(detail.focusProducts||[]).map((p:any,i:number)=><Card key={(p.supplier||"focus")+"-"+(p.article||p.name)+"-"+i} className="m238m-product-detail-row"><div><strong>{p.name}</strong><span>{p.supplier}{p.brandName?` • ${p.brandName}`:""}{p.article?` • ${p.article}`:""}</span></div><div><b>{num.format(Number(p.qty||0))} qty</b><small>{money.format(Number(p.value||0))}</small></div></Card>)}</div>:<Card className="m238m-empty">Tidak ada Product Focus Third Party yang terjual oleh staff ini hari itu.</Card>}
    </div>:<Card className="m238m-empty">Detail staff belum tersedia.</Card>}
   </Sheet>
  </div>
