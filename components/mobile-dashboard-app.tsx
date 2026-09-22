@@ -574,8 +574,28 @@ function HomeSalesDetail({overview,traffic,summary}:{overview:Overview;traffic:T
  </div>
 }
 
+function DailyCategorySheet({date,kind,open,onClose}:{date:string;kind:"device"|"accessories"|"vas"|null;open:boolean;onClose:()=>void}){
+ const[data,setData]=useState<any>(null),[busy,setBusy]=useState(false);
+ useEffect(()=>{
+  if(!open||!kind||!date)return;
+  let alive=true;setBusy(true);setData(null);
+  cachedJson<any>(`/api/daily-staff-detail?date=${date}&detail=1`,30000).then(d=>{if(alive)setData(d.detail||null)}).catch(()=>alive&&setData(null)).finally(()=>alive&&setBusy(false));
+  return()=>{alive=false};
+ },[open,kind,date]);
+ const title=kind==="device"?"Device Terjual":kind==="accessories"?"Accessories Terjual":"VAS Terjual";
+ const products=(data?.products||[]) as any[],items=kind==="vas"?(data?.vasItems||[]):products.filter((p:any)=>p.kind===kind);
+ return <Sheet open={open} onClose={onClose} title={`${title} • ${date}`}>
+  {busy?<Skeleton/>:data?<div className="m238m-stack">
+   <Card className="m238m-detail-sales"><span>{title}</span><strong>{kind==="device"?money.format(Number(data.device||0)):kind==="accessories"?money.format(Number(data.accessories||0)):money.format(Number(data.vas||0))}</strong><small>{salesDateLabel(date)}</small></Card>
+   <div className="m238m-list">
+    {kind==="vas"?(items.length?items.map((v:any,i:number)=><Card key={v.provider+"-"+v.name+"-"+i} className="m238m-product-detail-row"><div><strong>{v.name}</strong><span>{v.provider==="qoala"?"Qoala":"Provider"} • {num.format(Number(v.qty||0))} qty</span></div><b>{money.format(Number(v.value||0))}</b></Card>):<Card className="m238m-empty">Tidak ada VAS yang terjual.</Card>):(items.length?items.map((p:any,i:number)=><Card key={(p.article||p.name)+"-"+i} className="m238m-product-detail-row"><div><strong>{p.name}</strong><span>{kind==="device"?<>{p.focus?<b className="m238m-focus-badge">Focus</b>:null}{p.lob?<> {p.lob}</>:null}</>:<>{p.supplier?<b className="m238m-focus-badge">{p.supplier}</b>:null}{p.brandName?` ${p.brandName}`:""}{p.article?` • ${p.article}`:""}</>}</span></div><div><b>{num.format(Number(p.qty||0))} {kind==="device"?"unit":"qty"}</b><small>{money.format(Number(p.value||0))}</small></div></Card>):<Card className="m238m-empty">Tidak ada {kind==="device"?"device":"accessories"} yang terjual.</Card>)}
+   </div>
+  </div>:<Card className="m238m-empty">Detail penjualan belum tersedia.</Card>}
+ </Sheet>
+}
+
 function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,activeRange,onStaff,onDay,onShare}:{mode:SalesMode;setMode:(v:SalesMode)=>void;daily:Daily|null;summary:DailySummary|null;period:string;periodMode:"month"|"week";selectedWeek:string;activeRange:{from:string;to:string}|null;onStaff:(s:Staff)=>void;onDay:(r:DailyRow)=>void;onShare:()=>void}){
- const[showTodayDetail,setShowTodayDetail]=useState(false),[dailyLobPick,setDailyLobPick]=useState<{label:string;key:"iphone"|"mac"|"ipad"|"watch"|"airpods"}|null>(null),[dailyVasPick,setDailyVasPick]=useState<{label:string;key:"qoala"|"telkomsel"|"xl"|"indosat"}|null>(null),[dailyDrillStaff,setDailyDrillStaff]=useState<Staff|null>(null),[dailyProductDetail,setDailyProductDetail]=useState<any>(null),[dailyVasDetail,setDailyVasDetail]=useState<any>(null),[dailyProductBusy,setDailyProductBusy]=useState(false),[dailyVasBusy,setDailyVasBusy]=useState(false);
+ const[showTodayDetail,setShowTodayDetail]=useState(false),[categoryPick,setCategoryPick]=useState<"device"|"accessories"|"vas"|null>(null),[dailyLobPick,setDailyLobPick]=useState<{label:string;key:"iphone"|"mac"|"ipad"|"watch"|"airpods"}|null>(null),[dailyVasPick,setDailyVasPick]=useState<{label:string;key:"qoala"|"telkomsel"|"xl"|"indosat"}|null>(null),[dailyDrillStaff,setDailyDrillStaff]=useState<Staff|null>(null),[dailyProductDetail,setDailyProductDetail]=useState<any>(null),[dailyVasDetail,setDailyVasDetail]=useState<any>(null),[dailyProductBusy,setDailyProductBusy]=useState(false),[dailyVasBusy,setDailyVasBusy]=useState(false);
  const ach=daily?.total.target?daily.total.amount/daily.total.target*100:0,device=daily?Math.max(0,daily.total.amount-daily.total.accessories-daily.total.vas):0,dailyGap=daily?Math.max(0,daily.total.target-daily.total.amount):0,accAch=daily?.total.accTarget?daily.total.accessories/daily.total.accTarget*100:0,vasAch=daily?.total.vasTarget?daily.total.vas/daily.total.vasTarget*100:0;
  const dailyLob=daily?.staff.reduce((a,s)=>({iphone:a.iphone+Number(s.lob?.iphone||0),mac:a.mac+Number(s.lob?.mac||0),ipad:a.ipad+Number(s.lob?.ipad||0),watch:a.watch+Number(s.lob?.watch||0),airpods:a.airpods+Number(s.lob?.airpods||0)}),{iphone:0,mac:0,ipad:0,watch:0,airpods:0})||{iphone:0,mac:0,ipad:0,watch:0,airpods:0};
  const dailyVas=daily?.staff.reduce((a,s)=>({qoalaQty:a.qoalaQty+Number(s.vasDetail?.qoala?.qty||0),qoalaValue:a.qoalaValue+Number(s.vasDetail?.qoala?.value||0),telkomselQty:a.telkomselQty+Number(s.vasDetail?.telkomsel?.qty||0),telkomselValue:a.telkomselValue+Number(s.vasDetail?.telkomsel?.value||0),xlQty:a.xlQty+Number(s.vasDetail?.xl?.qty||0),xlValue:a.xlValue+Number(s.vasDetail?.xl?.value||0),indosatQty:a.indosatQty+Number(s.vasDetail?.indosat?.qty||0),indosatValue:a.indosatValue+Number(s.vasDetail?.indosat?.value||0)}),{qoalaQty:0,qoalaValue:0,telkomselQty:0,telkomselValue:0,xlQty:0,xlValue:0,indosatQty:0,indosatValue:0})||{qoalaQty:0,qoalaValue:0,telkomselQty:0,telkomselValue:0,xlQty:0,xlValue:0,indosatQty:0,indosatValue:0};
@@ -619,9 +639,9 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
 
     <div className="m238m-section-head"><h2>Breakdown Hari Ini</h2><span>Value</span></div>
     <div className="m238m-sales-breakdown">
-      <Card className="m238m-sales-breakdown-card"><span>Device</span><strong>{money.format(device)}</strong><small>Actual sales</small></Card>
-      <Card className="m238m-sales-breakdown-card"><span>ACC</span><strong>{money.format(daily.total.accessories)}</strong><small>{pct(accAch)} dari target</small></Card>
-      <Card className="m238m-sales-breakdown-card"><span>VAS</span><strong>{money.format(daily.total.vas)}</strong><small>{pct(vasAch)} dari target</small></Card>
+      <button className="m238m-click-card" onClick={()=>setCategoryPick("device")}><Card className="m238m-sales-breakdown-card m238m-tappable-card"><span>Device</span><strong>{money.format(device)}</strong><small>Tap untuk detail</small></Card></button>
+      <button className="m238m-click-card" onClick={()=>setCategoryPick("accessories")}><Card className="m238m-sales-breakdown-card m238m-tappable-card"><span>ACC</span><strong>{money.format(daily.total.accessories)}</strong><small>{pct(accAch)} • Tap detail</small></Card></button>
+      <button className="m238m-click-card" onClick={()=>setCategoryPick("vas")}><Card className="m238m-sales-breakdown-card m238m-tappable-card"><span>VAS</span><strong>{money.format(daily.total.vas)}</strong><small>{pct(vasAch)} • Tap detail</small></Card></button>
     </div>
 
     <div className="m238m-sales-ops-grid">
@@ -653,9 +673,9 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
 
     <div className="m238m-section-head"><h2>Sales Breakdown</h2><span>Hari ini</span></div>
     <div className="m238m-grid">
-      <Metric label="Device" value={money.format(device)}/>
-      <Metric label="ACC" value={money.format(daily.total.accessories)} sub={`Target ${money.format(daily.total.accTarget)}`}/>
-      <Metric label="VAS" value={money.format(daily.total.vas)} sub={`Target ${money.format(daily.total.vasTarget)}`}/>
+      <button className="m238m-metric-button" onClick={()=>setCategoryPick("device")}><Card className="m238m-metric m238m-drill-card"><span>Device</span><strong>{money.format(device)}</strong><small>Tap detail</small><ChevronRight size={15}/></Card></button>
+      <button className="m238m-metric-button" onClick={()=>setCategoryPick("accessories")}><Card className="m238m-metric m238m-drill-card"><span>ACC</span><strong>{money.format(daily.total.accessories)}</strong><small>Tap detail</small><ChevronRight size={15}/></Card></button>
+      <button className="m238m-metric-button" onClick={()=>setCategoryPick("vas")}><Card className="m238m-metric m238m-drill-card"><span>VAS</span><strong>{money.format(daily.total.vas)}</strong><small>Tap detail</small><ChevronRight size={15}/></Card></button>
       <Metric label="Invoice" value={num.format(daily.total.invoices)}/>
       <Metric label="Qty" value={num.format(daily.total.qty)}/>
       <Metric label="UPT" value={daily.total.upt.toFixed(1)}/>
@@ -671,6 +691,8 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
     <div className="m238m-list">{daily.staff.filter(x=>x.amount>0).sort((a,b)=>b.amount-a.amount).map((staff,i)=><Card key={staff.id} className="m238m-staff-breakdown-row"><span>#{i+1}</span><strong>{shortStaffName(staff.name)}</strong><b>{money.format(staff.amount)}</b></Card>)}</div>
    </div>:null}
   </Sheet>
+
+  <DailyCategorySheet date={daily?.date||today()} kind={categoryPick} open={!!categoryPick} onClose={()=>setCategoryPick(null)}/>
 
   <Sheet open={!!dailyLobPick} onClose={()=>{setDailyLobPick(null);setDailyDrillStaff(null)}} title={dailyLobPick?`${dailyLobPick.label} • Hari Ini`:"Detail LOB"}>
    {dailyLobPick?<div className="m238m-stack">
@@ -870,7 +892,7 @@ function FocusProductView({summary,period,periodMode,selectedWeek,activeRange}:{
   </Sheet> </div>
 }
 function DailyDetail({row}:{row:DailyRow}){
- const[staffRows,setStaffRows]=useState<any[]>([]),[staffBusy,setStaffBusy]=useState(true),[selectedStaff,setSelectedStaff]=useState<any|null>(null),[detail,setDetail]=useState<any|null>(null),[detailBusy,setDetailBusy]=useState(false);
+ const[staffRows,setStaffRows]=useState<any[]>([]),[staffBusy,setStaffBusy]=useState(true),[selectedStaff,setSelectedStaff]=useState<any|null>(null),[detail,setDetail]=useState<any|null>(null),[detailBusy,setDetailBusy]=useState(false),[categoryPick,setCategoryPick]=useState<"device"|"accessories"|"vas"|null>(null);
  useEffect(()=>{
   let alive=true;setStaffBusy(true);
   cachedJson<any>(`/api/daily-staff-detail?date=${row.date}`,30000).then(d=>{if(alive)setStaffRows(d.staff||[])}).catch(()=>alive&&setStaffRows([])).finally(()=>alive&&setStaffBusy(false));
@@ -884,8 +906,12 @@ function DailyDetail({row}:{row:DailyRow}){
  return <div className="m238m-stack">
   <Card className="m238m-hero compact m238m-sales-hero"><span>{salesDateLabel(row.date)}</span><strong>{money.format(row.totalSales)}</strong><p>Target {money.format(row.target)} • {pct(row.achievementPct)}</p><Progress value={row.achievementPct}/></Card>
   <div className="m238m-grid"><Metric label="Traffic" value={num.format(row.traffic)}/><Metric label="CVR" value={pct(row.cvr)}/><Metric label="Transaction" value={num.format(row.transaction)}/><Metric label="Qty" value={num.format(row.qty)}/><Metric label="UPT" value={row.upt.toFixed(1)}/><Metric label="ATV" value={money.format(row.atv)}/></div>
-  <div className="m238m-section-head"><h2>Sales Breakdown</h2></div>
-  <div className="m238m-grid"><Metric label="Device" value={money.format(row.breakdown.device)}/><Metric label="ACC" value={money.format(row.breakdown.accessories)}/><Metric label="VAS" value={money.format(row.breakdown.vas)}/></div>
+  <div className="m238m-section-head"><h2>Sales Breakdown</h2><span>Tap untuk detail</span></div>
+  <div className="m238m-grid">
+   <button className="m238m-metric-button" onClick={()=>setCategoryPick("device")}><Card className="m238m-metric m238m-drill-card"><span>Device</span><strong>{money.format(row.breakdown.device)}</strong><small>Tap detail</small><ChevronRight size={15}/></Card></button>
+   <button className="m238m-metric-button" onClick={()=>setCategoryPick("accessories")}><Card className="m238m-metric m238m-drill-card"><span>ACC</span><strong>{money.format(row.breakdown.accessories)}</strong><small>Tap detail</small><ChevronRight size={15}/></Card></button>
+   <button className="m238m-metric-button" onClick={()=>setCategoryPick("vas")}><Card className="m238m-metric m238m-drill-card"><span>VAS</span><strong>{money.format(row.breakdown.vas)}</strong><small>Tap detail</small><ChevronRight size={15}/></Card></button>
+  </div>
   <div className="m238m-section-head"><h2>LOB Qty</h2></div>
   <div className="m238m-grid"><Metric label="iPhone" value={num.format(row.lob.iphoneQty)}/><Metric label="MacBook" value={num.format(row.lob.macbookQty)}/><Metric label="iPad" value={num.format(row.lob.ipadQty)}/><Metric label="Apple Watch" value={num.format(row.lob.appleWatchQty)}/><Metric label="AirPods" value={num.format(row.lob.airpodsQty)}/></div>
   <div className="m238m-section-head"><h2>VAS Provider</h2></div>
@@ -893,6 +919,8 @@ function DailyDetail({row}:{row:DailyRow}){
 
   <div className="m238m-section-head"><h2>Penjualan Staff</h2><span>{staffRows.length} staff</span></div>
   {staffBusy?<Skeleton/>:staffRows.length?<div className="m238m-list">{staffRows.map((st:any)=><button key={st.id} className="m238m-click-card" onClick={()=>void openStaff(st)}><Card className="m238m-product-detail-row"><div><strong>{shortStaffName(st.name)}</strong><span>Device {money.format(Number(st.device||0))} • ACC {money.format(Number(st.accessories||0))} • VAS {money.format(Number(st.vas||0))}</span></div><div><b>{money.format(Number(st.amount||0))}</b><small>UPT {Number(st.upt||0).toFixed(1)}</small><ChevronRight size={15}/></div></Card></button>)}</div>:<Card className="m238m-empty">Belum ada penjualan staff pada tanggal ini.</Card>}
+
+  <DailyCategorySheet date={row.date} kind={categoryPick} open={!!categoryPick} onClose={()=>setCategoryPick(null)}/>
 
   <Sheet open={!!selectedStaff} onClose={()=>{setSelectedStaff(null);setDetail(null)}} title={selectedStaff?`${shortStaffName(selectedStaff.name)} • Detail Harian`:"Detail Staff"}>
    {detailBusy?<Skeleton/>:detail?<div className="m238m-stack">
