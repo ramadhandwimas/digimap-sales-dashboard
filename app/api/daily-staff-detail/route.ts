@@ -2,7 +2,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getSheetRanges} from "@/lib/google-sheets";
 
-const ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0",STORE="M238";
+const ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0",MASTER_ID="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk",STORE="M238";
 const s=(v:unknown)=>String(v??"").replace(/\u00a0/g," ").trim();
 const up=(v:unknown)=>s(v).toUpperCase();
 const n=(v:unknown)=>typeof v==="number"?v:Number(String(v??"").replace(/\./g,"").replace(/,/g,".").replace(/[^0-9.-]/g,""))||0;
@@ -121,7 +121,7 @@ function activeFocusFromConfig(rows:unknown[][],week:string){
 export async function GET(req:NextRequest){
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
  if(!email||!key)return NextResponse.json({error:"Koneksi Google Sheets belum tersedia"},{status:503});
- const date=req.nextUrl.searchParams.get("date")||today(),staffId=s(req.nextUrl.searchParams.get("staffId"));
+ const date=req.nextUrl.searchParams.get("date")||today(),staffId=s(req.nextUrl.searchParams.get("staffId")),detailMode=req.nextUrl.searchParams.get("detail")==="1";
  try{
   const first=await getSheetRanges(ID,["'RAW SalesPerson'!AB2:AB65536"],email,key),dates=first[0]||[],matches:number[]=[];
   dates.forEach((r,i)=>{if(iso(r[0])===date)matches.push(i+2)});
@@ -145,10 +145,10 @@ export async function GET(req:NextRequest){
    const lob=lobKey(r.category,r.type,r.desc);if(lob)st.lob[lob]=(st.lob[lob]||0)+r.qty;
   }
   const staff=[...staffMap.values()].map(st=>({id:st.id,name:st.name,amount:st.amount,device:st.device,accessories:st.accessories,vas:st.vas,qty:st.qty,invoices:st.invoices.size,upt:st.invoices.size?st.qty/st.invoices.size:0,lob:st.lob})).sort((a,b)=>b.amount-a.amount);
-  if(!staffId)return NextResponse.json({date,staff,detail:null,source},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
+  if(!staffId&&!detailMode)return NextResponse.json({date,staff,detail:null,source},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
 
-  const mine=rows.filter(r=>r.id===staffId),person=staff.find(x=>x.id===staffId);
-  if(!person)return NextResponse.json({date,staff,detail:null,source},{headers:{"cache-control":"private, max-age=30"}});
+  const mine=staffId?rows.filter(r=>r.id===staffId):rows,person=staffId?staff.find(x=>x.id===staffId):null;
+  if(staffId&&!person)return NextResponse.json({date,staff,detail:null,source},{headers:{"cache-control":"private, max-age=30"}});
 
   const productMap=new Map<string,{name:string;lob:string;kind:"device"|"accessories";qty:number;value:number;supplier?:string;brandCode?:string;brandName?:string;article?:string}>(),vasMap=new Map<string,{provider:string;name:string;qty:number;value:number}>();
   for(const r of mine){
@@ -162,7 +162,27 @@ export async function GET(req:NextRequest){
     const p=provider(r.article,r.brand,r.vendor,r.desc);if(!p)continue;const name=vasLabel(p,r.article,r.desc),key2=p+"|"+name,x=vasMap.get(key2)||{provider:p,name,qty:0,value:0};x.qty+=r.qty;x.value+=r.amount;vasMap.set(key2,x);
    }
   }
-  const week=mine.map(r=>r.week).find(Boolean)||"",products=[...productMap.values()].sort((a,b)=>a.kind.localeCompare(b.kind)||b.qty-a.qty||b.value-a.value),vasItems=[...vasMap.values()].sort((a,b)=>b.value-a.value);
-  return NextResponse.json({date,staff,detail:{...person,products,vasItems,week},source},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
+  const week=mine.map(r=>r.week).find(Boolean)||"";
+  let focusNames:string[]=[];
+  if(detailMode||staffId){
+    try{
+      const[cfg,manual]=await Promise.all([
+        getSheetRanges(ID,["Config!A1:AZ120"],email,key).then(x=>x[0]||[]),
+        getSheetRanges(MASTER_ID,["'Dashboard Manual Target'!A2:E"],email,key).then(x=>x[0]||[])
+      ]);
+      const scopeWeek=week,month=date.slice(0,7),latest=new Map<string,number>();
+      for(const r of manual){
+        const scope=s(r[0]),period=s(r[1]),focus=s(r[2]),target=n(r[3]);
+        if(!focus.startsWith("lob-focus-active::"))continue;
+        if((scope==="weekly"&&period===scopeWeek)||(scope==="monthly"&&period===month))latest.set(focus.slice("lob-focus-active::".length),target);
+      }
+      focusNames=[...latest.entries()].filter(([,v])=>v>0).map(([k])=>k);
+      if(!focusNames.length)focusNames=activeFocusFromConfig(cfg,week);
+    }catch{}
+  }
+  const products=[...productMap.values()].map(p=>({...p,focus:p.kind==="device"&&focusNames.includes(p.name)})).sort((a,b)=>a.kind.localeCompare(b.kind)||b.qty-a.qty||b.value-a.value),vasItems=[...vasMap.values()].sort((a,b)=>b.value-a.value);
+  const base=person||{id:"STORE",name:"M238",amount:staff.reduce((a,x)=>a+x.amount,0),device:staff.reduce((a,x)=>a+x.device,0),accessories:staff.reduce((a,x)=>a+x.accessories,0),vas:staff.reduce((a,x)=>a+x.vas,0),qty:staff.reduce((a,x)=>a+x.qty,0),invoices:staff.reduce((a,x)=>a+x.invoices,0),upt:0,lob:{}};
+  if(!person&&base.invoices)base.upt=base.qty/base.invoices;
+  return NextResponse.json({date,staff,detail:{...base,products,vasItems,week,focusNames},source},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Gagal membaca detail staff harian"},{status:500})}
 }
