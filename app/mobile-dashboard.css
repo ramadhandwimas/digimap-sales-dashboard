@@ -564,3 +564,19 @@
  background:color-mix(in srgb,#34c759 14%,var(--m-surface));
  color:#248a3d
 }
+/* Inline Product Focus supplier badge */
+.m238m-focus-badge{
+ display:inline-flex;
+ align-items:center;
+ padding:2px 6px;
+ margin-right:4px;
+ border-radius:999px;
+ font-size:9px;
+ line-height:1.2;
+ font-weight:800;
+ letter-spacing:.01em;
+ color:var(--m-blue);
+ background:color-mix(in srgb,var(--m-blue) 12%,var(--m-surface));
+ border:1px solid color-mix(in srgb,var(--m-blue) 22%,transparent);
+ vertical-align:1px;
+}
