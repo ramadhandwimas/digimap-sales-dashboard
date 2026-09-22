@@ -125,9 +125,15 @@ export async function GET(req:NextRequest){
  try{
   const first=await getSheetRanges(ID,["'RAW SalesPerson'!AB2:AB65536"],email,key),dates=first[0]||[],matches:number[]=[];
   dates.forEach((r,i)=>{if(iso(r[0])===date)matches.push(i+2)});
-  if(!matches.length)return NextResponse.json({date,staff:[],detail:null,source:"RAW SalesPerson"},{headers:{"cache-control":"private, max-age=30"}});
-  const range="'RAW SalesPerson'!AB"+matches[0]+":AR"+matches[matches.length-1],ranges=[range];
-  const data=await getSheetRanges(ID,ranges,email,key),raw=data[0]||[];
+  let raw:unknown[][]=[],source="RAW SalesPerson";
+  if(matches.length){
+   const range="'RAW SalesPerson'!AB"+matches[0]+":AR"+matches[matches.length-1];
+   const data=await getSheetRanges(ID,[range],email,key);raw=data[0]||[];
+  }else{
+   const data=await getSheetRanges(ID,["'Data Copas'!A2:S50000"],email,key);
+   raw=(data[0]||[]).filter(r=>iso(r[0])===date&&up(r[15])===STORE);
+   source="Data Copas fallback";
+  }
   const rows=raw.map(r=>({date:iso(r[0]),id:s(r[1]),name:s(r[2]),invoice:s(r[3]),article:s(r[4]),desc:s(r[5]),type:s(r[6]),qty:n(r[7]),amount:n(r[8]),category:s(r[9]),brand:s(r[10]),scheme:s(r[12]),vendor:s(r[13]),week:weekKey(r[14]),store:up(r[15])})).filter(r=>r.date===date&&(!r.store||r.store===STORE)&&up(r.scheme)!=="VOUCHER");
 
   const staffMap=new Map<string,{id:string;name:string;amount:number;device:number;accessories:number;vas:number;qty:number;invoices:Set<string>;lob:Record<string,number>}>();
@@ -139,10 +145,10 @@ export async function GET(req:NextRequest){
    const lob=lobKey(r.category,r.type,r.desc);if(lob)st.lob[lob]=(st.lob[lob]||0)+r.qty;
   }
   const staff=[...staffMap.values()].map(st=>({id:st.id,name:st.name,amount:st.amount,device:st.device,accessories:st.accessories,vas:st.vas,qty:st.qty,invoices:st.invoices.size,upt:st.invoices.size?st.qty/st.invoices.size:0,lob:st.lob})).sort((a,b)=>b.amount-a.amount);
-  if(!staffId)return NextResponse.json({date,staff,detail:null,source:"RAW SalesPerson"},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
+  if(!staffId)return NextResponse.json({date,staff,detail:null,source},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
 
   const mine=rows.filter(r=>r.id===staffId),person=staff.find(x=>x.id===staffId);
-  if(!person)return NextResponse.json({date,staff,detail:null,source:"RAW SalesPerson"},{headers:{"cache-control":"private, max-age=30"}});
+  if(!person)return NextResponse.json({date,staff,detail:null,source},{headers:{"cache-control":"private, max-age=30"}});
 
   const productMap=new Map<string,{name:string;lob:string;qty:number;value:number}>(),vasMap=new Map<string,{provider:string;name:string;qty:number;value:number}>(),focusMap=new Map<string,{supplier:string;brandCode:string;brandName:string;name:string;article:string;qty:number;value:number}>();
   for(const r of mine){
@@ -162,6 +168,6 @@ export async function GET(req:NextRequest){
    }
   }
   const week=mine.map(r=>r.week).find(Boolean)||"",products=[...productMap.values()].sort((a,b)=>b.qty-a.qty||b.value-a.value),focusProducts=[...focusMap.values()].sort((a,b)=>a.supplier.localeCompare(b.supplier)||b.qty-a.qty||b.value-a.value),vas=[...vasMap.values()].sort((a,b)=>b.value-a.value);
-  return NextResponse.json({date,staff,detail:{...person,products,vas,focusProducts,week},source:"RAW SalesPerson"},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
+  return NextResponse.json({date,staff,detail:{...person,products,vas,focusProducts,week},source},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Gagal membaca detail staff harian"},{status:500})}
 }
