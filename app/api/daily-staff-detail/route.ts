@@ -114,6 +114,10 @@ function matchFocusSupplier(article:string,brand:string,vendor:string){
  return null;
 }
 function focusCell(v:unknown){return productName(s(v),s(v),s(v))}
+function isRequiredDeviceFocus(name:string){
+ const x=up(name);
+ return x.startsWith("IPHONE 15")||x.startsWith("APPLE WATCH")||x.startsWith("IPAD 11")||x.startsWith("MACBOOK NEO");
+}
 function weekKey(v:unknown){const m=s(v).match(/Week\s*(\d+)\s*Q(\d+)/i);return m?"Week "+Number(m[1])+" Q"+Number(m[2]):""}
 function activeFocusFromConfig(rows:unknown[][],week:string){
  const weekLocs:Array<{r:number;c:number}>=[],productLocs:Array<{r:number;c:number;name:string}>=[];
@@ -189,7 +193,7 @@ export async function GET(req:NextRequest){
       if(!focusNames.length)focusNames=activeFocusFromConfig(cfg,week);
     }catch{}
   }
-  const products=[...productMap.values()].map(p=>({...p,focus:p.kind==="device"&&focusNames.includes(p.name)})).sort((a,b)=>a.kind.localeCompare(b.kind)||b.qty-a.qty||b.value-a.value),vasItems=[...vasMap.values()].sort((a,b)=>b.value-a.value);
+  const products=[...productMap.values()].map(p=>({...p,focus:p.kind==="device"&&(isRequiredDeviceFocus(p.name)||focusNames.includes(p.name))})).sort((a,b)=>a.kind.localeCompare(b.kind)||b.qty-a.qty||b.value-a.value),vasItems=[...vasMap.values()].sort((a,b)=>b.value-a.value);
   const base=person||{id:"STORE",name:"M238",amount:staff.reduce((a,x)=>a+x.amount,0),device:staff.reduce((a,x)=>a+x.device,0),accessories:staff.reduce((a,x)=>a+x.accessories,0),vas:staff.reduce((a,x)=>a+x.vas,0),qty:staff.reduce((a,x)=>a+x.qty,0),invoices:staff.reduce((a,x)=>a+x.invoices,0),upt:0,lob:{}};
   if(!person&&base.invoices)base.upt=base.qty/base.invoices;
   return NextResponse.json({date,staff,detail:{...base,products,vasItems,week,focusNames},source},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
