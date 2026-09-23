@@ -66,7 +66,10 @@ function mockStore(){
     batches.push(requests);
     for(const request of requests){
      if(request.updateCells)rows.push(...request.updateCells.rows.map(row=>row.values.map(v=>v.userEnteredValue.stringValue)));
-     if(request.deleteDeveloperMetadata){const owner=request.deleteDeveloperMetadata.dataFilter.developerMetadataLookup.metadataValue;if(metadata?.metadataValue===owner)metadata=undefined}
+     if(request.deleteDeveloperMetadata){
+      const lookup=request.deleteDeveloperMetadata.dataFilter.developerMetadataLookup;
+      if(metadata?.metadataId===lookup.metadataId)metadata=undefined;
+     }
     }
    }
    return Response.json({});
@@ -99,7 +102,7 @@ test("writes only new A–G cells, preserves formatting and stores formula-looki
  assert.equal(batch.find(r=>r.copyPaste).copyPaste.pasteType,"PASTE_FORMAT");
  assert.equal(write.rows[0].values[2].userEnteredValue.stringValue,'=HYPERLINK("https://example.com")');
  assert.equal(batch[0].appendDimension.length,1);
- assert.ok(batch.at(-1).deleteDeveloperMetadata);
+ assert.deepEqual(batch.at(-1),{deleteDeveloperMetadata:{dataFilter:{developerMetadataLookup:{metadataId:238150926}}}});
 });
 
 test("route rejects unauthenticated calls before reading any upload",async()=>{

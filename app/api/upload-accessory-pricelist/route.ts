@@ -41,6 +41,7 @@ export async function POST(request:NextRequest){
   lock=undefined;
   return json({ok:true,...result,imported:plan.rows.length,message:`${plan.rows.length} aksesoris baru berhasil ditambahkan ke Master.`});
  }catch(error){
+  if(error instanceof ImportError&&error.safeToUnlock)commitAttempted=false;
   return json({error:error instanceof ImportError?error.message:commitAttempted?"Hasil simpan belum terkonfirmasi. Cek pricelist ulang sebelum mencoba lagi.":error instanceof Error?error.message:"Pricelist gagal diproses."},error instanceof ImportError?error.status:500);
  }finally{
   // After an ambiguous write, retain the lock instead of racing a still-running

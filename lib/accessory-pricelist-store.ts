@@ -7,7 +7,9 @@ const LOCK_ID=238150926;
 const LOCK_KEY="m238_accessory_pricelist_lock";
 type Credentials={email:string;key:string};
 type Properties={sheetId:number;title:string;gridProperties:{rowCount:number;columnCount:number}};
-export class ImportError extends Error { constructor(message:string,public status=500){super(message)} }
+export class ImportError extends Error {
+ constructor(message:string,public status=500,public safeToUnlock=false){super(message)}
+}
 const batch=(credentials:Credentials,requests:unknown[])=>sheetRequestOnce(MASTER_ID,":batchUpdate",credentials.email,credentials.key,{method:"POST",body:JSON.stringify({requests})});
 
 export async function readMaster(credentials:Credentials){
@@ -41,7 +43,9 @@ export async function acquireImportLock(credentials:Credentials){
  return owner;
 }
 
-function unlockRequest(owner:string){return{deleteDeveloperMetadata:{dataFilter:{developerMetadataLookup:{metadataId:LOCK_ID,metadataKey:LOCK_KEY,metadataValue:owner}}}}}
+// metadataId is unique within the spreadsheet. Google documents deletion by ID
+// alone; combining it with key/value caused batchUpdate to reject the request.
+function unlockRequest(_owner:string){return{deleteDeveloperMetadata:{dataFilter:{developerMetadataLookup:{metadataId:LOCK_ID}}}}}
 export async function releaseImportLock(credentials:Credentials,owner:string){
  const response=await batch(credentials,[unlockRequest(owner)]);
  if(!response.ok)throw new ImportError("Kunci impor belum dapat dilepas. Hubungi pengelola dashboard.");
@@ -67,5 +71,12 @@ export function buildMasterWrite(sheet:Properties,master:unknown[][],rows:Master
 export async function commitMaster(credentials:Credentials,snapshot:Awaited<ReturnType<typeof readMaster>>,rows:MasterRow[],owner:string){
  // Write and unlock are one atomic Sheets batch. Never retry this mutation.
  const response=await batch(credentials,buildMasterWrite(snapshot.sheet,snapshot.master,rows,owner));
- if(!response.ok)throw new ImportError(`Simpan belum terkonfirmasi (${response.status}). Cek pricelist ulang untuk membaca kondisi Master terbaru.`,503);
+ if(!response.ok){
+  const detail=(await response.text().catch(()=>"")).slice(0,1000);
+  console.error("Accessory pricelist batchUpdate failed",{status:response.status,detail});
+  // A 4xx response is a definitive validation rejection: Sheets applies none
+  // of the atomic batch, so it is safe to release the separately-created lock.
+  const safeToUnlock=response.status>=400&&response.status<500;
+  throw new ImportError(`Simpan ditolak Google Sheets (${response.status}). Silakan cek pricelist lagi.`,503,safeToUnlock);
+ }
 }
