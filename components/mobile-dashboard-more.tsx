@@ -3,9 +3,9 @@ import {useState} from "react";
 import {Box,ChevronLeft,ChevronRight,Clock3,CreditCard,LogOut,MessageCircle,Settings,Type,Users,WalletCards} from "lucide-react";
 
 type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono"|"webhero"|"mecha"|"alliance"|"natalia"|"bumblebee";
-type MotionPreset="minimal"|"smooth"|"dynamic";
-type MotionStyle="clean"|"ios-spring"|"glass-flow"|"playful-bounce"|"executive"|"stagger"|"blur"|"elastic";
-type FontPreset="system"|"rounded"|"compact";
+type MotionPreset="instant"|"minimal"|"smooth"|"dynamic"|"cinematic";
+type MotionStyle="clean"|"ios-spring"|"glass-flow"|"playful-bounce"|"executive"|"stagger"|"blur"|"elastic"|"fade-up"|"zoom-soft"|"slide-flow"|"float";
+type FontPreset="system"|"rounded"|"compact"|"modern"|"editorial"|"tech"|"soft"|"bold"|"mono";
 
 export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMotion,onMotionStyle,onFont,onAction}:{theme:ThemePreset;motion:MotionPreset;motionStyle:MotionStyle;font:FontPreset;onTheme:(v:ThemePreset)=>void;onMotion:(v:MotionPreset)=>void;onMotionStyle:(v:MotionStyle)=>void;onFont:(v:FontPreset)=>void;onAction:(action:string)=>void}){
  const[screen,setScreen]=useState<"menu"|"settings">("menu");
@@ -26,9 +26,9 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
   {id:"natalia",name:"Natalia",desc:"Dark assassin • crimson purple"},
   {id:"bumblebee",name:"Bumblebee",desc:"Yellow mecha • electric blue"}
  ];
- const motionLabels:Record<MotionPreset,string>={minimal:"Minimal",smooth:"Smooth",dynamic:"Dynamic"};
- const styleLabels:Record<MotionStyle,string>={clean:"Clean","ios-spring":"iOS Spring","glass-flow":"Glass Flow","playful-bounce":"Bounce",executive:"Executive",stagger:"Stagger",blur:"Blur",elastic:"Elastic"};
- const fontLabels:Record<FontPreset,string>={system:"System / iOS",rounded:"Rounded",compact:"Compact"};
+ const motionLabels:Record<MotionPreset,string>={instant:"Instant",minimal:"Minimal",smooth:"Smooth",dynamic:"Dynamic",cinematic:"Cinematic"};
+ const styleLabels:Record<MotionStyle,string>={clean:"Clean","ios-spring":"iOS Spring","glass-flow":"Glass Flow","playful-bounce":"Bounce",executive:"Executive",stagger:"Stagger",blur:"Blur",elastic:"Elastic","fade-up":"Fade Up","zoom-soft":"Soft Zoom","slide-flow":"Slide Flow",float:"Float"};
+ const fontLabels:Record<FontPreset,string>={system:"System / iOS",rounded:"Rounded",compact:"Compact",modern:"Modern",editorial:"Editorial",tech:"Tech",soft:"Soft",bold:"Bold Display",mono:"Mono"};
  const activeTheme=themes.find(t=>t.id===theme);
  const toggle=(panel:"theme"|"speed"|"style"|"font")=>setOpenPanel(v=>v===panel?null:panel);
 
@@ -57,11 +57,11 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
     </div>
     <div className={"m238m-appearance-panel "+(openPanel==="speed"?"open":"")}>
      <button className="m238m-appearance-summary" onClick={()=>toggle("speed")}><span><strong>Animation Speed</strong><small>{motionLabels[motion]}</small></span><ChevronRight size={18}/></button>
-     {openPanel==="speed"?<div className="m238m-appearance-body"><div className="m238m-motion-pills">{([["minimal","Minimal"],["smooth","Smooth"],["dynamic","Dynamic"]] as [MotionPreset,string][]).map(([id,label])=><button key={id} className={motion===id?"active":""} onClick={()=>{onMotion(id);setOpenPanel(null)}}>{label}</button>)}</div></div>:null}
+     {openPanel==="speed"?<div className="m238m-appearance-body"><div className="m238m-motion-pills">{([["instant","Instant"],["minimal","Minimal"],["smooth","Smooth"],["dynamic","Dynamic"],["cinematic","Cinematic"]] as [MotionPreset,string][]).map(([id,label])=><button key={id} className={motion===id?"active":""} onClick={()=>{onMotion(id);setOpenPanel(null)}}>{label}</button>)}</div></div>:null}
     </div>
     <div className={"m238m-appearance-panel "+(openPanel==="style"?"open":"")}>
      <button className="m238m-appearance-summary" onClick={()=>toggle("style")}><span><strong>Animation Style</strong><small>{styleLabels[motionStyle]}</small></span><ChevronRight size={18}/></button>
-     {openPanel==="style"?<div className="m238m-appearance-body"><div className="m238m-motion-style-grid">{([["clean","Clean"],["ios-spring","iOS Spring"],["glass-flow","Glass Flow"],["playful-bounce","Bounce"],["executive","Executive"],["stagger","Stagger"],["blur","Blur"],["elastic","Elastic"]] as [MotionStyle,string][]).map(([id,label])=><button key={id} className={motionStyle===id?"active":""} onClick={()=>{onMotionStyle(id);setOpenPanel(null)}}>{label}</button>)}</div></div>:null}
+     {openPanel==="style"?<div className="m238m-appearance-body"><div className="m238m-motion-style-grid">{([["clean","Clean"],["ios-spring","iOS Spring"],["glass-flow","Glass Flow"],["playful-bounce","Bounce"],["executive","Executive"],["stagger","Stagger"],["blur","Blur"],["elastic","Elastic"],["fade-up","Fade Up"],["zoom-soft","Soft Zoom"],["slide-flow","Slide Flow"],["float","Float"]] as [MotionStyle,string][]).map(([id,label])=><button key={id} className={motionStyle===id?"active":""} onClick={()=>{onMotionStyle(id);setOpenPanel(null)}}>{label}</button>)}</div></div>:null}
     </div>
    </div>
   </section>
@@ -70,7 +70,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
    <h3>Font</h3>
    <div className={"m238m-appearance-panel "+(openPanel==="font"?"open":"")}>
     <button className="m238m-appearance-summary" onClick={()=>toggle("font")}><span><strong>Font Style</strong><small>{fontLabels[font]}</small></span><ChevronRight size={18}/></button>
-    {openPanel==="font"?<div className="m238m-appearance-body"><div className="m238m-font-options">{(["system","rounded","compact"] as FontPreset[]).map(id=><button key={id} className={font===id?"active":""} onClick={()=>{onFont(id);setOpenPanel(null)}}><Type size={16}/><span>{fontLabels[id]}</span>{font===id?<b>✓</b>:null}</button>)}</div></div>:null}
+    {openPanel==="font"?<div className="m238m-appearance-body"><div className="m238m-font-options">{(["system","rounded","compact","modern","editorial","tech","soft","bold","mono"] as FontPreset[]).map(id=><button key={id} className={font===id?"active":""} onClick={()=>{onFont(id);setOpenPanel(null)}}><Type size={16}/><span>{fontLabels[id]}</span>{font===id?<b>✓</b>:null}</button>)}</div></div>:null}
    </div>
   </section>
 
