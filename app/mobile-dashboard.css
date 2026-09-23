@@ -580,3 +580,118 @@
  border:1px solid color-mix(in srgb,var(--m-blue) 22%,transparent);
  vertical-align:1px;
 }
+
+
+/* ===== Natalia — stealth assassin ===== */
+.m238m-app[data-theme="natalia"]{
+  --m-bg:#090b10;
+  --m-surface:#12151c;
+  --m-surface2:#191e27;
+  --m-text:#f5f7fb;
+  --m-secondary:#9aa3b2;
+  --m-blue:#ff4164;
+  --m-line:rgba(255,255,255,.075);
+  --m-radius:20px;
+  --m-hero-a:#7d1730;
+  --m-hero-b:#4b267f;
+  background:
+    radial-gradient(circle at 86% 3%,rgba(217,35,63,.20),transparent 30%),
+    radial-gradient(circle at 8% 24%,rgba(109,60,203,.17),transparent 31%),
+    linear-gradient(180deg,#090b10,#0c0f15);
+}
+.m238m-app[data-theme="natalia"] .m238m-header,
+.m238m-app[data-theme="natalia"] .m238m-bottom{
+  background:color-mix(in srgb,#090b10 90%,transparent);
+}
+.m238m-app[data-theme="natalia"] .m238m-header-actions button,
+.m238m-app[data-theme="natalia"] .m238m-period,
+.m238m-app[data-theme="natalia"] .m238m-card{
+  background:color-mix(in srgb,var(--m-surface) 96%,transparent);
+  border-color:rgba(217,35,63,.13);
+}
+.m238m-app[data-theme="natalia"] .m238m-hero{
+  background:
+    radial-gradient(circle at 84% -4%,rgba(255,92,122,.32),transparent 34%),
+    linear-gradient(145deg,#801831,#4b267f);
+  box-shadow:0 14px 34px rgba(217,35,63,.20);
+}
+.m238m-app[data-theme="natalia"] .m238m-progress i{
+  background:linear-gradient(90deg,#d9233f,#8b5cf6);
+}
+.m238m-app[data-theme="natalia"] .m238m-bottom button.active{
+  color:#ff4f70;
+}
+.m238m-app[data-theme="natalia"] .m238m-liquid-bubble{
+  background:linear-gradient(145deg,#d9233f,#6d3ccb);
+  box-shadow:0 5px 18px rgba(217,35,63,.22);
+}
+
+/* ===== Bumblebee — yellow mecha ===== */
+.m238m-app[data-theme="bumblebee"]{
+  --m-bg:#080b0f;
+  --m-surface:#10161c;
+  --m-surface2:#182028;
+  --m-text:#f7f8fa;
+  --m-secondary:#a5acb7;
+  --m-blue:#f6c90e;
+  --m-line:rgba(255,255,255,.08);
+  --m-radius:18px;
+  --m-hero-a:#735d08;
+  --m-hero-b:#1b252e;
+  background:
+    linear-gradient(135deg,transparent 0 47.5%,rgba(246,201,14,.04) 47.5% 52.5%,transparent 52.5%),
+    radial-gradient(circle at 88% 2%,rgba(246,201,14,.20),transparent 31%),
+    radial-gradient(circle at 4% 72%,rgba(25,167,255,.08),transparent 26%),
+    linear-gradient(180deg,#080b0f,#0c1116);
+}
+.m238m-app[data-theme="bumblebee"] .m238m-header,
+.m238m-app[data-theme="bumblebee"] .m238m-bottom{
+  background:color-mix(in srgb,#080b0f 90%,transparent);
+}
+.m238m-app[data-theme="bumblebee"] .m238m-header-actions button,
+.m238m-app[data-theme="bumblebee"] .m238m-period,
+.m238m-app[data-theme="bumblebee"] .m238m-card{
+  background:color-mix(in srgb,var(--m-surface) 96%,transparent);
+  border-color:rgba(246,201,14,.14);
+}
+.m238m-app[data-theme="bumblebee"] .m238m-hero{
+  background:
+    radial-gradient(circle at 88% -8%,rgba(25,167,255,.22),transparent 32%),
+    linear-gradient(145deg,#735d08,#1a232b);
+  box-shadow:0 14px 34px rgba(246,201,14,.16);
+}
+.m238m-app[data-theme="bumblebee"] .m238m-progress i{
+  background:linear-gradient(90deg,#f6c90e,#ffd84d);
+}
+.m238m-app[data-theme="bumblebee"] .m238m-bottom button.active{
+  color:#f6c90e;
+}
+.m238m-app[data-theme="bumblebee"] .m238m-liquid-bubble{
+  background:linear-gradient(145deg,#f6c90e,#d39f00);
+  box-shadow:0 5px 18px rgba(246,201,14,.20);
+}
+
+/* Theme picker previews */
+.m238m-theme-choice[data-preview="natalia"] .m238m-theme-preview{
+  background:linear-gradient(145deg,#1a0d16,#4b267f)!important;
+}
+.m238m-theme-choice[data-preview="natalia"] .m238m-theme-preview span{
+  background:linear-gradient(135deg,#d9233f,#6d3ccb)!important;
+}
+.m238m-theme-choice[data-preview="natalia"] .m238m-theme-preview b,
+.m238m-theme-choice[data-preview="natalia"] .m238m-theme-preview em{
+  background:#151820!important;
+  border:1px solid rgba(255,255,255,.08);
+}
+.m238m-theme-choice[data-preview="bumblebee"] .m238m-theme-preview{
+  background:linear-gradient(145deg,#0e1216,#282d31)!important;
+}
+.m238m-theme-choice[data-preview="bumblebee"] .m238m-theme-preview span{
+  background:linear-gradient(135deg,#f6c90e,#20262b)!important;
+}
+.m238m-theme-choice[data-preview="bumblebee"] .m238m-theme-preview b{
+  background:#f6c90e!important;
+}
+.m238m-theme-choice[data-preview="bumblebee"] .m238m-theme-preview em{
+  background:#19a7ff!important;
+}
