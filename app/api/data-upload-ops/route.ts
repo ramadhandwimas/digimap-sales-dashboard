@@ -7,22 +7,59 @@ const RAW_SHEET="Raw Salesperson";
 const COPAS_SHEET="Data Copas";
 
 const text=(v:unknown)=>String(v??"").trim();
+
+function cleanCell(v:unknown){
+ if(v===null||v===undefined)return"";
+ if(typeof v==="number")return Number.isFinite(v)?v:"";
+ const s=String(v)
+  .replace(/\u00A0/g," ")
+  .replace(/[\u200B-\u200D\u2060\uFEFF]/g,"")
+  .replace(/[\t\r\n\f\v]+/g," ")
+  .replace(/ +/g," ")
+  .trim();
+ return s;
+}
+function cleanRow(row:unknown[]){
+ return Array.from({length:17},(_,i)=>cleanCell(row[i]));
+}
 function isoDate(v:unknown){
  if(typeof v==="number")return new Date(Date.UTC(1899,11,30)+v*86400000).toISOString().slice(0,10);
- const x=text(v);
+ const x=String(cleanCell(v));
  if(/^\d{4}-\d{2}-\d{2}/.test(x))return x.slice(0,10);
  const m=x.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
  if(m)return`${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
  return"";
 }
-function normalized(v:unknown){
- if(v===null||v===undefined)return"";
- if(typeof v==="number")return Number.isFinite(v)?String(v):"";
- const s=text(v).replace(/\s+/g," ");
- const d=isoDate(s);return d||s.toUpperCase();
+function keyPart(v:unknown){
+ const x=cleanCell(v);
+ if(typeof x==="number")return Number.isFinite(x)?String(x):"";
+ return String(x).toUpperCase();
 }
-function signature(row:unknown[]){return JSON.stringify(Array.from({length:17},(_,i)=>normalized(row[i])))}
-function hasData(row:unknown[]){return row.some(v=>text(v)!=="")}
+function numericKeyPart(v:unknown){
+ const x=cleanCell(v);
+ if(typeof x==="number")return Number.isFinite(x)?String(x):"";
+ const raw=String(x);
+ if(!raw)return"";
+ const n=Number(raw.replace(/,/g,""));
+ return Number.isFinite(n)?String(n):raw.toUpperCase();
+}
+function fingerprint(row:unknown[]){
+ return[
+  isoDate(row[0]),
+  keyPart(row[1]),
+  keyPart(row[3]),
+  keyPart(row[4]),
+  numericKeyPart(row[7]),
+  numericKeyPart(row[8])
+ ].join("|");
+}
+function hasData(row:unknown[]){return row.some(v=>String(cleanCell(v))!=="")}
+function validCutoffRow(row:unknown[]){
+ if(!hasData(row))return false;
+ if(!isoDate(row[0]))return false;
+ const required=[keyPart(row[1]),keyPart(row[3]),keyPart(row[4]),numericKeyPart(row[7]),numericKeyPart(row[8])];
+ return required.every(Boolean);
+}
 function creds(){const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)throw new Error("Google Sheets belum dikonfigurasi");return{email,key}}
 
 export async function GET(req:NextRequest){
@@ -47,14 +84,61 @@ export async function POST(req:NextRequest){
    if(mode==="date"&&!/^\d{4}-\d{2}-\d{2}$/.test(value))return NextResponse.json({error:"Tanggal cut off tidak valid"},{status:400});
    if(mode==="month"&&!/^\d{4}-\d{2}$/.test(value))return NextResponse.json({error:"Periode cut off tidak valid"},{status:400});
    const[source,destination]=await getSheetRanges(DASHBOARD_ID,[`'${RAW_SHEET}'!AB2:AR50000`,`'${COPAS_SHEET}'!A2:Q50000`],email,key);
-   const selected=(source||[]).filter(r=>{if(!hasData(r))return false;const d=isoDate(r[0]);return mode==="date"?d===value:d.startsWith(value)}).map(r=>Array.from({length:17},(_,i)=>r[i]??""));
-   if(!selected.length)return NextResponse.json({error:"Tidak ada data RAW Salesperson pada periode yang dipilih."},{status:404});
-   const existing=new Set((destination||[]).filter(hasData).map(signature));
-   const duplicateCount=selected.filter(r=>existing.has(signature(r))).length;
-   if(duplicateCount>0)return NextResponse.json({error:"Cut Off Gagal — data ini sudah pernah tersalin ke Data Copas.",duplicateCount},{status:409});
-   await appendSheetValues(DASHBOARD_ID,`'${COPAS_SHEET}'!A:Q`,selected,email,key);
-   let cacheWarning="";try{const summary=await buildSummaryFromRawValues(selected,{email,key},"CUT_OFF");await upsertDailySummaryRows(summary,{email,key})}catch(error){cacheWarning=error instanceof Error?error.message:"Daily Summary cache gagal diperbarui";console.warn("M238_PERF",{op:"cutoff-summary-cache",error:cacheWarning})}
-   return NextResponse.json({ok:true,rows:selected.length,dailySummaryCache:{ok:!cacheWarning,warning:cacheWarning||null},message:`Cut Off Berhasil — ${selected.length} baris ditambahkan.`});
+   const cleanedSource=(source||[]).map(cleanRow);
+   let ignoredCount=0;
+   const selected:unknown[][]=[];
+   for(const row of cleanedSource){
+    if(!hasData(row)){ignoredCount++;continue}
+    const d=isoDate(row[0]);
+    const inPeriod=mode==="date"?d===value:d.startsWith(value);
+    if(!inPeriod)continue;
+    if(!validCutoffRow(row)){ignoredCount++;continue}
+    selected.push(row);
+   }
+   if(!selected.length){
+    return NextResponse.json({ok:true,rows:0,newCount:0,skippedCount:0,ignoredCount,message:"Tidak ada data penjualan baru. Seluruh data sudah pernah di-Cut Off atau tidak ada data valid pada periode yang dipilih."},{headers:{"cache-control":"no-store"}});
+   }
+
+   const seen=new Set<string>();
+   for(const row of destination||[]){
+    const cleaned=cleanRow(row);
+    if(validCutoffRow(cleaned))seen.add(fingerprint(cleaned));
+   }
+
+   const newRows:unknown[][]=[];
+   let skippedCount=0;
+   for(const row of selected){
+    const keyValue=fingerprint(row);
+    if(seen.has(keyValue)){skippedCount++;continue}
+    seen.add(keyValue);
+    newRows.push(row);
+   }
+
+   const dryRun=body.dryRun===true;
+   if(!newRows.length){
+    return NextResponse.json({
+     ok:true,dryRun,rows:0,newCount:0,skippedCount,ignoredCount,
+     message:"Tidak ada data penjualan baru. Seluruh data sudah pernah di-Cut Off."
+    },{headers:{"cache-control":"no-store"}});
+   }
+
+   if(!dryRun)await appendSheetValues(DASHBOARD_ID,`'${COPAS_SHEET}'!A:Q`,newRows,email,key,"USER_ENTERED");
+   let cacheWarning="";
+   if(!dryRun){
+    try{
+     const summary=await buildSummaryFromRawValues(newRows,{email,key},"CUT_OFF");
+     await upsertDailySummaryRows(summary,{email,key})
+    }catch(error){
+     cacheWarning=error instanceof Error?error.message:"Daily Summary cache gagal diperbarui";
+     console.warn("M238_PERF",{op:"cutoff-summary-cache",error:cacheWarning})
+    }
+   }
+   const message=`Cut Off berhasil: ${newRows.length} data baru ditambahkan, ${skippedCount} data lama dilewati, dan ${ignoredCount} baris kosong/tidak valid diabaikan.`;
+   return NextResponse.json({
+    ok:true,dryRun,rows:newRows.length,newCount:newRows.length,skippedCount,ignoredCount,
+    dailySummaryCache:{ok:dryRun||!cacheWarning,warning:cacheWarning||null},
+    message:dryRun?`Simulasi: ${newRows.length} data baru siap ditambahkan, ${skippedCount} data lama akan dilewati, dan ${ignoredCount} baris kosong/tidak valid akan diabaikan.`:message
+   },{headers:{"cache-control":"no-store"}});
   }
   if(action==="exchange"){
    const invoice=text(body.invoice),noExchange=text(body.noExchange);
