@@ -179,8 +179,9 @@ function WeeklyView({weekly,summary}:{weekly:Weekly;summary:DailySummary|null}){
  </>
 }
 
-function TouchLineChart({rows}:{rows:NonNullable<DailySummary["dailyRows"]>}){
- const[selected,setSelected]=useState(Math.max(0,rows.length-1)),w=320,h=94,pad=10,max=Math.max(...rows.map(r=>r.totalSales),1),min=Math.min(...rows.map(r=>r.totalSales),0),span=Math.max(1,max-min);
+type DailyTrendRow={date:string;day?:string;totalSales:number};
+function TouchLineChart({rows}:{rows:DailyTrendRow[]}){
+ const[selected,setSelected]=useState(Math.max(0,rows.length-1)),w=320,h=94,pad=10,max=Math.max(...rows.map((r:DailyTrendRow)=>r.totalSales),1),min=Math.min(...rows.map((r:DailyTrendRow)=>r.totalSales),0),span=Math.max(1,max-min);
  const pts=rows.map((r,i)=>({x:pad+(rows.length===1?0:(i/(rows.length-1))*(w-pad*2)),y:h-pad-((r.totalSales-min)/span)*(h-pad*2),row:r}));
  const path=pts.map((p,i)=>`${i?"L":"M"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
  const active=pts[selected]||pts[0];
