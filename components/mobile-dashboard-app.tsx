@@ -19,7 +19,7 @@ type SalesMode="daily"|"summary"|"lob";
 type FocusMode="lob"|"vas"|"third";
 type ReportMode="weekly"|"feedback"|"cx";
 type HomeMode="monthly"|"ytd"|"compare";
-type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono"|"webhero"|"mecha"|"alliance";
+type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono"|"webhero"|"mecha"|"alliance"|"natalia"|"bumblebee";
 type MotionPreset="minimal"|"smooth"|"dynamic";
 type MotionStyle="clean"|"ios-spring"|"glass-flow"|"playful-bounce"|"executive"|"stagger"|"blur"|"elastic";
 type FontPreset="system"|"rounded"|"compact";
@@ -187,14 +187,14 @@ export default function MobileDashboardApp(){
   useEffect(()=>{
     const saved=(localStorage.getItem("m238-theme-preset")||"") as ThemePreset;
     const legacyDark=localStorage.getItem("m238-theme")==="dark";
-    const initial:ThemePreset=["classic","midnight","aurora","playful","graphite","sunset","forest","mono","webhero","mecha","alliance"].includes(saved)?saved:(legacyDark?"midnight":"classic");
+    const initial:ThemePreset=["classic","midnight","aurora","playful","graphite","sunset","forest","mono","webhero","mecha","alliance","natalia","bumblebee"].includes(saved)?saved:(legacyDark?"midnight":"classic");
     const motion=(localStorage.getItem("m238-motion-preset")||"smooth") as MotionPreset;
     const style=(localStorage.getItem("m238-motion-style")||"clean") as MotionStyle;
     const font=(localStorage.getItem("m238-font-preset")||"system") as FontPreset;
     setThemePreset(initial);setMotionPreset(["minimal","smooth","dynamic"].includes(motion)?motion:"smooth");
     setMotionStyle(["clean","ios-spring","glass-flow","playful-bounce","executive","stagger","blur","elastic"].includes(style)?style:"clean");
     setFontPreset(["system","rounded","compact"].includes(font)?font:"system");
-    const isDark=initial==="midnight"||initial==="graphite"||initial==="mono"||initial==="webhero"||initial==="mecha"||initial==="alliance";setDark(isDark);document.documentElement.classList.toggle("dark",isDark);
+    const isDark=initial==="midnight"||initial==="graphite"||initial==="mono"||initial==="webhero"||initial==="mecha"||initial==="alliance"||initial==="natalia"||initial==="bumblebee";setDark(isDark);document.documentElement.classList.toggle("dark",isDark);
   },[]);
 
   const loadDaily=useCallback(async(force=false)=>{
@@ -314,9 +314,9 @@ export default function MobileDashboardApp(){
   };
   const applyTheme=(preset:ThemePreset)=>{
     setThemePreset(preset);localStorage.setItem("m238-theme-preset",preset);
-    const isDark=preset==="midnight"||preset==="graphite"||preset==="mono"||preset==="webhero"||preset==="mecha"||preset==="alliance";setDark(isDark);localStorage.setItem("m238-theme",isDark?"dark":"light");document.documentElement.classList.toggle("dark",isDark);
+    const isDark=preset==="midnight"||preset==="graphite"||preset==="mono"||preset==="webhero"||preset==="mecha"||preset==="alliance"||preset==="natalia"||preset==="bumblebee";setDark(isDark);localStorage.setItem("m238-theme",isDark?"dark":"light");document.documentElement.classList.toggle("dark",isDark);
     let meta=document.querySelector('meta[name="theme-color"]') as HTMLMetaElement|null;if(!meta){meta=document.createElement("meta");meta.name="theme-color";document.head.appendChild(meta)}
-    meta.content=preset==="midnight"?"#080b14":preset==="graphite"?"#111315":preset==="mono"?"#050505":preset==="webhero"?"#0b1020":preset==="mecha"?"#101418":preset==="alliance"?"#09111f":preset==="aurora"?"#ece9ff":preset==="playful"?"#fff7df":preset==="sunset"?"#fff1e8":preset==="forest"?"#eef6ef":"#f2f2f7";
+    meta.content=preset==="natalia"?"#090b10":preset==="bumblebee"?"#080b0f":preset==="midnight"?"#080b14":preset==="graphite"?"#111315":preset==="mono"?"#050505":preset==="webhero"?"#0b1020":preset==="mecha"?"#101418":preset==="alliance"?"#09111f":preset==="aurora"?"#ece9ff":preset==="playful"?"#fff7df":preset==="sunset"?"#fff1e8":preset==="forest"?"#eef6ef":"#f2f2f7";
   };
   const applyMotion=(preset:MotionPreset)=>{setMotionPreset(preset);localStorage.setItem("m238-motion-preset",preset)};
   const applyMotionStyle=(preset:MotionStyle)=>{setMotionStyle(preset);localStorage.setItem("m238-motion-style",preset)};
