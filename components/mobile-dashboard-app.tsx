@@ -266,6 +266,25 @@ export default function MobileDashboardApp(){
     setCx({rows});
   },[period,periodMode,activeRange]);
 
+  // Warm the screens users open most often after Home is already usable.
+  // This does not change any KPI/data logic; it only fills existing state from the same cached API paths.
+  useEffect(()=>{
+    if(!overview)return;
+    let cancelled=false;
+    const warmSales=window.setTimeout(()=>{
+      if(cancelled)return;
+      if(!daily)void loadDaily().catch(()=>undefined);
+      if(!summary)void loadSummary().catch(()=>undefined);
+    },750);
+    const warmSecondary=window.setTimeout(()=>{
+      if(cancelled)return;
+      void import("@/components/mobile-dashboard-report").catch(()=>undefined);
+      void import("@/components/mobile-dashboard-more").catch(()=>undefined);
+      void prefetchJson<Weekly>("/api/weekly-stable",180000,{scope:"prefetch-weekly"});
+    },1800);
+    return()=>{cancelled=true;window.clearTimeout(warmSales);window.clearTimeout(warmSecondary)};
+  },[overview,daily,summary,loadDaily,loadSummary]);
+
   useEffect(()=>{if(tab==="sales"){if(salesMode==="daily"&&!daily)void loadDaily();if(salesMode==="summary"||salesMode==="lob")void loadSummary()}},[tab,salesMode,daily,loadDaily,loadSummary]);
   useEffect(()=>{if(tab!=="report")return;if(reportMode==="weekly")void loadWeekly();if(reportMode==="feedback")void loadFeedback();if(reportMode==="cx")void loadCx()},[tab,reportMode,loadWeekly,loadFeedback,loadCx]);
   useEffect(()=>{if(sheet==="period"&&draftPeriodMode==="week"&&!draftWeek&&weekly?.labelB)setDraftWeek(weekly.labelB)},[sheet,draftPeriodMode,draftWeek,weekly]);
