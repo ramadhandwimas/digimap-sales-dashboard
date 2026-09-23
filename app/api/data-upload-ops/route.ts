@@ -1,5 +1,5 @@
 import {NextRequest,NextResponse} from "next/server";
-import {appendSheetValues,clearAndWrite,getSheetRanges} from "@/lib/google-sheets";
+import {appendSheetValues,clearAndWrite,getSheetRanges,getSheetRangesFresh} from "@/lib/google-sheets";
 import {buildSummaryFromRawValues,upsertDailySummaryRows} from "@/lib/m238-daily-summary-cache";
 
 const DASHBOARD_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
@@ -83,7 +83,7 @@ export async function POST(req:NextRequest){
    const mode=body.mode==="month"?"month":"date",value=text(body.value);
    if(mode==="date"&&!/^\d{4}-\d{2}-\d{2}$/.test(value))return NextResponse.json({error:"Tanggal cut off tidak valid"},{status:400});
    if(mode==="month"&&!/^\d{4}-\d{2}$/.test(value))return NextResponse.json({error:"Periode cut off tidak valid"},{status:400});
-   const[source,destination]=await getSheetRanges(DASHBOARD_ID,[`'${RAW_SHEET}'!AB2:AR50000`,`'${COPAS_SHEET}'!A2:Q50000`],email,key);
+   const[source,destination]=await getSheetRangesFresh(DASHBOARD_ID,[`'${RAW_SHEET}'!AB2:AR50000`,`'${COPAS_SHEET}'!A2:Q50000`],email,key);
    const cleanedSource=(source||[]).map(cleanRow);
    let ignoredCount=0;
    const selected:unknown[][]=[];
