@@ -7,8 +7,10 @@ type ReportMode="weekly"|"feedback"|"cx";
 type Staff=any;
 type Weekly=any;
 type DailySummary=any;
-type Feedback=any;
-type Cx=any;
+type FeedbackRow={date:string;staffId:string|number;name:string;category?:string;professional?:string;raw?:string};
+type Feedback={rows:FeedbackRow[];summary?:string};
+type CxRow={date:string;staffId:string|number;name:string;cx:number;member:number};
+type Cx={rows:CxRow[]};
 type Daily=any;
 
 const localCache=new Map<string,{at:number,data:any}>();
