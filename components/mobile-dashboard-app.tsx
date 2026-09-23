@@ -20,9 +20,9 @@ type FocusMode="lob"|"vas"|"third";
 type ReportMode="weekly"|"feedback"|"cx";
 type HomeMode="monthly"|"ytd"|"compare";
 type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono"|"webhero"|"mecha"|"alliance"|"natalia"|"bumblebee";
-type MotionPreset="minimal"|"smooth"|"dynamic";
-type MotionStyle="clean"|"ios-spring"|"glass-flow"|"playful-bounce"|"executive"|"stagger"|"blur"|"elastic";
-type FontPreset="system"|"rounded"|"compact";
+type MotionPreset="instant"|"minimal"|"smooth"|"dynamic"|"cinematic";
+type MotionStyle="clean"|"ios-spring"|"glass-flow"|"playful-bounce"|"executive"|"stagger"|"blur"|"elastic"|"fade-up"|"zoom-soft"|"slide-flow"|"float";
+type FontPreset="system"|"rounded"|"compact"|"modern"|"editorial"|"tech"|"soft"|"bold"|"mono";
 type CompareLob={lob:string;amount2025:number;amount2026:number|null;qty2025:number;qty2026:number|null;diff:number|null;growth:number|null;qtyDiff:number|null;qtyGrowth:number|null};
 type CompareMonth={month:number;period2025:string;period2026:string;amount2025:number;amount2026:number|null;qty2025:number;qty2026:number|null;diff:number|null;growth:number|null;qtyDiff:number|null;qtyGrowth:number|null;device2025:number;device2026:number|null;deviceQty2025:number;deviceQty2026:number|null;deviceDiff:number|null;deviceGrowth:number|null;deviceQtyDiff:number|null;deviceQtyGrowth:number|null;lobs:CompareLob[];started:boolean};
 type SheetName="period"|"share"|"staff"|"day"|"home-sales"|"more"|null;
@@ -191,9 +191,9 @@ export default function MobileDashboardApp(){
     const motion=(localStorage.getItem("m238-motion-preset")||"smooth") as MotionPreset;
     const style=(localStorage.getItem("m238-motion-style")||"clean") as MotionStyle;
     const font=(localStorage.getItem("m238-font-preset")||"system") as FontPreset;
-    setThemePreset(initial);setMotionPreset(["minimal","smooth","dynamic"].includes(motion)?motion:"smooth");
-    setMotionStyle(["clean","ios-spring","glass-flow","playful-bounce","executive","stagger","blur","elastic"].includes(style)?style:"clean");
-    setFontPreset(["system","rounded","compact"].includes(font)?font:"system");
+    setThemePreset(initial);setMotionPreset(["instant","minimal","smooth","dynamic","cinematic"].includes(motion)?motion:"smooth");
+    setMotionStyle(["clean","ios-spring","glass-flow","playful-bounce","executive","stagger","blur","elastic","fade-up","zoom-soft","slide-flow","float"].includes(style)?style:"clean");
+    setFontPreset(["system","rounded","compact","modern","editorial","tech","soft","bold","mono"].includes(font)?font:"system");
     const isDark=initial==="midnight"||initial==="graphite"||initial==="mono"||initial==="webhero"||initial==="mecha"||initial==="alliance"||initial==="natalia"||initial==="bumblebee";setDark(isDark);document.documentElement.classList.toggle("dark",isDark);
   },[]);
 
