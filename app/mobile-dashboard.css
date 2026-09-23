@@ -1398,3 +1398,44 @@
     flex-basis:36px!important;
   }
 }
+
+
+/* ===== Themed icon language — Natalia + Bumblebee ===== */
+.m238m-app[data-theme="natalia"] .m238m-bottom .m238m-nav-icon svg,
+.m238m-app[data-theme="bumblebee"] .m238m-bottom .m238m-nav-icon svg{
+  width:21px!important;
+  height:21px!important;
+  stroke-width:2.05!important;
+}
+
+.m238m-app[data-theme="natalia"] .m238m-bottom button.active .m238m-nav-icon{
+  color:#fff!important;
+  background:linear-gradient(145deg,#ff3d76 0%,#b43fc3 58%,#6f3fd8 100%)!important;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.08),
+    0 7px 18px rgba(255,46,117,.24),
+    0 0 16px rgba(126,62,214,.12)!important;
+}
+
+.m238m-app[data-theme="bumblebee"] .m238m-bottom button.active .m238m-nav-icon{
+  color:#111!important;
+  background:linear-gradient(145deg,#ffe51a 0%,#ffc400 62%,#eaa600 100%)!important;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.08),
+    0 7px 18px rgba(255,204,0,.22),
+    0 0 14px rgba(25,167,255,.08)!important;
+}
+
+/* subtle inactive personality without hurting readability */
+.m238m-app[data-theme="natalia"] .m238m-bottom button:not(.active) .m238m-nav-icon{
+  color:#9da3b2!important;
+}
+.m238m-app[data-theme="bumblebee"] .m238m-bottom button:not(.active) .m238m-nav-icon{
+  color:#aab2bd!important;
+}
+
+/* prevent themed icons from inheriting old transforms */
+.m238m-app[data-theme="natalia"] .m238m-bottom button .m238m-nav-icon,
+.m238m-app[data-theme="bumblebee"] .m238m-bottom button .m238m-nav-icon{
+  transform:none!important;
+}
