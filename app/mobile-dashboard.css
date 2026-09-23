@@ -1089,7 +1089,7 @@
 .m238m-app[data-theme="natalia"]::after,
 .m238m-app[data-theme="bumblebee"]::after{
   content:"";
-  position:absolute;
+  position:fixed;
   inset:0;
   z-index:0;
   pointer-events:none;
@@ -1163,8 +1163,8 @@
 .m238m-app[data-theme="natalia"] .m238m-home-tabs,
 .m238m-app[data-theme="bumblebee"] .m238m-home-tabs{
   background:rgba(13,18,27,.88)!important;
-  backdrop-filter:blur(10px)!important;
-  -webkit-backdrop-filter:blur(10px)!important;
+  backdrop-filter:blur(16px)!important;
+  -webkit-backdrop-filter:blur(16px)!important;
 }
 .m238m-app[data-theme="natalia"] .m238m-period{
   border:1px solid rgba(240,39,116,.40)!important;
@@ -1188,9 +1188,9 @@
 }
 .m238m-app[data-theme="natalia"] .m238m-card,
 .m238m-app[data-theme="bumblebee"] .m238m-card{
-  backdrop-filter:none!important;
-  -webkit-backdrop-filter:none!important;
-  box-shadow:0 12px 28px rgba(0,0,0,.20)!important;
+  backdrop-filter:blur(12px)!important;
+  -webkit-backdrop-filter:blur(12px)!important;
+  box-shadow:0 14px 34px rgba(0,0,0,.24)!important;
 }
 .m238m-app[data-theme="natalia"] .m238m-card{
   background:linear-gradient(145deg,rgba(18,15,29,.92),rgba(10,12,20,.90))!important;
@@ -1255,8 +1255,8 @@
   padding:8px 12px calc(8px + env(safe-area-inset-bottom))!important;
   border-radius:24px!important;
   background:rgba(5,9,14,.94)!important;
-  backdrop-filter:blur(12px)!important;
-  -webkit-backdrop-filter:blur(12px)!important;
+  backdrop-filter:blur(20px)!important;
+  -webkit-backdrop-filter:blur(20px)!important;
   box-shadow:0 16px 34px rgba(0,0,0,.34)!important;
 }
 .m238m-app[data-theme="natalia"] .m238m-bottom{border:1px solid rgba(236,46,119,.24)!important}
