@@ -695,3 +695,83 @@
 .m238m-theme-choice[data-preview="bumblebee"] .m238m-theme-preview em{
   background:#19a7ff!important;
 }
+
+
+/* ===== Special theme identity layer ===== */
+.m238m-app[data-theme="natalia"] .m238m-header,
+.m238m-app[data-theme="bumblebee"] .m238m-header{position:sticky;overflow:hidden}
+.m238m-app[data-theme="natalia"] .m238m-header::after,
+.m238m-app[data-theme="bumblebee"] .m238m-header::after{
+  position:absolute;right:92px;top:calc(env(safe-area-inset-top) + 13px);
+  font-size:8px;line-height:1;font-weight:900;letter-spacing:.18em;
+  opacity:.55;pointer-events:none;
+}
+.m238m-app[data-theme="natalia"] .m238m-header::after{content:"STEALTH MODE";color:#ff5a79}
+.m238m-app[data-theme="bumblebee"] .m238m-header::after{content:"MECHA MODE";color:#f6c90e}
+
+.m238m-app[data-theme="natalia"] .m238m-hero,
+.m238m-app[data-theme="bumblebee"] .m238m-hero{position:relative;overflow:hidden;isolation:isolate}
+.m238m-app[data-theme="natalia"] .m238m-hero>*,
+.m238m-app[data-theme="bumblebee"] .m238m-hero>*{position:relative;z-index:2}
+
+.m238m-app[data-theme="natalia"] .m238m-hero::before{
+  content:"";
+  position:absolute;z-index:1;inset:-28% -8% auto auto;width:64%;height:150%;
+  background:
+    linear-gradient(115deg,transparent 0 35%,rgba(255,255,255,.11) 36% 38%,transparent 39% 52%,rgba(255,79,112,.16) 53% 55%,transparent 56%);
+  transform:rotate(-8deg);
+  pointer-events:none;
+}
+.m238m-app[data-theme="natalia"] .m238m-hero::after{
+  content:"N";
+  position:absolute;right:18px;bottom:-24px;
+  font-size:116px;font-weight:950;font-style:italic;letter-spacing:-.09em;
+  color:rgba(255,255,255,.045);z-index:1;pointer-events:none;
+}
+.m238m-app[data-theme="natalia"] .m238m-card{
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.018),transparent 42%),
+    color-mix(in srgb,var(--m-surface) 97%,transparent);
+}
+.m238m-app[data-theme="natalia"] .m238m-bottom .m238m-nav-icon{
+  border-radius:14px;transition:transform .2s ease,box-shadow .2s ease,background .2s ease;
+}
+.m238m-app[data-theme="natalia"] .m238m-bottom button.active .m238m-nav-icon{
+  transform:rotate(-6deg);
+  background:linear-gradient(145deg,rgba(217,35,63,.26),rgba(109,60,203,.28));
+  box-shadow:0 0 18px rgba(217,35,63,.26);
+}
+
+.m238m-app[data-theme="bumblebee"] .m238m-hero::before{
+  content:"";
+  position:absolute;z-index:1;right:-34px;top:-42px;width:210px;height:210px;
+  background:
+    radial-gradient(circle at 50% 50%,transparent 0 30%,rgba(246,201,14,.10) 31% 33%,transparent 34% 44%,rgba(25,167,255,.09) 45% 47%,transparent 48%),
+    repeating-conic-gradient(from 0deg,rgba(246,201,14,.11) 0 5deg,transparent 5deg 22deg);
+  border-radius:50%;pointer-events:none;
+}
+.m238m-app[data-theme="bumblebee"] .m238m-hero::after{
+  content:"B-127";
+  position:absolute;right:16px;bottom:12px;
+  font-size:38px;font-weight:950;font-style:italic;letter-spacing:-.04em;
+  color:rgba(246,201,14,.075);z-index:1;pointer-events:none;
+}
+.m238m-app[data-theme="bumblebee"] .m238m-card{
+  background:
+    linear-gradient(135deg,transparent 0 88%,rgba(246,201,14,.035) 88% 91%,transparent 91%),
+    color-mix(in srgb,var(--m-surface) 97%,transparent);
+}
+.m238m-app[data-theme="bumblebee"] .m238m-bottom .m238m-nav-icon{
+  border-radius:10px;transition:transform .2s ease,box-shadow .2s ease,background .2s ease;
+}
+.m238m-app[data-theme="bumblebee"] .m238m-bottom button.active .m238m-nav-icon{
+  transform:scale(1.05);
+  background:linear-gradient(145deg,rgba(246,201,14,.30),rgba(25,167,255,.10));
+  box-shadow:0 0 18px rgba(246,201,14,.24);
+}
+
+/* More contrast so the two themes do not read as mere recolors */
+.m238m-app[data-theme="natalia"] .m238m-period{box-shadow:inset 3px 0 0 rgba(217,35,63,.55)}
+.m238m-app[data-theme="bumblebee"] .m238m-period{box-shadow:inset 3px 0 0 rgba(246,201,14,.72)}
+.m238m-app[data-theme="natalia"] .m238m-segment button.active{background:linear-gradient(135deg,#d9233f,#8b3fd8)!important}
+.m238m-app[data-theme="bumblebee"] .m238m-segment button.active{background:linear-gradient(135deg,#f6c90e,#e2ae00)!important;color:#111!important}
