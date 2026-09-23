@@ -49,3 +49,15 @@ export async function ensureSheets(id:string,sheets:Array<{title:string;headers:
 function columnLetter(n:number){let s="";for(let x=n;x>0;x=Math.floor((x-1)/26))s=String.fromCharCode(65+((x-1)%26))+s;return s}
 
 export async function ensureSheet(id:string,title:string,headers:string[],email:string,privateKey:string){await ensureSheets(id,[{title,headers}],email,privateKey)}
+
+// A single attempt is deliberate for non-idempotent import mutations. Retrying a
+// batch after an ambiguous response can duplicate writes or release another lock.
+export async function sheetRequestOnce(id:string,suffix:string,email:string,privateKey:string,init:RequestInit={}){
+ const access=await token(email,privateKey);
+ sheetApiRequestCount++;
+ const response=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}${suffix}`,{
+  ...init,headers:{authorization:`Bearer ${access}`,"content-type":"application/json"},cache:"no-store",
+ });
+ if(init.method&&init.method!=="GET")clearReadCacheForSheet(id);
+ return response;
+}

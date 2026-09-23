@@ -1,3 +1,4 @@
+import "./accessory-pricelist.css";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./mobile-dashboard.css";
