@@ -93,8 +93,11 @@ export function planPricelist(items: PriceItem[], master: unknown[][], suppliers
     if (new Set(group.map(r => JSON.stringify([key(r.brand), key(r.description), key(r.category)]))).size > 1) {
       reject("SAP Article berulang dengan informasi berbeda di Excel."); continue;
     }
-    // Price lists can also contain VAS; never force these into ACCESSORIES.
-    if (/APPLE\s*CARE|PROTEKSI|INSURANCE|QOALA|VOUCHER/i.test([item.brand, item.category, item.description].join(" "))) {
+    const productText = [item.brand, item.category, item.description].join(" ");
+    const isAppleCare = /APPLE\s*CARE|APPLECARE|AC\s*PLUS|HELP\s*DESK/i.test(productText);
+    // AppleCare is an accessory in this Master. Other insurance, protection,
+    // QOALA, and voucher products remain outside this accessory importer.
+    if (!isAppleCare && /PROTEKSI|INSURANCE|QOALA|VOUCHER/i.test(productText)) {
       reject("Produk VAS/proteksi/voucher tidak ditambahkan melalui impor aksesoris."); continue;
     }
     const mapped = supplierBrand(id);
@@ -113,7 +116,10 @@ export function planPricelist(items: PriceItem[], master: unknown[][], suppliers
     if (!brand) { reject("Brand belum terpetakan secara unik pada supplier I–L."); continue; }
     // AirPods require a model-specific Type; do not copy generic Earphone rules.
     if (key(brand) === "APPLE" && /AIR\s*PODS/i.test(item.description) && !/CASE|BAND|STRAP/i.test(item.category)) { reject("Type AirPods perlu dicocokkan dengan model sebelum ditambahkan."); continue; }
-    const rules = templates.get(JSON.stringify([key(brand), key(item.category)])) || new Map<string, MasterRow>();
+    // The supplier pricelist uses Indonesian `Proteksi`; Master A–G stores the
+    // established AppleCare category as `Protection`.
+    const category = isAppleCare ? "PROTECTION" : item.category;
+    const rules = templates.get(JSON.stringify([key(brand), key(category)])) || new Map<string, MasterRow>();
     if (rules.size !== 1) {
       reject(rules.size ? "Aturan Type/Core untuk brand dan kategori ini berbeda-beda di Master." : "Belum ada contoh kategori untuk brand ini di Master."); continue;
     }
