@@ -1,0 +1,24 @@
+.acc-pricelist{padding:20px;border:1px solid var(--m-line,#dbe1ea);border-radius:18px;background:var(--m-surface,#fff);color:var(--m-text,#172033);min-width:0}
+.dark .acc-pricelist{background:var(--m-surface,#0f172a);color:var(--m-text,#f1f5f9);border-color:var(--m-line,#334155)}
+.acc-pricelist .acc-heading{display:flex;gap:12px;align-items:flex-start;margin-bottom:18px;background:transparent}
+.acc-pricelist .acc-heading h3{margin:0;font-size:16px;font-weight:800;color:inherit}
+.acc-pricelist p{font-size:13px;line-height:1.6;margin:5px 0}
+.acc-pricelist label{display:block;font-size:12px;font-weight:700;margin-bottom:8px}
+.acc-pricelist input{width:100%;min-width:0;box-sizing:border-box;font-size:13px;padding:12px;border:1px solid var(--m-line,#cbd5e1);border-radius:10px}
+.acc-pricelist .acc-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;background:transparent}
+.acc-pricelist .acc-actions button{width:auto;min-height:44px;height:auto;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;border:1px solid var(--m-line,#cbd5e1);border-radius:10px;background:transparent;color:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.acc-pricelist .acc-actions button.acc-primary{background:#2563eb;color:#fff;border-color:#2563eb}
+.acc-pricelist .acc-actions button:disabled{opacity:.5;cursor:default}
+.acc-pricelist .acc-note{opacity:.75;font-size:12px;margin-top:12px}
+.acc-pricelist .acc-error{color:#be123c;background:#fff1f2;padding:12px;border-radius:10px;margin-top:12px}
+.acc-pricelist .acc-success{color:#166534;background:#f0fdf4;padding:12px;border-radius:10px;margin-top:12px}
+.acc-pricelist .acc-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
+.acc-pricelist .acc-counts>div{padding:12px 8px;border:1px solid var(--m-line,#dbe1ea);border-radius:10px}
+.acc-pricelist .acc-counts strong{display:block;font-size:22px}.acc-pricelist .acc-counts span{font-size:11px}
+.acc-pricelist details{margin-top:14px;border-top:1px solid var(--m-line,#dbe1ea);padding-top:12px}
+.acc-pricelist summary{cursor:pointer;font-size:13px;font-weight:700;min-height:30px}
+.acc-pricelist .acc-table{overflow:auto;max-height:360px;margin-top:10px}.acc-pricelist table{border-collapse:collapse;min-width:760px;width:100%;font-size:12px}
+.acc-pricelist th,.acc-pricelist td{text-align:left;padding:10px;border-bottom:1px solid var(--m-line,#dbe1ea)}
+.acc-pricelist .acc-review{max-height:360px;overflow:auto;margin-top:10px}.acc-pricelist .acc-review>div{padding:10px 0;border-bottom:1px solid var(--m-line,#dbe1ea);overflow-wrap:anywhere}
+.acc-pricelist .acc-review strong{font-size:12px}.acc-pricelist small{font-size:11px;opacity:.7}
+@media(max-width:480px){.acc-pricelist{padding:16px}.acc-pricelist .acc-actions button{width:100%}}
