@@ -1,4 +1,4 @@
-const CACHE="m238-static-v8";
+const CACHE="m238-static-v9";
 const STATIC_PATHS=["/manifest.webmanifest","/favicon.ico"];
 self.addEventListener("install",event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(STATIC_PATHS).catch(()=>undefined)));self.skipWaiting()});
 self.addEventListener("activate",event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith("m238-static-")&&k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
