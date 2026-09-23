@@ -30,10 +30,15 @@ test("repeated upload adds zero; deleting the row from live Master makes it elig
  assert.equal(parser.planPricelist(items,[...master,...first.rows],suppliers).rows.length,0);
  assert.equal(parser.planPricelist(items,master,suppliers).rows.length,1);
 });
-test("unknown brand, VAS, AirPods model and ambiguous Core are held for review",()=>{
+test("unknown brand, non-AppleCare VAS, AirPods model and ambiguous Core are held for review",()=>{
  const conflicting=[...master,[...sample.slice(0,6),"ANDROID"]];
- const plan=parser.planPricelist([item("AMN0002"),item("NEW0001",{brand:"Unknown"}),item("APPCARE",{brand:"Apple Care Plus",category:"Proteksi"}),item("APP001",{brand:"APPLE",description:"AirPods Pro"})],conflicting,suppliers);
+ const plan=parser.planPricelist([item("AMN0002"),item("NEW0001",{brand:"Unknown"}),item("KLA001",{brand:"QOALA",category:"Proteksi"}),item("APP001",{brand:"APPLE",description:"AirPods Pro"})],conflicting,suppliers);
  assert.equal(plan.rows.length,0);assert.equal(plan.review.length,4);
+});
+test("AppleCare Proteksi follows the existing Protection accessory format",()=>{
+ const appleCare=[...master,["Apple Care Plus","APPOLD","AC Plus iPhone","Protection","","ACCESSORIES","APPLE"]];
+ const plan=parser.planPricelist([item("APPNEW",{brand:"Apple Care Plus",description:"AppleCare iPhone",category:"Proteksi"})],appleCare,suppliers);
+ assert.deepEqual(plan.rows,[["Apple Care Plus","APPNEW","AppleCare iPhone","PROTECTION","","ACCESSORIES","APPLE"]]);
 });
 test("falls back to an exact existing Master brand when supplier I–L has no row",()=>{
  const kora=[...master,["KORA","KOAOLD","Old screen","FRONT SCREEN","","ACCESSORIES","APPLE"]];
