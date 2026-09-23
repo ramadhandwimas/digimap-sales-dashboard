@@ -382,7 +382,7 @@ export default function MobileDashboardApp(){
 
   return <div ref={rootRef} className="m238m-app" data-theme={themePreset} data-motion={motionPreset} data-motion-style={motionStyle} data-font={fontPreset} onTouchStart={e=>{if(window.scrollY===0)touchStart.current=e.touches[0].clientY}} onTouchMove={touchMove} onTouchEnd={()=>{touchStart.current=null}}>
     <header className="m238m-header">
-      <div><span>M238 Dashboard</span><strong>PIM 2</strong></div>
+      <div><span>Digimap</span><strong>PIM 2</strong></div>
       <div className="m238m-header-actions"><button onClick={()=>setSheet("share")} aria-label="Share"><Share2 size={19}/></button><button onClick={()=>void refresh()} aria-label="Refresh"><RefreshCw size={19} className={refreshing?"spin":""}/></button></div>
     </header>
     <main className="m238m-content">
