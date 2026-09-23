@@ -163,18 +163,34 @@ export default function MobileDashboardApp(){
     if(!overview)return;
     clearExpiredLocalCache();
     const started=performance.now();
-    const warm=()=>{
-      void prefetchJson<DailySummary>(`/api/daily-summary-fast?from=${activeDates.from}&to=${activeDates.to}&mode=${periodMode==="week"&&activeRange?"range":"monthly"}`,180000,{scope:"prefetch-summary"});
-      if(period===periodNow()){
-        void prefetchJson<any>(`/api/data?period=${period}`,120000,{scope:"prefetch-daily-sales"});
-        void prefetchJson<Daily>(`/api/daily?date=${today()}`,120000,{scope:"prefetch-daily-roster"});
-        void prefetchJson<Daily>(`/api/daily-fast?date=${today()}`,90000,{scope:"prefetch-daily-fast"});
-      }
-      void prefetchJson<{staff:Staff[]}>(periodMode==="week"&&activeRange?`/api/staff-performance-month?period=${activeRange.from.slice(0,7)}&from=${activeRange.from}&to=${activeRange.to}`:`/api/staff-performance-month?period=${period}`,180000,{scope:"prefetch-staff"});
-    };
-    const id=window.setTimeout(warm,500);
+    const timers:number[]=[];
+    const later=(delay:number,fn:()=>void)=>timers.push(window.setTimeout(()=>{
+      if(document.visibilityState==="hidden")return;
+      fn();
+    },delay));
+
+    // Stage background warming so Home stays responsive on iPhone.
+    // Same endpoints/data as before; only request timing changes.
+    later(700,()=>void prefetchJson<DailySummary>(
+      `/api/daily-summary-fast?from=${activeDates.from}&to=${activeDates.to}&mode=${periodMode==="week"&&activeRange?"range":"monthly"}`,
+      180000,{scope:"prefetch-summary"}
+    ));
+
+    if(period===periodNow()){
+      later(1300,()=>void prefetchJson<any>(`/api/data?period=${period}`,120000,{scope:"prefetch-daily-sales"}));
+      later(1800,()=>void prefetchJson<Daily>(`/api/daily?date=${today()}`,120000,{scope:"prefetch-daily-roster"}));
+      later(2300,()=>void prefetchJson<Daily>(`/api/daily-fast?date=${today()}`,90000,{scope:"prefetch-daily-fast"}));
+    }
+
+    later(2800,()=>void prefetchJson<{staff:Staff[]}>(
+      periodMode==="week"&&activeRange
+        ?`/api/staff-performance-month?period=${activeRange.from.slice(0,7)}&from=${activeRange.from}&to=${activeRange.to}`
+        :`/api/staff-performance-month?period=${period}`,
+      180000,{scope:"prefetch-staff"}
+    ));
+
     if(process.env.NODE_ENV!=="production")console.debug("[M238 PERF] home-ready",{ms:Math.round(performance.now()-started),stats:getM238PerfStats()});
-    return()=>window.clearTimeout(id);
+    return()=>timers.forEach(id=>window.clearTimeout(id));
   },[overview,period,periodMode,activeRange,activeDates]);
   useEffect(()=>{
     let backgroundAt=0;
