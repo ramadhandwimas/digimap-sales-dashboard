@@ -9,7 +9,7 @@
 .m238m-app[data-theme="sunset"]{--m-bg:#fff1e8;--m-surface:#fffaf6;--m-surface2:#fbe8dc;--m-text:#3b211a;--m-secondary:#8b6d63;--m-blue:#ef6c4d;--m-line:rgba(120,64,45,.10);--m-radius:22px;--m-hero-a:#f07a5e;--m-hero-b:#c9568c;background:radial-gradient(circle at 10% 0%,rgba(255,166,117,.25),transparent 30%),linear-gradient(180deg,#fff4ec,#fffaf7)}
 .m238m-app[data-theme="forest"]{--m-bg:#eef6ef;--m-surface:#f9fcf9;--m-surface2:#e6f0e7;--m-text:#193321;--m-secondary:#66766a;--m-blue:#3f8a5c;--m-line:rgba(45,92,58,.10);--m-radius:20px;--m-hero-a:#3f8a5c;--m-hero-b:#315f49;background:radial-gradient(circle at 85% 0%,rgba(125,189,143,.18),transparent 30%),#eef6ef}
 .m238m-app[data-theme="mono"]{--m-bg:#050505;--m-surface:#0d0d0d;--m-surface2:#171717;--m-text:#fff;--m-secondary:#9b9b9b;--m-blue:#fff;--m-line:rgba(255,255,255,.09);--m-radius:10px;--m-hero-a:#111;--m-hero-b:#2b2b2b;background:#050505}
-.m238m-app[data-motion="minimal"]{--motion-fast:60ms;--motion-normal:90ms;--motion-slow:120ms}.m238m-app[data-motion="dynamic"]{--motion-fast:150ms;--motion-normal:280ms;--motion-slow:440ms}
+.m238m-app[data-motion="instant"]{--motion-fast:20ms;--motion-normal:40ms;--motion-slow:70ms}.m238m-app[data-motion="minimal"]{--motion-fast:60ms;--motion-normal:90ms;--motion-slow:120ms}.m238m-app[data-motion="smooth"]{--motion-fast:120ms;--motion-normal:200ms;--motion-slow:280ms}.m238m-app[data-motion="dynamic"]{--motion-fast:150ms;--motion-normal:280ms;--motion-slow:440ms}.m238m-app[data-motion="cinematic"]{--motion-fast:180ms;--motion-normal:360ms;--motion-slow:620ms}
 .m238m-app{min-height:100dvh;background:var(--m-bg);color:var(--m-text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Inter,system-ui,sans-serif;overflow-x:hidden;-webkit-tap-highlight-color:transparent}.m238m-enter{animation:m238mPageIn var(--motion-slow) cubic-bezier(.22,1,.36,1)}@keyframes m238mPageIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 .m238m-header{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 10px) 18px 10px;background:color-mix(in srgb,var(--m-bg) 88%,transparent);backdrop-filter:blur(18px)}
 .m238m-header>div:first-child{display:flex;flex-direction:column;line-height:1.05}.m238m-header span{font-size:12px;color:var(--m-secondary);font-weight:700}.m238m-header strong{font-size:20px}.m238m-header-actions{display:flex;gap:8px}.m238m-header-actions button{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--m-surface);border:0;color:var(--m-text)}
@@ -135,6 +135,17 @@
 .m238m-app[data-motion-style="stagger"] .m238m-stack>.m238m-card{animation:m238mStagger var(--motion-slow) both}.m238m-app[data-motion-style="stagger"] .m238m-stack>.m238m-card:nth-child(2){animation-delay:35ms}.m238m-app[data-motion-style="stagger"] .m238m-stack>.m238m-card:nth-child(3){animation-delay:70ms}.m238m-app[data-motion-style="stagger"] .m238m-stack>.m238m-card:nth-child(4){animation-delay:105ms}.m238m-app[data-motion-style="stagger"] .m238m-stack>.m238m-card:nth-child(5){animation-delay:140ms}
 .m238m-app[data-motion-style="blur"] .m238m-enter{animation:m238mBlurIn var(--motion-slow) ease-out}
 .m238m-app[data-motion-style="elastic"] .m238m-enter{animation:m238mElasticIn var(--motion-slow) cubic-bezier(.2,1.4,.3,1)}.m238m-app[data-motion-style="elastic"] .m238m-bottom button.active .m238m-nav-icon{transition:transform var(--motion-slow) cubic-bezier(.2,1.4,.3,1)}
+
+.m238m-app[data-motion-style="fade-up"] .m238m-enter{animation:m238mFadeUp var(--motion-slow) cubic-bezier(.22,1,.36,1)}
+.m238m-app[data-motion-style="zoom-soft"] .m238m-enter{animation:m238mZoomSoft var(--motion-slow) cubic-bezier(.22,1,.36,1)}
+.m238m-app[data-motion-style="slide-flow"] .m238m-enter{animation:m238mSlideFlow var(--motion-slow) cubic-bezier(.22,1,.36,1)}
+.m238m-app[data-motion-style="float"] .m238m-enter{animation:m238mFloatIn var(--motion-slow) cubic-bezier(.2,.9,.3,1)}
+.m238m-app[data-motion-style="float"] .m238m-card{transition:transform var(--motion-normal),box-shadow var(--motion-normal)}
+.m238m-app[data-motion-style="float"] .m238m-card:active{transform:translateY(-1px) scale(.988)}
+@keyframes m238mFadeUp{0%{opacity:0;transform:translateY(14px)}100%{opacity:1;transform:none}}
+@keyframes m238mZoomSoft{0%{opacity:0;transform:scale(.965)}100%{opacity:1;transform:none}}
+@keyframes m238mSlideFlow{0%{opacity:0;transform:translateX(14px)}100%{opacity:1;transform:none}}
+@keyframes m238mFloatIn{0%{opacity:0;transform:translateY(10px) scale(.985)}65%{opacity:1;transform:translateY(-2px) scale(1.004)}100%{transform:none}}
 @keyframes m238mSpringIn{0%{opacity:0;transform:translateY(10px) scale(.97)}70%{opacity:1;transform:translateY(-1px) scale(1.01)}100%{transform:none}}
 @keyframes m238mGlassFlow{0%{opacity:0;filter:blur(8px);transform:translateY(8px)}100%{opacity:1;filter:blur(0);transform:none}}
 @keyframes m238mBounceIn{0%{opacity:0;transform:scale(.92) translateY(8px)}70%{opacity:1;transform:scale(1.02) translateY(-2px)}100%{transform:none}}
@@ -183,6 +194,16 @@
 .m238m-app[data-font="rounded"]{font-family:"Arial Rounded MT Bold","Trebuchet MS",-apple-system,BlinkMacSystemFont,system-ui,sans-serif}
 .m238m-app[data-font="compact"]{font-family:"Arial Narrow","Helvetica Neue",Arial,-apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:-.01em}
 .m238m-app[data-font="compact"] .m238m-direct-copy strong,.m238m-app[data-font="compact"] .m238m-card strong{letter-spacing:-.025em}
+
+
+.m238m-app[data-font="modern"]{font-family:"Avenir Next",Avenir,"Helvetica Neue",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;letter-spacing:-.008em}
+.m238m-app[data-font="editorial"]{font-family:Georgia,"Times New Roman",serif}
+.m238m-app[data-font="editorial"] .m238m-card strong,.m238m-app[data-font="editorial"] .m238m-header strong{letter-spacing:-.018em}
+.m238m-app[data-font="tech"]{font-family:"Trebuchet MS","Avenir Next",Arial,-apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.005em}
+.m238m-app[data-font="soft"]{font-family:"Gill Sans","Avenir Next","Trebuchet MS",-apple-system,BlinkMacSystemFont,sans-serif}
+.m238m-app[data-font="bold"]{font-family:"Arial Black","Helvetica Neue",Arial,-apple-system,BlinkMacSystemFont,sans-serif}
+.m238m-app[data-font="bold"] .m238m-card strong,.m238m-app[data-font="bold"] .m238m-header strong{font-weight:900;letter-spacing:-.025em}
+.m238m-app[data-font="mono"]{font-family:"SFMono-Regular",Menlo,Monaco,Consolas,"Liberation Mono",monospace;letter-spacing:-.015em}
 
 /* keep settings controls readable in Mono/Graphite */
 .m238m-app[data-theme="mono"] .m238m-motion-pills button.active,
