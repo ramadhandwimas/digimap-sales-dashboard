@@ -59,7 +59,7 @@ function WeeklyView({weekly,summary}:{weekly:Weekly;summary:DailySummary|null}){
  const vasKeys=[...new Set([...Object.keys(weekly.a.vas||{}),...Object.keys(weekly.b.vas||{})])];
  const delta=(a:number,b:number)=>a?((b-a)/a)*100:(b?100:0);
  const lobSummary=lobs.map(([name,key])=>{const a=sum(weekly.a.lob?.[key]||{}),b=sum(weekly.b.lob?.[key]||{});return{name,key,a,b,qtyDelta:b.qty-a.qty,amountDelta:b.amount-a.amount,growth:delta(a.amount,b.amount)}}).sort((x,y)=>x.growth-y.growth);
- const analysisRows=Object.entries(weekly.analysis||{}).map(([key,v])=>({key,...v})).filter(x=>String(x.review||"").trim()||String(x.actionPlan||"").trim());
+ const analysisRows=Object.entries((weekly.analysis||{}) as Record<string,{review?:string;actionPlan?:string;target?:number;achievement?:number;gap?:number}>).map(([key,v])=>({key,...v})).filter(x=>String(x.review||"").trim()||String(x.actionPlan||"").trim());
  const reasonText=analysisRows.find(x=>String(x.review||"").trim())?.review||"";
  const actionText=analysisRows.find(x=>String(x.actionPlan||"").trim())?.actionPlan||"";
  const lobDetailRows=selectedLob?[...new Set([...Object.keys(weekly.a.lob?.[selectedLob.key]||{}),...Object.keys(weekly.b.lob?.[selectedLob.key]||{})])].map(type=>{
