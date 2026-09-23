@@ -56,6 +56,14 @@ export function planPricelist(items: PriceItem[], master: unknown[][], suppliers
   const existing = new Set(all.map(r => articleKey(r[1])).filter(Boolean));
   const accessories = all.filter(r => key(r[5]) === "ACCESSORIES");
   const vendorRows = suppliers.slice(1).filter(r => cleanText(r[2]) && cleanText(r[3]));
+  const masterBrands = new Map<string, string[]>();
+  for (const row of accessories) {
+    const normalized = key(row[0]);
+    if (!normalized) continue;
+    const brands = masterBrands.get(normalized) || [];
+    if (!brands.includes(row[0])) brands.push(row[0]);
+    masterBrands.set(normalized, brands);
+  }
   const supplierBrand = (article: string) => {
     const matches = vendorRows.filter(r => article.startsWith(articleKey(r[2])));
     const longest = Math.max(0, ...matches.map(r => articleKey(r[2]).length));
@@ -94,6 +102,11 @@ export function planPricelist(items: PriceItem[], master: unknown[][], suppliers
     if (!mapped.matched) {
       const byName = [...new Set(vendorRows.filter(r => key(r[3]) === key(item.brand)).map(r => cleanText(r[3])))];
       if (byName.length === 1) brand = byName[0];
+      // Some established Master brands (for example KORA/KOA) are not yet
+      // listed in supplier I–L. An exact, unique A–G brand match is safe and
+      // keeps the existing Master spelling without guessing a new brand.
+      const byMasterName = masterBrands.get(key(item.brand)) || [];
+      if (!brand && byMasterName.length === 1) brand = byMasterName[0];
       // APP/APPLE is first party and has no supplier entry in I–L.
       if (!brand && id.startsWith("APP") && key(item.brand) === "APPLE" && accessories.some(r => key(r[0]) === "APPLE")) brand = "APPLE";
     }

@@ -35,6 +35,11 @@ test("unknown brand, VAS, AirPods model and ambiguous Core are held for review",
  const plan=parser.planPricelist([item("AMN0002"),item("NEW0001",{brand:"Unknown"}),item("APPCARE",{brand:"Apple Care Plus",category:"Proteksi"}),item("APP001",{brand:"APPLE",description:"AirPods Pro"})],conflicting,suppliers);
  assert.equal(plan.rows.length,0);assert.equal(plan.review.length,4);
 });
+test("falls back to an exact existing Master brand when supplier I–L has no row",()=>{
+ const kora=[...master,["KORA","KOAOLD","Old screen","FRONT SCREEN","","ACCESSORIES","APPLE"]];
+ const plan=parser.planPricelist([item("KOANEW",{brand:"KORA",description:"Screen MacBook",category:"Front screen"})],kora,suppliers);
+ assert.deepEqual(plan.rows,[["KORA","KOANEW","Screen MacBook","FRONT SCREEN","","ACCESSORIES","APPLE"]]);
+});
 test("conflicting duplicate SAP codes are never silently imported",()=>{
  const plan=parser.planPricelist([item("AMN0002"),item("AMN0002",{description:"Different"})],master,suppliers);
  assert.equal(plan.rows.length,0);assert.match(plan.review[0].reason,/informasi berbeda/);
@@ -91,7 +96,7 @@ test("two server instances share a lock; fresh Master is reread after the first 
  assert.equal(m.getReads(),2);
  await secondInstance.releaseImportLock(m.creds,second);
 });
-test("writes only new A–G cells, preserves formatting and stores formula-looking descriptions as literal text",async()=>{
+test("writes only new A–G values into preformatted rows and stores formula-looking descriptions as literal text",async()=>{
  const m=mockStore(),owner=await m.api.acquireImportLock(m.creds),snap=await m.api.readMaster(m.creds);
  const plan=parser.planPricelist([item("AMN0002",{description:'=HYPERLINK("https://example.com")'}),item("AMN0003")],snap.master,snap.suppliers);
  const before=structuredClone(m.getRows());
@@ -99,7 +104,7 @@ test("writes only new A–G cells, preserves formatting and stores formula-looki
  assert.deepEqual(m.getRows().slice(0,before.length),before);
  const batch=m.getBatches()[0],write=batch.find(r=>r.updateCells).updateCells;
  assert.deepEqual(write.range,{sheetId:1515173456,startRowIndex:2,endRowIndex:4,startColumnIndex:0,endColumnIndex:7});
- assert.equal(batch.find(r=>r.copyPaste).copyPaste.pasteType,"PASTE_FORMAT");
+ assert.equal(batch.some(r=>r.copyPaste),false);
  assert.equal(write.rows[0].values[2].userEnteredValue.stringValue,'=HYPERLINK("https://example.com")');
  assert.equal(batch[0].appendDimension.length,1);
  assert.deepEqual(batch.at(-1),{deleteDeveloperMetadata:{dataFilter:{developerMetadataLookup:{metadataId:238150926}}}});

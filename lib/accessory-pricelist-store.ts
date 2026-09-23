@@ -1,6 +1,6 @@
 import {randomUUID} from "node:crypto";
 import {getSheetRangesFresh,sheetRequestOnce} from "./google-sheets";
-import {cleanText,type MasterRow} from "./accessory-pricelist";
+import {type MasterRow} from "./accessory-pricelist";
 
 export const MASTER_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const LOCK_ID=238150926;
@@ -53,14 +53,12 @@ export async function releaseImportLock(credentials:Credentials,owner:string){
 
 export function buildMasterWrite(sheet:Properties,master:unknown[][],rows:MasterRow[],owner:string){
  const start=master.length; // A–G only: supplier rows in I–L never affect this.
- let templateIndex=-1;
- for(let i=master.length-1;i>0;i--)if(cleanText(master[i][5]).toUpperCase()==="ACCESSORIES"){templateIndex=i;break}
- if(templateIndex<1)throw new ImportError("Contoh format aksesoris di Master tidak ditemukan.",422);
  const end=start+rows.length,requests:unknown[]=[];
  if(end>sheet.gridProperties.rowCount)requests.push({appendDimension:{sheetId:sheet.sheetId,dimension:"ROWS",length:end-sheet.gridProperties.rowCount}});
  const target={sheetId:sheet.sheetId,startRowIndex:start,endRowIndex:end,startColumnIndex:0,endColumnIndex:7};
  if(rows.length){
-  requests.push({copyPaste:{source:{...target,startRowIndex:templateIndex,endRowIndex:templateIndex+1},destination:target,pasteType:"PASTE_FORMAT"}});
+  // Empty Master rows are already preformatted. Copying a previous row's
+  // format is unnecessary and Google rejects it when that source is protected.
   // stringValue preserves SAP codes and treats formula-looking input as text.
   requests.push({updateCells:{range:target,rows:rows.map(row=>({values:row.map(stringValue=>({userEnteredValue:{stringValue}}))})),fields:"userEnteredValue"}});
  }
