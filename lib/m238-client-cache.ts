@@ -60,8 +60,9 @@ function writeLocal(entry:CacheEntry){
   if(typeof window==="undefined")return;
   try{
     const raw=JSON.stringify(entry);
-    // localStorage is the synchronous warm-start tier. Avoid very large payloads.
-    if(raw.length<=850000)window.localStorage.setItem(storageKey(entry.key),raw);
+    // Keep the synchronous warm-start tier small to avoid blocking Safari's main thread.
+    // Larger payloads still persist in IndexedDB below.
+    if(raw.length<=180000)window.localStorage.setItem(storageKey(entry.key),raw);
   }catch{}
 }
 function openDb():Promise<IDBDatabase|null>{
