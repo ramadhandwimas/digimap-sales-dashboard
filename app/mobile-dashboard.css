@@ -775,3 +775,260 @@
 .m238m-app[data-theme="bumblebee"] .m238m-period{box-shadow:inset 3px 0 0 rgba(246,201,14,.72)}
 .m238m-app[data-theme="natalia"] .m238m-segment button.active{background:linear-gradient(135deg,#d9233f,#8b3fd8)!important}
 .m238m-app[data-theme="bumblebee"] .m238m-segment button.active{background:linear-gradient(135deg,#f6c90e,#e2ae00)!important;color:#111!important}
+
+
+/* =========================================================
+   FINAL PREMIUM FINISHING — Natalia + Bumblebee
+   Mobile production layer only
+   ========================================================= */
+
+/* Bottom navigation: slimmer, cleaner, safer on iPhone */
+.m238m-bottom{
+  min-height:74px!important;
+  padding:10px 12px calc(10px + env(safe-area-inset-bottom))!important;
+  border-radius:26px!important;
+  backdrop-filter:blur(18px)!important;
+  -webkit-backdrop-filter:blur(18px)!important;
+  box-shadow:0 12px 28px rgba(0,0,0,.22)!important;
+}
+.m238m-bottom button{
+  min-height:52px!important;
+  gap:4px!important;
+}
+.m238m-nav-icon{
+  width:40px!important;
+  height:40px!important;
+  border-radius:12px!important;
+  display:grid!important;
+  place-items:center!important;
+  transition:transform .2s ease,background .2s ease,box-shadow .2s ease!important;
+}
+.m238m-bottom button.active .m238m-nav-icon{
+  width:44px!important;
+  height:44px!important;
+}
+.m238m-nav-label{
+  font-size:10px!important;
+  line-height:1!important;
+  letter-spacing:.01em!important;
+}
+.m238m-liquid-bubble{
+  width:54px!important;
+  height:54px!important;
+  opacity:.95!important;
+}
+
+/* Shared premium cleanup */
+.m238m-app[data-theme="natalia"] .m238m-card,
+.m238m-app[data-theme="bumblebee"] .m238m-card{
+  box-shadow:0 6px 18px rgba(0,0,0,.14)!important;
+}
+.m238m-app[data-theme="natalia"] .m238m-header::after,
+.m238m-app[data-theme="bumblebee"] .m238m-header::after{
+  font-size:7px!important;
+  letter-spacing:.22em!important;
+  opacity:.7!important;
+}
+.m238m-app[data-theme="natalia"] .m238m-period,
+.m238m-app[data-theme="bumblebee"] .m238m-period{
+  border-width:1px!important;
+}
+.m238m-app[data-theme="natalia"] .m238m-period{
+  box-shadow:inset 3px 0 0 rgba(217,35,63,.42)!important;
+}
+.m238m-app[data-theme="bumblebee"] .m238m-period{
+  box-shadow:inset 3px 0 0 rgba(246,201,14,.58)!important;
+}
+
+/* ---------------- NATALIA FINAL ---------------- */
+.m238m-app[data-theme="natalia"]{
+  --m-bg:#090b10;
+  --m-surface:#12151c;
+  --m-surface2:#191e27;
+  --m-text:#f5f7fb;
+  --m-secondary:#9ba3b1;
+  --m-blue:#ff4d70;
+  --m-line:rgba(255,255,255,.07);
+}
+.m238m-app[data-theme="natalia"] .m238m-header{
+  background:color-mix(in srgb,#090b10 92%,transparent)!important;
+}
+.m238m-app[data-theme="natalia"] .m238m-hero{
+  position:relative!important;
+  overflow:hidden!important;
+  isolation:isolate!important;
+  background:
+    radial-gradient(circle at 84% -4%,rgba(255,92,122,.16),transparent 29%),
+    linear-gradient(145deg,#641325,#3d1e5f)!important;
+  box-shadow:
+    0 12px 28px rgba(217,35,63,.12),
+    inset 0 0 0 1px rgba(255,255,255,.025)!important;
+}
+.m238m-app[data-theme="natalia"] .m238m-hero>*{
+  position:relative!important;
+  z-index:2!important;
+}
+.m238m-app[data-theme="natalia"] .m238m-hero::before{
+  content:""!important;
+  position:absolute!important;
+  inset:-8% 10% -18% auto!important;
+  width:34%!important;
+  height:126%!important;
+  z-index:1!important;
+  pointer-events:none!important;
+  opacity:.58!important;
+  transform:rotate(-10deg)!important;
+  background:
+    linear-gradient(112deg,
+      transparent 0 40%,
+      rgba(255,255,255,.055) 41% 42%,
+      transparent 43% 59%,
+      rgba(217,35,63,.10) 60% 61%,
+      transparent 62% 100%)!important;
+}
+.m238m-app[data-theme="natalia"] .m238m-hero::after{
+  content:"N"!important;
+  position:absolute!important;
+  right:18px!important;
+  bottom:-4px!important;
+  z-index:1!important;
+  font-size:72px!important;
+  font-weight:950!important;
+  font-style:italic!important;
+  letter-spacing:-.08em!important;
+  color:rgba(255,255,255,.022)!important;
+  pointer-events:none!important;
+}
+.m238m-app[data-theme="natalia"] .m238m-card{
+  border-color:rgba(217,35,63,.085)!important;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.01),transparent 42%),
+    color-mix(in srgb,var(--m-surface) 98%,transparent)!important;
+}
+.m238m-app[data-theme="natalia"] .m238m-progress i{
+  background:linear-gradient(90deg,#d9233f,#965eff)!important;
+}
+.m238m-app[data-theme="natalia"] .m238m-segment button.active{
+  background:linear-gradient(135deg,#ff476c,#8446d9)!important;
+  box-shadow:0 8px 22px rgba(217,35,63,.15)!important;
+}
+.m238m-app[data-theme="natalia"] .m238m-liquid-bubble{
+  background:linear-gradient(145deg,#d9233f,#6d3ccb)!important;
+  box-shadow:0 8px 20px rgba(217,35,63,.18)!important;
+}
+.m238m-app[data-theme="natalia"] .m238m-bottom button.active .m238m-nav-icon{
+  transform:rotate(-3deg)!important;
+  background:linear-gradient(145deg,rgba(217,35,63,.18),rgba(109,60,203,.22))!important;
+  box-shadow:0 0 12px rgba(217,35,63,.14)!important;
+}
+
+/* ---------------- BUMBLEBEE FINAL ---------------- */
+.m238m-app[data-theme="bumblebee"]{
+  --m-bg:#080b0f;
+  --m-surface:#10161c;
+  --m-surface2:#182028;
+  --m-text:#f7f8fa;
+  --m-secondary:#a5acb7;
+  --m-blue:#f6c90e;
+  --m-line:rgba(255,255,255,.075);
+}
+.m238m-app[data-theme="bumblebee"] .m238m-header{
+  background:color-mix(in srgb,#080b0f 92%,transparent)!important;
+}
+.m238m-app[data-theme="bumblebee"] .m238m-hero{
+  position:relative!important;
+  overflow:hidden!important;
+  isolation:isolate!important;
+  background:
+    linear-gradient(145deg,#4e4108,#172029)!important;
+  box-shadow:
+    0 12px 28px rgba(246,201,14,.10),
+    inset 0 0 0 1px rgba(25,167,255,.06)!important;
+}
+.m238m-app[data-theme="bumblebee"] .m238m-hero>*{
+  position:relative!important;
+  z-index:2!important;
+}
+.m238m-app[data-theme="bumblebee"] .m238m-hero::before{
+  content:""!important;
+  position:absolute!important;
+  inset:0 0 0 auto!important;
+  width:38%!important;
+  z-index:1!important;
+  pointer-events:none!important;
+  opacity:.42!important;
+  background:
+    linear-gradient(135deg,transparent 0 74%,rgba(25,167,255,.08) 74% 76%,transparent 76% 100%),
+    repeating-linear-gradient(-45deg,transparent 0 24px,rgba(246,201,14,.065) 24px 27px,transparent 27px 46px)!important;
+}
+.m238m-app[data-theme="bumblebee"] .m238m-hero::after{
+  content:"B-127"!important;
+  position:absolute!important;
+  right:16px!important;
+  bottom:4px!important;
+  z-index:1!important;
+  font-size:44px!important;
+  font-weight:950!important;
+  font-style:italic!important;
+  letter-spacing:-.04em!important;
+  color:rgba(246,201,14,.045)!important;
+  pointer-events:none!important;
+}
+.m238m-app[data-theme="bumblebee"] .m238m-card{
+  border-color:rgba(246,201,14,.085)!important;
+  background:
+    linear-gradient(135deg,transparent 0 90%,rgba(246,201,14,.022) 90% 92%,transparent 92%),
+    color-mix(in srgb,var(--m-surface) 98%,transparent)!important;
+}
+.m238m-app[data-theme="bumblebee"] .m238m-progress i{
+  background:linear-gradient(90deg,#f6c90e,#ffd84d)!important;
+}
+.m238m-app[data-theme="bumblebee"] .m238m-segment button.active{
+  background:linear-gradient(135deg,#f6c90e,#dca800)!important;
+  color:#111!important;
+  box-shadow:0 8px 22px rgba(246,201,14,.13)!important;
+}
+.m238m-app[data-theme="bumblebee"] .m238m-liquid-bubble{
+  background:linear-gradient(145deg,#f6c90e,#d39f00)!important;
+  box-shadow:0 8px 20px rgba(246,201,14,.16)!important;
+}
+.m238m-app[data-theme="bumblebee"] .m238m-bottom button.active .m238m-nav-icon{
+  transform:scale(1.03)!important;
+  background:linear-gradient(145deg,rgba(246,201,14,.20),rgba(25,167,255,.065))!important;
+  box-shadow:0 0 12px rgba(246,201,14,.13)!important;
+}
+
+/* Theme picker preview polish */
+.m238m-theme-choice[data-preview="natalia"] .m238m-theme-preview{
+  background:linear-gradient(145deg,#170c15,#3d1e5f)!important;
+}
+.m238m-theme-choice[data-preview="natalia"] .m238m-theme-preview span{
+  background:linear-gradient(135deg,#d9233f,#6d3ccb)!important;
+}
+.m238m-theme-choice[data-preview="natalia"] .m238m-theme-preview b,
+.m238m-theme-choice[data-preview="natalia"] .m238m-theme-preview em{
+  background:#151820!important;
+  border:1px solid rgba(255,255,255,.05)!important;
+}
+.m238m-theme-choice[data-preview="bumblebee"] .m238m-theme-preview{
+  background:linear-gradient(145deg,#0e1216,#252a2f)!important;
+}
+.m238m-theme-choice[data-preview="bumblebee"] .m238m-theme-preview span{
+  background:linear-gradient(135deg,#f6c90e,#1f252a)!important;
+}
+.m238m-theme-choice[data-preview="bumblebee"] .m238m-theme-preview b{
+  background:#f6c90e!important;
+}
+.m238m-theme-choice[data-preview="bumblebee"] .m238m-theme-preview em{
+  background:#19a7ff!important;
+}
+
+/* Small-screen protection */
+@media(max-width:390px){
+  .m238m-bottom{padding-left:8px!important;padding-right:8px!important}
+  .m238m-nav-icon{width:38px!important;height:38px!important}
+  .m238m-bottom button.active .m238m-nav-icon{width:42px!important;height:42px!important}
+  .m238m-liquid-bubble{width:50px!important;height:50px!important}
+  .m238m-app[data-theme="natalia"] .m238m-hero::after{font-size:64px!important}
+  .m238m-app[data-theme="bumblebee"] .m238m-hero::after{font-size:38px!important}
+}
