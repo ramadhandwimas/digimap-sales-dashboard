@@ -767,7 +767,7 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
 
   <Sheet open={!!dailyDrillStaff} onClose={()=>setDailyDrillStaff(null)} title={dailyDrillStaff?`${shortStaffName(dailyDrillStaff.name)} • Detail Penjualan`:"Detail Staff"}>
    {dailyDrillStaff&&dailyLobPick?<div className="m238m-stack">
-    <Card className="m238m-detail-sales"><span>{dailyLobPick.label}</span><strong>{num.format(Number(dailyDrillStaff.lob?.[dailyLobKey!]||0))} unit</strong><small>{daily.date}</small></Card>
+    <Card className="m238m-detail-sales"><span>{dailyLobPick.label}</span><strong>{num.format(Number(dailyDrillStaff.lob?.[dailyLobKey!]||0))} unit</strong><small>{daily?.date||today()}</small></Card>
     <div className="m238m-section-head"><h2>Unit / Model Terjual</h2><span>{selectedProducts.length} type</span></div>
     {dailyProductBusy?<Skeleton/>:selectedProducts.length?<div className="m238m-list">{selectedProducts.map(p=><Card key={p.name} className="m238m-product-detail-row"><div><strong>{p.name}</strong><span>Penjualan hari ini</span></div><b>{num.format(p.qty)} unit</b></Card>)}</div>:<Card className="m238m-empty">{dailyLobPick.key==="airpods"?"Breakdown model AirPods belum tersedia dari source detail harian; total unit staff tetap ditampilkan di atas.":"Tidak ada breakdown model yang cocok pada source detail harian."}</Card>}
    </div>:dailyDrillStaff&&dailyVasPick?<div className="m238m-stack">
