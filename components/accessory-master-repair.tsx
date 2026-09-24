@@ -4,7 +4,7 @@ import {useRef,useState} from "react";
 import {CheckCircle2,LoaderCircle,WandSparkles} from "lucide-react";
 import type {RepairCandidate,RepairReview} from "@/lib/accessory-master-repair";
 
-type Result={checked:number;fixableCount:number;reviewCount:number;candidates:RepairCandidate[];review:RepairReview[];hasMore:boolean;planId:string};
+type Result={checked:number;duplicateArticles:number;fixableCount:number;reviewCount:number;candidates:RepairCandidate[];review:RepairReview[];hasMore:boolean;planId:string};
 
 export default function AccessoryMasterRepair(){
  const[result,setResult]=useState<Result|null>(null),[selected,setSelected]=useState<Set<string>>(new Set());
@@ -47,6 +47,7 @@ export default function AccessoryMasterRepair(){
   {success?<p className="acc-success"><CheckCircle2 size={16}/>{success}</p>:null}
   {result?<div aria-live="polite" className="acc-results">
    <div className="acc-counts"><div><strong>{result.checked.toLocaleString("id-ID")}</strong><span>Baris diperiksa</span></div><div><strong>{result.fixableCount}</strong><span>Bisa diperbaiki</span></div><div><strong>{result.reviewCount}</strong><span>Perlu manual</span></div></div>
+   {result.duplicateArticles?<p className="acc-note">{result.duplicateArticles.toLocaleString("id-ID")} SAP Article yang sudah duplikat di Master dilewati dan tidak diubah.</p>:null}
    {result.candidates.length?<details open><summary>Saran perbaikan ({result.fixableCount})</summary>
     <div className="acc-select-actions"><button type="button" onClick={()=>setSelected(new Set(result.candidates.map(item=>item.id)))}>Pilih semua yang tampil</button><button type="button" onClick={()=>setSelected(new Set())}>Batalkan pilihan</button></div>
     <div className="acc-repair-list">{result.candidates.map(item=><label key={item.id} className="acc-repair-item"><input type="checkbox" checked={selected.has(item.id)} onChange={()=>toggle(item.id)}/><span><strong>Baris {item.row} · {item.article}</strong><small>{item.description}</small>{item.changes.map(change=><span className="acc-change" key={change.field}><b>{change.field}</b><del>{change.before||"—"}</del><span>→</span><ins>{change.after||"—"}</ins></span>)}<em>{item.reasons.join(" ")}</em></span></label>)}</div>
