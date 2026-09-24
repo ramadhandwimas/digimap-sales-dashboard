@@ -30,10 +30,9 @@ test("repeated upload adds zero; deleting the row from live Master makes it elig
  assert.equal(parser.planPricelist(items,[...master,...first.rows],suppliers).rows.length,0);
  assert.equal(parser.planPricelist(items,master,suppliers).rows.length,1);
 });
-test("unknown brand, non-AppleCare VAS, AirPods model and ambiguous Core are held for review",()=>{
- const conflicting=[...master,[...sample.slice(0,6),"ANDROID"]];
- const plan=parser.planPricelist([item("AMN0002"),item("NEW0001",{brand:"Unknown"}),item("KLA001",{brand:"QOALA",category:"Proteksi"}),item("APP001",{brand:"APPLE",description:"AirPods Pro"})],conflicting,suppliers);
- assert.equal(plan.rows.length,0);assert.equal(plan.review.length,4);
+test("unknown brand, non-AppleCare VAS and first-party AirPods model are held for review",()=>{
+ const plan=parser.planPricelist([item("NEW0001",{brand:"Unknown"}),item("KLA001",{brand:"QOALA",category:"Proteksi"}),item("APP001",{brand:"APPLE",description:"AirPods Pro"})],master,suppliers);
+ assert.equal(plan.rows.length,0);assert.equal(plan.review.length,3);
 });
 test("AppleCare Proteksi follows the existing Protection accessory format",()=>{
  const appleCare=[...master,["Apple Care Plus","APPOLD","AC Plus iPhone","Protection","","ACCESSORIES","APPLE"]];
@@ -44,6 +43,24 @@ test("falls back to an exact existing Master brand when supplier I–L has no ro
  const kora=[...master,["KORA","KOAOLD","Old screen","FRONT SCREEN","","ACCESSORIES","APPLE"]];
  const plan=parser.planPricelist([item("KOANEW",{brand:"KORA",description:"Screen MacBook",category:"Front screen"})],kora,suppliers);
  assert.deepEqual(plan.rows,[["KORA","KOANEW","Screen MacBook","FRONT SCREEN","","ACCESSORIES","APPLE"]]);
+});
+test("listed brands with new categories use the standard Apple accessory format",()=>{
+ const plan=parser.planPricelist([item("AMN0002",{category:"IOT",description:"Tracker Card"})],master,suppliers);
+ assert.deepEqual(plan.rows,[["A.ELEMENTS","AMN0002","Tracker Card","IOT","","ACCESSORIES","APPLE"]]);
+ assert.equal(plan.review.length,0);
+});
+test("conflicting Core rules are resolved from Apple or Android product wording",()=>{
+ const vendor=[...suppliers,["2","Supplier","NKN","Nilkin"]];
+ const mixed=[...master,["Nilkin","NKNOLD1","iPad Case","CASE","","ACCESSORIES","APPLE"],["Nilkin","NKNOLD2","Samsung Case","CASE","CASE","ACCESSORIES","ANDROID"]];
+ const plan=parser.planPricelist([
+  item("NKNNEW1",{brand:"Nilkin",description:"Samsung Galaxy S26 Case",category:"Case"}),
+  item("NKNNEW2",{brand:"Nilkin",description:"Keyboard Case for iPad Air 11",category:"Case"}),
+ ],mixed,vendor);
+ assert.deepEqual(plan.rows,[
+  ["Nilkin","NKNNEW1","Samsung Galaxy S26 Case","CASE","","ACCESSORIES","ANDROID"],
+  ["Nilkin","NKNNEW2","Keyboard Case for iPad Air 11","CASE","","ACCESSORIES","APPLE"],
+ ]);
+ assert.equal(plan.review.length,0);
 });
 test("conflicting duplicate SAP codes are never silently imported",()=>{
  const plan=parser.planPricelist([item("AMN0002"),item("AMN0002",{description:"Different"})],master,suppliers);

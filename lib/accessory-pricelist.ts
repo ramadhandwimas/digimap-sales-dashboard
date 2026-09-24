@@ -71,13 +71,31 @@ export function planPricelist(items: PriceItem[], master: unknown[][], suppliers
     return { matched: matches.length > 0, brand: brands.length === 1 ? brands[0] : "" };
   };
   const templates = new Map<string, Map<string, MasterRow>>();
+  const brandCores = new Map<string, Set<string>>();
   for (const row of accessories) {
     const canonical = supplierBrand(articleKey(row[1])).brand || row[0];
+    const brandKey = key(canonical);
     const lookup = JSON.stringify([key(canonical), key(row[3])]);
     const rules = templates.get(lookup) || new Map<string, MasterRow>();
     rules.set(JSON.stringify([key(row[3]), key(row[4]), key(row[6])]), row);
     templates.set(lookup, rules);
+    if (row[6]) {
+      const cores = brandCores.get(brandKey) || new Set<string>();
+      cores.add(key(row[6]));
+      brandCores.set(brandKey, cores);
+    }
   }
+  const inferCore = (brand: string, item: PriceItem) => {
+    const text = key([item.brand, item.category, item.description].join(" "));
+    if (/SAMSUNG|GALAXY|Z\s*(?:FOLD|FLIP)|\bS2\d\b|\bA(?:3\d|5\d|7\d)\b/.test(text)) return "ANDROID";
+    if (/IPHONE|IPAD|MACBOOK|\bMAC\b|AIRPODS|APPLE\s*WATCH|MAGSAFE|LIGHTNING/.test(text)) return "APPLE";
+    const known = [...(brandCores.get(key(brand)) || [])];
+    if (known.length === 1) return known[0];
+    // The accessory pricelist is Apple-first. Once its brand is validated by
+    // supplier I–L (or an exact existing Master brand), generic new categories
+    // follow the standard accessory format unless the description says Android.
+    return "APPLE";
+  };
   const seen = new Map<string, PriceItem[]>();
   const result: ImportPlan = { total: items.length, existing: 0, duplicates: 0, ignored, rows: [], review: [] };
   for (const item of items) {
@@ -120,12 +138,16 @@ export function planPricelist(items: PriceItem[], master: unknown[][], suppliers
     // established AppleCare category as `Protection`.
     const category = isAppleCare ? "PROTECTION" : item.category;
     const rules = templates.get(JSON.stringify([key(brand), key(category)])) || new Map<string, MasterRow>();
-    if (rules.size !== 1) {
-      reject(rules.size ? "Aturan Type/Core untuk brand dan kategori ini berbeda-beda di Master." : "Belum ada contoh kategori untuk brand ini di Master."); continue;
+    if (rules.size === 1) {
+      const template = [...rules.values()][0];
+      if (!template[6]) { reject("Core pada contoh Master belum terisi."); continue; }
+      result.rows.push([brand, id, cleanText(item.description), key(template[3]), template[4], "ACCESSORIES", template[6]]);
+      continue;
     }
-    const template = [...rules.values()][0];
-    if (!template[6]) { reject("Core pada contoh Master belum terisi."); continue; }
-    result.rows.push([brand, id, cleanText(item.description), key(template[3]), template[4], "ACCESSORIES", template[6]]);
+    // New categories and conflicting old templates use one consistent format.
+    // Product wording decides APPLE/ANDROID; Type stays blank like the normal
+    // accessory rows in Master.
+    result.rows.push([brand, id, cleanText(item.description), key(category), "", "ACCESSORIES", inferCore(brand, item)]);
   }
   return result;
 }
