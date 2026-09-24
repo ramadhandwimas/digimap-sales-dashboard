@@ -1,6 +1,8 @@
 import {NextRequest,NextResponse} from "next/server";
-import {appendSheetValues,clearAndWrite,getSheetRanges,getSheetRangesFresh} from "@/lib/google-sheets";
-import {buildSummaryFromRawValues,upsertDailySummaryRows} from "@/lib/m238-daily-summary-cache";
+import {createHash} from "node:crypto";
+import {appendSheetValues,batchWriteRanges,clearAndWrite,getSheetRanges,getSheetRangesFresh} from "@/lib/google-sheets";
+import {buildSummaryFromRawValues,refreshDailySummaryPeriods,upsertDailySummaryRows} from "@/lib/m238-daily-summary-cache";
+import {planDataCopasRepair} from "@/lib/data-copas-repair";
 
 const DASHBOARD_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const RAW_SHEET="Raw Salesperson";
@@ -61,6 +63,7 @@ function validCutoffRow(row:unknown[]){
  return required.every(Boolean);
 }
 function creds(){const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)throw new Error("Google Sheets belum dikonfigurasi");return{email,key}}
+function repairPlanId(candidates:ReturnType<typeof planDataCopasRepair>["candidates"]){return createHash("sha256").update(JSON.stringify(candidates.map(row=>[row.row,row.article,row.values]))).digest("hex")}
 
 export async function GET(req:NextRequest){
  try{
@@ -79,6 +82,27 @@ export async function GET(req:NextRequest){
 export async function POST(req:NextRequest){
  try{
   const body=await req.json(),action=text(body.action),{email,key}=creds();
+  if(action==="repair-copas"){
+   const[master,copas]=await getSheetRangesFresh(DASHBOARD_ID,["'Master'!A1:L18606",`'${COPAS_SHEET}'!A2:Q50000`],email,key);
+   const plan=planDataCopasRepair(master||[],copas||[]),planId=repairPlanId(plan.candidates),dryRun=body.dryRun===true;
+   const summary={checkedRows:plan.checkedRows,repairRows:plan.candidates.length,changedCells:plan.changedCells,naRows:plan.naRows,correctedRows:plan.correctedRows,unresolvedNARows:plan.unresolvedNARows,unresolvedSamples:plan.unresolvedSamples,planId};
+   if(dryRun||!plan.candidates.length){
+    const message=plan.candidates.length
+     ?`Ditemukan ${plan.candidates.length} baris yang dapat diperbaiki: ${plan.naRows} baris N/A dan ${plan.correctedRows} baris berbeda dari Master.`
+     :plan.unresolvedNARows?`Belum ada data yang dapat diperbaiki. ${plan.unresolvedNARows} baris N/A belum memiliki SAP Article di Master.`:"Data Copas sudah sesuai dengan Master terbaru.";
+    return NextResponse.json({ok:true,dryRun,...summary,message},{headers:{"cache-control":"no-store"}});
+   }
+   if(text(body.planId)!==planId)return NextResponse.json({error:"Data Master atau Data Copas berubah setelah pengecekan. Silakan cek ulang sebelum memperbaiki."},{status:409});
+
+   const writes=plan.candidates.map(candidate=>({range:`'${COPAS_SHEET}'!G${candidate.row}:N${candidate.row}`,values:[candidate.values]}));
+   for(let index=0;index<writes.length;index+=500)await batchWriteRanges(DASHBOARD_ID,writes.slice(index,index+500),email,key,"RAW");
+   let cacheWarning="";
+   try{
+    const periods=[...new Set(plan.candidates.map(row=>isoDate(row.date).slice(0,7)).filter(period=>/^20\d{2}-\d{2}$/.test(period)))];
+    if(periods.length)await refreshDailySummaryPeriods(periods,{email,key});
+   }catch(error){cacheWarning=error instanceof Error?error.message:"Cache ringkasan gagal diperbarui";console.warn("M238_PERF",{op:"repair-copas-summary-cache",error:cacheWarning})}
+   return NextResponse.json({ok:true,dryRun:false,...summary,dailySummaryCache:{ok:!cacheWarning,warning:cacheWarning||null},message:`Data Copas berhasil diperbaiki: ${plan.candidates.length} baris dan ${plan.changedCells} sel disesuaikan dengan Master terbaru.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris N/A belum ditemukan di Master.`:""}`},{headers:{"cache-control":"no-store"}});
+  }
   if(action==="cutoff"){
    const mode=body.mode==="month"?"month":"date",value=text(body.value);
    if(mode==="date"&&!/^\d{4}-\d{2}-\d{2}$/.test(value))return NextResponse.json({error:"Tanggal cut off tidak valid"},{status:400});

@@ -970,6 +970,10 @@ async function rebuildPeriods(
   return { rows, timing };
 }
 
+export async function refreshDailySummaryPeriods(periods:string[],credentials:Credentials){
+  return rebuildPeriods(periods,credentials,true);
+}
+
 function periodsBetween(from: string, to: string) {
   const periods: string[] = [];
   let [year, month] = from.slice(0, 7).split("-").map(Number);
