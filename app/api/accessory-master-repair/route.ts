@@ -10,7 +10,7 @@ const MAX_REPAIRS=200;
 const json=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"cache-control":"no-store"}});
 const digest=(plan:RepairPlan)=>createHash("sha256").update(JSON.stringify(plan.candidates.map(item=>[item.id,item.current,item.proposed]))).digest("hex");
 function summary(plan:RepairPlan){
- return{checked:plan.checked,fixableCount:plan.candidates.length,reviewCount:plan.review.length,
+ return{checked:plan.checked,duplicateArticles:plan.duplicateArticles,fixableCount:plan.candidates.length,reviewCount:plan.review.length,
   candidates:plan.candidates.slice(0,MAX_REPAIRS),review:plan.review.slice(0,100),hasMore:plan.candidates.length>MAX_REPAIRS,planId:digest(plan)};
 }
 
