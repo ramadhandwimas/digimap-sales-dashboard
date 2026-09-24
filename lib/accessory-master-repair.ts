@@ -7,7 +7,7 @@ const INDEXES=[0,1,2,3,4,5,6] as const;
 export type RepairChange={field:typeof FIELDS[number];before:string;after:string};
 export type RepairCandidate={id:string;row:number;article:string;description:string;current:MasterRow;proposed:MasterRow;changes:RepairChange[];reasons:string[]};
 export type RepairReview={row:number;article:string;description:string;reason:string};
-export type RepairPlan={checked:number;candidates:RepairCandidate[];review:RepairReview[]};
+export type RepairPlan={checked:number;duplicateArticles:number;candidates:RepairCandidate[];review:RepairReview[]};
 
 type SupplierMatch={matched:boolean;brand:string;ambiguous:boolean};
 
@@ -37,7 +37,7 @@ export function planMasterRepairs(master:unknown[][],suppliers:unknown[][]):Repa
   const mapped=supplierBrand(articleKey(data[1])).brand||data[0],set=brandCores.get(key(mapped))||new Set<string>();
   set.add(key(data[6]));brandCores.set(key(mapped),set);
  }
- const plan:RepairPlan={checked:0,candidates:[],review:[]};
+ const plan:RepairPlan={checked:0,duplicateArticles:[...duplicates.values()].filter(rows=>rows.length>1).length,candidates:[],review:[]};
  for(const {row,raw,data} of rows){
   if(data.every(value=>!value))continue;
   plan.checked++;
@@ -47,12 +47,16 @@ export function planMasterRepairs(master:unknown[][],suppliers:unknown[][]):Repa
   if(!isAccessory)continue;
   if(!article){plan.review.push({row,article:"",description,reason:"SAP Article kosong; baris tidak dapat diperbaiki otomatis."});continue}
   const duplicateRows=duplicates.get(article)||[];
-  if(duplicateRows.length>1){plan.review.push({row,article,description,reason:`SAP Article duplikat pada baris ${duplicateRows.join(", ")}.`});continue}
+  // Existing duplicate SAP rows are left untouched. They may be intentional
+  // historical entries and are not treated as filling errors by this tool.
+  if(duplicateRows.length>1)continue;
   if(mapped.ambiguous){plan.review.push({row,article,description,reason:"Kode SAP cocok dengan lebih dari satu brand supplier."});continue}
 
   const proposed=[...data] as MasterRow,reasons:string[]=[];
   if(raw.some((value,index)=>value!==data[index]))reasons.push("Spasi atau karakter tersembunyi dibersihkan.");
-  proposed[1]=article;
+  // SAP Article is the immutable key. It is never replaced from another
+  // source; only the same whitespace cleanup used by the importer is applied.
+  proposed[1]=data[1];
   if(mapped.brand&&key(mapped.brand)!==key(proposed[0])){proposed[0]=mapped.brand;reasons.push("Brand disesuaikan dengan kode vendor I–L.")}
   if(key(proposed[5])!=="ACCESSORIES"){proposed[5]="ACCESSORIES";reasons.push("Product Group produk supplier/AppleCare harus ACCESSORIES.")}
   if(isAppleCare){
