@@ -75,14 +75,14 @@ test("Master repair only proposes deterministic supplier, group and Core correct
  const source=[header,["Wrong Brand"," AMN 9001 ","iPhone Charger","Charger","","VAS",""]];
  const plan=repair.planMasterRepairs(source,suppliers);
  assert.equal(plan.checked,1);assert.equal(plan.candidates.length,1);assert.equal(plan.review.length,0);
- assert.deepEqual(plan.candidates[0].proposed,["A.ELEMENTS","AMN9001","iPhone Charger","Charger","","ACCESSORIES","APPLE"]);
+ assert.deepEqual(plan.candidates[0].proposed,["A.ELEMENTS","AMN 9001","iPhone Charger","Charger","","ACCESSORIES","APPLE"]);
  assert.deepEqual(plan.candidates[0].changes.map(change=>change.field),["Brand","SAP Article","Product Group","Core"]);
 });
-test("Master repair classifies AppleCare as accessory and holds duplicate SAP rows for manual review",()=>{
+test("Master repair classifies AppleCare as accessory and leaves duplicate SAP rows untouched",()=>{
  const source=[header,["Apple Care Plus","APPCARE1","AppleCare iPhone","Proteksi","","VAS",""],["A.ELEMENTS","AMNDUP","One","CASE","","ACCESSORIES","APPLE"],["A.ELEMENTS","AMNDUP","Two","CASE","","ACCESSORIES","APPLE"]];
  const plan=repair.planMasterRepairs(source,suppliers);
  assert.deepEqual(plan.candidates[0].proposed,["Apple Care Plus","APPCARE1","AppleCare iPhone","PROTECTION","","ACCESSORIES","APPLE"]);
- assert.equal(plan.review.filter(item=>item.article==="AMNDUP").length,2);
+ assert.equal(plan.duplicateArticles,1);assert.equal(plan.review.length,0);
 });
 test("parser reads the supplied Excel, including its row-5 header and empty tabs",{skip:!process.env.PRICELIST_FIXTURE},()=>{
  const buffer=fs.readFileSync(process.env.PRICELIST_FIXTURE);
@@ -215,7 +215,7 @@ test("Master repair preview is read-only and apply uses the current server plan"
   const fresh=await route.POST(request({mode:"preview"}));
   const applied=await route.POST(request({mode:"apply",planId:fresh.body.planId,selected:[fresh.body.candidates[0].id]}));
   assert.equal(applied.status,200);assert.equal(applied.body.applied,1);
-  assert.deepEqual(m.getRows()[1],["A.ELEMENTS","AMN9001","iPhone Charger","Charger","","ACCESSORIES","APPLE"]);
+  assert.deepEqual(m.getRows()[1],["A.ELEMENTS","AMN 9001","iPhone Charger","Charger","","ACCESSORIES","APPLE"]);
  }finally{
   if(oldEmail===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=oldEmail;
   if(oldKey===undefined)delete process.env.GOOGLE_PRIVATE_KEY;else process.env.GOOGLE_PRIVATE_KEY=oldKey;
