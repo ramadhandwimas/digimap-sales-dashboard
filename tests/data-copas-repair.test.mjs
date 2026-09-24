@@ -23,49 +23,63 @@ function copas(article,overrides={}){
  return row;
 }
 
-test("repairs N/A classification from Master while preserving Qty and Amount",()=>{
+test("repairs only N/A classification and fills a known blank vendor",()=>{
  const plan=planDataCopasRepair(master,[copas("SDXE10-500G-G25")]);
+ assert.equal(plan.rowsWithNA,1);
  assert.equal(plan.candidates.length,1);
- assert.equal(plan.naRows,1);
- assert.deepEqual(plan.candidates[0].values,["",1,2589000,"MEMORY","SANDISK","APPLE","ACCESSORIES","DATASCRIP PT"]);
- assert.deepEqual(plan.candidates[0].changes.map(change=>change.column),["J","K","L","M","N"]);
-});
-
-test("corrects manual classification differences and keeps transaction columns out of the write",()=>{
- const plan=planDataCopasRepair(master,[copas("KLA001",{5:"Protection",6:"Wrong type",9:"PROTEKSI",10:"Wrong Brand",11:"APPLE",12:"ACCESSORIES",13:"Wrong Vendor"})]);
- assert.equal(plan.naRows,0);
- assert.equal(plan.correctedRows,1);
- assert.deepEqual(plan.candidates[0].values,["",1,2589000,"PROTEKSI","QOALA","APPLE","VAS","MITRA JASA PRATAMA PT"]);
- assert.deepEqual(plan.candidates[0].changes.map(change=>change.column),["G","K","M","N"]);
-});
-
-test("reports N/A rows whose SAP Article is still absent from Master",()=>{
- const plan=planDataCopasRepair(master,[copas("UNKNOWN")]);
- assert.equal(plan.candidates.length,0);
- assert.equal(plan.unresolvedNARows,1);
- assert.deepEqual(plan.unresolvedSamples,[{row:2,article:"UNKNOWN",description:"Portable Drive"}]);
-});
-
-test("uses the first Master and supplier match like XLOOKUP",()=>{
- const duplicate=[...master,["OTHER","SDXE10-500G-G25","Duplicate","CASE","CASE","VAS","ANDROID","","999","OTHER PT","OTH","SANDISK"]];
- const plan=planDataCopasRepair(duplicate,[copas("sdxe10-500g-g25")]);
- assert.equal(plan.candidates[0].values[3],"MEMORY");
- assert.equal(plan.candidates[0].values[7],"DATASCRIP PT");
-});
-
-test("combines consecutive repairs into compact batch ranges",()=>{
- const candidates=[
-  {row:2,values:["",1,100,"CASE","A","APPLE","ACCESSORIES",""]},
-  {row:3,values:["",1,200,"CASE","A","APPLE","ACCESSORIES",""]},
-  {row:7,values:["",1,300,"CASE","B","APPLE","ACCESSORIES",""]},
- ];
- assert.deepEqual(buildDataCopasRepairWrites(candidates,"Data Copas",500),[
-  {range:"'Data Copas'!G2:N3",values:[candidates[0].values,candidates[1].values]},
-  {range:"'Data Copas'!G7:N7",values:[candidates[2].values]},
+ assert.equal(plan.changedCells,5);
+ assert.deepEqual(plan.candidates[0].changes,[
+  {column:"J",field:"Product Category",from:"N/A",to:"MEMORY"},
+  {column:"K",field:"Brand Name",from:"N/A",to:"SANDISK"},
+  {column:"L",field:"Core Product",from:"N/A",to:"APPLE"},
+  {column:"M",field:"Product Scheme",from:"N/A",to:"ACCESSORIES"},
+  {column:"N",field:"Vendor",from:"",to:"DATASCRIP PT"},
  ]);
 });
 
-test("splits long consecutive repairs at the requested row limit",()=>{
- const candidates=Array.from({length:5},(_,index)=>({row:index+10,values:["",1,index,"CASE","A","APPLE","ACCESSORIES",""]}));
- assert.deepEqual(buildDataCopasRepairWrites(candidates,"Data Copas",2).map(write=>write.range),["'Data Copas'!G10:N11","'Data Copas'!G12:N13","'Data Copas'!G14:N14"]);
+test("ignores existing manual values even when they differ from Master",()=>{
+ const row=copas("KLA001",{6:"Manual Type",9:"PROTEKSI",10:"Manual Brand",11:"APPLE",12:"ACCESSORIES",13:"Manual Vendor"});
+ const plan=planDataCopasRepair(master,[row]);
+ assert.equal(plan.rowsWithNA,0);
+ assert.equal(plan.candidates.length,0);
+ assert.equal(plan.changedCells,0);
+});
+
+test("lists N/A rows whose SAP Article is absent from Master",()=>{
+ const plan=planDataCopasRepair(master,[copas("UNKNOWN")]);
+ assert.equal(plan.candidates.length,0);
+ assert.equal(plan.unresolvedNARows,1);
+ assert.equal(plan.issues[0].reason,"missing-master");
+});
+
+test("blocks an article when duplicate Master rows have conflicting classifications",()=>{
+ const duplicate=[...master,["OTHER","SDXE10-500G-G25","Duplicate","CASE","CASE","VAS","ANDROID","","999","OTHER PT","OTH","OTHER"]];
+ const plan=planDataCopasRepair(duplicate,[copas("SDXE10-500G-G25")]);
+ assert.equal(plan.candidates.length,0);
+ assert.equal(plan.issues[0].reason,"conflicting-master");
+});
+
+test("accepts duplicate Master rows when their classifications are identical",()=>{
+ const duplicate=[...master,["SANDISK","SDXE10-500G-G25","Duplicate","MEMORY","","ACCESSORIES","APPLE"]];
+ const plan=planDataCopasRepair(duplicate,[copas("SDXE10-500G-G25")]);
+ assert.equal(plan.candidates.length,1);
+});
+
+test("writes only classification columns and never includes Qty or Amount",()=>{
+ const plan=planDataCopasRepair(master,[copas("SDXE10-500G-G25"),copas("SDXE10-500G-G25")]);
+ const writes=buildDataCopasRepairWrites(plan.candidates,"Data Copas",500);
+ assert.deepEqual(writes.map(write=>write.range),[
+  "'Data Copas'!J2:J3",
+  "'Data Copas'!K2:K3",
+  "'Data Copas'!L2:L3",
+  "'Data Copas'!M2:M3",
+  "'Data Copas'!N2:N3",
+ ]);
+ assert.ok(writes.every(write=>!/[HI]\d/.test(write.range)));
+});
+
+test("splits long consecutive writes at the requested row limit",()=>{
+ const plan=planDataCopasRepair(master,Array.from({length:5},()=>copas("SDXE10-500G-G25")));
+ const writes=buildDataCopasRepairWrites(plan.candidates,"Data Copas",2).filter(write=>write.range.includes("!J"));
+ assert.deepEqual(writes.map(write=>write.range),["'Data Copas'!J2:J3","'Data Copas'!J4:J5","'Data Copas'!J6:J6"]);
 });

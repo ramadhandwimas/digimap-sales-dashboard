@@ -63,7 +63,7 @@ function validCutoffRow(row:unknown[]){
  return required.every(Boolean);
 }
 function creds(){const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)throw new Error("Google Sheets belum dikonfigurasi");return{email,key}}
-function repairPlanId(candidates:ReturnType<typeof planDataCopasRepair>["candidates"]){return createHash("sha256").update(JSON.stringify(candidates.map(row=>[row.row,row.article,row.values]))).digest("hex")}
+function repairPlanId(candidates:ReturnType<typeof planDataCopasRepair>["candidates"]){return createHash("sha256").update(JSON.stringify(candidates.map(row=>[row.row,row.article,row.changes]))).digest("hex")}
 
 export async function GET(req:NextRequest){
  try{
@@ -85,23 +85,29 @@ export async function POST(req:NextRequest){
   if(action==="repair-copas"){
    const[master,copas]=await getSheetRangesFresh(DASHBOARD_ID,["'Master'!A1:L18606",`'${COPAS_SHEET}'!A2:Q50000`],email,key);
    const plan=planDataCopasRepair(master||[],copas||[]),planId=repairPlanId(plan.candidates),dryRun=body.dryRun===true;
-   const summary={checkedRows:plan.checkedRows,repairRows:plan.candidates.length,changedCells:plan.changedCells,naRows:plan.naRows,correctedRows:plan.correctedRows,unresolvedNARows:plan.unresolvedNARows,unresolvedSamples:plan.unresolvedSamples,planId};
+   const summary={checkedRows:plan.checkedRows,rowsWithNA:plan.rowsWithNA,repairRows:plan.candidates.length,changedCells:plan.changedCells,unresolvedNARows:plan.unresolvedNARows,repairItems:plan.candidates,issues:plan.issues,planId};
    if(dryRun||!plan.candidates.length){
     const message=plan.candidates.length
-     ?`Ditemukan ${plan.candidates.length} baris yang dapat diperbaiki: ${plan.naRows} baris N/A dan ${plan.correctedRows} baris berbeda dari Master.`
-     :plan.unresolvedNARows?`Belum ada data yang dapat diperbaiki. ${plan.unresolvedNARows} baris N/A belum memiliki SAP Article di Master.`:"Data Copas sudah sesuai dengan Master terbaru.";
+     ?`Ditemukan ${plan.candidates.length} baris N/A yang aman diperbaiki.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris perlu diperiksa manual.`:""}`
+     :plan.unresolvedNARows?`Belum ada data yang aman diperbaiki. ${plan.unresolvedNARows} baris N/A perlu diperiksa manual.`:"Data Copas sudah sesuai dengan Master terbaru.";
     return NextResponse.json({ok:true,dryRun,...summary,message},{headers:{"cache-control":"no-store"}});
    }
    if(text(body.planId)!==planId)return NextResponse.json({error:"Data Master atau Data Copas berubah setelah pengecekan. Silakan cek ulang sebelum memperbaiki."},{status:409});
 
    const writes=buildDataCopasRepairWrites(plan.candidates,COPAS_SHEET,500);
-   for(let index=0;index<writes.length;index+=50)await batchWriteRanges(DASHBOARD_ID,writes.slice(index,index+50),email,key,"RAW");
+   try{
+    for(let index=0;index<writes.length;index+=50)await batchWriteRanges(DASHBOARD_ID,writes.slice(index,index+50),email,key,"RAW");
+   }catch(error){
+    const detail=error instanceof Error?error.message:"";
+    if(/protected cell|protected range|proteksi/i.test(detail))return NextResponse.json({error:"Kolom klasifikasi Data Copas masih diproteksi untuk akun dashboard. Berikan izin edit hanya pada kolom G dan J:N, lalu cek ulang."},{status:409});
+    throw error;
+   }
    let cacheWarning="";
    try{
     const periods=[...new Set(plan.candidates.map(row=>isoDate(row.date).slice(0,7)).filter(period=>/^20\d{2}-\d{2}$/.test(period)))];
     if(periods.length)await refreshDailySummaryPeriods(periods,{email,key});
    }catch(error){cacheWarning=error instanceof Error?error.message:"Cache ringkasan gagal diperbarui";console.warn("M238_PERF",{op:"repair-copas-summary-cache",error:cacheWarning})}
-   return NextResponse.json({ok:true,dryRun:false,...summary,writeBatches:writes.length,dailySummaryCache:{ok:!cacheWarning,warning:cacheWarning||null},message:`Data Copas berhasil diperbaiki: ${plan.candidates.length} baris dan ${plan.changedCells} sel disesuaikan dengan Master terbaru.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris N/A belum ditemukan di Master.`:""}`},{headers:{"cache-control":"no-store"}});
+   return NextResponse.json({ok:true,dryRun:false,...summary,writeBatches:writes.length,dailySummaryCache:{ok:!cacheWarning,warning:cacheWarning||null},message:`Data Copas berhasil diperbaiki: ${plan.candidates.length} baris dan ${plan.changedCells} sel N/A diisi dari Master.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris tetap masuk daftar pemeriksaan manual.`:""}`},{headers:{"cache-control":"no-store"}});
   }
   if(action==="cutoff"){
    const mode=body.mode==="month"?"month":"date",value=text(body.value);
