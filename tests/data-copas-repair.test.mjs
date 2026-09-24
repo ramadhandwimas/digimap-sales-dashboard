@@ -37,12 +37,12 @@ test("repairs only N/A classification and fills a known blank vendor",()=>{
  ]);
 });
 
-test("ignores existing manual values even when they differ from Master",()=>{
- const row=copas("KLA001",{6:"Manual Type",9:"PROTEKSI",10:"Manual Brand",11:"APPLE",12:"ACCESSORIES",13:"Manual Vendor"});
+test("updates an outdated Vendor while preserving existing classifications",()=>{
+ const row=copas("KLA001",{6:"Manual Type",9:"PROTEKSI",10:"Manual Brand",11:"APPLE",12:"VAS",13:"Old Vendor"});
  const plan=planDataCopasRepair(master,[row]);
  assert.equal(plan.rowsWithNA,0);
- assert.equal(plan.candidates.length,0);
- assert.equal(plan.changedCells,0);
+ assert.equal(plan.vendorRows,1);
+ assert.deepEqual(plan.candidates[0].changes,[{column:"N",field:"Vendor",from:"Old Vendor",to:"MITRA JASA PRATAMA PT"}]);
 });
 
 test("lists N/A rows whose SAP Article is absent from Master",()=>{

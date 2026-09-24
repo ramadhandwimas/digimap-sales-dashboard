@@ -26,6 +26,8 @@ export type CopasRepairIssue = {
 export type CopasRepairPlan = {
   checkedRows: number;
   rowsWithNA: number;
+  naRepairRows: number;
+  vendorRows: number;
   changedCells: number;
   naRows: number;
   correctedRows: number;
@@ -78,6 +80,8 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
   const issues: CopasRepairIssue[] = [];
   let checkedRows = 0;
   let rowsWithNA = 0;
+  let naRepairRows = 0;
+  let vendorRows = 0;
   let changedCells = 0;
 
   for (let index = 0; index < copasRows.length; index += 1) {
@@ -86,17 +90,17 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     if (!article) continue;
     checkedRows += 1;
     const naColumns = [6,9,10,11,12,13].filter(column => isNA(current[column]));
-    if (!naColumns.length) continue;
-    rowsWithNA += 1;
+    const hasNA = naColumns.length > 0;
+    if (hasNA) rowsWithNA += 1;
 
     const issueBase={row:index+2,article:value(current[4]),description:value(current[5])};
     const matches = articleRows.get(article)??[];
     if (!matches.length) {
-      issues.push({...issueBase,reason:"missing-master",detail:"SAP Article belum ada di Master."});
+      if (hasNA) issues.push({...issueBase,reason:"missing-master",detail:"SAP Article belum ada di Master."});
       continue;
     }
     if (new Set(matches.map(classificationSignature)).size > 1) {
-      issues.push({...issueBase,reason:"conflicting-master",detail:"SAP Article mempunyai lebih dari satu klasifikasi berbeda di Master."});
+      if (hasNA) issues.push({...issueBase,reason:"conflicting-master",detail:"SAP Article mempunyai lebih dari satu klasifikasi berbeda di Master."});
       continue;
     }
 
@@ -104,7 +108,7 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     const brand = value(master[0]);
     const suppliers=[...(supplierRows.get(key(brand))??[])];
     if (suppliers.length > 1) {
-      issues.push({...issueBase,reason:"conflicting-master",detail:`Brand ${brand} mempunyai lebih dari satu supplier di Master.`});
+      if (hasNA) issues.push({...issueBase,reason:"conflicting-master",detail:`Brand ${brand} mempunyai lebih dari satu supplier di Master.`});
       continue;
     }
     const desired = new Map<number, DesiredField>([
@@ -131,11 +135,13 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
       changes.push({column:target.column,field:target.field,from:value(current[column]),to:target.value});
     }
     const vendor=desired.get(13);
-    if (!value(current[13])&&vendor?.value&&!changes.some(change=>change.column==="N")) {
-      changes.push({column:"N",field:"Vendor",from:"",to:vendor.value});
+    if (vendor?.value&&!same(current[13],vendor.value)) {
+      changes.push({column:"N",field:"Vendor",from:value(current[13]),to:vendor.value});
     }
     if (!changes.length) continue;
     changedCells += changes.length;
+    if (hasNA) naRepairRows += 1;
+    if (changes.some(change=>change.column==="N")) vendorRows += 1;
     candidates.push({...issueBase,date:value(current[0]),changes});
   }
 
@@ -143,6 +149,8 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
   return {
     checkedRows,
     rowsWithNA,
+    naRepairRows,
+    vendorRows,
     changedCells,
     naRows:candidates.length,
     correctedRows:0,

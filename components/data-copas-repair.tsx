@@ -9,10 +9,13 @@ type RepairIssue={row:number;article:string;description:string;detail:string};
 type Preview={
  checkedRows:number;
  rowsWithNA:number;
+ naRepairRows:number;
+ vendorRows:number;
  repairRows:number;
  changedCells:number;
  unresolvedNARows:number;
  repairItems:RepairItem[];
+ repairItemsTotal:number;
  issues:RepairIssue[];
  planId:string;
  message:string;
@@ -37,7 +40,7 @@ export default function DataCopasRepair(){
 
  const apply=async()=>{
   if(!preview?.repairRows)return;
-  const approved=window.confirm(`Perbaiki ${preview.repairRows} baris dan ${preview.changedCells} sel sesuai daftar?\n\nQty, Amount, dan nilai yang bukan N/A tidak akan diubah.`);
+  const approved=window.confirm(`Perbaiki ${preview.repairRows} baris dan ${preview.changedCells} sel sesuai daftar?\n\nN/A akan diisi dari Master dan Vendor akan mengikuti PT Name terbaru. Qty dan Amount tidak diubah.`);
   if(!approved)return;
   setBusy("apply");setNotice(null);
   try{
@@ -53,18 +56,20 @@ export default function DataCopasRepair(){
 
  return <section className="rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950 sm:p-5" aria-label="Cek dan perbaiki Data Copas">
   <div className="flex items-start gap-3"><span className="rounded-xl bg-blue-50 p-2.5 text-blue-600 dark:bg-blue-950"><WandSparkles size={20}/></span><div><h3 className="font-extrabold">Cek &amp; Perbaiki Data Copas</h3><p className="mt-1 text-sm text-slate-500">Cari N/A, tampilkan daftar perbaikannya, lalu isi dari Master terbaru.</p></div></div>
-  <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500 dark:bg-slate-900">Hanya sel N/A pada Type, Product Category, Brand, Core Product, Product Scheme, dan Vendor yang diperbaiki. Vendor kosong hanya diisi jika referensi supplier tersedia. Qty, Amount, dan data yang sudah terisi tidak diubah.</p>
+  <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500 dark:bg-slate-900">Sel N/A diisi dari Master terbaru. Nama Vendor juga disamakan dengan PT Name terbaru pada Master!I:L jika referensinya tersedia. Qty, Amount, dan klasifikasi lain yang sudah terisi tidak diubah.</p>
   {notice?<div role="status" className={`mt-3 rounded-xl border p-3 text-sm font-bold ${notice.kind==="success"?"border-emerald-200 bg-emerald-50 text-emerald-700":"border-rose-200 bg-rose-50 text-rose-700"}`}>{notice.kind==="success"?<CircleCheck className="mr-2 inline size-4"/>:null}{notice.text}</div>:null}
 
   {preview?<div className="mt-4 space-y-3">
    <div className="grid grid-cols-3 gap-2">
     <Summary value={preview.repairRows} label="Siap diperbaiki" tone="blue"/>
+    <Summary value={preview.vendorRows} label="Vendor di-update" tone={preview.vendorRows?"blue":"slate"}/>
     <Summary value={preview.unresolvedNARows} label="Perlu diperiksa" tone={preview.unresolvedNARows?"amber":"slate"}/>
-    <Summary value={preview.rowsWithNA} label="Total baris N/A" tone="slate"/>
    </div>
+   <p className="text-xs text-slate-500">Ditemukan {preview.rowsWithNA} baris N/A, termasuk {preview.naRepairRows} baris yang aman diperbaiki. Nilai Vendor akan mengikuti PT Name terbaru dari Master.</p>
 
    {preview.repairItems.length?<details open className="rounded-xl border border-blue-100 bg-blue-50/40 p-3 dark:border-blue-900 dark:bg-blue-950/20">
-    <summary className="cursor-pointer text-sm font-black text-blue-800 dark:text-blue-200">Daftar yang akan diperbaiki ({preview.repairItems.length})</summary>
+    <summary className="cursor-pointer text-sm font-black text-blue-800 dark:text-blue-200">Daftar yang akan diperbaiki ({preview.repairItemsTotal})</summary>
+    {preview.repairItemsTotal>preview.repairItems.length?<p className="mt-2 text-xs text-blue-700">Menampilkan {preview.repairItems.length} baris pertama dari {preview.repairItemsTotal}. Semua baris tetap mengikuti daftar pemeriksaan saat disimpan.</p>:null}
     <div className="mt-3 max-h-96 space-y-2 overflow-y-auto pr-1">{preview.repairItems.map(item=><article key={`${item.row}-${item.article}`} className="rounded-xl border bg-white p-3 text-xs dark:bg-slate-950">
      <div className="font-black">Baris {item.row} · {item.article}</div>
      <div className="mt-1 text-slate-500">{item.description||"Tanpa deskripsi"}</div>

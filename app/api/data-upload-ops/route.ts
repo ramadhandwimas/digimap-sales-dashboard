@@ -85,10 +85,10 @@ export async function POST(req:NextRequest){
   if(action==="repair-copas"){
    const[master,copas]=await getSheetRangesFresh(DASHBOARD_ID,["'Master'!A1:L18606",`'${COPAS_SHEET}'!A2:Q50000`],email,key);
    const plan=planDataCopasRepair(master||[],copas||[]),planId=repairPlanId(plan.candidates),dryRun=body.dryRun===true;
-   const summary={checkedRows:plan.checkedRows,rowsWithNA:plan.rowsWithNA,repairRows:plan.candidates.length,changedCells:plan.changedCells,unresolvedNARows:plan.unresolvedNARows,repairItems:plan.candidates,issues:plan.issues,planId};
+   const summary={checkedRows:plan.checkedRows,rowsWithNA:plan.rowsWithNA,naRepairRows:plan.naRepairRows,vendorRows:plan.vendorRows,repairRows:plan.candidates.length,changedCells:plan.changedCells,unresolvedNARows:plan.unresolvedNARows,repairItems:plan.candidates.slice(0,300),repairItemsTotal:plan.candidates.length,issues:plan.issues,planId};
    if(dryRun||!plan.candidates.length){
     const message=plan.candidates.length
-     ?`Ditemukan ${plan.candidates.length} baris N/A yang aman diperbaiki.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris perlu diperiksa manual.`:""}`
+     ?`Ditemukan ${plan.candidates.length} baris yang aman diperbaiki: ${plan.naRepairRows} baris N/A dan ${plan.vendorRows} baris Vendor akan disesuaikan.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris perlu diperiksa manual.`:""}`
      :plan.unresolvedNARows?`Belum ada data yang aman diperbaiki. ${plan.unresolvedNARows} baris N/A perlu diperiksa manual.`:"Data Copas sudah sesuai dengan Master terbaru.";
     return NextResponse.json({ok:true,dryRun,...summary,message},{headers:{"cache-control":"no-store"}});
    }
@@ -107,7 +107,7 @@ export async function POST(req:NextRequest){
     const periods=[...new Set(plan.candidates.map(row=>isoDate(row.date).slice(0,7)).filter(period=>/^20\d{2}-\d{2}$/.test(period)))];
     if(periods.length)await refreshDailySummaryPeriods(periods,{email,key});
    }catch(error){cacheWarning=error instanceof Error?error.message:"Cache ringkasan gagal diperbarui";console.warn("M238_PERF",{op:"repair-copas-summary-cache",error:cacheWarning})}
-   return NextResponse.json({ok:true,dryRun:false,...summary,writeBatches:writes.length,dailySummaryCache:{ok:!cacheWarning,warning:cacheWarning||null},message:`Data Copas berhasil diperbaiki: ${plan.candidates.length} baris dan ${plan.changedCells} sel N/A diisi dari Master.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris tetap masuk daftar pemeriksaan manual.`:""}`},{headers:{"cache-control":"no-store"}});
+   return NextResponse.json({ok:true,dryRun:false,...summary,writeBatches:writes.length,dailySummaryCache:{ok:!cacheWarning,warning:cacheWarning||null},message:`Data Copas berhasil diperbaiki: ${plan.candidates.length} baris dan ${plan.changedCells} sel klasifikasi/Vendor disesuaikan dengan Master.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris tetap masuk daftar pemeriksaan manual.`:""}`},{headers:{"cache-control":"no-store"}});
   }
   if(action==="cutoff"){
    const mode=body.mode==="month"?"month":"date",value=text(body.value);
