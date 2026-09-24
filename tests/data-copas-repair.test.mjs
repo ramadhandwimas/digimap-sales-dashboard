@@ -9,7 +9,7 @@ const source=fs.readFileSync(new URL("../lib/data-copas-repair.ts",import.meta.u
 const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const module={exports:{}};
 new Function("require","module","exports",code)(require,module,module.exports);
-const {planDataCopasRepair}=module.exports;
+const {buildDataCopasRepairWrites,planDataCopasRepair}=module.exports;
 
 const master=[
  ["Brand","SAP Article","SAP Description","Product Category","Type","Product Group","Core","","Vendor Code","PT Name","Brand Code","Brand Name"],
@@ -51,4 +51,21 @@ test("uses the first Master and supplier match like XLOOKUP",()=>{
  const plan=planDataCopasRepair(duplicate,[copas("sdxe10-500g-g25")]);
  assert.equal(plan.candidates[0].values[3],"MEMORY");
  assert.equal(plan.candidates[0].values[7],"DATASCRIP PT");
+});
+
+test("combines consecutive repairs into compact batch ranges",()=>{
+ const candidates=[
+  {row:2,values:["",1,100,"CASE","A","APPLE","ACCESSORIES",""]},
+  {row:3,values:["",1,200,"CASE","A","APPLE","ACCESSORIES",""]},
+  {row:7,values:["",1,300,"CASE","B","APPLE","ACCESSORIES",""]},
+ ];
+ assert.deepEqual(buildDataCopasRepairWrites(candidates,"Data Copas",500),[
+  {range:"'Data Copas'!G2:N3",values:[candidates[0].values,candidates[1].values]},
+  {range:"'Data Copas'!G7:N7",values:[candidates[2].values]},
+ ]);
+});
+
+test("splits long consecutive repairs at the requested row limit",()=>{
+ const candidates=Array.from({length:5},(_,index)=>({row:index+10,values:["",1,index,"CASE","A","APPLE","ACCESSORIES",""]}));
+ assert.deepEqual(buildDataCopasRepairWrites(candidates,"Data Copas",2).map(write=>write.range),["'Data Copas'!G10:N11","'Data Copas'!G12:N13","'Data Copas'!G14:N14"]);
 });

@@ -25,6 +25,8 @@ export type CopasRepairPlan = {
   unresolvedSamples: Array<{row:number;article:string;description:string}>;
 };
 
+export type CopasRepairWrite = {range:string;values:unknown[][]};
+
 const value = (input: unknown) => String(input ?? "")
   .replace(/\u00A0/g, " ")
   .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
@@ -106,4 +108,23 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
   }
 
   return {checkedRows,changedCells,naRows,correctedRows,unresolvedNARows,candidates,unresolvedSamples};
+}
+
+export function buildDataCopasRepairWrites(candidates:CopasRepairCandidate[],sheetName="Data Copas",maxRows=500):CopasRepairWrite[]{
+  const sorted=[...candidates].sort((left,right)=>left.row-right.row),writes:CopasRepairWrite[]=[];
+  let start=0,end=0,values:unknown[][]=[];
+  const flush=()=>{
+    if(!values.length)return;
+    writes.push({range:`'${sheetName.replace(/'/g,"''")}'!G${start}:N${end}`,values});
+    start=0;end=0;values=[];
+  };
+  for(const candidate of sorted){
+    const contiguous=values.length>0&&candidate.row===end+1&&values.length<maxRows;
+    if(!contiguous)flush();
+    if(!values.length)start=candidate.row;
+    end=candidate.row;
+    values.push(candidate.values);
+  }
+  flush();
+  return writes;
 }

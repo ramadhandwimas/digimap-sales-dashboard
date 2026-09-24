@@ -2,7 +2,7 @@ import {NextRequest,NextResponse} from "next/server";
 import {createHash} from "node:crypto";
 import {appendSheetValues,batchWriteRanges,clearAndWrite,getSheetRanges,getSheetRangesFresh} from "@/lib/google-sheets";
 import {buildSummaryFromRawValues,refreshDailySummaryPeriods,upsertDailySummaryRows} from "@/lib/m238-daily-summary-cache";
-import {planDataCopasRepair} from "@/lib/data-copas-repair";
+import {buildDataCopasRepairWrites,planDataCopasRepair} from "@/lib/data-copas-repair";
 
 const DASHBOARD_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const RAW_SHEET="Raw Salesperson";
@@ -94,14 +94,14 @@ export async function POST(req:NextRequest){
    }
    if(text(body.planId)!==planId)return NextResponse.json({error:"Data Master atau Data Copas berubah setelah pengecekan. Silakan cek ulang sebelum memperbaiki."},{status:409});
 
-   const writes=plan.candidates.map(candidate=>({range:`'${COPAS_SHEET}'!G${candidate.row}:N${candidate.row}`,values:[candidate.values]}));
-   for(let index=0;index<writes.length;index+=500)await batchWriteRanges(DASHBOARD_ID,writes.slice(index,index+500),email,key,"RAW");
+   const writes=buildDataCopasRepairWrites(plan.candidates,COPAS_SHEET,500);
+   for(let index=0;index<writes.length;index+=50)await batchWriteRanges(DASHBOARD_ID,writes.slice(index,index+50),email,key,"RAW");
    let cacheWarning="";
    try{
     const periods=[...new Set(plan.candidates.map(row=>isoDate(row.date).slice(0,7)).filter(period=>/^20\d{2}-\d{2}$/.test(period)))];
     if(periods.length)await refreshDailySummaryPeriods(periods,{email,key});
    }catch(error){cacheWarning=error instanceof Error?error.message:"Cache ringkasan gagal diperbarui";console.warn("M238_PERF",{op:"repair-copas-summary-cache",error:cacheWarning})}
-   return NextResponse.json({ok:true,dryRun:false,...summary,dailySummaryCache:{ok:!cacheWarning,warning:cacheWarning||null},message:`Data Copas berhasil diperbaiki: ${plan.candidates.length} baris dan ${plan.changedCells} sel disesuaikan dengan Master terbaru.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris N/A belum ditemukan di Master.`:""}`},{headers:{"cache-control":"no-store"}});
+   return NextResponse.json({ok:true,dryRun:false,...summary,writeBatches:writes.length,dailySummaryCache:{ok:!cacheWarning,warning:cacheWarning||null},message:`Data Copas berhasil diperbaiki: ${plan.candidates.length} baris dan ${plan.changedCells} sel disesuaikan dengan Master terbaru.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris N/A belum ditemukan di Master.`:""}`},{headers:{"cache-control":"no-store"}});
   }
   if(action==="cutoff"){
    const mode=body.mode==="month"?"month":"date",value=text(body.value);
