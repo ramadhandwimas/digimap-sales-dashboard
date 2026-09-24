@@ -31,9 +31,23 @@ test("repeated upload adds zero; deleting the row from live Master makes it elig
  assert.equal(parser.planPricelist(items,[...master,...first.rows],suppliers).rows.length,0);
  assert.equal(parser.planPricelist(items,master,suppliers).rows.length,1);
 });
-test("unknown brand, non-AppleCare VAS and first-party AirPods model are held for review",()=>{
+test("unknown brand and first-party AirPods model are held while known Qoala VAS is imported",()=>{
  const plan=parser.planPricelist([item("NEW0001",{brand:"Unknown"}),item("KLA001",{brand:"QOALA",category:"Proteksi"}),item("APP001",{brand:"APPLE",description:"AirPods Pro"})],master,suppliers);
- assert.equal(plan.rows.length,0);assert.equal(plan.review.length,3);
+ assert.deepEqual(plan.rows,[["QOALA","KLA001","New Charger","PROTEKSI","","VAS","APPLE"]]);assert.equal(plan.review.length,2);
+});
+test("all four supported VAS providers follow the established Master format",()=>{
+ const plan=parser.planPricelist([
+  item("KLAONLTIER1",{brand:"Qoala Online",description:"Online protection",category:"Protection"}),
+  item("TSLESIMNEW",{brand:"Telkomsel",description:"eSIM Halo",category:"Provider"}),
+  item("XXLPLANNEW",{brand:"XL",description:"MyPrio Deal",category:"Provider"}),
+  item("IDTPLATINUMNEW",{brand:"Indosat",description:"Platinum",category:"Provider"}),
+ ],master,suppliers);
+ assert.deepEqual(plan.rows,[
+  ["QOALA ONLINE","KLAONLTIER1","Online protection","PROTEKSI","","VAS","APPLE"],
+  ["TELKOMSEL","TSLESIMNEW","eSIM Halo","PROVIDER","","VAS","APPLE"],
+  ["XXL","XXLPLANNEW","MyPrio Deal","PROVIDER","","VAS","APPLE"],
+  ["INDOSAT","IDTPLATINUMNEW","Platinum","PROVIDER","","VAS","APPLE"],
+ ]);
 });
 test("AppleCare Proteksi follows the existing Protection accessory format",()=>{
  const appleCare=[...master,["Apple Care Plus","APPOLD","AC Plus iPhone","Protection","","ACCESSORIES","APPLE"]];
@@ -83,6 +97,21 @@ test("Master repair classifies AppleCare as accessory and leaves duplicate SAP r
  const plan=repair.planMasterRepairs(source,suppliers);
  assert.deepEqual(plan.candidates[0].proposed,["Apple Care Plus","APPCARE1","AppleCare iPhone","PROTECTION","","ACCESSORIES","APPLE"]);
  assert.equal(plan.duplicateArticles,1);assert.equal(plan.review.length,0);
+});
+test("Master repair preserves the four providers as VAS and normalizes their Master fields",()=>{
+ const source=[header,
+  ["Wrong","KLA001","Protection tier","Protection","","ACCESSORIES",""],
+  ["Telkomsel","TSL001","Halo plan","","","ACCESSORIES",""],
+  ["XL","XXL001","MyPrio","Case","","ACCESSORIES","ANDROID"],
+  ["Wrong","IDT001","Platinum","","","ACCESSORIES",""],
+ ];
+ const plan=repair.planMasterRepairs(source,suppliers);
+ assert.deepEqual(plan.candidates.map(row=>row.proposed),[
+  ["QOALA","KLA001","Protection tier","PROTEKSI","","VAS","APPLE"],
+  ["TELKOMSEL","TSL001","Halo plan","PROVIDER","","VAS","APPLE"],
+  ["XXL","XXL001","MyPrio","PROVIDER","","VAS","APPLE"],
+  ["INDOSAT","IDT001","Platinum","PROVIDER","","VAS","APPLE"],
+ ]);
 });
 test("parser reads the supplied Excel, including its row-5 header and empty tabs",{skip:!process.env.PRICELIST_FIXTURE},()=>{
  const buffer=fs.readFileSync(process.env.PRICELIST_FIXTURE);

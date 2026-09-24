@@ -9,8 +9,9 @@ export const maxDuration=60;
 const json=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"cache-control":"no-store"}});
 const digest=(plan:ImportPlan)=>createHash("sha256").update(JSON.stringify(plan.rows)).digest("hex");
 function summary(plan:ImportPlan){
+ const accessoryCount=plan.rows.filter(row=>row[5]==="ACCESSORIES").length,vasCount=plan.rows.filter(row=>row[5]==="VAS").length;
  return{total:plan.total,newCount:plan.rows.length,existing:plan.existing,duplicates:plan.duplicates,ignored:plan.ignored,
-  reviewCount:plan.review.length,preview:plan.rows.slice(0,50),review:plan.review.slice(0,100),planId:digest(plan)};
+  accessoryCount,vasCount,reviewCount:plan.review.length,preview:plan.rows.slice(0,50),review:plan.review.slice(0,100),planId:digest(plan)};
 }
 
 export async function POST(request:NextRequest){
@@ -35,11 +36,11 @@ export async function POST(request:NextRequest){
   const result=summary(plan);
   if(mode==="preview")return json({ok:true,...result});
   if(form.get("planId")!==result.planId)return json({error:"Isi Master berubah sejak pengecekan. Periksa hasil terbaru lalu simpan kembali.",...result},409);
-  if(!plan.rows.length)return json({ok:true,imported:0,...result,message:"Tidak ada aksesoris baru yang siap ditambahkan."});
+  if(!plan.rows.length)return json({ok:true,imported:0,...result,message:"Tidak ada produk Accessories/VAS baru yang siap ditambahkan."});
   commitAttempted=true;
   await commitMaster(credentials,snapshot,plan.rows,lock!);
   lock=undefined;
-  return json({ok:true,...result,imported:plan.rows.length,message:`${plan.rows.length} aksesoris baru berhasil ditambahkan ke Master.`});
+  return json({ok:true,...result,imported:plan.rows.length,message:`${plan.rows.length} produk baru berhasil ditambahkan ke Master (${result.accessoryCount} Accessories, ${result.vasCount} VAS).`});
  }catch(error){
   if(error instanceof ImportError&&error.safeToUnlock)commitAttempted=false;
   return json({error:error instanceof ImportError?error.message:commitAttempted?"Hasil simpan belum terkonfirmasi. Cek pricelist ulang sebelum mencoba lagi.":error instanceof Error?error.message:"Pricelist gagal diproses."},error instanceof ImportError?error.status:500);

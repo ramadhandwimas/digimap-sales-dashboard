@@ -6,6 +6,7 @@ const HEADERS = ["BRAND", "SAP ARTICLE", "SAP DESCRIPTION", "CATEGORY"];
 export type PriceItem = { sheet: string; row: number; brand: string; article: string; description: string; category: string };
 export type ReviewItem = PriceItem & { reason: string };
 export type MasterRow = [string, string, string, string, string, string, string];
+export type VasRule = { provider: "QOALA" | "TELKOMSEL" | "XL" | "INDOSAT"; brand: string; category: string };
 export type ImportPlan = {
   total: number; existing: number; duplicates: number; ignored: number;
   rows: MasterRow[]; review: ReviewItem[];
@@ -17,6 +18,22 @@ export function cleanText(value: unknown): string {
 }
 export const articleKey = (value: unknown) => cleanText(value).replace(/\s/g, "").toUpperCase();
 const key = (value: unknown) => cleanText(value).toUpperCase();
+
+export function isAppleCareProduct(...values: unknown[]): boolean {
+  return /APPLE\s*CARE|APPLECARE|AC\s*PLUS|HELP\s*DESK/i.test(values.map(cleanText).join(" "));
+}
+
+export function classifyVasProduct(article: unknown, brand: unknown, description: unknown = "", category: unknown = ""): VasRule | null {
+  if (isAppleCareProduct(brand, description, category)) return null;
+  const id = articleKey(article), brandKey = key(brand).replace(/[^A-Z0-9]/g, "");
+  if (id.startsWith("KLA") || brandKey === "QOALA" || brandKey === "QOALAONLINE") {
+    return { provider: "QOALA", brand: id.startsWith("KLAONL") || brandKey === "QOALAONLINE" ? "QOALA ONLINE" : "QOALA", category: "PROTEKSI" };
+  }
+  if (id.startsWith("TSL") || brandKey === "TELKOMSEL") return { provider: "TELKOMSEL", brand: "TELKOMSEL", category: "PROVIDER" };
+  if (id.startsWith("XXL") || ["XL", "XXL", "XLAXIATA", "PTXLAXIATATBK"].includes(brandKey)) return { provider: "XL", brand: "XXL", category: "PROVIDER" };
+  if (id.startsWith("IDT") || brandKey === "INDOSAT") return { provider: "INDOSAT", brand: "INDOSAT", category: "PROVIDER" };
+  return null;
+}
 
 export function parsePricelist(buffer: ArrayBuffer) {
   let workbook: XLSX.WorkBook;
@@ -112,11 +129,17 @@ export function planPricelist(items: PriceItem[], master: unknown[][], suppliers
       reject("SAP Article berulang dengan informasi berbeda di Excel."); continue;
     }
     const productText = [item.brand, item.category, item.description].join(" ");
-    const isAppleCare = /APPLE\s*CARE|APPLECARE|AC\s*PLUS|HELP\s*DESK/i.test(productText);
-    // AppleCare is an accessory in this Master. Other insurance, protection,
-    // QOALA, and voucher products remain outside this accessory importer.
-    if (!isAppleCare && /PROTEKSI|INSURANCE|QOALA|VOUCHER/i.test(productText)) {
-      reject("Produk VAS/proteksi/voucher tidak ditambahkan melalui impor aksesoris."); continue;
+    const isAppleCare = isAppleCareProduct(productText);
+    const vas = classifyVasProduct(id, item.brand, item.description, item.category);
+    // The same pricelist contains Accessories and four supported VAS providers.
+    // VAS follows the established Master spellings; AppleCare is the exception
+    // and always remains an accessory.
+    if (vas) {
+      result.rows.push([vas.brand, id, cleanText(item.description), vas.category, "", "VAS", "APPLE"]);
+      continue;
+    }
+    if (!isAppleCare && /PROTEKSI|PROTECTION|INSURANCE|VOUCHER/i.test(productText)) {
+      reject("Produk proteksi/VAS belum dikenali sebagai Qoala, Telkomsel, XL, atau Indosat."); continue;
     }
     const mapped = supplierBrand(id);
     let brand = mapped.brand;
