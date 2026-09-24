@@ -1,4 +1,4 @@
-import {articleKey,cleanText,type MasterRow} from "./accessory-pricelist";
+import {articleKey,classifyVasProduct,cleanText,isAppleCareProduct,type MasterRow} from "./accessory-pricelist";
 
 const key=(value:unknown)=>cleanText(value).toUpperCase();
 const FIELDS=["Brand","SAP Article","SAP Description","Product Category","Type","Product Group","Core"] as const;
@@ -42,27 +42,34 @@ export function planMasterRepairs(master:unknown[][],suppliers:unknown[][]):Repa
   if(data.every(value=>!value))continue;
   plan.checked++;
   const article=articleKey(data[1]),description=data[2];
-  const text=key(data.join(" ")),isAppleCare=/APPLE\s*CARE|APPLECARE|AC\s*PLUS|HELP\s*DESK/.test(text);
+  const text=key(data.join(" ")),isAppleCare=isAppleCareProduct(data[0],data[2],data[3]),vas=classifyVasProduct(article,data[0],data[2],data[3]);
   const mapped=supplierBrand(article),isAccessory=key(data[5])==="ACCESSORIES"||mapped.matched||isAppleCare;
-  if(!isAccessory)continue;
+  if(!isAccessory&&!vas)continue;
   if(!article){plan.review.push({row,article:"",description,reason:"SAP Article kosong; baris tidak dapat diperbaiki otomatis."});continue}
   const duplicateRows=duplicates.get(article)||[];
   // Existing duplicate SAP rows are left untouched. They may be intentional
   // historical entries and are not treated as filling errors by this tool.
   if(duplicateRows.length>1)continue;
-  if(mapped.ambiguous){plan.review.push({row,article,description,reason:"Kode SAP cocok dengan lebih dari satu brand supplier."});continue}
+  if(!vas&&mapped.ambiguous){plan.review.push({row,article,description,reason:"Kode SAP cocok dengan lebih dari satu brand supplier."});continue}
 
   const proposed=[...data] as MasterRow,reasons:string[]=[];
   if(raw.some((value,index)=>value!==data[index]))reasons.push("Spasi atau karakter tersembunyi dibersihkan.");
   // SAP Article is the immutable key. It is never replaced from another
   // source; only the same whitespace cleanup used by the importer is applied.
   proposed[1]=data[1];
-  if(mapped.brand&&key(mapped.brand)!==key(proposed[0])){proposed[0]=mapped.brand;reasons.push("Brand disesuaikan dengan kode vendor I–L.")}
-  if(key(proposed[5])!=="ACCESSORIES"){proposed[5]="ACCESSORIES";reasons.push("Product Group produk supplier/AppleCare harus ACCESSORIES.")}
+  if(vas){
+   if(proposed[0]!==vas.brand){proposed[0]=vas.brand;reasons.push(`Brand VAS diseragamkan untuk ${vas.provider}.`)}
+   if(proposed[3]!==vas.category){proposed[3]=vas.category;reasons.push(`Kategori ${vas.provider} harus ${vas.category}.`)}
+   if(proposed[5]!=="VAS"){proposed[5]="VAS";reasons.push(`${vas.provider} termasuk Product Group VAS.`)}
+   if(proposed[6]!=="APPLE"){proposed[6]="APPLE";reasons.push(`Core ${vas.provider} mengikuti format Master: APPLE.`)}
+  }else{
+   if(mapped.brand&&key(mapped.brand)!==key(proposed[0])){proposed[0]=mapped.brand;reasons.push("Brand disesuaikan dengan kode vendor I–L.")}
+   if(key(proposed[5])!=="ACCESSORIES"){proposed[5]="ACCESSORIES";reasons.push("Product Group produk supplier/AppleCare harus ACCESSORIES.")}
+  }
   if(isAppleCare){
    if(key(proposed[3])!=="PROTECTION"){proposed[3]="PROTECTION";reasons.push("Kategori AppleCare diseragamkan menjadi PROTECTION.")}
    if(key(proposed[6])!=="APPLE"){proposed[6]="APPLE";reasons.push("Core AppleCare harus APPLE.")}
-  }else{
+  }else if(!vas){
    let core="";
    if(/SAMSUNG|GALAXY|Z\s*(?:FOLD|FLIP)|\bS2\d\b|\bA(?:3\d|5\d|7\d)\b/.test(text))core="ANDROID";
    else if(/IPHONE|IPAD|MACBOOK|\bMAC\b|AIRPODS|APPLE\s*WATCH|MAGSAFE|LIGHTNING/.test(text))core="APPLE";
