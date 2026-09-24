@@ -3,6 +3,7 @@
 import {useId,useRef,useState} from "react";
 import {FileSpreadsheet,Upload,LoaderCircle} from "lucide-react";
 import type {MasterRow,ReviewItem} from "@/lib/accessory-pricelist";
+import AccessoryMasterRepair from "@/components/accessory-master-repair";
 
 type Result={total:number;newCount:number;existing:number;duplicates:number;ignored:number;reviewCount:number;preview:MasterRow[];review:ReviewItem[];planId:string;imported?:number;message?:string};
 
@@ -52,5 +53,6 @@ export default function AccessoryPricelistUpload(){
    {result.preview.length?<details><summary>Produk yang {result.imported!==undefined?"ditambahkan":"akan ditambahkan"} ({result.newCount})</summary><div className="acc-table"><table><thead><tr>{["Brand","SAP Article","Deskripsi","Kategori","Type","Group","Core"].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{result.preview.map(row=><tr key={row[1]}>{row.map((cell,i)=><td key={i}>{cell||"—"}</td>)}</tr>)}</tbody></table></div>{result.newCount>50?<p className="acc-note">Menampilkan 50 produk pertama.</p>:null}</details>:null}
    {result.review.length?<details><summary>Perlu diperiksa ({result.reviewCount})</summary><div className="acc-review">{result.review.map((item,i)=><div key={`${item.article}-${i}`}><strong>{item.article||"Tanpa SAP Article"}</strong><p>{item.description}</p><p>{item.reason}</p><small>{item.sheet}, baris {item.row}</small></div>)}</div>{result.reviewCount>100?<p className="acc-note">Menampilkan 100 baris pertama.</p>:null}</details>:null}
   </div>:null}
+  <AccessoryMasterRepair/>
  </section>;
 }
