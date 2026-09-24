@@ -42,7 +42,7 @@ export default function AccessoryMasterRepair(){
   <div className="acc-actions"><button type="button" disabled={!!busy} onClick={()=>void preview()}>
    {busy==="preview"?<LoaderCircle className="animate-spin" size={17}/>:<WandSparkles size={17}/>}{busy==="preview"?"Memeriksa Master…":"Cek & Perbaiki Master"}
   </button></div>
-  <p className="acc-note">SAP Article menjadi kunci. Perbaikan otomatis hanya untuk aturan yang dapat dipastikan; temuan ambigu tidak akan diubah.</p>
+  <p className="acc-note">SAP Article menjadi kunci. AppleCare diperiksa sebagai Accessories; Qoala, Telkomsel, XL, dan Indosat diperiksa sebagai VAS. Temuan ambigu tidak akan diubah.</p>
   {error?<p role="alert" className="acc-error">{error}</p>:null}
   {success?<p className="acc-success"><CheckCircle2 size={16}/>{success}</p>:null}
   {result?<div aria-live="polite" className="acc-results">
