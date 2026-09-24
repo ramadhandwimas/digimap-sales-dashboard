@@ -21,4 +21,17 @@
 .acc-pricelist th,.acc-pricelist td{text-align:left;padding:10px;border-bottom:1px solid var(--m-line,#dbe1ea)}
 .acc-pricelist .acc-review{max-height:360px;overflow:auto;margin-top:10px}.acc-pricelist .acc-review>div{padding:10px 0;border-bottom:1px solid var(--m-line,#dbe1ea);overflow-wrap:anywhere}
 .acc-pricelist .acc-review strong{font-size:12px}.acc-pricelist small{font-size:11px;opacity:.7}
+.acc-pricelist .acc-repair{margin-top:24px;padding-top:22px;border-top:1px solid var(--m-line,#dbe1ea)}
+.acc-pricelist .acc-select-actions{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 10px}
+.acc-pricelist .acc-select-actions button{min-height:34px;padding:7px 10px;border:1px solid var(--m-line,#cbd5e1);border-radius:8px;background:transparent;color:inherit;font-size:11px;font-weight:700;cursor:pointer}
+.acc-pricelist .acc-repair-list{max-height:520px;overflow:auto;border:1px solid var(--m-line,#dbe1ea);border-radius:12px}
+.acc-pricelist .acc-repair-item{display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px;margin:0;padding:12px;border-bottom:1px solid var(--m-line,#dbe1ea);cursor:pointer;content-visibility:auto;contain-intrinsic-size:120px}
+.acc-pricelist .acc-repair-item:last-child{border-bottom:0}
+.acc-pricelist .acc-repair-item>input{width:18px;height:18px;margin:2px 0 0;padding:0;accent-color:#2563eb}
+.acc-pricelist .acc-repair-item>span{min-width:0}.acc-pricelist .acc-repair-item strong,.acc-pricelist .acc-repair-item small{display:block}
+.acc-pricelist .acc-repair-item em{display:block;margin-top:7px;font-size:11px;font-style:normal;opacity:.7}
+.acc-pricelist .acc-change{display:grid;grid-template-columns:minmax(105px,.7fr) minmax(0,1fr) 14px minmax(0,1fr);gap:7px;align-items:start;margin-top:8px;font-size:11px;overflow-wrap:anywhere}
+.acc-pricelist .acc-change b{font-weight:800}.acc-pricelist .acc-change del{color:#be123c}.acc-pricelist .acc-change ins{color:#166534;text-decoration:none;font-weight:700}
+.acc-pricelist .acc-success{display:flex;align-items:center;gap:7px}
 @media(max-width:480px){.acc-pricelist{padding:16px}.acc-pricelist .acc-actions button{width:100%}}
+@media(max-width:600px){.acc-pricelist .acc-change{grid-template-columns:1fr 14px 1fr}.acc-pricelist .acc-change b{grid-column:1/-1}.acc-pricelist .acc-select-actions button{flex:1}}

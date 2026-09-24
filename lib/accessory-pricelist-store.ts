@@ -1,6 +1,7 @@
 import {randomUUID} from "node:crypto";
 import {getSheetRangesFresh,sheetRequestOnce} from "./google-sheets";
 import {type MasterRow} from "./accessory-pricelist";
+import {type RepairCandidate} from "./accessory-master-repair";
 
 export const MASTER_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const LOCK_ID=238150926;
@@ -76,5 +77,32 @@ export async function commitMaster(credentials:Credentials,snapshot:Awaited<Retu
   // of the atomic batch, so it is safe to release the separately-created lock.
   const safeToUnlock=response.status>=400&&response.status<500;
   throw new ImportError(`Simpan ditolak Google Sheets (${response.status}). Silakan cek pricelist lagi.`,503,safeToUnlock);
+ }
+}
+
+export function buildRepairWrite(sheet:Properties,repairs:RepairCandidate[],owner:string){
+ const requests:unknown[]=[];
+ for(const repair of repairs){
+  const changed=repair.proposed.map((value,index)=>value!==repair.current[index]?index:-1).filter(index=>index>=0);
+  for(let i=0;i<changed.length;){
+   const start=changed[i];let end=start+1;i++;
+   while(i<changed.length&&changed[i]===end){end++;i++}
+   requests.push({updateCells:{
+    range:{sheetId:sheet.sheetId,startRowIndex:repair.row-1,endRowIndex:repair.row,startColumnIndex:start,endColumnIndex:end},
+    rows:[{values:repair.proposed.slice(start,end).map(stringValue=>({userEnteredValue:{stringValue}}))}],fields:"userEnteredValue",
+   }});
+  }
+ }
+ requests.push(unlockRequest(owner));
+ return requests;
+}
+
+export async function commitMasterRepairs(credentials:Credentials,sheet:Properties,repairs:RepairCandidate[],owner:string){
+ const response=await batch(credentials,buildRepairWrite(sheet,repairs,owner));
+ if(!response.ok){
+  const detail=(await response.text().catch(()=>"")).slice(0,1000);
+  console.error("Accessory Master repair batchUpdate failed",{status:response.status,detail});
+  const safeToUnlock=response.status>=400&&response.status<500;
+  throw new ImportError(`Perbaikan ditolak Google Sheets (${response.status}). Cek Master kembali.`,503,safeToUnlock);
  }
 }

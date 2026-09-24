@@ -13,6 +13,7 @@ function load(file,overrides={}){
  return module.exports;
 }
 const parser=load("lib/accessory-pricelist.ts");
+const repair=load("lib/accessory-master-repair.ts",{"./accessory-pricelist":parser});
 const header=["Brand","SAP Article","SAP Description","Product Category","Type","Product Group","Core"];
 const suppliers=[["Vendor Code","PT Name","Brand Code","Brand Name"],["1","Supplier","AMN","A.ELEMENTS"]];
 const sample=["A.ELEMENTS","AMN0001","Charger","CHARGER","","ACCESSORIES","APPLE"];
@@ -70,6 +71,19 @@ test("header changes fail closed",()=>{
  assert.throws(()=>parser.planPricelist([],[["wrong"]],suppliers),/Format Master/);
  assert.throws(()=>parser.planPricelist([],master,[["wrong"]]),/supplier/);
 });
+test("Master repair only proposes deterministic supplier, group and Core corrections",()=>{
+ const source=[header,["Wrong Brand"," AMN 9001 ","iPhone Charger","Charger","","VAS",""]];
+ const plan=repair.planMasterRepairs(source,suppliers);
+ assert.equal(plan.checked,1);assert.equal(plan.candidates.length,1);assert.equal(plan.review.length,0);
+ assert.deepEqual(plan.candidates[0].proposed,["A.ELEMENTS","AMN 9001","iPhone Charger","Charger","","ACCESSORIES","APPLE"]);
+ assert.deepEqual(plan.candidates[0].changes.map(change=>change.field),["Brand","SAP Article","Product Group","Core"]);
+});
+test("Master repair classifies AppleCare as accessory and leaves duplicate SAP rows untouched",()=>{
+ const source=[header,["Apple Care Plus","APPCARE1","AppleCare iPhone","Proteksi","","VAS",""],["A.ELEMENTS","AMNDUP","One","CASE","","ACCESSORIES","APPLE"],["A.ELEMENTS","AMNDUP","Two","CASE","","ACCESSORIES","APPLE"]];
+ const plan=repair.planMasterRepairs(source,suppliers);
+ assert.deepEqual(plan.candidates[0].proposed,["Apple Care Plus","APPCARE1","AppleCare iPhone","PROTECTION","","ACCESSORIES","APPLE"]);
+ assert.equal(plan.duplicateArticles,1);assert.equal(plan.review.length,0);
+});
 test("parser reads the supplied Excel, including its row-5 header and empty tabs",{skip:!process.env.PRICELIST_FIXTURE},()=>{
  const buffer=fs.readFileSync(process.env.PRICELIST_FIXTURE);
  const parsed=parser.parsePricelist(buffer.buffer.slice(buffer.byteOffset,buffer.byteOffset+buffer.byteLength));
@@ -77,13 +91,13 @@ test("parser reads the supplied Excel, including its row-5 header and empty tabs
  assert.equal(parsed.items[0].row,6);
 });
 
-function mockStore(){
- let metadata,reads=0,rows=structuredClone(master),batches=[];
+function mockStore(initialRows=master,supplierRows=suppliers){
+ let metadata,reads=0,rows=structuredClone(initialRows),batches=[];
  const creds={email:"test",key:"test"};
  const transport={
-  getSheetRangesFresh:async()=>{reads++;return[structuredClone(rows),structuredClone(suppliers)]},
+  getSheetRangesFresh:async()=>{reads++;return[structuredClone(rows),structuredClone(supplierRows)]},
   sheetRequestOnce:async(_id,suffix,_email,_key,init)=>{
-   if(suffix.startsWith("?"))return Response.json({sheets:[{properties:{sheetId:1515173456,title:"Master",gridProperties:{rowCount:3,columnCount:26}}}]});
+   if(suffix.startsWith("?"))return Response.json({sheets:[{properties:{sheetId:1515173456,title:"Master",gridProperties:{rowCount:Math.max(3,rows.length+1),columnCount:26}}}]});
    if(suffix.startsWith("/developerMetadata/"))return metadata?Response.json(metadata):new Response("",{status:404});
    const requests=JSON.parse(init.body).requests;
    if(requests[0].createDeveloperMetadata){
@@ -92,7 +106,10 @@ function mockStore(){
    }else{
     batches.push(requests);
     for(const request of requests){
-     if(request.updateCells)rows.push(...request.updateCells.rows.map(row=>row.values.map(v=>v.userEnteredValue.stringValue)));
+     if(request.updateCells){
+      const incoming=request.updateCells.rows.map(row=>row.values.map(v=>v.userEnteredValue.stringValue)),start=request.updateCells.range.startRowIndex,startColumn=request.updateCells.range.startColumnIndex;
+      incoming.forEach((row,index)=>{const at=start+index;if(at<rows.length){const next=[...rows[at]];row.forEach((value,column)=>next[startColumn+column]=value);rows[at]=next}else{const next=Array(startColumn).fill("");next.push(...row);rows.push(next)}});
+     }
      if(request.deleteDeveloperMetadata){
       const lookup=request.deleteDeveloperMetadata.dataFilter.developerMetadataLookup;
       if(metadata?.metadataId===lookup.metadataId)metadata=undefined;
@@ -131,6 +148,14 @@ test("writes only new A–G values into preformatted rows and stores formula-loo
  assert.equal(batch[0].appendDimension.length,1);
  assert.deepEqual(batch.at(-1),{deleteDeveloperMetadata:{dataFilter:{developerMetadataLookup:{metadataId:238150926}}}});
 });
+test("repair writes exact existing rows and releases the shared lock atomically",async()=>{
+ const m=mockStore(),owner=await m.api.acquireImportLock(m.creds);
+ const candidate={row:2,current:["Wrong"," AMN0001 ","Fixed","CHARGER","","VAS",""],proposed:["A.ELEMENTS","AMN0001","Fixed","CHARGER","","ACCESSORIES","APPLE"]};
+ const batch=m.api.buildRepairWrite({sheetId:1515173456},[candidate],owner);
+ assert.deepEqual(batch[0].updateCells.range,{sheetId:1515173456,startRowIndex:1,endRowIndex:2,startColumnIndex:0,endColumnIndex:2});
+ assert.deepEqual(batch[1].updateCells.range,{sheetId:1515173456,startRowIndex:1,endRowIndex:2,startColumnIndex:5,endColumnIndex:7});
+ assert.deepEqual(batch.at(-1),{deleteDeveloperMetadata:{dataFilter:{developerMetadataLookup:{metadataId:238150926}}}});
+});
 
 test("route rejects unauthenticated calls before reading any upload",async()=>{
  const route=load("app/api/upload-accessory-pricelist/route.ts",{
@@ -166,6 +191,31 @@ test("preview is read-only; import requires current preview and repeated import 
   assert.equal(repeatPreview.body.newCount,0);
   const repeat=await route.POST(request("import",repeatPreview.body.planId));
   assert.equal(repeat.body.imported,0);assert.equal(m.getRows().length,3);
+ }finally{
+  if(oldEmail===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=oldEmail;
+  if(oldKey===undefined)delete process.env.GOOGLE_PRIVATE_KEY;else process.env.GOOGLE_PRIVATE_KEY=oldKey;
+ }
+});
+
+test("Master repair preview is read-only and apply uses the current server plan",async()=>{
+ const wrong=[header,["Wrong"," AMN 9001 ","iPhone Charger","Charger","","VAS",""]],m=mockStore(wrong);
+ const route=load("app/api/accessory-master-repair/route.ts",{
+  "next/server":{NextResponse:{json:(body,options)=>({body,...options})}},
+  "@/lib/auth-session":{SESSION_COOKIE:"session",verifySessionToken:()=>({nik:"test"})},
+  "@/lib/accessory-master-repair":repair,"@/lib/accessory-pricelist-store":m.api,
+ });
+ const oldEmail=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,oldKey=process.env.GOOGLE_PRIVATE_KEY;
+ process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL="test";process.env.GOOGLE_PRIVATE_KEY="test";
+ const request=body=>({cookies:{get:()=>({value:"test"})},headers:new Headers({origin:"https://example.com"}),nextUrl:{origin:"https://example.com"},json:async()=>body});
+ try{
+  const preview=await route.POST(request({mode:"preview"}));
+  assert.equal(preview.status,200);assert.equal(preview.body.fixableCount,1);assert.equal(m.getBatches().length,0);
+  const stale=await route.POST(request({mode:"apply",planId:"stale",selected:[preview.body.candidates[0].id]}));
+  assert.equal(stale.status,409);assert.equal(m.getRows()[1][0],"Wrong");
+  const fresh=await route.POST(request({mode:"preview"}));
+  const applied=await route.POST(request({mode:"apply",planId:fresh.body.planId,selected:[fresh.body.candidates[0].id]}));
+  assert.equal(applied.status,200);assert.equal(applied.body.applied,1);
+  assert.deepEqual(m.getRows()[1],["A.ELEMENTS","AMN 9001","iPhone Charger","Charger","","ACCESSORIES","APPLE"]);
  }finally{
   if(oldEmail===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=oldEmail;
   if(oldKey===undefined)delete process.env.GOOGLE_PRIVATE_KEY;else process.env.GOOGLE_PRIVATE_KEY=oldKey;
