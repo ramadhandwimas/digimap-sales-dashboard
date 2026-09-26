@@ -5,16 +5,17 @@ import dynamic from "next/dynamic";
 import {
   Activity,Box,Briefcase,CalendarDays,ChevronRight,ClipboardCheck,Copy,CreditCard,Crosshair,Eye,FileDown,
   FileSpreadsheet,Ghost,Home,Lightbulb,LogOut,MessageCircle,MoreHorizontal,Moon,
-  PackageSearch,RefreshCw,Settings,Share2,Sun,Tag,Target,TrendingUp,Users,WalletCards,X,Cpu,Shield,Zap
+  PackageSearch,RefreshCw,Settings,Share2,Sun,Tag,Target,TrendingUp,Users,WalletCards,X,Cpu,Shield,Zap,type LucideIcon
 } from "lucide-react";
 import {exportReportPdf,exportReportPng,exportReportXlsx} from "@/lib/dashboard-export";
 import {cachedJson,swrJson,peekJsonCache,prefetchJson,abortCacheScope,clearExpiredLocalCache,getM238PerfStats} from "@/lib/m238-client-cache";
 
 const ReportScreen=dynamic(()=>import("@/components/mobile-dashboard-report"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton hero"/><div className="m238m-skeleton list"/></div>});
 const MoreScreen=dynamic(()=>import("@/components/mobile-dashboard-more"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton list"/><div className="m238m-skeleton list"/></div>});
+const PromoBoardScreen=dynamic(()=>import("@/components/promo-board-v5"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton hero"/><div className="m238m-skeleton list"/></div>});
 const MobileOperations=dynamic(()=>import("@/components/mobile-operations"),{ssr:false,loading:()=> <div className="m238m-card">Memuat menu operasional…</div>});
 
-type Tab="home"|"sales"|"team"|"report"|"admin"|"more";
+type Tab="home"|"sales"|"team"|"report"|"promo"|"admin"|"more";
 type SalesMode="daily"|"summary"|"lob";
 type FocusMode="lob"|"vas"|"third";
 type ReportMode="weekly"|"feedback"|"cx";
@@ -100,6 +101,7 @@ function Progress({value}:{value:number}){return <div className="m238m-progress"
 function Metric({label,value,sub}:{label:string;value:string;sub?:string}){return <Card className="m238m-metric"><span>{label}</span><strong>{value}</strong>{sub?<small>{sub}</small>:null}</Card>}
 function Segmented<T extends string>({value,onChange,items}:{value:T;onChange:(v:T)=>void;items:{value:T;label:string}[]}){return <div className="m238m-segment">{items.map(x=><button key={x.value} onClick={()=>onChange(x.value)} className={value===x.value?"active":""}>{x.label}</button>)}</div>}
 function Skeleton(){return <div className="m238m-stack m238m-fade"><div className="m238m-skeleton hero"/><div className="m238m-grid">{Array.from({length:4},(_,i)=><div key={i} className="m238m-skeleton tile"/>)}</div><div className="m238m-skeleton list"/><div className="m238m-skeleton list"/></div>}
+function withPromo(items:(string|LucideIcon)[][]){return [...items.slice(0,-1),["promo","Promo",Tag],items.at(-1)!]}
 
 function Sheet({open,onClose,title,children}:{open:boolean;onClose:()=>void;title:string;children:ReactNode}){
   const[startY,setStartY]=useState<number|null>(null),[dragY,setDragY]=useState(0);
@@ -400,13 +402,13 @@ export default function MobileDashboardApp(){
   const touchMove=(e:React.TouchEvent)=>{if(touchStart.current==null||window.scrollY>0)return;const delta=e.touches[0].clientY-touchStart.current;if(delta>90&&!refreshing){touchStart.current=null;void refresh()}};
 
   return <div ref={rootRef} className="m238m-app" data-theme={themePreset} data-motion={motionPreset} data-motion-style={motionStyle} data-font={fontPreset} onTouchStart={e=>{if(window.scrollY===0)touchStart.current=e.touches[0].clientY}} onTouchMove={touchMove} onTouchEnd={()=>{touchStart.current=null}}>
-    <header className="m238m-header">
+    {tab!=="promo"?<header className="m238m-header">
       <div><span>M238 Dashboard</span><strong>Digimap PIM 2</strong></div>
       <div className="m238m-header-actions"><button onClick={()=>setSheet("share")} aria-label="Share"><Share2 size={19}/></button><button onClick={()=>void refresh()} aria-label="Refresh"><RefreshCw size={19} className={refreshing?"spin":""}/></button></div>
-    </header>
+    </header>:null}
     <main className="m238m-content">
-      <button className="m238m-period" onClick={openPeriodSheet}><CalendarDays size={15}/><span>{periodMode==="week"?(selectedWeek||weekly?.labelB||"Pilih Week"):monthLabel(period)}</span><small>{periodMode==="week"?"Weekly":(weekly?.labelB||"Week berjalan")}</small><ChevronRight size={15}/></button>
-      {tab==="home"?<button className="m238m-price-list-row" onClick={()=>window.location.assign("/promo-board")}><span className="m238m-price-list-icon"><Tag size={18}/></span><span className="m238m-price-list-copy"><strong>Price List &amp; Promo</strong><small>Harga dan promo device terbaru</small></span><ChevronRight size={17}/></button>:null}
+      {tab!=="promo"?<button className="m238m-period" onClick={openPeriodSheet}><CalendarDays size={15}/><span>{periodMode==="week"?(selectedWeek||weekly?.labelB||"Pilih Week"):monthLabel(period)}</span><small>{periodMode==="week"?"Weekly":(weekly?.labelB||"Week berjalan")}</small><ChevronRight size={15}/></button>:null}
+      {tab==="home"?<button className="m238m-price-list-row" onClick={()=>setTab("promo")}><span className="m238m-price-list-icon"><Tag size={18}/></span><span className="m238m-price-list-copy"><strong>Price List &amp; Promo</strong><small>Harga dan promo device terbaru</small></span><ChevronRight size={17}/></button>:null}
       {refreshing?<div className="m238m-refreshing"><RefreshCw size={14} className="spin"/> Memperbarui data…</div>:null}
       {error?<Card className="m238m-error">{error}</Card>:null}
       {loading&&!overview?<Skeleton/>:null}
@@ -414,13 +416,14 @@ export default function MobileDashboardApp(){
       {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange} onStaff={s=>void openStaff(s,"daily")} onDay={row=>{setDayDetail(row);setSheet("day")}} onShare={()=>setSheet("share")}/>:null}
       {tab==="team"?<TeamScreen rows={team} allRows={teamAll} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
       {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]} period={period} periodMode={periodMode} activeRange={activeRange}/>:null}
+      {tab==="promo"?<PromoBoardScreen embedded/>:null}
       {tab==="admin"?<AdminScreen initialTab={adminStart} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>:null}
       {tab==="more"?<MoreScreen theme={themePreset} motion={motionPreset} motionStyle={motionStyle} font={fontPreset} onTheme={applyTheme} onMotion={applyMotion} onMotionStyle={applyMotionStyle} onFont={applyFont} onAction={handleMore}/>:null}
     </main>
 
-    <nav className="m238m-bottom" style={{"--m238m-active-index":String(["home","sales","team","report","more"].indexOf(tab==="admin"?"more":tab))} as CSSProperties}>
+    <nav className="m238m-bottom" style={{"--m238m-active-index":String(["home","sales","team","report","promo","more"].indexOf(tab==="admin"?"more":tab))} as CSSProperties}>
       <span className="m238m-liquid-bubble" aria-hidden="true"/>
-      {(themePreset==="midnight"
+      {withPromo(themePreset==="midnight"
         ?[["home","Home",Activity],["sales","Sales",CreditCard],["team","Team",Briefcase],["report","Report",FileSpreadsheet],["more","More",Settings]]
         :themePreset==="aurora"
         ?[["home","Home",Lightbulb],["sales","Sales",TrendingUp],["team","Team",Users],["report","Report",Share2],["more","More",MoreHorizontal]]

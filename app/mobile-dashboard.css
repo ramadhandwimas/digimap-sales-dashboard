@@ -1456,6 +1456,10 @@
   color:#aab2bd!important;
 }
 
+/* Six native destinations, including the restored Promo tab. */
+.m238m-app .m238m-bottom{grid-template-columns:repeat(6,minmax(0,1fr))!important}
+.m238m-app .m238m-liquid-bubble{left:calc((var(--m238m-active-index) + .5) * 16.6667%)!important}
+
 /* prevent themed icons from inheriting old transforms */
 .m238m-app[data-theme="natalia"] .m238m-bottom button .m238m-nav-icon,
 .m238m-app[data-theme="bumblebee"] .m238m-bottom button .m238m-nav-icon{
