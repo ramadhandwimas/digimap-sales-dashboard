@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import {
   Activity,Box,Briefcase,CalendarDays,ChevronRight,ClipboardCheck,Copy,CreditCard,Crosshair,Eye,FileDown,
   FileSpreadsheet,Ghost,Home,Lightbulb,LogOut,MessageCircle,MoreHorizontal,Moon,
-  PackageSearch,RefreshCw,Settings,Share2,Sun,Target,TrendingUp,Users,WalletCards,X,Cpu,Shield,Zap
+  PackageSearch,RefreshCw,Settings,Share2,Sun,Tag,Target,TrendingUp,Users,WalletCards,X,Cpu,Shield,Zap
 } from "lucide-react";
 import {exportReportPdf,exportReportPng,exportReportXlsx} from "@/lib/dashboard-export";
 import {cachedJson,swrJson,peekJsonCache,prefetchJson,abortCacheScope,clearExpiredLocalCache,getM238PerfStats} from "@/lib/m238-client-cache";
@@ -406,6 +406,7 @@ export default function MobileDashboardApp(){
     </header>
     <main className="m238m-content">
       <button className="m238m-period" onClick={openPeriodSheet}><CalendarDays size={15}/><span>{periodMode==="week"?(selectedWeek||weekly?.labelB||"Pilih Week"):monthLabel(period)}</span><small>{periodMode==="week"?"Weekly":(weekly?.labelB||"Week berjalan")}</small><ChevronRight size={15}/></button>
+      {tab==="home"?<button className="m238m-price-list-row" onClick={()=>window.location.assign("/promo-board")}><span className="m238m-price-list-icon"><Tag size={18}/></span><span className="m238m-price-list-copy"><strong>Price List &amp; Promo</strong><small>Harga dan promo device terbaru</small></span><ChevronRight size={17}/></button>:null}
       {refreshing?<div className="m238m-refreshing"><RefreshCw size={14} className="spin"/> Memperbarui data…</div>:null}
       {error?<Card className="m238m-error">{error}</Card>:null}
       {loading&&!overview?<Skeleton/>:null}
