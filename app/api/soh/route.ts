@@ -40,7 +40,6 @@ export async function GET(req:NextRequest){
     ];
     const [dateRange,rawHead,iphone,ipad,mac,watch,airpods,rawSales]=await getSheetRanges(SOURCE_ID,ranges,e,k);
     const q=(req.nextUrl.searchParams.get("q")||"").toLowerCase();
-    const includeZero=req.nextUrl.searchParams.get("includeZero")==="1";
     const groups:[string,unknown[][]][]=[
       ["IPHONE",iphone],
       ["IPAD",ipad],
@@ -64,7 +63,7 @@ export async function GET(req:NextRequest){
     for(const [category,data] of groups){
       for(const r of data){
         const article=s(r[0]),description=s(r[1]),qty=n(r[2]);
-        if(!article||article.toUpperCase()==="ARTICLE"||article.toUpperCase()==="GRAND TOTAL"||(!includeZero&&qty<=0)||qty<0)continue;
+        if(!article||article.toUpperCase()==="ARTICLE"||article.toUpperCase()==="GRAND TOTAL"||qty<=0)continue;
         if(/DEMO|\-D(?:\b|$)/i.test(`${article} ${description}`))continue;
         if(q&&!`${article} ${description}`.toLowerCase().includes(q))continue;
         rows.push({article,description,qty,soldQty:soldByArticle.get(article.toUpperCase())||0,category});
@@ -75,7 +74,7 @@ export async function GET(req:NextRequest){
     const sheetDate=isoDate(dateRange?.[0]?.[0]);
     const updated=displayDate(rawDates.at(-1)||sheetDate);
     const apiRequests=getGoogleSheetRequestCount()-apiStart;
-    console.info("M238_PERF",{op:"read-soh",total:Date.now()-started,apiRequests,source:"source-of-truth",rows:rows.length,includeZero});
+    console.info("M238_PERF",{op:"read-soh",total:Date.now()-started,apiRequests,source:"source-of-truth",rows:rows.length});
 
     return NextResponse.json(
       {updated,soldDate:displayDate(soldDate),rows,source:"source-of-truth"},
