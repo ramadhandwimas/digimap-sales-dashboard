@@ -162,20 +162,8 @@ export default function MobileDashboardApp(){
   useEffect(()=>{
     if(!overview)return;
     clearExpiredLocalCache();
-    const started=performance.now();
-    const warm=()=>{
-      void prefetchJson<DailySummary>(`/api/daily-summary-fast?from=${activeDates.from}&to=${activeDates.to}&mode=${periodMode==="week"&&activeRange?"range":"monthly"}`,180000,{scope:"prefetch-summary"});
-      if(period===periodNow()){
-        void prefetchJson<any>(`/api/data?period=${period}`,120000,{scope:"prefetch-daily-sales"});
-        void prefetchJson<Daily>(`/api/daily?date=${today()}`,120000,{scope:"prefetch-daily-roster"});
-        void prefetchJson<Daily>(`/api/daily-fast?date=${today()}`,90000,{scope:"prefetch-daily-fast"});
-      }
-      void prefetchJson<{staff:Staff[]}>(periodMode==="week"&&activeRange?`/api/staff-performance-month?period=${activeRange.from.slice(0,7)}&from=${activeRange.from}&to=${activeRange.to}`:`/api/staff-performance-month?period=${period}`,180000,{scope:"prefetch-staff"});
-    };
-    const id=window.setTimeout(warm,500);
-    if(process.env.NODE_ENV!=="production")console.debug("[M238 PERF] home-ready",{ms:Math.round(performance.now()-started),stats:getM238PerfStats()});
-    return()=>window.clearTimeout(id);
-  },[overview,period,periodMode,activeRange,activeDates]);
+    if(process.env.NODE_ENV!=="production")console.debug("[M238 PERF] home-ready",{stats:getM238PerfStats()});
+  },[overview]);
   useEffect(()=>{
     let backgroundAt=0;
     const onVisibility=()=>{if(document.hidden){backgroundAt=Date.now();return}if(backgroundAt&&Date.now()-backgroundAt>180000)void loadOverview(false)};
@@ -266,24 +254,18 @@ export default function MobileDashboardApp(){
     setCx({rows});
   },[period,periodMode,activeRange]);
 
-  // Warm the screens users open most often after Home is already usable.
-  // This does not change any KPI/data logic; it only fills existing state from the same cached API paths.
+  // Warm only code modules after Home is usable. Data stays lazy and loads from the
+  // same API paths when the user opens Sales, Report, or Promo.
   useEffect(()=>{
     if(!overview)return;
     let cancelled=false;
-    const warmSales=window.setTimeout(()=>{
-      if(cancelled)return;
-      if(!daily)void loadDaily().catch(()=>undefined);
-      if(!summary)void loadSummary().catch(()=>undefined);
-    },750);
-    const warmSecondary=window.setTimeout(()=>{
+    const warmModules=window.setTimeout(()=>{
       if(cancelled)return;
       void import("@/components/mobile-dashboard-report").catch(()=>undefined);
       void import("@/components/mobile-dashboard-more").catch(()=>undefined);
-      void prefetchJson<Weekly>("/api/weekly-stable",180000,{scope:"prefetch-weekly"});
     },1800);
-    return()=>{cancelled=true;window.clearTimeout(warmSales);window.clearTimeout(warmSecondary)};
-  },[overview,daily,summary,loadDaily,loadSummary]);
+    return()=>{cancelled=true;window.clearTimeout(warmModules)};
+  },[overview]);
 
   useEffect(()=>{if(tab==="sales"){if(salesMode==="daily"&&!daily)void loadDaily();if(salesMode==="summary"||salesMode==="lob")void loadSummary()}},[tab,salesMode,daily,loadDaily,loadSummary]);
   useEffect(()=>{if(tab!=="report")return;if(reportMode==="weekly")void loadWeekly();if(reportMode==="feedback")void loadFeedback();if(reportMode==="cx")void loadCx()},[tab,reportMode,loadWeekly,loadFeedback,loadCx]);
