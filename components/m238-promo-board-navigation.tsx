@@ -8,9 +8,9 @@ function makeDesktopButton(base?:HTMLButtonElement|null){
   const button=document.createElement("button");
   button.type="button";
   button.dataset.m238PromoBoardMenu="1";
-  button.dataset.menuLabel="Promo Board";
+  button.dataset.menuLabel="Price List & Promo";
   button.className=base?.className||"flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold lg:pl-7";
-  button.innerHTML='<span aria-hidden="true">🏷️</span><span>Promo Board</span>';
+  button.innerHTML='<span aria-hidden="true">🏷️</span><span>Price List &amp; Promo</span>';
   button.addEventListener("click",()=>{window.location.href="/promo-board"});
   return button;
 }

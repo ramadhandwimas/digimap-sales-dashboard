@@ -7,6 +7,7 @@ import {buildDataCopasRepairWrites,planDataCopasRepair} from "@/lib/data-copas-r
 const DASHBOARD_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const RAW_SHEET="Raw Salesperson";
 const COPAS_SHEET="Data Copas";
+const MAX_SHEET_ROW=70000;
 
 const text=(v:unknown)=>String(v??"").trim();
 
@@ -81,7 +82,7 @@ export async function GET(req:NextRequest){
   const invoice=text(req.nextUrl.searchParams.get("invoice"));
   if(!invoice)return NextResponse.json({error:"No Invoice wajib diisi"},{status:400});
   const{email,key}=creds();
-  const[helper,noExchange]=await getSheetRanges(DASHBOARD_ID,[`'${RAW_SHEET}'!AB2:AR50000`,`'${RAW_SHEET}'!Y2:Y50000`],email,key);
+  const[helper,noExchange]=await getSheetRanges(DASHBOARD_ID,[`'${RAW_SHEET}'!AB2:AR${MAX_SHEET_ROW}`,`'${RAW_SHEET}'!Y2:Y${MAX_SHEET_ROW}`],email,key);
   const wanted=invoice.toUpperCase();
   const idx=(helper||[]).findIndex(r=>text(r[3]).toUpperCase()===wanted);
   if(idx<0)return NextResponse.json({error:"Invoice tidak ditemukan."},{status:404});
@@ -94,7 +95,7 @@ export async function POST(req:NextRequest){
  try{
   const body=await req.json(),action=text(body.action),{email,key}=creds();
   if(action==="repair-copas"){
-   const[master,copas]=await getSheetRangesFresh(DASHBOARD_ID,["'Master'!A1:L18606",`'${COPAS_SHEET}'!A2:Q50000`],email,key);
+   const[master,copas]=await getSheetRangesFresh(DASHBOARD_ID,["'Master'!A1:L18606",`'${COPAS_SHEET}'!A2:Q${MAX_SHEET_ROW}`],email,key);
    const plan=planDataCopasRepair(master||[],copas||[]),planId=repairPlanId(plan.candidates),dryRun=body.dryRun===true;
    const summary={checkedRows:plan.checkedRows,rowsWithNA:plan.rowsWithNA,naRepairRows:plan.naRepairRows,vendorRows:plan.vendorRows,repairRows:plan.candidates.length,changedCells:plan.changedCells,unresolvedNARows:plan.unresolvedNARows,repairItems:plan.candidates.slice(0,300),repairItemsTotal:plan.candidates.length,issues:plan.issues,planId};
    if(dryRun||!plan.candidates.length){
@@ -124,7 +125,7 @@ export async function POST(req:NextRequest){
    const mode=body.mode==="month"?"month":"date",value=text(body.value);
    if(mode==="date"&&!/^\d{4}-\d{2}-\d{2}$/.test(value))return NextResponse.json({error:"Tanggal cut off tidak valid"},{status:400});
    if(mode==="month"&&!/^\d{4}-\d{2}$/.test(value))return NextResponse.json({error:"Periode cut off tidak valid"},{status:400});
-   const[source,destination]=await getSheetRangesFresh(DASHBOARD_ID,[`'${RAW_SHEET}'!AB2:AR50000`,`'${COPAS_SHEET}'!A2:Q50000`],email,key);
+   const[source,destination]=await getSheetRangesFresh(DASHBOARD_ID,[`'${RAW_SHEET}'!AB2:AR${MAX_SHEET_ROW}`,`'${COPAS_SHEET}'!A2:Q${MAX_SHEET_ROW}`],email,key);
    const cleanedSource=(source||[]).map(cleanRow);
    let ignoredCount=0;
    const selected:unknown[][]=[];
@@ -209,6 +210,7 @@ export async function POST(req:NextRequest){
    }
 
    if(!dryRun&&text(body.planId)!==planId)return NextResponse.json({error:"Data RAW SalesPerson atau Data Copas berubah setelah pengecekan. Silakan cek data ulang sebelum Cut Off."},{status:409});
+   if(!dryRun&&!check.isBalanced)return NextResponse.json({error:"Cut Off dibatalkan karena jumlah transaksi atau nominal RAW belum sama dengan proyeksi Data Copas. Silakan cek ulang datanya."},{status:409});
    if(!dryRun)await appendSheetValues(DASHBOARD_ID,`'${COPAS_SHEET}'!A:Q`,newRows,email,key,"USER_ENTERED");
    let cacheWarning="";
    if(!dryRun){
@@ -230,7 +232,7 @@ export async function POST(req:NextRequest){
   if(action==="exchange"){
    const invoice=text(body.invoice),noExchange=text(body.noExchange);
    if(!invoice||!noExchange)return NextResponse.json({error:"No Invoice dan No Exchange wajib diisi"},{status:400});
-   const[helper,noExchangeCol]=await getSheetRanges(DASHBOARD_ID,[`'${RAW_SHEET}'!AB2:AR50000`,`'${RAW_SHEET}'!Y2:Y50000`],email,key);
+   const[helper,noExchangeCol]=await getSheetRanges(DASHBOARD_ID,[`'${RAW_SHEET}'!AB2:AR${MAX_SHEET_ROW}`,`'${RAW_SHEET}'!Y2:Y${MAX_SHEET_ROW}`],email,key);
    const wanted=invoice.toUpperCase(),idx=(helper||[]).findIndex(r=>text(r[3]).toUpperCase()===wanted);
    if(idx<0)return NextResponse.json({error:"Invoice tidak ditemukan."},{status:404});
    if(text(noExchangeCol?.[idx]?.[0]))return NextResponse.json({error:"No Exchange invoice ini sudah terisi."},{status:409});

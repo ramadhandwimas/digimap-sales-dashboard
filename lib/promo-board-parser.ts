@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 
-export type PromoStatus = "ACTIVE" | "ENDING_SOON" | "EXPIRED" | "FURTHER_NOTICE" | "UNKNOWN";
+export type PromoStatus = "UPCOMING" | "ACTIVE" | "ENDING_SOON" | "EXPIRED" | "FURTHER_NOTICE" | "UNKNOWN";
 export type PromoPeriodType = "DATE_RANGE" | "FURTHER_NOTICE" | "SINGLE_DATE" | "UNKNOWN";
 
 export type PromoProduct = {
@@ -35,11 +35,16 @@ export type PromoParseResult = {
 };
 
 const MONTHS: Record<string, number> = {
-  januari: 0, january: 0, februari: 1, february: 1, maret: 2, march: 2,
-  april: 3, mei: 4, may: 4, juni: 5, june: 5, juli: 6, july: 6,
-  agustus: 7, august: 7, september: 8, oktober: 9, october: 9,
-  november: 10, desember: 11, december: 11,
+  januari: 0, january: 0, jan: 0, februari: 1, february: 1, feb: 1,
+  maret: 2, march: 2, mar: 2, april: 3, apr: 3, mei: 4, may: 4,
+  juni: 5, june: 5, jun: 5, juli: 6, july: 6, jul: 6,
+  agustus: 7, august: 7, agu: 7, agt: 7, aug: 7,
+  september: 8, sep: 8, sept: 8,
+  oktober: 9, october: 9, okt: 9, oct: 9, november: 10, nov: 10,
+  desember: 11, december: 11, des: 11, dec: 11,
 };
+const MONTH_PATTERN = "Januari|January|Jan|Februari|February|Feb|Maret|March|Mar|April|Apr|Mei|May|Juni|June|Jun|Juli|July|Jul|Agustus|August|Agu|Agt|Aug|September|Sep|Sept|Oktober|October|Okt|Oct|November|Nov|Desember|December|Des|Dec";
+const FULL_DATE_PATTERN = `\\d{1,2}\\s*(?:${MONTH_PATTERN})\\s+20\\d{2}`;
 
 const clean = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
 const key = (value: unknown) => clean(value).toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
@@ -51,43 +56,78 @@ const num = (value: unknown) => {
 const iso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
 function parseFullDate(text: string): Date | null {
-  const match = text.match(/(\d{1,2})\s+(Januari|January|Februari|February|Maret|March|April|Mei|May|Juni|June|Juli|July|Agustus|August|September|Oktober|October|November|Desember|December)\s+(20\d{2})/i);
+  const match = text.match(new RegExp(`(\\d{1,2})\\s*(${MONTH_PATTERN})\\s+(20\\d{2})`, "i"));
   if (!match) return null;
   const month = MONTHS[match[2].toLowerCase()];
   if (month === undefined) return null;
   return new Date(Number(match[3]), month, Number(match[1]));
 }
 
+function dateOrdinal(value:string|null){
+  if(!value||!/^\d{4}-\d{2}-\d{2}$/.test(value))return null;
+  const[y,m,d]=value.split("-").map(Number);
+  return Math.floor(Date.UTC(y,m-1,d)/86400000);
+}
+
+function jakartaDate(now:Date){
+  const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Jakarta",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(now);
+  const get=(type:string)=>parts.find(part=>part.type===type)?.value||"";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+export function resolvePromoTiming(start:string|null,end:string|null,type:PromoPeriodType,now=new Date()){
+  const today=dateOrdinal(jakartaDate(now)),startDay=dateOrdinal(start),endDay=dateOrdinal(end);
+  if(today==null)return{status:"UNKNOWN" as PromoStatus,daysRemaining:null};
+  if(startDay!=null&&today<startDay)return{status:"UPCOMING" as PromoStatus,daysRemaining:startDay-today};
+  if(type==="FURTHER_NOTICE")return{status:"FURTHER_NOTICE" as PromoStatus,daysRemaining:null};
+  if(type==="SINGLE_DATE"&&startDay!=null){
+    if(today===startDay)return{status:"ACTIVE" as PromoStatus,daysRemaining:0};
+    return{status:"EXPIRED" as PromoStatus,daysRemaining:startDay-today};
+  }
+  if(endDay==null)return{status:"UNKNOWN" as PromoStatus,daysRemaining:null};
+  const daysRemaining=endDay-today;
+  return{status:daysRemaining<0?"EXPIRED" as PromoStatus:daysRemaining<=7?"ENDING_SOON" as PromoStatus:"ACTIVE" as PromoStatus,daysRemaining};
+}
+
 function parsePromoPeriod(remarks: string, now: Date) {
   if (!remarks) return { start: null, end: null, type: "UNKNOWN" as PromoPeriodType, status: "UNKNOWN" as PromoStatus, daysRemaining: null };
   const text = remarks.replace(/\s+/g, " ").trim();
 
-  const further = text.match(/Promo\s+(\d{1,2}\s+(?:Januari|January|Februari|February|Maret|March|April|Mei|May|Juni|June|Juli|July|Agustus|August|September|Oktober|October|November|Desember|December)\s+20\d{2})\s*-\s*Further(?:\s+Notice)?/i);
+  const fullDates=[...text.matchAll(new RegExp(FULL_DATE_PATTERN,"gi"))].map(match=>parseFullDate(match[0])).filter(Boolean) as Date[];
+  const further = /F(?:u|y)rther(?:\s+Notice)?/i.test(text);
   if (further) {
-    const start = parseFullDate(further[1]);
-    return { start: start ? iso(start) : null, end: null, type: "FURTHER_NOTICE" as PromoPeriodType, status: "FURTHER_NOTICE" as PromoStatus, daysRemaining: null };
+    const start = fullDates[0]??null;
+    const startValue=start?iso(start):null,timing=resolvePromoTiming(startValue,null,"FURTHER_NOTICE",now);
+    return { start:startValue, end:null, type:"FURTHER_NOTICE" as PromoPeriodType, ...timing };
   }
 
-  const rangeSameMonth = text.match(/Promo\s+(\d{1,2})\s*-\s*(\d{1,2}\s+(?:Januari|January|Februari|February|Maret|March|April|Mei|May|Juni|June|Juli|July|Agustus|August|September|Oktober|October|November|Desember|December)\s+20\d{2})/i);
+  const rangeSameMonth = text.match(new RegExp(`(\\d{1,2})\\s*-\\s*(${FULL_DATE_PATTERN})`,"i"));
+  const rangeAcrossMonths = text.match(new RegExp(`(\\d{1,2})\\s*(${MONTH_PATTERN})\\s*-\\s*(${FULL_DATE_PATTERN})`,"i"));
   let start: Date | null = null;
   let end: Date | null = null;
   if (rangeSameMonth) {
     end = parseFullDate(rangeSameMonth[2]);
     if (end) start = new Date(end.getFullYear(), end.getMonth(), Number(rangeSameMonth[1]));
+  } else if(rangeAcrossMonths){
+    end=parseFullDate(rangeAcrossMonths[3]);
+    const month=MONTHS[rangeAcrossMonths[2].toLowerCase()];
+    if(end&&month!==undefined){
+      const year=month>end.getMonth()?end.getFullYear()-1:end.getFullYear();
+      start=new Date(year,month,Number(rangeAcrossMonths[1]));
+    }
   } else {
-    const dates = [...text.matchAll(/\d{1,2}\s+(?:Januari|January|Februari|February|Maret|March|April|Mei|May|Juni|June|Juli|July|Agustus|August|September|Oktober|October|November|Desember|December)\s+20\d{2}/gi)].map((m) => parseFullDate(m[0])).filter(Boolean) as Date[];
+    const dates = fullDates;
     if (dates.length >= 2) [start, end] = [dates[0], dates[1]];
     else if (dates.length === 1) {
       start = dates[0];
-      return { start: iso(start), end: null, type: "SINGLE_DATE" as PromoPeriodType, status: "UNKNOWN" as PromoStatus, daysRemaining: null };
+      const startValue=iso(start),timing=resolvePromoTiming(startValue,null,"SINGLE_DATE",now);
+      return { start:startValue, end:null, type:"SINGLE_DATE" as PromoPeriodType, ...timing };
     }
   }
 
   if (!start || !end) return { start: null, end: null, type: "UNKNOWN" as PromoPeriodType, status: "UNKNOWN" as PromoStatus, daysRemaining: null };
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diff = Math.ceil((end.getTime() - today.getTime()) / 86400000);
-  const status: PromoStatus = diff < 0 ? "EXPIRED" : diff <= 7 ? "ENDING_SOON" : "ACTIVE";
-  return { start: iso(start), end: iso(end), type: "DATE_RANGE" as PromoPeriodType, status, daysRemaining: diff };
+  const startValue=iso(start),endValue=iso(end),timing=resolvePromoTiming(startValue,endValue,"DATE_RANGE",now);
+  return { start:startValue, end:endValue, type:"DATE_RANGE" as PromoPeriodType, ...timing };
 }
 
 function detectCategory(description: string, category: string, section: string) {
