@@ -3,7 +3,7 @@ import {useState} from "react";
 import dynamic from "next/dynamic";
 const AccessoryPricelistUpload=dynamic(()=>import("@/components/accessory-pricelist-upload"));
 const DataCopasRepair=dynamic(()=>import("@/components/data-copas-repair"));
-import {Box,ChevronLeft,ChevronRight,Clock3,CreditCard,LogOut,MessageCircle,Settings,Type,Users,WalletCards} from "lucide-react";
+import {Box,ChevronLeft,ChevronRight,Clock3,CreditCard,LogOut,MessageCircle,Settings,Tag,Type,Users,WalletCards} from "lucide-react";
 
 type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono"|"webhero"|"mecha"|"alliance"|"natalia"|"bumblebee";
 type MotionPreset="instant"|"minimal"|"smooth"|"dynamic"|"cinematic";
@@ -36,13 +36,14 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  const toggle=(panel:"theme"|"speed"|"style"|"font"|"pricelist"|"copas-repair")=>setOpenPanel(v=>v===panel?null:panel);
 
  const items=[
+  {label:"Promo Board",sub:"Cek promo device & ketersediaan stok",icon:Tag,action:"promo-board"},
   {label:"SOH",sub:"Cek stock on hand",icon:Box,action:"soh"},
   {label:"BNPL",sub:"BNPL & Trade-In",icon:CreditCard,action:"bnpl"},
   {label:"Feedback",sub:"Input feedback staff",icon:MessageCircle,action:"add-feedback"},
   {label:"CX & New Member",sub:"Input CX dan member",icon:Users,action:"add-cx"},
   {label:"Incentive",sub:"Estimasi incentive staff",icon:WalletCards,action:"incentive"},
   {label:"Versi Lama",sub:"Buka tampilan desktop lama",icon:Clock3,action:"mobile-view"},
-  {label:"Settings",sub:"Pricelist aksesoris, theme & tampilan",icon:Settings,action:"settings"},
+  {label:"Settings",sub:"Pricelist aksesoris, data copas, theme & tampilan",icon:Settings,action:"settings"},
  ] as const;
 
  if(screen==="settings")return <div className="m238m-more m238m-settings-page">
@@ -98,7 +99,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  return <div className="m238m-more m238m-more-direct">
   <div className="m238m-more-title"><strong>More</strong><span>Menu tambahan M238</span></div>
   <div className="m238m-direct-menu">
-   {items.map(({label,sub,icon:Icon,action})=><button key={action} onClick={()=>action==="settings"?setScreen("settings"):onAction(action)}>
+   {items.map(({label,sub,icon:Icon,action})=><button key={action} onClick={()=>action==="settings"?setScreen("settings"):action==="promo-board"?window.location.assign("/promo-board"):onAction(action)}>
     <span className="m238m-direct-icon"><Icon size={19}/></span>
     <span className="m238m-direct-copy"><strong>{label}</strong><small>{sub}</small></span>
     <ChevronRight size={18}/>
