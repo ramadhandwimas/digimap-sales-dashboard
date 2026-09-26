@@ -60,26 +60,61 @@ function chipOf(value:string){
 }
 
 function inferLob(product:PromoProduct){
-  const text=upper(`${product.section} ${product.sapDescription} ${product.category}`);
-  if(/IPHONE|\bIP\s*1[0-9]\b|\bIP1[0-9]\b/.test(text))return"iPhone";
-  if(/IPAD/.test(text))return"iPad";
-  if(/AIRPODS/.test(text))return"AirPods";
-  if(/APPLE WATCH|\bWATCH\b|\bAW\s*(?:SE|S?\d|ULTRA)/.test(text))return"Watch";
-  if(/MACBOOK|\bMBA\b|\bMBP\b|\bMB\s*(?:AIR|PRO)\b|IMAC|MAC MINI|\bMAC\b/.test(text))return"Mac";
+  // Product description is authoritative. Section/category are only fallback context,
+  // because some sections combine different LOBs (for example "Mac & Watch").
+  const description=upper(product.sapDescription);
+  const fallback=upper(`${product.section} ${product.category}`);
+  const detect=(text:string)=>{
+    if(/IPHONE|\bIP\s*1[0-9]\b|\bIP1[0-9]\b/.test(text))return"iPhone";
+    if(/IPAD/.test(text))return"iPad";
+    if(/AIRPODS/.test(text))return"AirPods";
+    if(/MACBOOK|\bMBA\b|\bMBP\b|\bMB\s*(?:AIR|PRO)\b|IMAC|MAC MINI|\bMAC\b/.test(text))return"Mac";
+    if(/APPLE WATCH|\bWATCH\b|\bAW\s*(?:SE|S?\d|ULTRA)/.test(text))return"Watch";
+    return"";
+  };
+  const detected=detect(description)||detect(fallback);
+  if(detected)return detected;
   if(product.category==="Apple Watch")return"Watch";
   if(["iPhone","iPad","Mac","AirPods"].includes(product.category))return product.category;
   return product.category||"Others";
 }
 
-function friendlyModel(product:PromoProduct){
-  const text=upper(`${product.section} ${product.sapDescription}`);
-
-  let iphone=text.match(/IPHONE\s*(AIR|\d{2}(?:\s*(?:PRO MAX|PRO|PLUS|E))?)/);
-  if(!iphone){
-    const short=text.match(/\bIP\s*(1[0-9])\s*(PRO MAX|PRO|PLUS|E)?\b/);
-    if(short)iphone=[short[0],clean(`${short[1]}${short[2]?` ${short[2]}`:""}`)] as RegExpMatchArray;
+function parseIphoneModel(value:string){
+  const text=upper(value);
+  const air=text.match(/IPHONE\s+AIR\b/);
+  if(air)return"iPhone Air";
+  const full=text.match(/IPHONE\s*(1[0-9])\s*(PRO MAX|PRO|PLUS|E)?\b/);
+  if(full){
+    const series=full[1];
+    const suffix=(full[2]||"").toUpperCase();
+    if(suffix==="PRO MAX")return`iPhone ${series} Pro Max`;
+    if(suffix==="PRO")return`iPhone ${series} Pro`;
+    if(suffix==="PLUS")return`iPhone ${series} Plus`;
+    if(suffix==="E")return`iPhone ${series}e`;
+    return`iPhone ${series}`;
   }
-  if(iphone)return`iPhone ${clean(iphone[1]).toLowerCase()==="air"?"Air":clean(iphone[1]).replace(/\b\w/g,x=>x.toUpperCase())}`;
+  const short=text.match(/\bIP\s*(1[0-9])\s*(PRO MAX|PRO|PLUS|E)?\b/);
+  if(short){
+    const series=short[1];
+    const suffix=(short[2]||"").toUpperCase();
+    if(suffix==="PRO MAX")return`iPhone ${series} Pro Max`;
+    if(suffix==="PRO")return`iPhone ${series} Pro`;
+    if(suffix==="PLUS")return`iPhone ${series} Plus`;
+    if(suffix==="E")return`iPhone ${series}e`;
+    return`iPhone ${series}`;
+  }
+  return"";
+}
+
+function friendlyModel(product:PromoProduct){
+  // Parse the concrete SAP Description first. A generic section such as "iPhone 17"
+  // must never override "IPHONE 17 PRO MAX ..." from the actual SKU description.
+  const description=upper(product.sapDescription);
+  const section=upper(product.section);
+  const text=description||section;
+
+  const iphone=parseIphoneModel(description)||parseIphoneModel(section);
+  if(iphone)return iphone;
 
   if(/\bMBA\b|MACBOOK AIR/.test(text)){
     const size=sizeOf(text),chip=chipOf(text);
@@ -114,7 +149,7 @@ function friendlyModel(product:PromoProduct){
     const gen=text.match(/AIRPODS\s*(\d)/);return gen?`AirPods ${gen[1]}`:"AirPods";
   }
 
-  return clean(product.section||product.sapDescription).replace(/\s+-IND\d*$/i,"");
+  return clean(product.sapDescription||product.section).replace(/\s+-IND\d*$/i,"");
 }
 
 function friendlyName(model:string,capacity:string,connectivity:string){
@@ -154,7 +189,9 @@ export function buildPromoCatalog(products:PromoProduct[],sohRows:SohRow[]):Prom
   for(const product of products){
     const lob=inferLob(product);
     const model=friendlyModel(product);
-    const sourceText=`${product.section} ${product.sapDescription}`;
+    // Capacity/connectivity must come from the concrete SKU description first.
+    // Generic section text can contain capacities or families that belong to another SKU.
+    const sourceText=product.sapDescription||product.section;
     const capacity=capacityOf(sourceText);
     const connectivity=connectivityOf(sourceText);
     const key=[
