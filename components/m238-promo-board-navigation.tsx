@@ -16,6 +16,7 @@ function makeDesktopButton(base?:HTMLButtonElement|null){
 }
 
 function injectDesktop(){
+  if(window.matchMedia("(max-width: 768px)").matches)return;
   const nav=document.querySelector("aside nav");
   if(!nav||nav.querySelector("[data-m238-promo-board-menu]"))return;
   const adminHeader=Array.from(nav.querySelectorAll<HTMLButtonElement>("button")).find(b=>label(b)==="Administrasi");
@@ -28,25 +29,10 @@ function injectDesktop(){
   if(upload&&upload.parentElement===list)list.insertBefore(button,upload);else list.appendChild(button);
 }
 
-function injectMobileMore(){
-  const list=document.querySelector(".m238m-direct-menu");
-  if(!list||list.querySelector("[data-m238-promo-board-mobile-menu]"))return;
-  const sample=list.querySelector<HTMLButtonElement>("button:not(.m238m-logout-row)");
-  const button=document.createElement("button");
-  button.type="button";
-  button.dataset.m238PromoBoardMobileMenu="1";
-  if(sample?.className)button.className=sample.className;
-  button.innerHTML='<span class="m238m-direct-icon" aria-hidden="true">🏷️</span><span class="m238m-direct-copy"><strong>Promo Board</strong><small>Cek promo device & ketersediaan stok</small></span><span aria-hidden="true">›</span>';
-  button.addEventListener("click",()=>{window.location.href="/promo-board"});
-  const soh=Array.from(list.querySelectorAll<HTMLButtonElement>("button")).find(b=>b.textContent?.trim().startsWith("SOH"));
-  if(soh)list.insertBefore(button,soh);else list.prepend(button);
-}
-
 export default function M238PromoBoardNavigation(){
   useEffect(()=>{
-    const inject=()=>{injectDesktop();injectMobileMore()};
-    inject();
-    const observer=new MutationObserver(()=>requestAnimationFrame(inject));
+    injectDesktop();
+    const observer=new MutationObserver(()=>requestAnimationFrame(injectDesktop));
     observer.observe(document.body,{childList:true,subtree:true});
     return()=>observer.disconnect();
   },[]);
