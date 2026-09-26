@@ -1,0 +1,105 @@
+"use client";
+
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
+import {ArrowLeft,CalendarDays,CheckCircle2,History,Search,Tag,Upload,X,XCircle} from "lucide-react";
+import type {PromoParseResult,PromoStatus} from "@/lib/promo-board-parser";
+import {comparePromoPriceLists,type PromoComparison} from "@/lib/promo-board-insights";
+import {buildPromoCatalog,type PromoCatalogItem,type SohRow,type StockStatus} from "@/lib/promo-board-catalog";
+
+type Snapshot=PromoParseResult&{id?:string;uploadedAt?:string};
+type PromoResponse={ok?:boolean;active?:Snapshot|null;history?:Snapshot[];error?:string};
+type PreviewResponse={ok?:boolean;preview?:PromoParseResult;comparison?:PromoComparison;error?:string};
+type SohResponse={rows?:SohRow[];updated?:string;soldDate?:string;error?:string};
+type ViewMode="promo"|"changes"|"history";
+
+const money=new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0});
+const num=new Intl.NumberFormat("id-ID");
+const dateFmt=new Intl.DateTimeFormat("id-ID",{day:"2-digit",month:"short",year:"numeric"});
+const LOBS=["iPhone","iPad","Mac","Watch","AirPods"];
+const capacitiesOrder=["64GB","128GB","256GB","512GB","1TB","2TB","4TB"];
+
+function formatDate(value:string|null){if(!value)return"-";const d=new Date(`${value}T00:00:00`);return Number.isNaN(d.getTime())?value:dateFmt.format(d)}
+function promoBadge(status:PromoStatus,days:number|null){
+ if(status==="FURTHER_NOTICE")return{label:"Further Notice",cls:"bg-blue-50 text-blue-700 border-blue-200"};
+ if(status==="ENDING_SOON")return{label:days===0?"Berakhir hari ini":days===1?"Berakhir besok":`Berakhir ${days} hari lagi`,cls:"bg-amber-50 text-amber-700 border-amber-200"};
+ if(status==="EXPIRED")return{label:"Expired",cls:"bg-rose-50 text-rose-700 border-rose-200"};
+ if(status==="ACTIVE")return{label:"Aktif",cls:"bg-emerald-50 text-emerald-700 border-emerald-200"};
+ return{label:"Perlu diperiksa",cls:"bg-slate-50 text-slate-600 border-slate-200"};
+}
+function stockBadge(status:StockStatus){
+ if(status==="READY")return{label:"Ready",cls:"bg-emerald-50 text-emerald-700 border-emerald-200"};
+ if(status==="LOW_STOCK")return{label:"Low Stock",cls:"bg-amber-50 text-amber-700 border-amber-200"};
+ if(status==="OUT_OF_STOCK")return{label:"Out of Stock",cls:"bg-rose-50 text-rose-700 border-rose-200"};
+ return{label:"SOH Tidak Ditemukan",cls:"bg-slate-50 text-slate-500 border-slate-200"};
+}
+function variantLabel(value:string){
+ const u=value.toUpperCase();
+ const map:[RegExp,string][]=[[/\bSPG\b/,"Space Grey"],[/\bSLV\b/,"Silver"],[/\bSTL\b/,"Starlight"],[/\bMDN\b/,"Midnight"],[/\bBLK\b|BLACK/,"Black"],[/\bWHT\b|WHITE/,"White"],[/\bBLU\b|BLUE/,"Blue"],[/PINK/,"Pink"],[/PUR|PURPLE/,"Purple"],[/NAT|NATURAL/,"Natural"],[/GLD|GOLD/,"Gold"]];
+ return map.find(([r])=>r.test(u))?.[1]||"Variant";
+}
+
+function PromoDetail({item,onClose}:{item:PromoCatalogItem;onClose:()=>void}){
+ const p=item.group,b=promoBadge(p.promoStatus,p.daysRemaining),s=stockBadge(item.stockStatus);
+ return <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-slate-950/35 backdrop-blur-sm sm:items-center" onClick={onClose}>
+  <div className="max-h-[88dvh] w-full overflow-auto rounded-t-[28px] bg-white p-5 shadow-2xl dark:bg-slate-950 sm:max-w-3xl sm:rounded-[28px]" onClick={e=>e.stopPropagation()}>
+   <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200 sm:hidden"/>
+   <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-blue-600">{item.lob}</p><h2 className="mt-1 text-2xl font-black">{item.friendlyName}</h2></div><button onClick={onClose} className="grid size-10 place-items-center rounded-full bg-slate-100 dark:bg-slate-900"><X className="size-4"/></button></div>
+   <div className="mt-4 flex flex-wrap gap-2"><span className={`rounded-full border px-3 py-1.5 text-xs font-black ${b.cls}`}>{b.label}</span><span className={`rounded-full border px-3 py-1.5 text-xs font-black ${s.cls}`}>{s.label}</span></div>
+   <div className="mt-5 grid gap-3 sm:grid-cols-2"><div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-900"><p className="text-xs text-slate-400">Promo Price</p><p className="mt-1 text-2xl font-black text-blue-600">{p.promotionPrice?money.format(p.promotionPrice):"-"}</p><p className="mt-2 text-xs text-slate-500">Normal {p.normalPrice?money.format(p.normalPrice):"-"}</p></div><div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-900"><p className="text-xs text-slate-400">SOH Total M238</p><p className="mt-1 text-2xl font-black">{item.totalSoh==null?"-":`${num.format(item.totalSoh)} unit`}</p><p className="mt-2 text-xs text-slate-500">Stock dari source SOH existing</p></div></div>
+   <div className="mt-5"><p className="text-sm font-black">Variant / SAP</p><div className="mt-2 overflow-hidden rounded-2xl border dark:border-slate-800"><div className="hidden grid-cols-[1fr_1.3fr_.6fr_.8fr] bg-slate-50 p-3 text-xs font-black text-slate-500 sm:grid dark:bg-slate-900"><span>Variant</span><span>SAP</span><span>SOH</span><span>Status</span></div>{item.stockVariants.map(v=>{const st=stockBadge(v.status);return <div key={v.product.sapArticle} className="grid gap-1 border-t p-3 text-sm first:border-t-0 dark:border-slate-800 sm:grid-cols-[1fr_1.3fr_.6fr_.8fr] sm:items-center"><b>{variantLabel(v.product.sapDescription)}</b><span className="text-xs text-slate-500 sm:text-sm">{v.product.sapArticle}</span><span className="font-black">{v.soh==null?"-":v.soh}</span><span className={`w-fit rounded-full border px-2 py-1 text-[10px] font-black ${st.cls}`}>{st.label}</span></div>})}</div></div>
+   <div className="mt-5 rounded-2xl border p-4 text-sm dark:border-slate-800"><p><b>Periode:</b> {p.promoStartDate?formatDate(p.promoStartDate):"Tidak terdeteksi"} → {p.promoPeriodType==="FURTHER_NOTICE"?"Further Notice":p.promoEndDate?formatDate(p.promoEndDate):"Periksa Remarks"}</p><p className="mt-2"><b>Remarks:</b> {p.remarks||"-"}</p></div>
+  </div>
+ </div>
+}
+
+export default function PromoBoardV4(){
+ const fileRef=useRef<HTMLInputElement>(null);
+ const[active,setActive]=useState<Snapshot|null>(null),[history,setHistory]=useState<Snapshot[]>([]),[soh,setSoh]=useState<SohResponse>({rows:[]}),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState("");
+ const[preview,setPreview]=useState<PromoParseResult|null>(null),[previewComparison,setPreviewComparison]=useState<PromoComparison|null>(null),[selectedFile,setSelectedFile]=useState<File|null>(null);
+ const[lob,setLob]=useState("iPhone"),[model,setModel]=useState(""),[capacity,setCapacity]=useState(""),[query,setQuery]=useState(""),[stockFilter,setStockFilter]=useState<"ALL"|StockStatus>("ALL"),[readyOnly,setReadyOnly]=useState(false),[view,setView]=useState<ViewMode>("promo"),[detail,setDetail]=useState<PromoCatalogItem|null>(null);
+
+ const load=useCallback(async()=>{setLoading(true);setError("");try{const[p,s]=await Promise.all([fetch("/api/promo-board",{cache:"no-store"}),fetch("/api/soh?includeZero=1",{cache:"no-store"})]);const pj=await p.json() as PromoResponse,sj=await s.json() as SohResponse;if(!p.ok)throw new Error(pj.error||"Promo Board gagal dibaca");setActive(pj.active||null);setHistory(pj.history||[]);setSoh(sj)}catch(e){setError(e instanceof Error?e.message:"Gagal membaca Promo Board")}finally{setLoading(false)}},[]);
+ useEffect(()=>{void load()},[load]);
+
+ const catalog=useMemo(()=>buildPromoCatalog(active?.products||[],soh.rows||[]),[active,soh.rows]);
+ const lobs=useMemo(()=>LOBS.filter(x=>catalog.some(i=>i.lob===x)),[catalog]);
+ useEffect(()=>{if(lobs.length&&!lobs.includes(lob))setLob(lobs[0])},[lobs,lob]);
+ const lobItems=useMemo(()=>catalog.filter(i=>i.lob===lob),[catalog,lob]);
+ const models=useMemo(()=>Array.from(new Set(lobItems.map(i=>i.model))).sort(),[lobItems]);
+ useEffect(()=>{if(models.length&&!models.includes(model))setModel(models[0]||"")},[models,model]);
+ const modelItems=useMemo(()=>lobItems.filter(i=>!model||i.model===model),[lobItems,model]);
+ const capacities=useMemo(()=>Array.from(new Set(modelItems.map(i=>i.capacity).filter(Boolean))).sort((a,b)=>capacitiesOrder.indexOf(a)-capacitiesOrder.indexOf(b)),[modelItems]);
+ useEffect(()=>{if(capacities.length&&!capacities.includes(capacity))setCapacity(capacities[0]||"");if(!capacities.length)setCapacity("")},[capacities,capacity]);
+ const displayed=useMemo(()=>{const q=query.trim().toLowerCase();return modelItems.filter(i=>(!capacity||i.capacity===capacity)&&(!q||`${i.friendlyName} ${i.group.variants.map(v=>`${v.sapArticle} ${v.sapDescription}`).join(" ")}`.toLowerCase().includes(q))&&(stockFilter==="ALL"||i.stockStatus===stockFilter)&&(!readyOnly||i.stockStatus==="READY"))},[modelItems,capacity,query,stockFilter,readyOnly]);
+ const lastComparison=useMemo(()=>comparePromoPriceLists(history[0]||null,active),[history,active]);
+ const metrics=useMemo(()=>({active:(active?.products||[]).filter(x=>x.promoStatus==="ACTIVE").length,further:(active?.products||[]).filter(x=>x.promoStatus==="FURTHER_NOTICE").length,ending:(active?.products||[]).filter(x=>x.promoStatus==="ENDING_SOON").length,ready:catalog.filter(x=>x.stockStatus==="READY").length,low:catalog.filter(x=>x.stockStatus==="LOW_STOCK").length,out:catalog.filter(x=>x.stockStatus==="OUT_OF_STOCK").length}),[active,catalog]);
+
+ const previewFile=async(file:File)=>{setBusy(true);setError("");setSelectedFile(file);try{const form=new FormData();form.append("file",file);form.append("mode","preview");const r=await fetch("/api/promo-board",{method:"POST",body:form}),j=await r.json() as PreviewResponse;if(!r.ok||!j.preview)throw new Error(j.error||"Pricelist gagal dianalisa");setPreview(j.preview);setPreviewComparison(j.comparison||null)}catch(e){setPreview(null);setSelectedFile(null);setError(e instanceof Error?e.message:"Pricelist gagal dianalisa")}finally{setBusy(false)}};
+ const activate=async()=>{if(!selectedFile)return;setBusy(true);try{const form=new FormData();form.append("file",selectedFile);form.append("mode","activate");const r=await fetch("/api/promo-board",{method:"POST",body:form}),j=await r.json();if(!r.ok)throw new Error(j.error||"Gagal mengaktifkan Pricelist");setPreview(null);setSelectedFile(null);if(fileRef.current)fileRef.current.value="";await load()}catch(e){setError(e instanceof Error?e.message:"Gagal mengaktifkan Pricelist")}finally{setBusy(false)}};
+
+ const changeCards=previewComparison?[["Harga Turun",previewComparison.counts.PROMO_PRICE_DOWN],["Harga Naik",previewComparison.counts.PROMO_PRICE_UP],["Promo Baru",previewComparison.counts.NEW_PROMO+previewComparison.counts.NEW_PRODUCT],["Promo Berakhir",previewComparison.counts.PROMO_ENDED+previewComparison.counts.REMOVED_PRODUCT]]:[];
+
+ return <main className="min-h-[100dvh] bg-slate-50 pb-[calc(24px+env(safe-area-inset-bottom))] text-slate-950 dark:bg-slate-900 dark:text-white">
+  <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+   <header className="flex items-start justify-between gap-3"><div><a href="/" className="inline-flex items-center gap-1 text-xs font-black text-slate-500"><ArrowLeft className="size-4"/> Dashboard M238</a><h1 className="mt-3 text-2xl font-black sm:text-3xl">Promo Board</h1><p className="mt-1 text-xs text-slate-500 sm:text-sm">Pricelist {formatDate(active?.priceListDate||null)}{soh.updated?` • SOH update ${soh.updated}`:""}</p></div><button onClick={()=>fileRef.current?.click()} className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-blue-600 px-3 text-xs font-black text-white sm:px-4 sm:text-sm"><Upload className="size-4"/>{busy?"Proses...":"Update Pricelist"}</button><input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)void previewFile(f)}}/></header>
+
+   {error?<div className="mt-4 flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700"><XCircle className="size-5"/>{error}</div>:null}
+   {preview?<section className="mt-4 rounded-3xl border border-blue-200 bg-white p-4 shadow-sm dark:border-blue-900 dark:bg-slate-950"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.14em] text-blue-600">Preview Pricelist</p><h2 className="mt-1 font-black">{preview.fileName}</h2><p className="text-xs text-slate-500">{preview.totalSku} SKU • {formatDate(preview.priceListDate)}</p></div><div className="flex gap-2"><button onClick={()=>{setPreview(null);setSelectedFile(null)}} className="min-h-11 rounded-xl border px-3 text-sm font-black">Batal</button><button onClick={()=>void activate()} className="min-h-11 rounded-xl bg-emerald-600 px-3 text-sm font-black text-white">Gunakan Sebagai Aktif</button></div></div>{changeCards.length?<div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">{changeCards.map(([label,value])=><div key={String(label)} className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-900"><p className="text-[10px] font-black uppercase text-slate-400">{label}</p><p className="mt-1 text-xl font-black">{value}</p></div>)}</div>:null}<div className="mt-3 flex items-center gap-2 text-xs font-bold text-emerald-700"><CheckCircle2 className="size-4"/> Preview lolos dibaca sebelum aktivasi.</div></section>:null}
+
+   <div className="mt-4 flex rounded-2xl bg-slate-200/70 p-1 dark:bg-slate-800">{(["promo","changes","history"] as ViewMode[]).map(v=><button key={v} onClick={()=>setView(v)} className={`min-h-10 flex-1 rounded-xl text-xs font-black ${view===v?"bg-white shadow-sm dark:bg-slate-950":"text-slate-500"}`}>{v==="promo"?"Promo":v==="changes"?"Perubahan":"Riwayat"}</button>)}</div>
+
+   {view==="promo"?<>
+    <div className="mt-4 flex gap-2 overflow-x-auto pb-1">{lobs.map(x=><button key={x} onClick={()=>{setLob(x);setModel("");setCapacity("")}} className={`min-h-11 shrink-0 rounded-2xl px-4 text-sm font-black ${lob===x?"bg-slate-950 text-white dark:bg-white dark:text-slate-950":"bg-white text-slate-600 shadow-sm dark:bg-slate-950 dark:text-slate-300"}`}>{x}</button>)}</div>
+    <section className="mt-4 rounded-3xl border bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950"><div className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Cari model, storage, warna, atau SAP..." className="h-12 w-full rounded-2xl border bg-transparent pl-10 pr-4 text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-200"/></div><div className="mt-3 flex flex-wrap gap-2"><select value={stockFilter} onChange={e=>setStockFilter(e.target.value as any)} className="min-h-11 rounded-xl border bg-transparent px-3 text-xs font-black"><option value="ALL">Semua Stock</option><option value="READY">Ready</option><option value="LOW_STOCK">Low Stock</option><option value="OUT_OF_STOCK">Out of Stock</option><option value="UNKNOWN">SOH Tidak Ditemukan</option></select><label className="inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-xs font-black"><input type="checkbox" checked={readyOnly} onChange={e=>setReadyOnly(e.target.checked)}/> Hanya Ready</label></div></section>
+
+    <section className="mt-4"><p className="mb-2 text-xs font-black uppercase tracking-[.14em] text-slate-400">Pilih Model</p><div className="flex gap-2 overflow-x-auto pb-1">{models.map(x=><button key={x} onClick={()=>{setModel(x);setCapacity("")}} className={`min-h-11 shrink-0 rounded-2xl px-4 text-sm font-black ${model===x?"bg-blue-600 text-white":"bg-white text-slate-600 shadow-sm dark:bg-slate-950 dark:text-slate-300"}`}>{x}</button>)}</div></section>
+    {capacities.length?<section className="mt-4"><p className="mb-2 text-xs font-black uppercase tracking-[.14em] text-slate-400">Pilih Capacity</p><div className="flex gap-2 overflow-x-auto pb-1">{capacities.map(x=><button key={x} onClick={()=>setCapacity(x)} className={`min-h-11 shrink-0 rounded-xl px-4 text-sm font-black ${capacity===x?"bg-slate-950 text-white dark:bg-white dark:text-slate-950":"bg-white text-slate-600 shadow-sm dark:bg-slate-950 dark:text-slate-300"}`}>{x}</button>)}</div></section>:null}
+
+    <div className="mt-4 grid gap-4 xl:grid-cols-2">{loading?<div className="col-span-full rounded-3xl border bg-white p-8 text-center text-sm text-slate-400 dark:bg-slate-950">Memuat Promo & SOH...</div>:displayed.length?displayed.map(item=>{const p=item.group,pb=promoBadge(p.promoStatus,p.daysRemaining),sb=stockBadge(item.stockStatus);return <article key={item.key} className="rounded-3xl border bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.12em] text-blue-600">{item.lob}</p><h2 className="mt-1 text-lg font-black">{item.friendlyName}</h2><p className="mt-1 text-xs text-slate-400">{item.group.variants.length} SKU / variant</p></div><span className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${pb.cls}`}>{pb.label}</span></div><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-900"><p className="text-[10px] font-bold text-slate-400">Promo Price</p><p className="mt-1 break-words text-lg font-black text-blue-600">{p.promotionPrice?money.format(p.promotionPrice):"-"}</p><p className="mt-1 text-[10px] text-slate-400 line-through">{p.normalPrice?money.format(p.normalPrice):""}</p></div><div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-900"><p className="text-[10px] font-bold text-slate-400">SOH M238</p><p className="mt-1 text-lg font-black">{item.totalSoh==null?"-":`${num.format(item.totalSoh)} unit`}</p><span className={`mt-1 inline-block rounded-full border px-2 py-1 text-[9px] font-black ${sb.cls}`}>{sb.label}</span></div></div><div className="mt-4 flex flex-wrap gap-2">{item.stockVariants.slice(0,6).map(v=><span key={v.product.sapArticle} className="rounded-full bg-slate-100 px-2.5 py-1.5 text-[10px] font-black text-slate-600 dark:bg-slate-900 dark:text-slate-300">{variantLabel(v.product.sapDescription)} {v.soh==null?"":`• ${v.soh}`}</span>)}</div><button onClick={()=>setDetail(item)} className="mt-4 min-h-11 w-full rounded-2xl bg-slate-950 text-sm font-black text-white dark:bg-white dark:text-slate-950">Lihat Detail Promo</button></article>}):<div className="col-span-full rounded-3xl border border-dashed p-8 text-center text-sm text-slate-400">Tidak ada produk yang cocok dengan filter ini.</div>}</div>
+   </>:view==="changes"?<section className="mt-4 space-y-3"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[["Harga Turun",lastComparison.counts.PROMO_PRICE_DOWN],["Harga Naik",lastComparison.counts.PROMO_PRICE_UP],["Promo Baru",lastComparison.counts.NEW_PROMO+lastComparison.counts.NEW_PRODUCT],["Promo Berakhir",lastComparison.counts.PROMO_ENDED+lastComparison.counts.REMOVED_PRODUCT]].map(([label,value])=><div key={String(label)} className="rounded-2xl border bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950"><p className="text-xs text-slate-400">{label}</p><p className="mt-1 text-2xl font-black">{value}</p></div>)}</div><div className="space-y-2">{lastComparison.changes.filter(x=>x.type!=="UNCHANGED").slice(0,80).map(x=><div key={`${x.type}-${x.sapArticle}`} className="rounded-2xl border bg-white p-4 text-sm shadow-sm dark:border-slate-800 dark:bg-slate-950"><div className="flex items-center justify-between gap-3"><div><b>{x.description}</b><p className="mt-1 text-xs text-slate-400">{x.sapArticle}</p></div><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black dark:bg-slate-900">{x.type}</span></div></div>)}</div></section>:<section className="mt-4 space-y-3">{history.length?history.map(x=><div key={x.id||x.fileName} className="flex items-center justify-between gap-3 rounded-2xl border bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950"><div><b>{formatDate(x.priceListDate)}</b><p className="mt-1 text-xs text-slate-500">{x.fileName}</p></div><div className="text-right"><p className="font-black">{x.totalSku} SKU</p><p className="text-xs text-slate-400">{x.warnings.length} warning</p></div></div>):<div className="rounded-3xl border border-dashed p-8 text-center text-sm text-slate-400">Belum ada riwayat Pricelist.</div>}</section>}
+
+   <section className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">{[["Promo Aktif",metrics.active],["Further",metrics.further],["Berakhir",metrics.ending],["Ready",metrics.ready],["Low Stock",metrics.low],["Out",metrics.out]].map(([label,value])=><div key={String(label)} className="rounded-2xl border bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950"><p className="text-[10px] font-black uppercase text-slate-400">{label}</p><p className="mt-1 text-xl font-black">{value}</p></div>)}</section>
+  </div>
+  {detail?<PromoDetail item={detail} onClose={()=>setDetail(null)}/>:null}
+ </main>
+}

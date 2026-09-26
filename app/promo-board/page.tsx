@@ -1,5 +1,5 @@
-import PromoBoardV3 from "@/components/promo-board-v3";
+import PromoBoardV4 from "@/components/promo-board-v4";
 
 export default function PromoBoardPage() {
-  return <PromoBoardV3 />;
+  return <PromoBoardV4 />;
 }
