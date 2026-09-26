@@ -37,7 +37,7 @@ export default function ResponsiveDashboardEntry(){
 
   if(mobile===null)return <div className="min-h-[100dvh] bg-[#f2f2f7] dark:bg-black" aria-hidden="true"/>;
   if(!mobile)return <><DesktopDashboard/><M238PromoBoardNavigation/></>;
-  if(mobileView==="new")return <><MobileDashboard/><M238PromoBoardNavigation/></>;
+  if(mobileView==="new")return <MobileDashboard/>;
 
   return <div className="relative min-h-[100dvh]">
     <DesktopDashboard/>
