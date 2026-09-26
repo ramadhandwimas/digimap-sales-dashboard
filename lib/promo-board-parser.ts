@@ -35,11 +35,20 @@ export type PromoParseResult = {
 };
 
 const MONTHS: Record<string, number> = {
-  januari: 0, january: 0, februari: 1, february: 1, maret: 2, march: 2,
-  april: 3, mei: 4, may: 4, juni: 5, june: 5, juli: 6, july: 6,
-  agustus: 7, august: 7, september: 8, oktober: 9, october: 9,
-  november: 10, desember: 11, december: 11,
+  jan:0,januari:0,january:0,
+  feb:1,februari:1,february:1,
+  mar:2,maret:2,march:2,
+  apr:3,april:3,
+  mei:4,may:4,
+  jun:5,juni:5,june:5,
+  jul:6,juli:6,july:6,
+  agu:7,agt:7,agustus:7,aug:7,august:7,
+  sep:8,sept:8,september:8,
+  okt:9,oct:9,oktober:9,october:9,
+  nov:10,november:10,
+  des:11,dec:11,desember:11,december:11,
 };
+const MONTH_PATTERN="Jan(?:uari|uary)?|Feb(?:ruari|ruary)?|Mar(?:et|ch)?|Apr(?:il)?|Mei|May|Jun(?:i|e)?|Jul(?:i|y)?|Agu(?:stus)?|Agt|Aug(?:ust)?|Sep(?:t)?(?:ember)?|Okt(?:ober)?|Oct(?:ober)?|Nov(?:ember)?|Des(?:ember)?|Dec(?:ember)?";
 
 const clean = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
 const key = (value: unknown) => clean(value).toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
@@ -50,62 +59,101 @@ const num = (value: unknown) => {
 };
 const iso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
+function monthNumber(value:string){
+  const normalized=value.toLowerCase().replace(/\.$/,"");
+  return MONTHS[normalized];
+}
+
+function makeDate(day:string|number,monthText:string,year:string|number){
+  const month=monthNumber(monthText);
+  if(month===undefined)return null;
+  const date=new Date(Number(year),month,Number(day));
+  return Number.isNaN(date.getTime())?null:date;
+}
+
 function parseFullDate(text: string): Date | null {
-  const match = text.match(/(\d{1,2})\s+(Januari|January|Februari|February|Maret|March|April|Mei|May|Juni|June|Juli|July|Agustus|August|September|Oktober|October|November|Desember|December)\s+(20\d{2})/i);
-  if (!match) return null;
-  const month = MONTHS[match[2].toLowerCase()];
-  if (month === undefined) return null;
-  return new Date(Number(match[3]), month, Number(match[1]));
+  const match = text.match(new RegExp(`(\\d{1,2})\\s+(${MONTH_PATTERN})\\s+(20\\d{2})`,"i"));
+  return match?makeDate(match[1],match[2],match[3]):null;
+}
+
+function periodStatus(start:Date,end:Date,now:Date){
+  const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const diff=Math.ceil((end.getTime()-today.getTime())/86400000);
+  const status:PromoStatus=diff<0?"EXPIRED":diff<=7?"ENDING_SOON":"ACTIVE";
+  return{start:iso(start),end:iso(end),type:"DATE_RANGE" as PromoPeriodType,status,daysRemaining:diff};
 }
 
 function parsePromoPeriod(remarks: string, now: Date) {
   if (!remarks) return { start: null, end: null, type: "UNKNOWN" as PromoPeriodType, status: "UNKNOWN" as PromoStatus, daysRemaining: null };
-  const text = remarks.replace(/\s+/g, " ").trim();
+  const text=remarks.replace(/[–—]/g,"-").replace(/\s+/g," ").trim();
+  const fallbackYear=now.getFullYear();
 
-  const further = text.match(/Promo\s+(\d{1,2}\s+(?:Januari|January|Februari|February|Maret|March|April|Mei|May|Juni|June|Juli|July|Agustus|August|September|Oktober|October|November|Desember|December)\s+20\d{2})\s*-\s*Further(?:\s+Notice)?/i);
-  if (further) {
-    const start = parseFullDate(further[1]);
-    return { start: start ? iso(start) : null, end: null, type: "FURTHER_NOTICE" as PromoPeriodType, status: "FURTHER_NOTICE" as PromoStatus, daysRemaining: null };
-  }
+  // "3 - 29 Maret 2026" / "6-26 September 2026"
+  const sameMonth=text.match(new RegExp(`(\\d{1,2})\\s*-\\s*(\\d{1,2})\\s+(${MONTH_PATTERN})\\s+(20\\d{2})`,"i"));
+  // "2 Agustus - 26 September 2026" / "26 September - 3 Oct 2026"
+  const crossMonth=text.match(new RegExp(`(\\d{1,2})\\s+(${MONTH_PATTERN})(?:\\s+(20\\d{2}))?\\s*-\\s*(\\d{1,2})\\s+(${MONTH_PATTERN})(?:\\s+(20\\d{2}))?`,"i"));
 
-  const rangeSameMonth = text.match(/Promo\s+(\d{1,2})\s*-\s*(\d{1,2}\s+(?:Januari|January|Februari|February|Maret|March|April|Mei|May|Juni|June|Juli|July|Agustus|August|September|Oktober|October|November|Desember|December)\s+20\d{2})/i);
-  let start: Date | null = null;
-  let end: Date | null = null;
-  if (rangeSameMonth) {
-    end = parseFullDate(rangeSameMonth[2]);
-    if (end) start = new Date(end.getFullYear(), end.getMonth(), Number(rangeSameMonth[1]));
-  } else {
-    const dates = [...text.matchAll(/\d{1,2}\s+(?:Januari|January|Februari|February|Maret|March|April|Mei|May|Juni|June|Juli|July|Agustus|August|September|Oktober|October|November|Desember|December)\s+20\d{2}/gi)].map((m) => parseFullDate(m[0])).filter(Boolean) as Date[];
-    if (dates.length >= 2) [start, end] = [dates[0], dates[1]];
-    else if (dates.length === 1) {
-      start = dates[0];
-      return { start: iso(start), end: null, type: "SINGLE_DATE" as PromoPeriodType, status: "UNKNOWN" as PromoStatus, daysRemaining: null };
+  const fullDates=[...text.matchAll(new RegExp(`(\\d{1,2})\\s+(${MONTH_PATTERN})\\s+(20\\d{2})`,"gi"))]
+    .map(m=>makeDate(m[1],m[2],m[3])).filter(Boolean) as Date[];
+
+  const hasFurther=/\bFURTHER(?:\s+NOTICE)?\b/i.test(text);
+  if(hasFurther){
+    let start:Date|null=null;
+    if(crossMonth){
+      const year=Number(crossMonth[3]||crossMonth[6]||fallbackYear);
+      start=makeDate(crossMonth[1],crossMonth[2],year);
+    }else if(sameMonth){
+      start=makeDate(sameMonth[1],sameMonth[3],sameMonth[4]);
+    }else if(fullDates.length){
+      start=fullDates[0];
     }
+    return{start:start?iso(start):null,end:null,type:"FURTHER_NOTICE" as PromoPeriodType,status:"FURTHER_NOTICE" as PromoStatus,daysRemaining:null};
   }
 
-  if (!start || !end) return { start: null, end: null, type: "UNKNOWN" as PromoPeriodType, status: "UNKNOWN" as PromoStatus, daysRemaining: null };
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diff = Math.ceil((end.getTime() - today.getTime()) / 86400000);
-  const status: PromoStatus = diff < 0 ? "EXPIRED" : diff <= 7 ? "ENDING_SOON" : "ACTIVE";
-  return { start: iso(start), end: iso(end), type: "DATE_RANGE" as PromoPeriodType, status, daysRemaining: diff };
+  if(crossMonth){
+    const endYear=Number(crossMonth[6]||crossMonth[3]||fallbackYear);
+    const startYear=Number(crossMonth[3]||endYear);
+    const start=makeDate(crossMonth[1],crossMonth[2],startYear);
+    const end=makeDate(crossMonth[4],crossMonth[5],endYear);
+    if(start&&end)return periodStatus(start,end,now);
+  }
+  if(sameMonth){
+    const start=makeDate(sameMonth[1],sameMonth[3],sameMonth[4]);
+    const end=makeDate(sameMonth[2],sameMonth[3],sameMonth[4]);
+    if(start&&end)return periodStatus(start,end,now);
+  }
+  if(fullDates.length>=2)return periodStatus(fullDates[0],fullDates[1],now);
+  if(fullDates.length===1){
+    const start=fullDates[0];
+    // Repricing/New Article/Harga NAIK dates are effective dates, not an expiry.
+    // We can safely parse the date while leaving no artificial end date.
+    return{start:iso(start),end:null,type:"SINGLE_DATE" as PromoPeriodType,status:"ACTIVE" as PromoStatus,daysRemaining:null};
+  }
+
+  return { start: null, end: null, type: "UNKNOWN" as PromoPeriodType, status: "UNKNOWN" as PromoStatus, daysRemaining: null };
 }
 
 function detectCategory(description: string, category: string, section: string) {
-  const value = `${description} ${category} ${section}`.toLowerCase();
-  if (value.includes("iphone")) return "iPhone";
-  if (value.includes("ipad")) return "iPad";
-  if (value.includes("airpods")) return "AirPods";
-  if (value.includes("watch") || /\baw\b/.test(value)) return "Apple Watch";
-  if (value.includes("macbook") || /\bmba\b/.test(value) || /\bmbp\b/.test(value) || value.includes("imac") || value.includes("mac mini")) return "Mac";
-  if (value.includes("accessor")) return "Accessories";
-  return "Others";
+  // SAP Description is authoritative. Section/category only supply fallback context.
+  const primary=description.toLowerCase();
+  const fallback=`${section} ${category}`.toLowerCase();
+  const detect=(value:string)=>{
+    if(value.includes("iphone"))return"iPhone";
+    if(value.includes("ipad"))return"iPad";
+    if(value.includes("airpods"))return"AirPods";
+    if(value.includes("macbook")||/\bmba\b|\bmbp\b|\bmbn\b/.test(value)||value.includes("imac")||value.includes("mac mini")||value.includes("mac studio"))return"Mac";
+    if(value.includes("watch")||/\baw\b/.test(value))return"Apple Watch";
+    if(value.includes("accessor"))return"Accessories";
+    return"";
+  };
+  return detect(primary)||detect(fallback)||"Others";
 }
 
 function detectPriceListDate(rows: unknown[][]) {
   for (const row of rows.slice(0, 12)) {
     for (const cell of row) {
       const text = clean(cell);
-      const match = text.match(/(\d{1,2}\s+(?:Januari|January|Februari|February|Maret|March|April|Mei|May|Juni|June|Juli|July|Agustus|August|September|Oktober|October|November|Desember|December)\s+20\d{2})/i);
+      const match = text.match(new RegExp(`(\\d{1,2}\\s+(?:${MONTH_PATTERN})\\s+20\\d{2})`,"i"));
       if (match) {
         const date = parseFullDate(match[1]);
         if (date) return iso(date);
@@ -140,6 +188,7 @@ export function parsePromoWorkbook(buffer: ArrayBuffer, fileName: string, now = 
   const products: PromoProduct[] = [];
   const seen = new Map<string, PromoProduct>();
   let section = "";
+  let unknownPeriodCount=0;
 
   for (let i = headerIndex + 1; i < rows.length; i++) {
     const row = rows[i];
@@ -153,6 +202,10 @@ export function parsePromoWorkbook(buffer: ArrayBuffer, fileName: string, now = 
 
     const remarks = cols.remarks >= 0 ? clean(row[cols.remarks]) : "";
     const period = parsePromoPeriod(remarks, now);
+    if(remarks&&period.type==="UNKNOWN"){
+      unknownPeriodCount++;
+      if(warnings.length<20)warnings.push(`Periode promo belum terbaca: ${sap} • ${remarks}`);
+    }
     const savingAmount = normalPrice > 0 && promotionPrice > 0 && promotionPrice < normalPrice ? normalPrice - promotionPrice : 0;
     const discountPercentage = normalPrice > 0 ? (savingAmount / normalPrice) * 100 : 0;
     const product: PromoProduct = {
@@ -174,5 +227,6 @@ export function parsePromoWorkbook(buffer: ArrayBuffer, fileName: string, now = 
     products.push(product);
   }
 
+  if(unknownPeriodCount>warnings.filter(w=>w.startsWith("Periode promo belum terbaca")).length)warnings.push(`${unknownPeriodCount} periode promo perlu audit lanjutan.`);
   return { fileName, sheetName, priceListDate: detectPriceListDate(rows), totalRows: rows.length, totalSku: products.length, products, warnings };
 }
