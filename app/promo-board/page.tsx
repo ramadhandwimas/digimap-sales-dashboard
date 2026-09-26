@@ -1,5 +1,5 @@
-import PromoBoardApp from "@/components/promo-board-app";
+import PromoBoardV2 from "@/components/promo-board-v2";
 
 export default function PromoBoardPage() {
-  return <PromoBoardApp />;
+  return <PromoBoardV2 />;
 }
