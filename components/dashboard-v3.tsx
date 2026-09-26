@@ -27,6 +27,7 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { ExportMenu } from "@/components/export-menu";
+import DataCopasRepair from "@/components/data-copas-repair";
 import {
   Table,
   TableBody,
@@ -2460,6 +2461,7 @@ function SettingsPage({
           </div>
         </div>
       </section>
+      <DataCopasRepair />
     </div>
   );
 }
