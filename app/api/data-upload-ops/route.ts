@@ -62,6 +62,17 @@ function validCutoffRow(row:unknown[]){
  const required=[keyPart(row[1]),keyPart(row[3]),keyPart(row[4]),numericKeyPart(row[7]),numericKeyPart(row[8])];
  return required.every(Boolean);
 }
+function rowAmount(row:unknown[]){
+ const value=Number(cleanCell(row[8]));
+ return Number.isFinite(value)?value:0;
+}
+function inCutoffPeriod(row:unknown[],mode:"date"|"month",value:string){
+ const date=isoDate(row[0]);
+ return mode==="date"?date===value:date.startsWith(value);
+}
+function cutoffPlanId(rows:unknown[][],mode:"date"|"month",value:string){
+ return createHash("sha256").update(JSON.stringify([mode,value,rows.map(row=>row.map(cleanCell))])).digest("hex");
+}
 function creds(){const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)throw new Error("Google Sheets belum dikonfigurasi");return{email,key}}
 function repairPlanId(candidates:ReturnType<typeof planDataCopasRepair>["candidates"]){return createHash("sha256").update(JSON.stringify(candidates.map(row=>[row.row,row.article,row.changes]))).digest("hex")}
 
@@ -126,32 +137,78 @@ export async function POST(req:NextRequest){
     selected.push(row);
    }
    if(!selected.length){
-    return NextResponse.json({ok:true,rows:0,newCount:0,skippedCount:0,ignoredCount,message:"Tidak ada data penjualan baru. Seluruh data sudah pernah di-Cut Off atau tidak ada data valid pada periode yang dipilih."},{headers:{"cache-control":"no-store"}});
+    return NextResponse.json({
+     ok:true,dryRun:body.dryRun===true,rows:0,sourceCount:0,sourceAmount:0,currentCount:0,currentAmount:0,
+     newCount:0,newAmount:0,skippedCount:0,skippedAmount:0,ignoredCount,projectedCount:0,projectedAmount:0,
+     differenceCount:0,differenceAmount:0,isBalanced:true,bulkSales:[],bulkSalesCount:0,planId:cutoffPlanId([],mode,value),
+     message:"Tidak ada data penjualan valid pada periode yang dipilih."
+    },{headers:{"cache-control":"no-store"}});
    }
 
-   const seen=new Set<string>();
+   const availableExisting=new Map<string,number>();
    for(const row of destination||[]){
     const cleaned=cleanRow(row);
-    if(validCutoffRow(cleaned))seen.add(fingerprint(cleaned));
+    if(validCutoffRow(cleaned)){
+     const keyValue=fingerprint(cleaned);
+     availableExisting.set(keyValue,(availableExisting.get(keyValue)||0)+1);
+    }
    }
 
    const newRows:unknown[][]=[];
    let skippedCount=0;
+   let skippedAmount=0;
    for(const row of selected){
     const keyValue=fingerprint(row);
-    if(seen.has(keyValue)){skippedCount++;continue}
-    seen.add(keyValue);
+    const existingCount=availableExisting.get(keyValue)||0;
+    if(existingCount>0){
+     availableExisting.set(keyValue,existingCount-1);
+     skippedCount++;
+     skippedAmount+=rowAmount(row);
+     continue
+    }
     newRows.push(row);
    }
 
    const dryRun=body.dryRun===true;
+   const selectedAmount=selected.reduce((sum,row)=>sum+rowAmount(row),0);
+   const newAmount=newRows.reduce((sum,row)=>sum+rowAmount(row),0);
+   const destinationPeriod=(destination||[]).map(cleanRow).filter(row=>validCutoffRow(row)&&inCutoffPeriod(row,mode,value));
+   const currentCount=destinationPeriod.length;
+   const currentAmount=destinationPeriod.reduce((sum,row)=>sum+rowAmount(row),0);
+   const projectedCount=currentCount+newRows.length;
+   const projectedAmount=currentAmount+newAmount;
+   const differenceAmount=projectedAmount-selectedAmount;
+   const differenceCount=projectedCount-selected.length;
+   const occurrenceGroups=new Map<string,{row:unknown[];count:number}>();
+   for(const row of selected){
+    const keyValue=fingerprint(row),entry=occurrenceGroups.get(keyValue);
+    if(entry)entry.count++;
+    else occurrenceGroups.set(keyValue,{row,count:1});
+   }
+   const bulkSales=[...occurrenceGroups.values()]
+    .filter(entry=>entry.count>1)
+    .sort((a,b)=>b.count-a.count)
+    .slice(0,50)
+    .map(entry=>({
+     salesId:text(entry.row[1]),salesName:text(entry.row[2]),invoice:text(entry.row[3]),article:text(entry.row[4]),
+     description:text(entry.row[5]),count:entry.count,qtyEach:Number(entry.row[7])||0,amountEach:rowAmount(entry.row),
+     totalAmount:entry.count*rowAmount(entry.row)
+    }));
+   const planId=cutoffPlanId(newRows,mode,value);
+   const check={
+    sourceCount:selected.length,sourceAmount:selectedAmount,currentCount,currentAmount,
+    newCount:newRows.length,newAmount,skippedCount,skippedAmount,ignoredCount,
+    projectedCount,projectedAmount,differenceCount,differenceAmount,
+    isBalanced:differenceCount===0&&differenceAmount===0,bulkSales,bulkSalesCount:bulkSales.length,planId
+   };
    if(!newRows.length){
     return NextResponse.json({
-     ok:true,dryRun,rows:0,newCount:0,skippedCount,ignoredCount,
-     message:"Tidak ada data penjualan baru. Seluruh data sudah pernah di-Cut Off."
+     ok:true,dryRun,rows:0,...check,
+     message:check.isBalanced?"Data sudah sesuai. Seluruh transaksi pada periode ini sudah ada di Data Copas.":"Tidak ada data baru, tetapi total RAW dan Data Copas belum sesuai. Periksa daftar sebelum melanjutkan."
     },{headers:{"cache-control":"no-store"}});
    }
 
+   if(!dryRun&&text(body.planId)!==planId)return NextResponse.json({error:"Data RAW SalesPerson atau Data Copas berubah setelah pengecekan. Silakan cek data ulang sebelum Cut Off."},{status:409});
    if(!dryRun)await appendSheetValues(DASHBOARD_ID,`'${COPAS_SHEET}'!A:Q`,newRows,email,key,"USER_ENTERED");
    let cacheWarning="";
    if(!dryRun){
@@ -165,9 +222,9 @@ export async function POST(req:NextRequest){
    }
    const message=`Cut Off berhasil: ${newRows.length} data baru ditambahkan, ${skippedCount} data lama dilewati, dan ${ignoredCount} baris kosong/tidak valid diabaikan.`;
    return NextResponse.json({
-    ok:true,dryRun,rows:newRows.length,newCount:newRows.length,skippedCount,ignoredCount,
+    ok:true,dryRun,rows:newRows.length,...check,
     dailySummaryCache:{ok:dryRun||!cacheWarning,warning:cacheWarning||null},
-    message:dryRun?`Simulasi: ${newRows.length} data baru siap ditambahkan, ${skippedCount} data lama akan dilewati, dan ${ignoredCount} baris kosong/tidak valid akan diabaikan.`:message
+    message:dryRun?`Pengecekan selesai: ${selected.length} transaksi RAW senilai Rp${Math.round(selectedAmount).toLocaleString("id-ID")}. ${newRows.length} transaksi senilai Rp${Math.round(newAmount).toLocaleString("id-ID")} siap ditambahkan.`:message
    },{headers:{"cache-control":"no-store"}});
   }
   if(action==="exchange"){
