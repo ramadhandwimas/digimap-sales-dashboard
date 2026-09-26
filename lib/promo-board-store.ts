@@ -46,12 +46,15 @@ export async function savePromoSnapshot(credentials:Credentials,result:PromoPars
   await ensurePromoSheets(credentials);
   const id=`pl_${Date.now()}_${randomUUID().slice(0,8)}`;
   const uploadedAt=new Date().toISOString();
-  const metaRow=[id,result.fileName,result.priceListDate??"",uploadedAt,result.totalRows,result.totalSku,JSON.stringify(result.warnings.slice(0,100))];
-  await appendSheetValues(MASTER_ID,`'${META_SHEET}'!A:G`,[metaRow],credentials.email,credentials.key,"RAW");
   const rows=result.products.map(product=>productToRow(id,product));
+  // Product rows are written first. The metadata row is the commit marker that
+  // makes a snapshot visible as ACTIVE. If a product write fails, no incomplete
+  // snapshot can become the newest active Pricelist.
   for(let i=0;i<rows.length;i+=400){
     await appendSheetValues(MASTER_ID,`'${PRODUCT_SHEET}'!A:S`,rows.slice(i,i+400),credentials.email,credentials.key,"RAW");
   }
+  const metaRow=[id,result.fileName,result.priceListDate??"",uploadedAt,result.totalRows,result.totalSku,JSON.stringify(result.warnings.slice(0,100))];
+  await appendSheetValues(MASTER_ID,`'${META_SHEET}'!A:G`,[metaRow],credentials.email,credentials.key,"RAW");
   return{id,uploadedAt};
 }
 
