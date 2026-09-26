@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import {useEffect,useState} from "react";
 import M238PromoBoardNavigation from "@/components/m238-promo-board-navigation";
+import MobilePromoBottomNav from "@/components/mobile-promo-bottom-nav";
 
 const MobileDashboard=dynamic(()=>import("@/components/mobile-dashboard-app"),{ssr:false});
 const DesktopDashboard=dynamic(()=>import("@/components/desktop-dashboard-shell"),{ssr:false});
@@ -37,7 +38,7 @@ export default function ResponsiveDashboardEntry(){
 
   if(mobile===null)return <div className="min-h-[100dvh] bg-[#f2f2f7] dark:bg-black" aria-hidden="true"/>;
   if(!mobile)return <><DesktopDashboard/><M238PromoBoardNavigation/></>;
-  if(mobileView==="new")return <MobileDashboard/>;
+  if(mobileView==="new")return <><MobileDashboard/><MobilePromoBottomNav/></>;
 
   return <div className="relative min-h-[100dvh]">
     <DesktopDashboard/>
