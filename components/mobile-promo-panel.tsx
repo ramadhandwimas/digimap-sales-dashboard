@@ -11,18 +11,13 @@ export default function MobilePromoPanel(){
   const[mounted,setMounted]=useState(false);
 
   useEffect(()=>{
-    let timer:number|undefined;
-    const mount=()=>setMounted(true);
-    if("requestIdleCallback" in window){
-      const id=(window as Window & {requestIdleCallback?:(cb:()=>void)=>number}).requestIdleCallback?.(mount);
-      if(id==null)timer=window.setTimeout(mount,700);
-    }else timer=window.setTimeout(mount,700);
+    const timer=window.setTimeout(()=>setMounted(true),350);
     const onOpen=()=>{setMounted(true);setOpen(true)};
     const onClose=()=>setOpen(false);
     window.addEventListener(OPEN_EVENT,onOpen);
     window.addEventListener(CLOSE_EVENT,onClose);
     return()=>{
-      if(timer)window.clearTimeout(timer);
+      window.clearTimeout(timer);
       window.removeEventListener(OPEN_EVENT,onOpen);
       window.removeEventListener(CLOSE_EVENT,onClose);
     };
