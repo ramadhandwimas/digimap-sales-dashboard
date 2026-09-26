@@ -110,7 +110,7 @@ export function comparePromoPriceLists(previous: PromoParseResult | null, curren
 }
 
 function stripColorToken(value: string) {
-  let normalized = value.toUpperCase().replace(/\s+/g, " ").trim();
+  let normalized = value.toUpperCase().replace(/\s+/g, " ").replace(/\(PRODUCT\)\s*/gi, "").trim();
   for (const token of COLOR_TOKENS.sort((a, b) => b.length - a.length)) {
     const pattern = new RegExp(`(^|[\\s/()-])${token.replace(/ /g, "\\s+")}(?=($|[\\s/()-]))`, "gi");
     normalized = normalized.replace(pattern, "$1");

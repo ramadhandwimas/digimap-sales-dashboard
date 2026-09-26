@@ -12,6 +12,10 @@ export type PromoCatalogItem={
   connectivity:string;
   friendlyName:string;
   group:PromoProductGroup;
+  normalPriceMin:number;
+  normalPriceMax:number;
+  promoPriceMin:number;
+  promoPriceMax:number;
   totalSoh:number|null;
   stockStatus:StockStatus;
   stockVariants:Array<{product:PromoProduct;soh:number|null;status:StockStatus;description:string}>;
@@ -29,10 +33,12 @@ export function stockStatus(qty:number|null):StockStatus{
 }
 
 function capacityOf(value:string){
-  const text=upper(value).replace(/\s+/g,"");
-  const tb=text.match(/(?:^|[/\-])(1|2|4)TB(?:$|[/\-])/i)||text.match(/\b(1|2|4)TB\b/i);
+  const text=upper(value);
+  const boundary="(?:^|[\\s/()\\-])",end="(?=$|[\\s/()\\-])";
+  const tb=text.match(new RegExp(`${boundary}(1|2|4)\\s*(?:TB|T)${end}`,"i"));
   if(tb)return`${tb[1]}TB`;
-  const gb=text.match(/(?:^|[/\-])(64|128|256|512)GB(?:$|[/\-])/i)||text.match(/\b(64|128|256|512)GB\b/i);
+  const gb=text.match(new RegExp(`${boundary}(64|128|256|512)\\s*(?:GB|G)${end}`,"i"))
+   ||text.match(new RegExp(`${boundary}(64|128|256|512)${end}`,"i"));
   return gb?`${gb[1]}GB`:"";
 }
 
@@ -45,7 +51,7 @@ function connectivityOf(value:string){
 
 function sizeOf(value:string){
   const text=upper(value);
-  const mm=text.match(/\b(40|41|42|44|45|46|49)MM\b/);
+  const mm=text.match(/(?:^|[\s/()-])(40|41|42|44|45|46|49)(?:MM)?(?=$|[\s/()-])/);
   if(mm)return`${mm[1]}mm`;
   const inch=text.match(/\b(11|12\.9|13|13\.3|13\.6|14|14\.2|15|15\.3|16|16\.2)\b/);
   return inch?inch[1]:"";
@@ -83,11 +89,12 @@ function friendlyModel(product:PromoProduct,groupTitle:string){
   }
 
   if(/WATCH|\bAW\b/.test(text)){
-    if(/ULTRA/.test(text))return"Apple Watch Ultra";
+    const size=sizeOf(text),suffix=size?` ${size}`:"";
+    if(/ULTRA/.test(text)){const generation=text.match(/ULTRA\s*(\d)/);return`Apple Watch Ultra${generation?` ${generation[1]}`:""}${suffix}`;}
     const series=text.match(/(?:SERIES|S)\s*(\d{1,2})/);
-    if(series)return`Apple Watch Series ${series[1]}`;
-    if(/\bSE\b/.test(text))return"Apple Watch SE";
-    return"Apple Watch";
+    if(series)return`Apple Watch Series ${series[1]}${suffix}`;
+    if(/\bSE\b/.test(text))return`Apple Watch SE${suffix}`;
+    return`Apple Watch${suffix}`;
   }
 
   if(/AIRPODS/.test(text)){
@@ -111,7 +118,7 @@ function friendlyName(model:string,capacity:string,connectivity:string){
 export function buildPromoCatalog(products:PromoProduct[],sohRows:SohRow[]):PromoCatalogItem[]{
   const stock=new Map<string,SohRow>();
   for(const row of sohRows)stock.set(stockKey(row.article),row);
-  return groupPromoProducts(products).map(group=>{
+  const raw=groupPromoProducts(products).map(group=>{
     const first=group.variants[0];
     const model=friendlyModel(first,group.title);
     const capacity=capacityOf(group.title)||capacityOf(first.sapDescription);
@@ -131,11 +138,36 @@ export function buildPromoCatalog(products:PromoProduct[],sohRows:SohRow[]):Prom
       connectivity,
       friendlyName:friendlyName(model,capacity,connectivity),
       group,
+      normalPriceMin:group.normalPrice,
+      normalPriceMax:group.normalPrice,
+      promoPriceMin:group.promotionPrice,
+      promoPriceMax:group.promotionPrice,
       totalSoh,
       stockStatus:stockStatus(totalSoh),
       stockVariants,
     };
   });
+  const merged=new Map<string,PromoCatalogItem>();
+  for(const item of raw){
+    const group=item.group;
+    const mergeKey=[item.lob,item.model,item.capacity,item.connectivity,group.remarks,group.promoStartDate??"",group.promoEndDate??"",group.promoPeriodType].join("|");
+    const existing=merged.get(mergeKey);
+    if(!existing){merged.set(mergeKey,{...item,key:mergeKey});continue;}
+    const variants=[...existing.group.variants,...group.variants];
+    const priced=variants.filter(product=>product.promotionPrice>0).sort((a,b)=>a.promotionPrice-b.promotionPrice);
+    const primary=priced[0]??variants[0];
+    const stockVariants=[...existing.stockVariants,...item.stockVariants];
+    const known=stockVariants.filter(row=>row.soh!=null);
+    existing.group={...existing.group,normalPrice:primary.normalPrice,promotionPrice:primary.promotionPrice,savingAmount:primary.savingAmount,discountPercentage:primary.discountPercentage,variants};
+    existing.stockVariants=stockVariants;
+    existing.normalPriceMin=Math.min(...variants.map(product=>product.normalPrice).filter(price=>price>0));
+    existing.normalPriceMax=Math.max(...variants.map(product=>product.normalPrice));
+    existing.promoPriceMin=Math.min(...priced.map(product=>product.promotionPrice));
+    existing.promoPriceMax=Math.max(...priced.map(product=>product.promotionPrice));
+    existing.totalSoh=known.length?known.reduce((sum,row)=>sum+Number(row.soh||0),0):null;
+    existing.stockStatus=stockStatus(existing.totalSoh);
+  }
+  return[...merged.values()];
 }
 
 export function promoLobOrder(value:string){
