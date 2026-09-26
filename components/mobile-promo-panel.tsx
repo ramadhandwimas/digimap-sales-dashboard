@@ -1,7 +1,12 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import {useEffect,useState} from "react";
-import PromoBoardV9 from "@/components/promo-board-v9";
+
+const PromoBoardV9=dynamic(()=>import("@/components/promo-board-v9"),{
+  ssr:false,
+  loading:()=> <div className="min-h-[100dvh] bg-slate-50 px-6 py-10 text-sm font-semibold text-slate-500 dark:bg-slate-900 dark:text-slate-400">Memuat Promo Board…</div>
+});
 
 const OPEN_EVENT="m238:promo-open";
 const CLOSE_EVENT="m238:promo-close";
@@ -11,17 +16,27 @@ export default function MobilePromoPanel(){
   const[mounted,setMounted]=useState(false);
 
   useEffect(()=>{
-    const timer=window.setTimeout(()=>setMounted(true),350);
     const onOpen=()=>{setMounted(true);setOpen(true)};
     const onClose=()=>setOpen(false);
     window.addEventListener(OPEN_EVENT,onOpen);
     window.addEventListener(CLOSE_EVENT,onClose);
     return()=>{
-      window.clearTimeout(timer);
       window.removeEventListener(OPEN_EVENT,onOpen);
       window.removeEventListener(CLOSE_EVENT,onClose);
     };
   },[]);
+
+  useEffect(()=>{
+    if(!open)return;
+    const previousOverflow=document.body.style.overflow;
+    const previousOverscroll=document.body.style.overscrollBehavior;
+    document.body.style.overflow="hidden";
+    document.body.style.overscrollBehavior="none";
+    return()=>{
+      document.body.style.overflow=previousOverflow;
+      document.body.style.overscrollBehavior=previousOverscroll;
+    };
+  },[open]);
 
   if(!mounted)return null;
 
