@@ -36,8 +36,7 @@ export default function MobilePromoBottomNav(){
       button.addEventListener("click",()=>{window.location.href="/promo-board"});
       const buttons=Array.from(nav.querySelectorAll(":scope > button"));
       const report=buttons.find(el=>el.textContent?.trim().toLowerCase().includes("report"));
-      const next=report?.nextSibling;
-      if(report)nav.insertBefore(button,next);
+      if(report)nav.insertBefore(button,report.nextSibling);
       else nav.appendChild(button);
     };
     ensureStyle();
