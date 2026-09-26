@@ -17,7 +17,7 @@ function makeButton(base?:HTMLButtonElement|null){
 
 export default function M238PromoBoardNavigation(){
   useEffect(()=>{
-    const injectDesktop=()=>{
+    const inject=()=>{
       const nav=document.querySelector("aside nav");
       if(!nav||nav.querySelector("[data-m238-promo-board-menu]"))return;
       const adminHeader=Array.from(nav.querySelectorAll<HTMLButtonElement>("button")).find(b=>label(b)==="Administrasi");
@@ -29,19 +29,6 @@ export default function M238PromoBoardNavigation(){
       const button=makeButton(sample);
       if(upload&&upload.parentElement===list)list.insertBefore(button,upload);else list.appendChild(button);
     };
-
-    const injectMobile=()=>{
-      const tabs=document.querySelector(".m238m-admin-tabs");
-      if(!tabs||tabs.querySelector("[data-m238-promo-mobile]"))return;
-      const button=document.createElement("button");
-      button.type="button";
-      button.dataset.m238PromoMobile="1";
-      button.textContent="Promo";
-      button.addEventListener("click",()=>{window.location.href="/promo-board"});
-      tabs.appendChild(button);
-    };
-
-    const inject=()=>{injectDesktop();injectMobile()};
     inject();
     const observer=new MutationObserver(()=>requestAnimationFrame(inject));
     observer.observe(document.body,{childList:true,subtree:true});
