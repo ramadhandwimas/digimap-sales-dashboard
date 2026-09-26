@@ -1,5 +1,5 @@
 import type {PromoProduct} from "@/lib/promo-board-parser";
-import {groupPromoProducts,type PromoProductGroup} from "@/lib/promo-board-insights";
+import type {PromoProductGroup} from "@/lib/promo-board-insights";
 
 export type SohRow={article:string;description:string;qty:number;soldQty:number;category:string};
 export type StockStatus="READY"|"LOW_STOCK"|"OUT_OF_STOCK"|"UNKNOWN";
@@ -17,9 +17,11 @@ export type PromoCatalogItem={
   stockVariants:Array<{product:PromoProduct;soh:number|null;status:StockStatus;description:string}>;
 };
 
-const clean=(value:string)=>value.replace(/\s+/g," ").trim();
+const clean=(value:string)=>String(value??"").replace(/\s+/g," ").trim();
 const upper=(value:string)=>clean(value).toUpperCase();
-const stockKey=(value:string)=>upper(value).replace(/\s+/g,"");
+
+// Keep SAP matching exact in meaning, but ignore formatting differences such as spaces, / and -.
+const stockKey=(value:string)=>upper(value).replace(/[^A-Z0-9]/g,"");
 
 export function stockStatus(qty:number|null):StockStatus{
   if(qty==null)return"UNKNOWN";
@@ -29,23 +31,23 @@ export function stockStatus(qty:number|null):StockStatus{
 }
 
 function capacityOf(value:string){
-  const text=upper(value).replace(/\s+/g,"");
-  const tb=text.match(/(?:^|[/\-])(1|2|4)TB(?:$|[/\-])/i)||text.match(/\b(1|2|4)TB\b/i);
+  const text=upper(value);
+  const tb=text.match(/(?:^|[^0-9])(1|2|4)\s*T(?:B)?(?=$|[^0-9])/i);
   if(tb)return`${tb[1]}TB`;
-  const gb=text.match(/(?:^|[/\-])(64|128|256|512)GB(?:$|[/\-])/i)||text.match(/\b(64|128|256|512)GB\b/i);
+  const gb=text.match(/(?:^|[^0-9])(64|128|256|512)\s*G(?:B)?(?=$|[^0-9])/i);
   return gb?`${gb[1]}GB`:"";
 }
 
 function connectivityOf(value:string){
-  const text=upper(value);
-  if(/CELL|CELLULAR|5G|WIFI\+CELL/.test(text))return"Wi‑Fi + Cellular";
+  const text=upper(value).replace(/\s+/g," ");
+  if(/CELL|CELLULAR|5G|WIFI\s*[+/&-]\s*CELL|WI-FI\s*[+/&-]\s*CELL/.test(text))return"Wi‑Fi + Cellular";
   if(/WIFI|WI-FI/.test(text))return"Wi‑Fi";
   return"";
 }
 
 function sizeOf(value:string){
   const text=upper(value);
-  const mm=text.match(/\b(40|41|42|44|45|46|49)MM\b/);
+  const mm=text.match(/\b(40|41|42|44|45|46|49)\s*MM\b/);
   if(mm)return`${mm[1]}mm`;
   const inch=text.match(/\b(11|12\.9|13|13\.3|13\.6|14|14\.2|15|15\.3|16|16\.2)\b/);
   return inch?inch[1]:"";
@@ -57,12 +59,27 @@ function chipOf(value:string){
   return chip?`M${chip[1]}${chip[2]?` ${chip[2][0]}${chip[2].slice(1).toLowerCase()}`:""}`:"";
 }
 
-function friendlyModel(product:PromoProduct,groupTitle:string){
-  const raw=clean(`${product.section} ${groupTitle}`);
-  const text=upper(raw);
+function inferLob(product:PromoProduct){
+  const text=upper(`${product.section} ${product.sapDescription} ${product.category}`);
+  if(/IPHONE|\bIP\s*1[0-9]\b|\bIP1[0-9]\b/.test(text))return"iPhone";
+  if(/IPAD/.test(text))return"iPad";
+  if(/AIRPODS/.test(text))return"AirPods";
+  if(/APPLE WATCH|\bWATCH\b|\bAW\s*(?:SE|S?\d|ULTRA)/.test(text))return"Watch";
+  if(/MACBOOK|\bMBA\b|\bMBP\b|\bMB\s*(?:AIR|PRO)\b|IMAC|MAC MINI|\bMAC\b/.test(text))return"Mac";
+  if(product.category==="Apple Watch")return"Watch";
+  if(["iPhone","iPad","Mac","AirPods"].includes(product.category))return product.category;
+  return product.category||"Others";
+}
 
-  const iphone=text.match(/IPHONE\s*(AIR|\d{2}(?:\s*(?:PRO MAX|PRO|PLUS|E))?)/);
-  if(iphone)return`iPhone ${clean(iphone[1]).replace(/\b\w/g,x=>x.toUpperCase())}`;
+function friendlyModel(product:PromoProduct){
+  const text=upper(`${product.section} ${product.sapDescription}`);
+
+  let iphone=text.match(/IPHONE\s*(AIR|\d{2}(?:\s*(?:PRO MAX|PRO|PLUS|E))?)/);
+  if(!iphone){
+    const short=text.match(/\bIP\s*(1[0-9])\s*(PRO MAX|PRO|PLUS|E)?\b/);
+    if(short)iphone=[short[0],clean(`${short[1]}${short[2]?` ${short[2]}`:""}`)] as RegExpMatchArray;
+  }
+  if(iphone)return`iPhone ${clean(iphone[1]).toLowerCase()==="air"?"Air":clean(iphone[1]).replace(/\b\w/g,x=>x.toUpperCase())}`;
 
   if(/\bMBA\b|MACBOOK AIR/.test(text)){
     const size=sizeOf(text),chip=chipOf(text);
@@ -84,7 +101,7 @@ function friendlyModel(product:PromoProduct,groupTitle:string){
 
   if(/WATCH|\bAW\b/.test(text)){
     if(/ULTRA/.test(text))return"Apple Watch Ultra";
-    const series=text.match(/(?:SERIES|S)\s*(\d{1,2})/);
+    const series=text.match(/(?:SERIES|\bS)\s*(\d{1,2})/);
     if(series)return`Apple Watch Series ${series[1]}`;
     if(/\bSE\b/.test(text))return"Apple Watch SE";
     return"Apple Watch";
@@ -96,26 +113,66 @@ function friendlyModel(product:PromoProduct,groupTitle:string){
     if(/ANC/.test(text))return"AirPods 4 ANC";
     const gen=text.match(/AIRPODS\s*(\d)/);return gen?`AirPods ${gen[1]}`:"AirPods";
   }
-  return clean(groupTitle).replace(/\s+-IND\d*$/i,"");
-}
 
-function lobOf(product:PromoProduct){
-  if(product.category==="Apple Watch")return"Watch";
-  return product.category;
+  return clean(product.section||product.sapDescription).replace(/\s+-IND\d*$/i,"");
 }
 
 function friendlyName(model:string,capacity:string,connectivity:string){
   return clean(`${model}${capacity?` ${capacity}`:""}${connectivity?` • ${connectivity}`:""}`);
 }
 
+function makeGroup(key:string,title:string,product:PromoProduct):PromoProductGroup{
+  return{
+    key,
+    title,
+    category:product.category,
+    normalPrice:product.normalPrice,
+    promotionPrice:product.promotionPrice,
+    savingAmount:product.savingAmount,
+    discountPercentage:product.discountPercentage,
+    promoStartDate:product.promoStartDate,
+    promoEndDate:product.promoEndDate,
+    promoPeriodType:product.promoPeriodType,
+    promoStatus:product.promoStatus,
+    daysRemaining:product.daysRemaining,
+    remarks:product.remarks,
+    variants:[product],
+  };
+}
+
 export function buildPromoCatalog(products:PromoProduct[],sohRows:SohRow[]):PromoCatalogItem[]{
   const stock=new Map<string,SohRow>();
-  for(const row of sohRows)stock.set(stockKey(row.article),row);
-  return groupPromoProducts(products).map(group=>{
-    const first=group.variants[0];
-    const model=friendlyModel(first,group.title);
-    const capacity=capacityOf(group.title)||capacityOf(first.sapDescription);
-    const connectivity=connectivityOf(group.title)||connectivityOf(first.sapDescription);
+  for(const row of sohRows){
+    const key=stockKey(row.article);
+    if(key)stock.set(key,row);
+  }
+
+  // Group by what staff actually selects: LOB + model + capacity/config + same price + same promo period.
+  // Color/SKU becomes a variant. This prevents identical iPhone cards from being split only by color text.
+  const groups=new Map<string,{lob:string;model:string;capacity:string;connectivity:string;group:PromoProductGroup}>();
+
+  for(const product of products){
+    const lob=inferLob(product);
+    const model=friendlyModel(product);
+    const sourceText=`${product.section} ${product.sapDescription}`;
+    const capacity=capacityOf(sourceText);
+    const connectivity=connectivityOf(sourceText);
+    const key=[
+      lob,model,capacity,connectivity,
+      product.normalPrice,product.promotionPrice,
+      product.promoStartDate??"",product.promoEndDate??"",
+      product.promoPeriodType,product.promoStatus,
+    ].join("|");
+
+    const existing=groups.get(key);
+    if(existing){
+      existing.group.variants.push(product);
+      continue;
+    }
+    groups.set(key,{lob,model,capacity,connectivity,group:makeGroup(key,friendlyName(model,capacity,connectivity),product)});
+  }
+
+  return [...groups.values()].map(({lob,model,capacity,connectivity,group})=>{
     const stockVariants=group.variants.map(product=>{
       const row=stock.get(stockKey(product.sapArticle));
       const soh=row?Math.max(0,Number(row.qty||0)):null;
@@ -125,7 +182,7 @@ export function buildPromoCatalog(products:PromoProduct[],sohRows:SohRow[]):Prom
     const totalSoh=known.length?known.reduce((sum,x)=>sum+Number(x.soh||0),0):null;
     return{
       key:group.key,
-      lob:lobOf(first),
+      lob,
       model,
       capacity,
       connectivity,
@@ -135,9 +192,16 @@ export function buildPromoCatalog(products:PromoProduct[],sohRows:SohRow[]):Prom
       stockStatus:stockStatus(totalSoh),
       stockVariants,
     };
+  }).sort((a,b)=>{
+    const lobDiff=promoLobOrder(a.lob)-promoLobOrder(b.lob);
+    if(lobDiff)return lobDiff;
+    const modelDiff=a.model.localeCompare(b.model);
+    if(modelDiff)return modelDiff;
+    return a.capacity.localeCompare(b.capacity,undefined,{numeric:true});
   });
 }
 
 export function promoLobOrder(value:string){
-  return["iPhone","iPad","Mac","Watch","AirPods","Accessories","Others"].indexOf(value);
+  const index=["iPhone","iPad","Mac","Watch","AirPods","Accessories","Others"].indexOf(value);
+  return index<0?999:index;
 }
