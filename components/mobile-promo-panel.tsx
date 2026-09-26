@@ -23,19 +23,33 @@ export default function MobilePromoPanel(){
     };
   },[]);
 
+  useEffect(()=>{
+    if(!open)return;
+    const previousOverflow=document.body.style.overflow;
+    const previousOverscroll=document.body.style.overscrollBehavior;
+    document.body.style.overflow="hidden";
+    document.body.style.overscrollBehavior="none";
+    document.documentElement.dataset.m238PromoOpen="1";
+    return()=>{
+      document.body.style.overflow=previousOverflow;
+      document.body.style.overscrollBehavior=previousOverscroll;
+      delete document.documentElement.dataset.m238PromoOpen;
+    };
+  },[open]);
+
   if(!mounted)return null;
 
   return <div
-    className={`fixed inset-x-0 top-0 z-[9000] overflow-y-auto bg-slate-50 transition-opacity duration-150 dark:bg-slate-900 ${open?"pointer-events-auto opacity-100":"pointer-events-none opacity-0"}`}
-    style={{bottom:"calc(82px + env(safe-area-inset-bottom))"}}
+    className={`fixed inset-0 z-[9000] overflow-y-auto bg-slate-50 transition-opacity duration-150 dark:bg-slate-900 ${open?"pointer-events-auto opacity-100":"pointer-events-none opacity-0"}`}
     aria-hidden={!open}
   >
     <style>{`
       .m238-mobile-promo-panel > main > div > .sticky:first-child a{display:none!important}
-      .m238-mobile-promo-panel > main{min-height:100%!important;padding-bottom:24px!important}
+      .m238-mobile-promo-panel > main{min-height:100dvh!important;padding-bottom:calc(118px + env(safe-area-inset-bottom))!important;background:#f8fafc!important}
+      .dark .m238-mobile-promo-panel > main{background:#0f172a!important}
       .m238-mobile-promo-panel > main > div{padding-top:8px!important}
     `}</style>
-    <div className="m238-mobile-promo-panel min-h-full">
+    <div className="m238-mobile-promo-panel min-h-[100dvh] bg-slate-50 dark:bg-slate-900">
       <PromoBoardV9 />
     </div>
   </div>;
