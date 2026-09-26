@@ -33,7 +33,23 @@ function modelSort(lob:string,a:string,b:string){
 function effectiveLob(item:PromoCatalogItem){const m=item.model.toUpperCase();if(/MACBOOK|MAC MINI|IMAC|\bMBA\b|\bMBP\b/.test(m))return"Mac";if(/APPLE WATCH/.test(m))return"Watch";return item.lob}
 function stockMeta(status:StockStatus){if(status==="READY")return{label:"Ready",cls:"text-emerald-600 bg-emerald-50"};if(status==="LOW_STOCK")return{label:"Low Stock",cls:"text-amber-600 bg-amber-50"};if(status==="OUT_OF_STOCK")return{label:"Out of Stock",cls:"text-rose-600 bg-rose-50"};return{label:"SOH Tidak Ditemukan",cls:"text-slate-500 bg-slate-100"}}
 function promoMeta(item:PromoCatalogItem){const p=item.group,hasPromo=p.promotionPrice>0&&p.normalPrice>0&&p.promotionPrice<p.normalPrice;if(!hasPromo)return{label:"Tidak Ada Promo",price:p.normalPrice||p.promotionPrice,cls:"text-slate-600 bg-slate-100 border-slate-200"};if(p.promoStatus==="FURTHER_NOTICE")return{label:"Further Notice",price:p.promotionPrice,cls:"text-blue-700 bg-blue-50 border-blue-200"};if(p.promoStatus==="ENDING_SOON")return{label:p.daysRemaining===0?"Berakhir Hari Ini":p.daysRemaining===1?"Berakhir Besok":`Berakhir ${p.daysRemaining} Hari`,price:p.promotionPrice,cls:"text-amber-700 bg-amber-50 border-amber-200"};if(p.promoStatus==="EXPIRED")return{label:"Expired",price:p.promotionPrice,cls:"text-rose-700 bg-rose-50 border-rose-200"};if(p.promoStatus==="ACTIVE")return{label:"Promo Aktif",price:p.promotionPrice,cls:"text-emerald-700 bg-emerald-50 border-emerald-200"};return{label:"Perlu Diperiksa",price:p.promotionPrice||p.normalPrice,cls:"text-slate-600 bg-slate-50 border-slate-200"}}
-function colorName(value:string){const u=value.toUpperCase();const map:[RegExp,string][]=[[/\bSPG\b|SPACE GR(?:E|A)Y/,"Space Grey"],[/\bSLV\b|SILVER/,"Silver"],[/\bSTL\b|STARLIGHT/,"Starlight"],[/\bMDN\b|MIDNIGHT/,"Midnight"],[/\bBLK\b|BLACK/,"Black"],[/\bWHT\b|WHITE/,"White"],[/\bBLU\b|BLUE/,"Blue"],[/PINK/,"Pink"],[/PUR|PURPLE/,"Purple"],[/NAT|NATURAL/,"Natural"],[/GLD|GOLD/,"Gold"],[/GRN|GREEN/,"Green"],[/RED/,"Red"]];return map.find(([r])=>r.test(u))?.[1]||"Variant"}
+function colorName(value:string){
+ const u=value.toUpperCase().replace(/\s+/g," ").trim();
+ const map:[RegExp,string][]=[
+  [/COSMIC ORANGE/,"Cosmic Orange"],[/DEEP BLUE/,"Deep Blue"],[/MIST BLUE/,"Mist Blue"],[/SOFT PINK/,"Soft Pink"],
+  [/DESERT TITANIUM/,"Desert Titanium"],[/NATURAL TITANIUM/,"Natural Titanium"],[/WHITE TITANIUM/,"White Titanium"],[/BLACK TITANIUM/,"Black Titanium"],
+  [/SPACE BLACK/,"Space Black"],[/SPACE GR(?:E|A)Y|\bSPG\b/,"Space Grey"],[/ROSE GOLD/,"Rose Gold"],[/SKY BLUE/,"Sky Blue"],
+  [/ULTRAMARINE/,"Ultramarine"],[/LAVENDER/,"Lavender"],[/SAGE/,"Sage"],[/TEAL/,"Teal"],
+  [/STARLIGHT|\bSTL\b/,"Starlight"],[/MIDNIGHT|\bMDN\b/,"Midnight"],[/SILVER|\bSLV\b/,"Silver"],
+  [/BLACK|\bBLK\b/,"Black"],[/WHITE|\bWHT\b/,"White"],[/BLUE|\bBLU\b/,"Blue"],[/PINK/,"Pink"],
+  [/PURPLE|\bPUR\b/,"Purple"],[/NATURAL|\bNAT\b/,"Natural"],[/GOLD|\bGLD\b/,"Gold"],[/GREEN|\bGRN\b/,"Green"],[/YELLOW/,"Yellow"],[/ORANGE/,"Orange"],[/RED/,"Red"]
+ ];
+ const known=map.find(([r])=>r.test(u))?.[1];
+ if(known)return known;
+ // Last fallback: use the words after the capacity as the variant name instead of showing "Variant".
+ const tail=u.match(/(?:64|128|256|512)\s*G(?:B)?\s+(.+)$|(?:1|2|4)\s*T(?:B)?\s+(.+)$/i)?.slice(1).find(Boolean);
+ return tail?tail.toLowerCase().replace(/\b\w/g,x=>x.toUpperCase()):"Warna Tidak Terbaca";
+}
 function codeNumber(item:PromoCatalogItem){return item.group.variants[0]?.sapArticle||"Code"}
 function monthly(price:number,months:number){return price>0?money.format(Math.round(price/months)):"-"}
 
