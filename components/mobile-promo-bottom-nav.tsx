@@ -13,6 +13,8 @@ function promoIcon(){
 
 export default function MobilePromoBottomNav(){
   useEffect(()=>{
+    let previousActive:HTMLElement|null=null;
+
     const ensureStyle=()=>{
       if(document.getElementById(STYLE_ID))return;
       const style=document.createElement("style");
@@ -21,13 +23,16 @@ export default function MobilePromoBottomNav(){
         .m238m-bottom[data-promo-nav="1"]{grid-template-columns:repeat(6,minmax(0,1fr))!important;}
         .m238m-bottom[data-promo-nav="1"] button{min-width:0!important;padding-left:2px!important;padding-right:2px!important;}
         .m238m-bottom[data-promo-nav="1"] .m238m-nav-label{font-size:10px!important;white-space:nowrap;}
-        .m238m-bottom[data-promo-open="1"] .m238m-liquid-bubble{opacity:0!important;}
-        .m238m-bottom[data-promo-open="1"] > button:not(#${BTN_ID}){opacity:.55;}
+        .m238m-bottom[data-promo-open="1"] .m238m-liquid-bubble{opacity:0!important;transform:none!important;}
+        .m238m-bottom[data-promo-open="1"] > button:not(#${BTN_ID}){opacity:.5!important;}
+        .m238m-bottom[data-promo-open="1"] > button:not(#${BTN_ID}) .m238m-nav-icon,
+        .m238m-bottom[data-promo-open="1"] > button:not(#${BTN_ID}) .m238m-nav-label{color:inherit!important;}
         #${BTN_ID}.active{opacity:1!important;}
         #${BTN_ID}.active .m238m-nav-icon,#${BTN_ID}.active .m238m-nav-label{color:#2563eb!important;}
       `;
       document.head.appendChild(style);
     };
+
     const ensureButton=()=>{
       const nav=document.querySelector<HTMLElement>(".m238m-bottom");
       if(!nav)return;
@@ -39,6 +44,8 @@ export default function MobilePromoBottomNav(){
       button.setAttribute("aria-label","Promo Board");
       button.innerHTML=`<span class="m238m-nav-icon">${promoIcon()}</span><span class="m238m-nav-label">Promo</span>`;
       button.addEventListener("click",()=>{
+        previousActive=nav.querySelector<HTMLElement>(":scope > button.active:not(#m238-mobile-promo-nav)");
+        nav.querySelectorAll<HTMLElement>(":scope > button.active").forEach(el=>el.classList.remove("active"));
         nav.dataset.promoOpen="1";
         button.classList.add("active");
         window.dispatchEvent(new CustomEvent(OPEN_EVENT));
@@ -48,19 +55,27 @@ export default function MobilePromoBottomNav(){
       if(report)nav.insertBefore(button,report.nextSibling);
       else nav.appendChild(button);
     };
+
     const closePromo=()=>{
       document.getElementById(BTN_ID)?.classList.remove("active");
       const nav=document.querySelector<HTMLElement>(".m238m-bottom");
-      if(nav)delete nav.dataset.promoOpen;
+      if(nav){
+        delete nav.dataset.promoOpen;
+        if(previousActive&&document.body.contains(previousActive))previousActive.classList.add("active");
+      }
+      previousActive=null;
     };
+
     const onNavClick=(event:Event)=>{
       const target=event.target as Element|null;
       const clicked=target?.closest("button");
       if(clicked&&clicked.id!==BTN_ID&&clicked.closest(".m238m-bottom")){
+        previousActive=null;
         closePromo();
         window.dispatchEvent(new CustomEvent(CLOSE_EVENT));
       }
     };
+
     const onClose=()=>closePromo();
     ensureStyle();
     ensureButton();
