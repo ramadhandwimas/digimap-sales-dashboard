@@ -1,11 +1,11 @@
 "use client";
-import {useEffect,useMemo,useState} from "react";
+import {useEffect,useMemo,useState,type ReactNode} from "react";
 import {Copy,Mail,RefreshCw,TriangleAlert} from "lucide-react";
 
 type Item={lob:string;article:string;description:string;soh:number;soldQty:number;lostCount:number;requestQty:number;priority:"Critical"|"High"|"Medium";reason:string};
 type Payload={week:string;period:{from:string;to:string};sohUpdated:string;summary:{recommendations:number;outOfStock:number;weekSales:number;lostFeedback:number};recommendations:Item[];outOfStock:Item[];email:{subject:string;body:string};error?:string};
 const num=new Intl.NumberFormat("id-ID");
-function Card({children}:{children:React.ReactNode}){return <section className="m238m-card">{children}</section>}
+function Card({children}:{children:ReactNode}){return <section className="m238m-card">{children}</section>}
 
 export default function StockRequestMd(){
  const[data,setData]=useState<Payload|null>(null);
