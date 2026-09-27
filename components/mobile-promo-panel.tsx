@@ -53,6 +53,28 @@ export default function MobilePromoPanel(){
     setOpen(false);
   };
 
+  const openProductDetailOnModelTap=(event:MouseEvent<HTMLDivElement>)=>{
+    const target=event.target as Element|null;
+    const button=target?.closest("button");
+    if(!button)return;
+    const label=(button.textContent||"").trim().replace(/\s+/g," ");
+    if(label!=="iPhone 17 Pro Max")return;
+
+    // PromoBoardV9 updates the selected model first. Open the existing DetailSheet
+    // right after React has rendered the selected product ticket so the experience
+    // matches the Overview bottom-sheet interaction.
+    window.setTimeout(()=>{
+      const detailButton=Array.from(document.querySelectorAll<HTMLButtonElement>("button"))
+        .find(el=>(el.textContent||"").trim().replace(/\s+/g," ").startsWith("Lihat Detail"));
+      detailButton?.click();
+    },80);
+  };
+
+  const handlePanelClick=(event:MouseEvent<HTMLDivElement>)=>{
+    closeFromDashboardLink(event);
+    openProductDetailOnModelTap(event);
+  };
+
   return <div
     className={`fixed inset-x-0 top-0 z-[9000] overflow-y-auto bg-slate-50 transition-opacity duration-150 dark:bg-slate-900 ${open?"pointer-events-auto opacity-100":"pointer-events-none opacity-0"}`}
     style={{bottom:"calc(82px + env(safe-area-inset-bottom))"}}
@@ -62,7 +84,7 @@ export default function MobilePromoPanel(){
       .m238-mobile-promo-panel > main{min-height:100%!important;padding-bottom:24px!important}
       .m238-mobile-promo-panel > main > div{padding-top:8px!important}
     `}</style>
-    <div className="m238-mobile-promo-panel min-h-full" onClick={closeFromDashboardLink}>
+    <div className="m238-mobile-promo-panel min-h-full" onClick={handlePanelClick}>
       <PromoBoardV9 />
     </div>
   </div>;
