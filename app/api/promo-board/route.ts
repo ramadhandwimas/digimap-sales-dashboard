@@ -1,7 +1,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {SESSION_COOKIE,verifySessionToken} from "@/lib/auth-session";
 import {parsePromoWorkbook} from "@/lib/promo-board-parser";
-import {comparePromoPriceLists} from "@/lib/promo-board-insights";
+import {comparePromoPriceLists,samePromoPriceList} from "@/lib/promo-board-insights";
 import {readPromoSnapshots,savePromoSnapshot} from "@/lib/promo-board-store";
 
 export const runtime="nodejs";
@@ -24,7 +24,9 @@ export async function GET(request:NextRequest){
   if(!auth)return json({error:"Koneksi Google Sheets belum dikonfigurasi."},503);
   try{
     const snapshots=await readPromoSnapshots(auth,6);
-    return json({ok:true,active:snapshots[0]??null,history:snapshots.slice(1)});
+    const active=snapshots[0]??null,previous=snapshots[1]??null;
+    const history=snapshots.slice(1).map(snapshot=>({id:snapshot.id,uploadedAt:snapshot.uploadedAt,fileName:snapshot.fileName,priceListDate:snapshot.priceListDate,totalRows:snapshot.totalRows,totalSku:snapshot.totalSku,warnings:snapshot.warnings}));
+    return json({ok:true,active,history,comparison:comparePromoPriceLists(previous,active)});
   }catch(error){
     console.error("Promo Board read failed",error);
     return json({error:error instanceof Error?error.message:"Promo Board gagal dibaca."},500);
@@ -48,12 +50,15 @@ export async function POST(request:NextRequest){
 
     let parsed;
     try{parsed=parsePromoWorkbook(await file.arrayBuffer(),file.name)}catch(error){return json({error:error instanceof Error?error.message:"File Pricelist tidak valid."},422)}
-    if(!parsed.totalSku)return json({error:"Tidak ditemukan SKU device yang valid."},422);
+    if(!parsed.totalSku&&!parsed.blockingErrors)return json({error:"Tidak ditemukan SKU device yang valid."},422);
 
     const snapshots=await readPromoSnapshots(auth,2);
     const active=snapshots[0]??null;
     const comparison=comparePromoPriceLists(active,parsed);
-    if(mode==="preview")return json({ok:true,preview:parsed,comparison});
+    const identicalToActive=samePromoPriceList(active,parsed);
+    if(mode==="preview")return json({ok:true,preview:parsed,comparison,identicalToActive});
+    if(parsed.blockingErrors)return json({error:`Aktivasi diblokir karena ${parsed.blockingErrors} masalah perlu diperiksa.`,preview:parsed,comparison},409);
+    if(identicalToActive)return json({ok:true,noChange:true,message:"Pricelist ini sama dengan data aktif. Tidak ada perubahan yang disimpan.",active});
 
     const saved=await savePromoSnapshot(auth,parsed);
     return json({ok:true,message:`Pricelist ${parsed.fileName} berhasil dijadikan aktif.`,saved,active:{...parsed,...saved},previous:active,comparison});

@@ -34,13 +34,16 @@ export default function MobilePromoPanel(){
       const target=event.target as Element|null;
       if(target?.closest(".m238m-bottom button"))setOpen(false);
     };
+    const closeOnEscape=(event:KeyboardEvent)=>{if(event.key==="Escape")setOpen(false)};
     document.body.style.overflow="hidden";
     document.body.style.overscrollBehavior="none";
     document.addEventListener("click",closeOnNavigation,true);
+    document.addEventListener("keydown",closeOnEscape);
     return()=>{
       document.body.style.overflow=previousOverflow;
       document.body.style.overscrollBehavior=previousOverscroll;
       document.removeEventListener("click",closeOnNavigation,true);
+      document.removeEventListener("keydown",closeOnEscape);
     };
   },[open]);
 
@@ -57,6 +60,7 @@ export default function MobilePromoPanel(){
     className={`fixed inset-x-0 top-0 z-[9000] overflow-y-auto bg-slate-50 transition-opacity duration-150 dark:bg-slate-900 ${open?"pointer-events-auto opacity-100":"pointer-events-none opacity-0"}`}
     style={{bottom:"calc(82px + env(safe-area-inset-bottom))"}}
     aria-hidden={!open}
+    inert={!open}
   >
     <style>{`
       .m238-mobile-promo-panel > main{min-height:100%!important;padding-bottom:24px!important}
