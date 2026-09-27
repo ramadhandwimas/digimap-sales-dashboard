@@ -23,6 +23,21 @@ export function proxy(request: NextRequest) {
       url.pathname = "/api/weekly-stable";
       return NextResponse.rewrite(url);
     }
+    if (pathname === "/api/data") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/api/data-fixed";
+      return NextResponse.rewrite(url);
+    }
+    if (pathname === "/api/daily") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/api/daily-fixed";
+      return NextResponse.rewrite(url);
+    }
+    if (pathname === "/api/daily-summary-fast") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/api/daily-summary-fast-fixed";
+      return NextResponse.rewrite(url);
+    }
     return NextResponse.next();
   }
 
