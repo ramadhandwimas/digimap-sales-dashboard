@@ -3,7 +3,7 @@ import {useState} from "react";
 import dynamic from "next/dynamic";
 const AccessoryPricelistUpload=dynamic(()=>import("@/components/accessory-pricelist-upload"));
 const DataCopasRepair=dynamic(()=>import("@/components/data-copas-repair"));
-import {Box,ChevronLeft,ChevronRight,Clock3,CreditCard,LogOut,MessageCircle,Settings,Type,Users,WalletCards} from "lucide-react";
+import {Box,ChevronLeft,ChevronRight,Clock3,CreditCard,LogOut,MailPlus,MessageCircle,Settings,Type,Users,WalletCards} from "lucide-react";
 
 type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono"|"webhero"|"mecha"|"alliance";
 type MotionPreset="instant"|"minimal"|"smooth"|"dynamic"|"cinematic";
@@ -35,6 +35,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
 
  const items=[
   {label:"SOH",sub:"Cek stock on hand",icon:Box,action:"soh"},
+  {label:"Stock Request MD",sub:"Compile SOH, sales week & lost ke email",icon:MailPlus,action:"stock-request"},
   {label:"BNPL",sub:"BNPL & Trade-In",icon:CreditCard,action:"bnpl"},
   {label:"Feedback",sub:"Input feedback staff",icon:MessageCircle,action:"add-feedback"},
   {label:"CX & New Member",sub:"Input CX dan member",icon:Users,action:"add-cx"},
