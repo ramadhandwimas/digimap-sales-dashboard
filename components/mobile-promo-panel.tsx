@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import {useEffect,useState} from "react";
+import {useEffect,useState,type MouseEvent} from "react";
 
 const PromoBoardV9=dynamic(()=>import("@/components/promo-board-v9"),{
   ssr:false,
@@ -30,15 +30,28 @@ export default function MobilePromoPanel(){
     if(!open)return;
     const previousOverflow=document.body.style.overflow;
     const previousOverscroll=document.body.style.overscrollBehavior;
+    const closeOnNavigation=(event:Event)=>{
+      const target=event.target as Element|null;
+      if(target?.closest(".m238m-bottom button"))setOpen(false);
+    };
     document.body.style.overflow="hidden";
     document.body.style.overscrollBehavior="none";
+    document.addEventListener("click",closeOnNavigation,true);
     return()=>{
       document.body.style.overflow=previousOverflow;
       document.body.style.overscrollBehavior=previousOverscroll;
+      document.removeEventListener("click",closeOnNavigation,true);
     };
   },[open]);
 
   if(!mounted)return null;
+
+  const closeFromDashboardLink=(event:MouseEvent<HTMLDivElement>)=>{
+    const target=event.target as Element|null;
+    if(!target?.closest('a[href="/"]'))return;
+    event.preventDefault();
+    setOpen(false);
+  };
 
   return <div
     className={`fixed inset-x-0 top-0 z-[9000] overflow-y-auto bg-slate-50 transition-opacity duration-150 dark:bg-slate-900 ${open?"pointer-events-auto opacity-100":"pointer-events-none opacity-0"}`}
@@ -46,11 +59,10 @@ export default function MobilePromoPanel(){
     aria-hidden={!open}
   >
     <style>{`
-      .m238-mobile-promo-panel > main > div > .sticky:first-child a{display:none!important}
       .m238-mobile-promo-panel > main{min-height:100%!important;padding-bottom:24px!important}
       .m238-mobile-promo-panel > main > div{padding-top:8px!important}
     `}</style>
-    <div className="m238-mobile-promo-panel min-h-full">
+    <div className="m238-mobile-promo-panel min-h-full" onClick={closeFromDashboardLink}>
       <PromoBoardV9 />
     </div>
   </div>;
