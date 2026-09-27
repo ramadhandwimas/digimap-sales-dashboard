@@ -3,9 +3,9 @@
 import {useCallback,useEffect,useMemo,useRef,useState,type CSSProperties,type ReactNode} from "react";
 import dynamic from "next/dynamic";
 import {
-  Activity,Box,Briefcase,CalendarDays,ChevronRight,ClipboardCheck,Copy,CreditCard,Crosshair,Eye,FileDown,
+  Activity,Box,Briefcase,CalendarDays,ChevronRight,ClipboardCheck,Copy,CreditCard,FileDown,
   FileSpreadsheet,Ghost,Home,Lightbulb,LogOut,MessageCircle,MoreHorizontal,Moon,
-  PackageSearch,RefreshCw,Settings,Share2,Sun,Target,TrendingUp,Users,WalletCards,X,Cpu,Shield,Zap
+  PackageSearch,RefreshCw,Settings,Share2,Sun,Tag,Target,TrendingUp,Users,WalletCards,X,Cpu,Shield,Zap
 } from "lucide-react";
 import {exportReportPdf,exportReportPng,exportReportXlsx} from "@/lib/dashboard-export";
 import {cachedJson,swrJson,peekJsonCache,prefetchJson,abortCacheScope,clearExpiredLocalCache,getM238PerfStats} from "@/lib/m238-client-cache";
@@ -19,7 +19,7 @@ type SalesMode="daily"|"summary"|"lob";
 type FocusMode="lob"|"vas"|"third";
 type ReportMode="weekly"|"feedback"|"cx";
 type HomeMode="monthly"|"ytd"|"compare";
-type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono"|"webhero"|"mecha"|"alliance"|"natalia"|"bumblebee";
+type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono"|"webhero"|"mecha"|"alliance";
 type MotionPreset="instant"|"minimal"|"smooth"|"dynamic"|"cinematic";
 type MotionStyle="clean"|"ios-spring"|"glass-flow"|"playful-bounce"|"executive"|"stagger"|"blur"|"elastic"|"fade-up"|"zoom-soft"|"slide-flow"|"float";
 type FontPreset="system"|"rounded"|"compact"|"modern"|"editorial"|"tech"|"soft"|"bold"|"mono";
@@ -173,16 +173,19 @@ export default function MobileDashboardApp(){
     return()=>{document.removeEventListener("visibilitychange",onVisibility);window.removeEventListener("online",onOnline)};
   },[loadOverview]);
   useEffect(()=>{
-    const saved=(localStorage.getItem("m238-theme-preset")||"") as ThemePreset;
+    const saved=localStorage.getItem("m238-theme-preset")||"";
     const legacyDark=localStorage.getItem("m238-theme")==="dark";
-    const initial:ThemePreset=["classic","midnight","aurora","playful","graphite","sunset","forest","mono","webhero","mecha","alliance","natalia","bumblebee"].includes(saved)?saved:(legacyDark?"midnight":"classic");
+    const allowedThemes:ThemePreset[]=["classic","midnight","aurora","playful","graphite","sunset","forest","mono","webhero","mecha","alliance"];
+    const removedTheme=saved==="natalia"||saved==="bumblebee";
+    const initial:ThemePreset=allowedThemes.includes(saved as ThemePreset)?saved as ThemePreset:removedTheme?"classic":legacyDark?"midnight":"classic";
     const motion=(localStorage.getItem("m238-motion-preset")||"smooth") as MotionPreset;
     const style=(localStorage.getItem("m238-motion-style")||"clean") as MotionStyle;
     const font=(localStorage.getItem("m238-font-preset")||"system") as FontPreset;
     setThemePreset(initial);setMotionPreset(["instant","minimal","smooth","dynamic","cinematic"].includes(motion)?motion:"smooth");
     setMotionStyle(["clean","ios-spring","glass-flow","playful-bounce","executive","stagger","blur","elastic","fade-up","zoom-soft","slide-flow","float"].includes(style)?style:"clean");
     setFontPreset(["system","rounded","compact","modern","editorial","tech","soft","bold","mono"].includes(font)?font:"system");
-    const isDark=initial==="midnight"||initial==="graphite"||initial==="mono"||initial==="webhero"||initial==="mecha"||initial==="alliance"||initial==="natalia"||initial==="bumblebee";setDark(isDark);document.documentElement.classList.toggle("dark",isDark);
+    const isDark=initial==="midnight"||initial==="graphite"||initial==="mono"||initial==="webhero"||initial==="mecha"||initial==="alliance";setDark(isDark);document.documentElement.classList.toggle("dark",isDark);
+    if(removedTheme){localStorage.setItem("m238-theme-preset",initial);localStorage.setItem("m238-theme","light")}
   },[]);
 
   const loadDaily=useCallback(async(force=false)=>{
@@ -315,9 +318,9 @@ export default function MobileDashboardApp(){
   };
   const applyTheme=(preset:ThemePreset)=>{
     setThemePreset(preset);localStorage.setItem("m238-theme-preset",preset);
-    const isDark=preset==="midnight"||preset==="graphite"||preset==="mono"||preset==="webhero"||preset==="mecha"||preset==="alliance"||preset==="natalia"||preset==="bumblebee";setDark(isDark);localStorage.setItem("m238-theme",isDark?"dark":"light");document.documentElement.classList.toggle("dark",isDark);
+    const isDark=preset==="midnight"||preset==="graphite"||preset==="mono"||preset==="webhero"||preset==="mecha"||preset==="alliance";setDark(isDark);localStorage.setItem("m238-theme",isDark?"dark":"light");document.documentElement.classList.toggle("dark",isDark);
     let meta=document.querySelector('meta[name="theme-color"]') as HTMLMetaElement|null;if(!meta){meta=document.createElement("meta");meta.name="theme-color";document.head.appendChild(meta)}
-    meta.content=preset==="natalia"?"#090b10":preset==="bumblebee"?"#080b0f":preset==="midnight"?"#080b14":preset==="graphite"?"#111315":preset==="mono"?"#050505":preset==="webhero"?"#0b1020":preset==="mecha"?"#101418":preset==="alliance"?"#09111f":preset==="aurora"?"#ece9ff":preset==="playful"?"#fff7df":preset==="sunset"?"#fff1e8":preset==="forest"?"#eef6ef":"#f2f2f7";
+    meta.content=preset==="midnight"?"#080b14":preset==="graphite"?"#111315":preset==="mono"?"#050505":preset==="webhero"?"#0b1020":preset==="mecha"?"#101418":preset==="alliance"?"#09111f":preset==="aurora"?"#ece9ff":preset==="playful"?"#fff7df":preset==="sunset"?"#fff1e8":preset==="forest"?"#eef6ef":"#f2f2f7";
   };
   const applyMotion=(preset:MotionPreset)=>{setMotionPreset(preset);localStorage.setItem("m238-motion-preset",preset)};
   const applyMotionStyle=(preset:MotionStyle)=>{setMotionStyle(preset);localStorage.setItem("m238-motion-style",preset)};
@@ -391,7 +394,7 @@ export default function MobileDashboardApp(){
       {refreshing?<div className="m238m-refreshing"><RefreshCw size={14} className="spin"/> Memperbarui data…</div>:null}
       {error?<Card className="m238m-error">{error}</Card>:null}
       {loading&&!overview?<Skeleton/>:null}
-      {overview&&tab==="home"?<HomeScreen mode={homeMode} setMode={setHomeMode} overview={homeMode==="monthly"?overview:(fullOverview||overview)} traffic={traffic} cvr={cvr} achievement={achievement} periodMode={periodMode} fullLoading={homeMode!=="monthly"&&!fullOverview} onOpenSalesDetail={()=>void openHomeSalesDetail()} onGoSales={()=>setTab("sales")} onGoTeam={()=>setTab("team")} onGoReport={()=>setTab("report")} onShare={()=>setSheet("share")}/>:null}
+      {overview&&tab==="home"?<HomeScreen mode={homeMode} setMode={setHomeMode} overview={homeMode==="monthly"?overview:(fullOverview||overview)} traffic={traffic} cvr={cvr} achievement={achievement} periodMode={periodMode} fullLoading={homeMode!=="monthly"&&!fullOverview} onOpenPromo={()=>window.dispatchEvent(new CustomEvent("m238:promo-open"))} onOpenSalesDetail={()=>void openHomeSalesDetail()} onGoSales={()=>setTab("sales")} onGoTeam={()=>setTab("team")} onGoReport={()=>setTab("report")} onShare={()=>setSheet("share")}/>:null}
       {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange} onStaff={s=>void openStaff(s,"daily")} onDay={row=>{setDayDetail(row);setSheet("day")}} onShare={()=>setSheet("share")}/>:null}
       {tab==="team"?<TeamScreen rows={team} allRows={teamAll} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
       {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]} period={period} periodMode={periodMode} activeRange={activeRange}/>:null}
@@ -421,10 +424,6 @@ export default function MobileDashboardApp(){
         ?[["home","Home",Cpu],["sales","Sales",Target],["team","Team",Users],["report","Report",FileSpreadsheet],["more","More",Settings]]
         :themePreset==="alliance"
         ?[["home","Home",Shield],["sales","Sales",TrendingUp],["team","Team",Users],["report","Report",ClipboardCheck],["more","More",Settings]]
-        :themePreset==="natalia"
-        ?[["home","Home",Home],["sales","Sales",Crosshair],["team","Team",Eye],["report","Report",FileSpreadsheet],["more","More",Settings]]
-        :themePreset==="bumblebee"
-        ?[["home","Home",Home],["sales","Sales",Zap],["team","Team",Shield],["report","Report",FileSpreadsheet],["more","More",Settings]]
         :[["home","Home",Home],["sales","Sales",TrendingUp],["team","Team",Users],["report","Report",FileDown],["more","More",MoreHorizontal]]
       ).map(([key,label,Icon])=><button key={String(key)} onClick={()=>setTab(key as Tab)} className={(tab===key||(tab==="admin"&&key==="more"))?"active":""}><span className="m238m-nav-icon"><Icon size={themePreset==="playful"?22:21}/></span><span className="m238m-nav-label">{String(label)}</span></button>)}
     </nav>
@@ -463,7 +462,7 @@ export default function MobileDashboardApp(){
 }
 
 
-function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fullLoading,onOpenSalesDetail,onGoSales,onGoTeam,onGoReport,onShare}:{mode:HomeMode;setMode:(v:HomeMode)=>void;overview:Overview;traffic:Traffic|null;cvr:number;achievement:number;periodMode:"month"|"week";fullLoading:boolean;onOpenSalesDetail:()=>void;onGoSales:()=>void;onGoTeam:()=>void;onGoReport:()=>void;onShare:()=>void}){
+function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fullLoading,onOpenPromo,onOpenSalesDetail,onGoSales,onGoTeam,onGoReport,onShare}:{mode:HomeMode;setMode:(v:HomeMode)=>void;overview:Overview;traffic:Traffic|null;cvr:number;achievement:number;periodMode:"month"|"week";fullLoading:boolean;onOpenPromo:()=>void;onOpenSalesDetail:()=>void;onGoSales:()=>void;onGoTeam:()=>void;onGoReport:()=>void;onShare:()=>void}){
  const salesRows=overview.daily||[],latestSales=salesRows.at(-1)?.amount||0,prevSales=salesRows.at(-2)?.amount||0,salesDelta=prevSales?((latestSales-prevSales)/prevSales)*100:null;
  const trafficRows=traffic?.daily||[],latestTraffic=trafficRows.at(-1)?.traffic||0,prevTraffic=trafficRows.at(-2)?.traffic||0,trafficDelta=prevTraffic?((latestTraffic-prevTraffic)/prevTraffic)*100:null;
  const insight=salesDelta==null
@@ -482,6 +481,11 @@ function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fu
  const lobQty=staffRows.reduce((a,s)=>({iphone:a.iphone+Number(s.lob?.iphone||0),ipad:a.ipad+Number(s.lob?.ipad||0),mac:a.mac+Number(s.lob?.mac||0),watch:a.watch+Number(s.lob?.watch||0),airpods:a.airpods+Number(s.lob?.airpods||0)}),{iphone:0,ipad:0,mac:0,watch:0,airpods:0});
  const lobRows=[["iPhone",lobQty.iphone],["iPad",lobQty.ipad],["MacBook",lobQty.mac],["Apple Watch",lobQty.watch],["AirPods",lobQty.airpods]].sort((a,b)=>Number(b[1])-Number(a[1]));
  return <div className="m238m-stack m238m-enter">
+  <button className="m238m-promo-entry" onClick={onOpenPromo} aria-label="Buka Price List dan Promo">
+    <span className="m238m-promo-entry-icon"><Tag size={23}/></span>
+    <span className="m238m-promo-entry-copy"><strong>Price List &amp; Promo</strong><small>Harga dan promo device terbaru</small></span>
+    <ChevronRight size={21}/>
+  </button>
   <div className="m238m-home-tabs">
     <button className={mode==="monthly"?"active":""} onClick={()=>setMode("monthly")}>Overview Bulanan</button>
     <button className={mode==="ytd"?"active":""} onClick={()=>setMode("ytd")}>YTD Overview</button>
