@@ -3,11 +3,19 @@
 import dynamic from "next/dynamic";
 import {useEffect,useState} from "react";
 import M238PromoBoardNavigation from "@/components/m238-promo-board-navigation";
+import MobilePromoBottomNav from "@/components/mobile-promo-bottom-nav";
+import MobilePromoPanel from "@/components/mobile-promo-panel";
 
 const MobileDashboard=dynamic(()=>import("@/components/mobile-dashboard-app"),{ssr:false});
 const DesktopDashboard=dynamic(()=>import("@/components/desktop-dashboard-shell"),{ssr:false});
 
 type MobileView="classic"|"new";
+
+const MobileInputZoomGuard=()=> <style>{`
+  @media (max-width: 768px){
+    input,select,textarea{font-size:16px!important;}
+  }
+`}</style>;
 
 export default function ResponsiveDashboardEntry(){
   const[mobile,setMobile]=useState<boolean|null>(null);
@@ -37,9 +45,10 @@ export default function ResponsiveDashboardEntry(){
 
   if(mobile===null)return <div className="min-h-[100dvh] bg-[#f2f2f7] dark:bg-black" aria-hidden="true"/>;
   if(!mobile)return <><DesktopDashboard/><M238PromoBoardNavigation/></>;
-  if(mobileView==="new")return <MobileDashboard/>;
+  if(mobileView==="new")return <><MobileInputZoomGuard/><MobileDashboard/><MobilePromoPanel/><MobilePromoBottomNav/></>;
 
   return <div className="relative min-h-[100dvh]">
+    <MobileInputZoomGuard/>
     <DesktopDashboard/>
     <M238PromoBoardNavigation/>
     <button
