@@ -106,6 +106,15 @@ body { margin: 0; background: var(--background); color: var(--foreground); font-
 button,select { font: inherit; }
 ::selection { background: #bcd4ff; color: #0b326f; }
 
+/* iOS Safari zooms the page when a focused form field is smaller than 16px. */
+@media (max-width: 767px) {
+  input:not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 
 /* Generic fallback for direct M238 routes (Daily Summary / BNPL / CX / Weekly / SOH).
    The dashboard shell receives the more specific rules below. */

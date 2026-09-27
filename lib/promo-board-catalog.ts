@@ -260,7 +260,7 @@ function genericColorOf(value:string,lob:string){
     [/COSMIC ORANGE/,"Cosmic Orange"],[/DEEP BLUE/,"Deep Blue"],[/MIST BLUE/,"Mist Blue"],[/CLOUD WHITE/,"Cloud White"],[/LIGHT GOLD/,"Light Gold"],[/SOFT PINK/,"Soft Pink"],
     [/DESERT TITANIUM/,"Desert Titanium"],[/NATURAL TITANIUM/,"Natural Titanium"],[/WHITE TITANIUM/,"White Titanium"],[/BLACK TITANIUM/,"Black Titanium"],
     [/SPACE BLACK|\bSP BLK\b|\bSB\b/,"Space Black"],[/SPACE GR(?:E|A)Y|\bSPG\b|\bGRY\b/,"Space Grey"],[/ROSE GOLD/,"Rose Gold"],[/SKY BLUE|\bSKY\b/,"Sky Blue"],
-    [/ULTRAMARINE/,"Ultramarine"],[/LAVENDER/,"Lavender"],[/SAGE/,"Sage"],[/TEAL/,"Teal"],[/INDIGO|\bIND\b/,"Indigo"],[/CITRUS|\bCIT\b/,"Citrus"],[/BLUSH|\bBLS\b/,"Blush"],
+    [/ULTRAMARINE/,"Ultramarine"],[/LAVENDER/,"Lavender"],[/SAGE/,"Sage"],[/TEAL/,"Teal"],[/INDIGO|(?:^|[\s/])IND(?=$|[\s/])/,"Indigo"],[/CITRUS|\bCIT\b/,"Citrus"],[/BLUSH|\bBLS\b/,"Blush"],
     [/STARLIGHT|\bSTL\b|\bST\b/,"Starlight"],[/MIDNIGHT|\bMDN\b|\bMD\b/,"Midnight"],[/SILVER|\bSLV\b|\bSL\b/,"Silver"],
     [/BLACK|\bBLK\b/,"Black"],[/WHITE|\bWHT\b/,"White"],[/BLUE|\bBLU\b/,"Blue"],[/PINK|\bPNK\b/,"Pink"],[/PURPLE|\bPUR\b/,"Purple"],
     [/NATURAL|\bNAT\b/,"Natural"],[/GOLD|\bGLD\b/,"Gold"],[/GREEN|\bGRN\b/,"Green"],[/YELLOW/,"Yellow"],[/ORANGE/,"Orange"],[/RED/,"Red"]

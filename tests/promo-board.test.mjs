@@ -165,6 +165,23 @@ test("SOH matching uses the exact normalized SAP and never another SKU",()=>{
   assert.equal(variants.find(item=>item.product.sapArticle==="APP-001/B").soh,null);
 });
 
+test("MacBook Neo color codes are not confused with the -IND region suffix",()=>{
+  const result=parse([
+    {sap:"APPMHFA4ID/A",description:"MBN 13 SLV/8GB/256GB-IND",normal:13499000,promo:12999000},
+    {sap:"APPMHFD4ID/A",description:"MBN 13 CIT/8GB/256GB-IND",normal:13499000,promo:12999000},
+    {sap:"APPMHFF4ID/A",description:"MBN 13 IND/8GB/256GB-IND",normal:13499000,promo:12999000},
+    {sap:"APPMHFH4ID/A",description:"MBN 13 BLS/8GB/256GB-IND",normal:13499000,promo:12999000},
+  ]);
+  const colors=catalogApi.buildPromoCatalog(result.products,[])
+    .flatMap(item=>item.stockVariants.map(variant=>variant.color));
+  assert.deepEqual(colors,["Silver","Citrus","Indigo","Blush"]);
+});
+
+test("mobile form fields keep a 16px font to prevent iOS focus zoom",()=>{
+  const css=fs.readFileSync(new URL("../app/globals.css",import.meta.url),"utf8");
+  assert.match(css,/input:not\(\[type=["']?file["']?\]\)[\s\S]*font-size:\s*16px\s*!important/);
+});
+
 test("missing required header fails closed",()=>{
   assert.throws(()=>parser.parsePromoWorkbook(workbook([{sap:"NOHEADER",normal:1,promo:1}],{header:false}),"bad.xlsx"),/Header/);
 });
