@@ -63,7 +63,7 @@ export default function MobilePromoPanel(){
     inert={!open}
   >
     <style>{`
-      .m238-mobile-promo-panel > main{min-height:100%!important;padding-bottom:24px!important}
+      .m238-mobile-promo-panel > main{min-height:100%!important;padding-bottom:calc(120px + env(safe-area-inset-bottom))!important}
       .m238-mobile-promo-panel > main > div{padding-top:8px!important}
     `}</style>
     <div className="m238-mobile-promo-panel min-h-full" onClick={closeFromDashboardLink}>

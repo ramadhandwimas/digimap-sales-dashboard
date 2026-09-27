@@ -182,6 +182,15 @@ test("mobile form fields keep a 16px font to prevent iOS focus zoom",()=>{
   assert.match(css,/input:not\(\[type=["']?file["']?\]\)[\s\S]*font-size:\s*16px\s*!important/);
 });
 
+test("mobile Promo Board explains incomplete and unread SOH without hiding content behind navigation",()=>{
+  const board=fs.readFileSync(new URL("../components/promo-board-v9.tsx",import.meta.url),"utf8");
+  const panel=fs.readFileSync(new URL("../components/mobile-promo-panel.tsx",import.meta.url),"utf8");
+  assert.match(board,/Stok Belum Lengkap/);
+  assert.match(board,/SOH belum terbaca/);
+  assert.match(board,/dari \{item\.totalVariants\} varian terbaca/);
+  assert.match(panel,/padding-bottom:calc\(120px \+ env\(safe-area-inset-bottom\)\)/);
+});
+
 test("missing required header fails closed",()=>{
   assert.throws(()=>parser.parsePromoWorkbook(workbook([{sap:"NOHEADER",normal:1,promo:1}],{header:false}),"bad.xlsx"),/Header/);
 });
