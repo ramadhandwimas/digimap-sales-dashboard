@@ -1,16 +1,16 @@
 "use client";
-import {useEffect,useMemo,useState} from "react";
+import {useEffect,useMemo,useState,type ReactNode} from "react";
 import {Copy,Mail,RefreshCw,TriangleAlert} from "lucide-react";
 import {cachedJson} from "@/lib/m238-client-cache";
 
 type Item={lob:string;article:string;description:string;soh:number;soldQty:number;lostCount:number;requestQty:number;priority:"Critical"|"High"|"Medium";reason:string};
 type Payload={week:string;period:{from:string;to:string};sohUpdated:string;summary:{recommendations:number;outOfStock:number;weekSales:number;lostFeedback:number};recommendations:Item[];outOfStock:Item[];email:{subject:string;body:string};error?:string};
 const num=new Intl.NumberFormat("id-ID");
-function Card({children,className=""}:{children:React.ReactNode;className?:string}){return <section className={`m238m-card ${className}`}>{children}</section>}
+function Card({children,className=""}:{children:ReactNode;className?:string}){return <section className={`m238m-card ${className}`}>{children}</section>}
 
 export default function StockRequestMd(){
  const[data,setData]=useState<Payload|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(""),[copied,setCopied]=useState(""),[selected,setSelected]=useState<Record<string,boolean>>({}),[qty,setQty]=useState<Record<string,number>>({});
- const load=async(force=false)=>{setLoading(true);setError("");try{const d=await cachedJson<Payload>(`/api/stock-request${force?`?t=${Date.now()}`:""}`,force?0:120000,force);if(d.error)throw new Error(d.error);setData(d);setSelected(Object.fromEntries((d.recommendations||[]).map(x=>[x.article,true])));setQty(Object.fromEntries((d.recommendations||[]).map(x=>[x.article,x.requestQty])))}catch(e){setError(e instanceof Error?e.message:"Gagal compile stock request")}finally{setLoading(false)}};
+ const load=async(force=false)=>{setLoading(true);setError("");try{const d=await cachedJson<Payload>("/api/stock-request",force?0:120000,force);if(d.error)throw new Error(d.error);setData(d);setSelected(Object.fromEntries((d.recommendations||[]).map(x=>[x.article,true])));setQty(Object.fromEntries((d.recommendations||[]).map(x=>[x.article,x.requestQty])))}catch(e){setError(e instanceof Error?e.message:"Gagal compile stock request")}finally{setLoading(false)}};
  useEffect(()=>{void load()},[]);
  const chosen=useMemo(()=>data?.recommendations.filter(x=>selected[x.article]).map(x=>({...x,requestQty:Math.max(0,Number(qty[x.article]??x.requestQty))}))||[],[data,selected,qty]);
  const emailBody=useMemo(()=>{if(!data)return"";const grouped=new Map<string,Item[]>();for(const x of chosen){if(!grouped.has(x.lob))grouped.set(x.lob,[]);grouped.get(x.lob)!.push(x)}const lost=chosen.reduce((a,x)=>a+x.lostCount,0),sold=chosen.reduce((a,x)=>a+x.soldQty,0),lines=["Dear MD Team,","",`Mohon support stock untuk M238 Digimap PIM 2 berdasarkan evaluasi ${data.week} (${data.period.from} s.d. ${data.period.to}).`,`SOH update: ${data.sohUpdated}.`,`Ringkasan: ${chosen.length} item prioritas • ${data.summary.outOfStock} item SOH 0 • ${sold} unit sold pada item prioritas • ${lost} indikasi lost/feedback terkait stock.`,`","Detail request:"];for(const[lob,rows]of grouped){lines.push("",lob);for(const r of rows)lines.push(`- ${r.description||r.article} (${r.article}) | Sold ${r.soldQty} | SOH ${r.soh} | Lost ${r.lostCount} | Request ${r.requestQty} unit | ${r.priority}`)}lines.push("","Mohon dibantu untuk support replenishment item di atas agar opportunity penjualan tidak lost karena ketersediaan stock.","","Terima kasih.","Regards,","M238 Digimap PIM 2");return lines.join("\n")},[data,chosen]);
