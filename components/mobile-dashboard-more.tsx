@@ -3,9 +3,9 @@ import {useState} from "react";
 import dynamic from "next/dynamic";
 const AccessoryPricelistUpload=dynamic(()=>import("@/components/accessory-pricelist-upload"));
 const DataCopasRepair=dynamic(()=>import("@/components/data-copas-repair"));
-import {Box,ChevronLeft,ChevronRight,Clock3,CreditCard,LogOut,MessageCircle,Settings,Type,Users,WalletCards} from "lucide-react";
+import {Box,ChevronLeft,ChevronRight,Clock3,CreditCard,LogOut,MessageCircle,Settings,Tag,Type,Users,WalletCards} from "lucide-react";
 
-type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono"|"webhero"|"mecha"|"alliance";
+type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono"|"webhero"|"mecha"|"alliance"|"natalia"|"bumblebee";
 type MotionPreset="instant"|"minimal"|"smooth"|"dynamic"|"cinematic";
 type MotionStyle="clean"|"ios-spring"|"glass-flow"|"playful-bounce"|"executive"|"stagger"|"blur"|"elastic"|"fade-up"|"zoom-soft"|"slide-flow"|"float";
 type FontPreset="system"|"rounded"|"compact"|"modern"|"editorial"|"tech"|"soft"|"bold"|"mono";
@@ -25,7 +25,9 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
   {id:"mono",name:"Mono OLED",desc:"High contrast"},
   {id:"webhero",name:"Web Hero",desc:"Red & blue sporty"},
   {id:"mecha",name:"Mecha",desc:"Industrial electric"},
-  {id:"alliance",name:"Hero Alliance",desc:"Navy silver premium"}
+  {id:"alliance",name:"Hero Alliance",desc:"Navy silver premium"},
+  {id:"natalia",name:"Natalia",desc:"Dark assassin • crimson purple"},
+  {id:"bumblebee",name:"Bumblebee",desc:"Yellow mecha • electric blue"}
  ];
  const motionLabels:Record<MotionPreset,string>={instant:"Instant",minimal:"Minimal",smooth:"Smooth",dynamic:"Dynamic",cinematic:"Cinematic"};
  const styleLabels:Record<MotionStyle,string>={clean:"Clean","ios-spring":"iOS Spring","glass-flow":"Glass Flow","playful-bounce":"Bounce",executive:"Executive",stagger:"Stagger",blur:"Blur",elastic:"Elastic","fade-up":"Fade Up","zoom-soft":"Soft Zoom","slide-flow":"Slide Flow",float:"Float"};
@@ -34,6 +36,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  const toggle=(panel:"theme"|"speed"|"style"|"font"|"pricelist"|"copas-repair")=>setOpenPanel(v=>v===panel?null:panel);
 
  const items=[
+  {label:"Promo Board",sub:"Cek promo device & ketersediaan stok",icon:Tag,action:"promo-board"},
   {label:"SOH",sub:"Cek stock on hand",icon:Box,action:"soh"},
   {label:"BNPL",sub:"BNPL & Trade-In",icon:CreditCard,action:"bnpl"},
   {label:"Feedback",sub:"Input feedback staff",icon:MessageCircle,action:"add-feedback"},
@@ -96,7 +99,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  return <div className="m238m-more m238m-more-direct">
   <div className="m238m-more-title"><strong>More</strong><span>Menu tambahan M238</span></div>
   <div className="m238m-direct-menu">
-   {items.map(({label,sub,icon:Icon,action})=><button key={action} onClick={()=>action==="settings"?setScreen("settings"):onAction(action)}>
+   {items.map(({label,sub,icon:Icon,action})=><button key={action} onClick={()=>action==="settings"?setScreen("settings"):action==="promo-board"?window.location.assign("/promo-board"):onAction(action)}>
     <span className="m238m-direct-icon"><Icon size={19}/></span>
     <span className="m238m-direct-copy"><strong>{label}</strong><small>{sub}</small></span>
     <ChevronRight size={18}/>
