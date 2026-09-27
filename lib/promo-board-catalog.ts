@@ -253,8 +253,19 @@ function watchColorOf(value:string){
   return map[token]||"Unknown Color";
 }
 
-function genericColorOf(value:string,lob:string){
+function macColorOf(value:string){
+  const text=upper(value).replace(/\s+/g," ");
+  const code=text.match(/\b(?:MBA|MBP|MBN|MACBOOK(?:\s+(?:AIR|PRO|NEO))?)\s*(?:13(?:\.3|\.6)?|14(?:\.2)?|15(?:\.3)?|16(?:\.2)?)\s+([A-Z]{2,4})(?=\/)/)?.[1]||"";
+  const map:Record<string,string>={SLV:"Silver",SL:"Silver",CIT:"Citrus",BLS:"Blush",IND:"Indigo",STL:"Starlight",ST:"Starlight",MDN:"Midnight",MD:"Midnight",SPG:"Space Grey",GRY:"Space Grey",BLK:"Black",WHT:"White",BLU:"Blue",SKY:"Sky Blue"};
+  if(map[code])return map[code];
+  // Product descriptions can end in market suffixes such as -IND. Remove that
+  // suffix before generic color detection so it is not mistaken for Indigo.
+  return genericColorOf(text.replace(/-IND\b/g,"").replace(/-ID\b/g,""),"Mac",true);
+}
+
+function genericColorOf(value:string,lob:string,skipMac=false):string{
   if(lob==="Watch")return watchColorOf(value);
+  if(lob==="Mac"&&!skipMac)return macColorOf(value);
   const text=upper(value).replace(/\s+/g," ");
   const colors:[RegExp,string][]=[
     [/COSMIC ORANGE/,"Cosmic Orange"],[/DEEP BLUE/,"Deep Blue"],[/MIST BLUE/,"Mist Blue"],[/CLOUD WHITE/,"Cloud White"],[/LIGHT GOLD/,"Light Gold"],[/SOFT PINK/,"Soft Pink"],
