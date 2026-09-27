@@ -11,6 +11,12 @@ const DesktopDashboard=dynamic(()=>import("@/components/desktop-dashboard-shell"
 
 type MobileView="classic"|"new";
 
+const MobileInputZoomGuard=()=> <style>{`
+  @media (max-width: 768px){
+    input,select,textarea{font-size:16px!important;}
+  }
+`}</style>;
+
 export default function ResponsiveDashboardEntry(){
   const[mobile,setMobile]=useState<boolean|null>(null);
   const[mobileView,setMobileView]=useState<MobileView>("new");
@@ -39,9 +45,10 @@ export default function ResponsiveDashboardEntry(){
 
   if(mobile===null)return <div className="min-h-[100dvh] bg-[#f2f2f7] dark:bg-black" aria-hidden="true"/>;
   if(!mobile)return <><DesktopDashboard/><M238PromoBoardNavigation/></>;
-  if(mobileView==="new")return <><MobileDashboard/><MobilePromoPanel/><MobilePromoBottomNav/></>;
+  if(mobileView==="new")return <><MobileInputZoomGuard/><MobileDashboard/><MobilePromoPanel/><MobilePromoBottomNav/></>;
 
   return <div className="relative min-h-[100dvh]">
+    <MobileInputZoomGuard/>
     <DesktopDashboard/>
     <M238PromoBoardNavigation/>
     <button
