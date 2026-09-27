@@ -5,23 +5,25 @@ import {getCachedSalesSource} from "@/lib/m238-sales-source-cache";
 
 const TTL=120_000;
 const responseCache=new Map<string,{at:number;data:any}>();
-const headers={"cache-control":"private, max-age=30, stale-while-revalidate=120"};
+const baseHeaders={"cache-control":"private, max-age=30, stale-while-revalidate=120"};
+const outHeaders=(cache:string,started:number)=>({...baseHeaders,"x-m238-cache":cache,"x-m238-total-ms":String(Date.now()-started),"server-timing":`m238;dur=${Date.now()-started}`});
 
 export async function GET(req:NextRequest){
+ const started=Date.now();
  const force=req.nextUrl.searchParams.get("refresh")==="1";
  const requestedFrom=req.nextUrl.searchParams.get("from")||"",requestedTo=req.nextUrl.searchParams.get("to")||"",mode=req.nextUrl.searchParams.get("mode")||"range";
  const cacheKey=`summary:${requestedFrom}:${requestedTo}:${mode}`;
  const hit=responseCache.get(cacheKey);
- if(!force&&hit&&Date.now()-hit.at<TTL)return NextResponse.json(hit.data,{headers:{...headers,"x-m238-cache":"HIT"}});
+ if(!force&&hit&&Date.now()-hit.at<TTL)return NextResponse.json(hit.data,{headers:outHeaders("HIT",started)});
 
- const original=await originalGET(req);
+ const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
+ const sourcePromise=email&&key?getCachedSalesSource(email,key,force).catch(()=>null):Promise.resolve(null);
+ const [original,source]=await Promise.all([originalGET(req),sourcePromise]);
  if(!original.ok)return original;
  const data:any=await original.json();
- const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
  const from=requestedFrom||data.from,to=requestedTo||data.to;
- if(!email||!key||!from||!to)return NextResponse.json(data,{headers});
+ if(!source||!from||!to)return NextResponse.json(data,{headers:outHeaders("BASE",started)});
  try{
-  const source=await getCachedSalesSource(email,key,force);
   const rows=source.dataCopas.filter(r=>r.date>=from&&r.date<=to);
   const existingByDate=new Map((data.dailyRows||[]).map((r:any)=>[r.date,r]));
   const dates=[...new Set([...rows.map(r=>r.date),...(data.dailyRows||[]).map((r:any)=>r.date)])].filter(Boolean).sort();
@@ -39,6 +41,6 @@ export async function GET(req:NextRequest){
   data.source="Data Copas • voucher excluded • AirPods fixed • cached";data.generatedAt=new Date().toISOString();
   responseCache.set(cacheKey,{at:Date.now(),data});
   if(responseCache.size>20){const oldest=[...responseCache.entries()].sort((a,b)=>a[1].at-b[1].at)[0]?.[0];if(oldest)responseCache.delete(oldest)}
-  return NextResponse.json(data,{headers:{...headers,"x-m238-cache":"MISS"}});
- }catch{return NextResponse.json(data,{headers})}
+  return NextResponse.json(data,{headers:outHeaders("MISS",started)});
+ }catch{return NextResponse.json(data,{headers:outHeaders("FALLBACK",started)})}
 }
