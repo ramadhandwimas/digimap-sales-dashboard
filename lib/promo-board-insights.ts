@@ -46,8 +46,29 @@ const COLOR_TOKENS = [
   "SILVER", "GOLD", "MIDNIGHT", "STARLIGHT", "SPACE GREY", "SPACE GRAY", "GRAPHITE",
 ];
 
-function hasDiscount(product?: PromoProduct) {
+function hasDiscount(product?: Pick<PromoProduct,"normalPrice"|"promotionPrice">) {
   return Boolean(product && product.normalPrice > 0 && product.promotionPrice > 0 && product.promotionPrice < product.normalPrice);
+}
+
+export function activePromoPrice(product:Pick<PromoProduct,"normalPrice"|"promotionPrice"|"promoStatus">){
+  const hasPromo=hasDiscount(product);
+  if(!hasPromo)return product.normalPrice||product.promotionPrice;
+  if(product.promoStatus==="ACTIVE"||product.promoStatus==="ENDING_SOON"||product.promoStatus==="FURTHER_NOTICE")return product.promotionPrice;
+  return product.normalPrice||product.promotionPrice;
+}
+
+function contentSignature(result:PromoParseResult|null){
+  if(!result)return"";
+  return [...result.products].sort((a,b)=>a.sapArticle.localeCompare(b.sapArticle)).map(product=>[
+    product.sapArticle.trim().toUpperCase(),product.sapDescription.trim(),product.category,product.section,
+    product.normalPrice,product.promotionPrice,product.remarks,product.promotionInstallmentBundling??"",product.promotionCashBundling??"",
+    product.brZout,product.eolStatus,product.promoStartDate??"",product.promoEndDate??"",product.promoPeriodType,
+  ].join("\u001f")).join("\u001e");
+}
+
+export function samePromoPriceList(first:PromoParseResult|null,second:PromoParseResult|null){
+  if(!first||!second||first.products.length!==second.products.length)return false;
+  return contentSignature(first)===contentSignature(second);
 }
 
 function promoSignature(product: PromoProduct) {

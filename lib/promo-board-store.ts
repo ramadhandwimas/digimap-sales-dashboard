@@ -1,6 +1,6 @@
 import {randomUUID} from "node:crypto";
 import {appendSheetValues,ensureSheets,getSheetRangesFresh} from "@/lib/google-sheets";
-import type {PromoParseResult,PromoProduct} from "@/lib/promo-board-parser";
+import {refreshPromoStatus,type PromoParseResult,type PromoProduct} from "@/lib/promo-board-parser";
 import {MASTER_ID} from "@/lib/accessory-pricelist-store";
 
 const META_SHEET="Promo Price Lists";
@@ -33,13 +33,13 @@ function productToRow(id:string,product:PromoProduct):unknown[]{
 }
 
 function rowToProduct(row:unknown[]):PromoProduct{
-  return {
+  return refreshPromoStatus({
     sapArticle:text(row[1]),sapDescription:text(row[2]),category:text(row[3]),section:text(row[4]),
     normalPrice:number(row[5]),promotionPrice:number(row[6]),savingAmount:number(row[7]),discountPercentage:number(row[8]),remarks:text(row[9]),
     promotionInstallmentBundling:nullableNumber(row[10]),promotionCashBundling:nullableNumber(row[11]),brZout:text(row[12]),eolStatus:text(row[13]),
     promoStartDate:text(row[14])||null,promoEndDate:text(row[15])||null,promoPeriodType:(text(row[16])||"UNKNOWN") as PromoProduct["promoPeriodType"],
     promoStatus:(text(row[17])||"UNKNOWN") as PromoProduct["promoStatus"],daysRemaining:nullableNumber(row[18]),
-  };
+  });
 }
 
 export async function savePromoSnapshot(credentials:Credentials,result:PromoParseResult){
@@ -75,6 +75,6 @@ export async function readPromoSnapshots(credentials:Credentials,limit=6):Promis
     byId.set(id,list);
   }
   return metas.map(meta=>({
-    ...meta,sheetName:"PRICE LIST APPLE DEVICE",products:byId.get(meta.id)??[],totalSku:(byId.get(meta.id)??[]).length||meta.totalSku,
+    ...meta,sheetName:"PRICE LIST APPLE DEVICE",products:byId.get(meta.id)??[],totalSku:(byId.get(meta.id)??[]).length||meta.totalSku,issues:[],blockingErrors:0,
   }));
 }
