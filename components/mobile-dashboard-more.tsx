@@ -3,6 +3,7 @@ import {useState} from "react";
 import dynamic from "next/dynamic";
 const AccessoryPricelistUpload=dynamic(()=>import("@/components/accessory-pricelist-upload"));
 const DataCopasRepair=dynamic(()=>import("@/components/data-copas-repair"));
+const StockRequestMd=dynamic(()=>import("@/components/stock-request-md"),{ssr:false,loading:()=> <div className="m238m-card">Memuat Stock Request MD…</div>});
 import {Box,ChevronLeft,ChevronRight,Clock3,CreditCard,LogOut,MailPlus,MessageCircle,Settings,Type,Users,WalletCards} from "lucide-react";
 
 type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono"|"webhero"|"mecha"|"alliance";
@@ -11,7 +12,7 @@ type MotionStyle="clean"|"ios-spring"|"glass-flow"|"playful-bounce"|"executive"|
 type FontPreset="system"|"rounded"|"compact"|"modern"|"editorial"|"tech"|"soft"|"bold"|"mono";
 
 export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMotion,onMotionStyle,onFont,onAction}:{theme:ThemePreset;motion:MotionPreset;motionStyle:MotionStyle;font:FontPreset;onTheme:(v:ThemePreset)=>void;onMotion:(v:MotionPreset)=>void;onMotionStyle:(v:MotionStyle)=>void;onFont:(v:FontPreset)=>void;onAction:(action:string)=>void}){
- const[screen,setScreen]=useState<"menu"|"settings">("menu");
+ const[screen,setScreen]=useState<"menu"|"settings"|"stock-request">("menu");
  const[openPanel,setOpenPanel]=useState<"theme"|"speed"|"style"|"font"|"pricelist"|"copas-repair"|null>(null);
 
  const themes:{id:ThemePreset;name:string;desc:string}[]=[
@@ -43,6 +44,14 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
   {label:"Versi Lama",sub:"Buka tampilan desktop lama",icon:Clock3,action:"mobile-view"},
   {label:"Settings",sub:"Pricelist aksesoris, data copas, theme & tampilan",icon:Settings,action:"settings"},
  ] as const;
+
+ if(screen==="stock-request")return <div className="m238m-more m238m-settings-page">
+  <div className="m238m-settings-head">
+   <button onClick={()=>setScreen("menu")} aria-label="Kembali"><ChevronLeft size={20}/></button>
+   <div><strong>Stock Request MD</strong><span>SOH • Sales Week • Lost • Email</span></div>
+  </div>
+  <StockRequestMd/>
+ </div>;
 
  if(screen==="settings")return <div className="m238m-more m238m-settings-page">
   <div className="m238m-settings-head">
@@ -97,7 +106,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  return <div className="m238m-more m238m-more-direct">
   <div className="m238m-more-title"><strong>More</strong><span>Menu tambahan M238</span></div>
   <div className="m238m-direct-menu">
-   {items.map(({label,sub,icon:Icon,action})=><button key={action} onClick={()=>action==="settings"?setScreen("settings"):onAction(action)}>
+   {items.map(({label,sub,icon:Icon,action})=><button key={action} onClick={()=>action==="settings"?setScreen("settings"):action==="stock-request"?setScreen("stock-request"):onAction(action)}>
     <span className="m238m-direct-icon"><Icon size={19}/></span>
     <span className="m238m-direct-copy"><strong>{label}</strong><small>{sub}</small></span>
     <ChevronRight size={18}/>
