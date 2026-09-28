@@ -5,8 +5,9 @@ import {Copy,Mail,RefreshCw} from "lucide-react";
 type Item={lob:string;article:string;description:string;soh:number;soldQty:number;recentSoldQty:number;lostCount:number;requestQty:number;priority:"Critical"|"High"|"Medium";reason:string;historyDays:number;historyPeak:number;previousSoh:number|null;stockDrop:number;inferredZero?:boolean};
 type SnapshotItem={article:string;description:string;lob:string;soh:number};
 type Payload={week:string;period:{from:string;to:string};sohUpdated:string;history?:{snapshotDate:string;days:number};summary:{recommendations:number;outOfStock:number;weekSales:number;lostFeedback:number};recommendations:Item[];outOfStock:Item[];snapshot?:SnapshotItem[];email:{subject:string;body:string};error?:string};
+type Demand30={from:string;to:string;qtyByArticle:Record<string,number>;error?:string};
 const num=new Intl.NumberFormat("id-ID");
-const CACHE_KEY="m238-stock-request-device-only-v7";
+const CACHE_KEY="m238-stock-request-device-only-v8";
 function Card({children}:{children:ReactNode}){return <section className="m238m-card">{children}</section>}
 
 const accessoryPattern=/CASE|COVER|FOLIO|SMART\s*FOLIO|GLASS|TEMPERED|SCREEN|PROTECTOR|KEYBOARD|PENCIL|AIR\s*PODS?|EARPODS|CABLE|CHARGER|ADAPTER|ADAPTOR|MOUSE|TRACKPAD|BAND|STRAP|SLEEVE|HUB|DOCK|POWER|WALLET|MAGSAFE|UNI\s*Q|STM|UAG|IMPACT|MOVEMENT|CAM\s*CLICK|AC\s*PLUS|APPLECARE|CARE\s*PLUS|WARRANTY|SERVICE|ACCESSORY|ACCY/i;
@@ -21,13 +22,28 @@ function deviceLob(article:string,description:string,currentLob=""){
  if(["iPhone","iPad","MacBook","Apple Watch"].includes(currentLob))return currentLob;
  return"";
 }
-function filterDeviceOnly(d:Payload):Payload{
+function recompute(item:Item,demand30:number):Item{
+ const weekly=Math.max(item.soldQty,Math.ceil(demand30/(30/7)));
+ const target=Math.max(5,Math.ceil(weekly*1.5+item.lostCount*2));
+ const restore=Math.max(0,item.historyPeak-item.soh);
+ const requestQty=item.soh<=0?Math.max(5,target,restore):Math.max(0,Math.max(target,restore)-item.soh);
+ const priority:item["priority"]=item.soh<=0||item.lostCount>=2?"Critical":item.soh<=1||item.lostCount>0||item.stockDrop>=3||weekly>item.soh?"High":"Medium";
+ let reason="Stock tipis dibanding penjualan 30 hari";
+ if(item.inferredZero)reason=`Tidak muncul di SOH, tetapi terjual ${demand30} unit dalam 30 hari`;
+ else if(item.soh<=0)reason=`SOH 0 • terjual ${demand30} unit dalam 30 hari${item.lostCount?` • lost ${item.lostCount}`:""}`;
+ else if(item.lostCount>0)reason=`${item.lostCount} lost/feedback terkait stock`;
+ else if(item.stockDrop>=3)reason=`SOH turun ${item.stockDrop} unit • 30D ${demand30}`;
+ return {...item,recentSoldQty:demand30,requestQty,priority,reason};
+}
+function filterDeviceOnly(d:Payload,demand?:Demand30):Payload{
  const normalize=<T extends Item|SnapshotItem>(x:T):T|null=>{
   const lob=deviceLob(x.article,x.description,x.lob);if(!lob)return null;
   return {...x,lob} as T;
  };
- const recommendations=d.recommendations.map(normalize).filter((x):x is Item=>Boolean(x));
- const outOfStock=d.outOfStock.map(normalize).filter((x):x is Item=>Boolean(x));
+ const demandMap=demand?.qtyByArticle||{};
+ const recommendations=d.recommendations.map(normalize).filter((x):x is Item=>Boolean(x)).map(x=>recompute(x,Number(demandMap[x.article.toUpperCase()]||0))).filter(x=>x.recentSoldQty>0||x.lostCount>0).filter(x=>x.requestQty>0);
+ const recSet=new Set(recommendations.map(x=>x.article.toUpperCase()));
+ const outOfStock=d.outOfStock.map(normalize).filter((x):x is Item=>Boolean(x)).map(x=>recompute(x,Number(demandMap[x.article.toUpperCase()]||0))).filter(x=>x.soh<=0&&(x.recentSoldQty>0||x.lostCount>0)&&recSet.has(x.article.toUpperCase()));
  const snapshot=(d.snapshot||[]).map(normalize).filter((x):x is SnapshotItem=>Boolean(x));
  return {...d,recommendations,outOfStock,snapshot,summary:{...d.summary,recommendations:recommendations.length,outOfStock:outOfStock.length}};
 }
@@ -41,8 +57,8 @@ export default function StockRequestMd(){
  const[qty,setQty]=useState<Record<string,number>>({});
  const[copied,setCopied]=useState("");
 
- function apply(raw:Payload){
-  const d=filterDeviceOnly(raw);
+ function apply(raw:Payload,demand?:Demand30){
+  const d=filterDeviceOnly(raw,demand);
   setData(d);setSelected(Object.fromEntries(d.recommendations.map(x=>[x.article,true])));setQty(Object.fromEntries(d.recommendations.map(x=>[x.article,x.requestQty])));
   try{sessionStorage.setItem(CACHE_KEY,JSON.stringify({at:Date.now(),data:d}))}catch{}
   if(d.snapshot?.length){window.setTimeout(()=>{void fetch("/api/stock-request",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({date:d.history?.snapshotDate,items:d.snapshot}),keepalive:true}).catch(()=>{})},250)}
@@ -54,11 +70,16 @@ export default function StockRequestMd(){
   }
   if(!hadWarm)setLoading(true);setError("");
   try{
-   const url=force?`/api/stock-request?refresh=${Date.now()}`:"/api/stock-request";
-   const r=await fetch(url,{cache:force?"no-store":"default"});
+   const stamp=force?`?refresh=${Date.now()}`:"";
+   const [r,dr]=await Promise.all([
+    fetch(`/api/stock-request${stamp}`,{cache:force?"no-store":"default"}),
+    fetch(`/api/stock-request-demand30d${stamp}`,{cache:force?"no-store":"default"})
+   ]);
    const d=await r.json() as Payload;
+   const demand=await dr.json() as Demand30;
    if(!r.ok||d.error)throw new Error(d.error||"Gagal compile stock request");
-   apply(d);
+   if(!dr.ok||demand.error)throw new Error(demand.error||"Gagal membaca riwayat penjualan 30 hari");
+   apply(d,demand);
   }catch(e){if(!hadWarm)setError(e instanceof Error?e.message:"Gagal compile stock request")}
   finally{setLoading(false)}
  }
@@ -114,7 +135,7 @@ export default function StockRequestMd(){
  if(error&&!data)return <div className="m238m-stack"><Card><strong>Stock Request MD</strong><p>{error}</p><button onClick={()=>void load(true)}>Coba lagi</button></Card></div>;
  if(!data)return null;
  return <div className="m238m-stack">
-  <Card><div className="m238m-copy-head"><div><strong>Stock Request MD</strong><p>{data.week} • SOH {data.sohUpdated}</p></div><button onClick={()=>void load(true)} aria-label="Refresh"><RefreshCw size={17}/></button></div><p>Request device only. Analisa penjualan memakai 30 hari terakhir, lalu dibandingkan dengan SOH, lost/feedback, dan history SOH.</p></Card>
+  <Card><div className="m238m-copy-head"><div><strong>Stock Request MD</strong><p>{data.week} • SOH {data.sohUpdated}</p></div><button onClick={()=>void load(true)} aria-label="Refresh"><RefreshCw size={17}/></button></div><p>Request device only. Hanya SKU yang masih punya demand dari penjualan 30 hari terakhir atau lost/feedback stock yang dipertimbangkan, supaya item lama/discontinued tidak ikut request.</p></Card>
   <div className="m238m-grid"><Card><small>Prioritas</small><h3>{num.format(data.summary.recommendations)}</h3></Card><Card><small>SOH 0</small><h3>{num.format(data.summary.outOfStock)}</h3></Card><Card><small>Dipilih</small><h3>{num.format(chosen.length)}</h3></Card><Card><small>History SOH</small><h3>{num.format(data.history?.days||1)} hari</h3></Card></div>
   <div className="m238m-section-head"><h2>Rekomendasi Request</h2><span>{chosen.length} dipilih</span></div>
   <div className="m238m-stack">{data.recommendations.map(x=><Card key={x.article}><label style={{display:"flex",gap:8}}><input type="checkbox" checked={!!selected[x.article]} onChange={e=>setSelected(v=>({...v,[x.article]:e.target.checked}))}/><span><strong>{x.description||x.article}</strong><br/><small>{x.article} • {x.lob}</small></span></label><p>Week {x.soldQty} • 30D {x.recentSoldQty} • SOH {x.soh} • Lost {x.lostCount} • <b>{x.priority}</b></p><small>{x.reason}</small><div><label>Request Qty <input style={{width:64,marginLeft:8}} inputMode="numeric" value={qty[x.article]??x.requestQty} onChange={e=>setQty(v=>({...v,[x.article]:Math.max(0,Number(e.target.value)||0)}))}/></label></div></Card>)}</div>
@@ -126,6 +147,6 @@ export default function StockRequestMd(){
   <div className="m238m-section-head"><h2>Email 2 • MD MacBook & Apple Watch</h2><span>{macWatch.length} item</span></div>
   <Card><strong>Subject : {subject("MacBook & Apple Watch")}</strong><p>Dear MD Team,</p><p>Mohon support stock untuk M238 Digimap PIM 2 berdasarkan evaluasi {data.week}.</p><p><strong>Detail request:</strong></p><TablePreview rows={macWatch}/><p>Mohon dibantu untuk support replenishment item di atas agar opportunity penjualan tidak lost karena ketersediaan stock.</p><p>Terima kasih.<br/>Regards,<br/>M238 Digimap PIM 2</p></Card>
   <div className="m238m-action-list"><button disabled={!macWatch.length} onClick={()=>void copySubject("s2","MacBook & Apple Watch")}><Copy size={16}/>{copied==="s2"?"Copied":"Copy Subject"}</button><button disabled={!macWatch.length} onClick={()=>void copyRichEmail("e2",macWatch)}><Copy size={16}/>{copied==="e2"?"Copied":"Copy Email + Table"}</button><button disabled={!macWatch.length} onClick={()=>void copyAndOpenEmail("o2","MacBook & Apple Watch",macWatch)}><Mail size={16}/>{copied==="o2"?"Copied":"Copy Table & Buka Mail"}</button></div>
-  <Card><small>iPhone Mail tidak menerima HTML table melalui link mailto. Tombol <b>Copy Table & Buka Mail</b> sekarang otomatis menyalin email bertabel lalu membuka Mail; setelah Mail terbuka cukup paste ke body.</small></Card>
+  <Card><small>iPhone Mail tidak menerima HTML table melalui link mailto. Tombol <b>Copy Table & Buka Mail</b> otomatis menyalin email bertabel lalu membuka Mail; setelah Mail terbuka cukup paste ke body.</small></Card>
  </div>;
 }
