@@ -27,7 +27,7 @@ function recompute(item:Item,demand30:number):Item{
  const target=Math.max(5,Math.ceil(weekly*1.5+item.lostCount*2));
  const restore=Math.max(0,item.historyPeak-item.soh);
  const requestQty=item.soh<=0?Math.max(5,target,restore):Math.max(0,Math.max(target,restore)-item.soh);
- const priority:item["priority"]=item.soh<=0||item.lostCount>=2?"Critical":item.soh<=1||item.lostCount>0||item.stockDrop>=3||weekly>item.soh?"High":"Medium";
+ const priority:Item["priority"]=item.soh<=0||item.lostCount>=2?"Critical":item.soh<=1||item.lostCount>0||item.stockDrop>=3||weekly>item.soh?"High":"Medium";
  let reason="Stock tipis dibanding penjualan 30 hari";
  if(item.inferredZero)reason=`Tidak muncul di SOH, tetapi terjual ${demand30} unit dalam 30 hari`;
  else if(item.soh<=0)reason=`SOH 0 • terjual ${demand30} unit dalam 30 hari${item.lostCount?` • lost ${item.lostCount}`:""}`;
