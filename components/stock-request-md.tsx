@@ -32,7 +32,6 @@ function filterDeviceOnly(d:Payload):Payload{
 }
 function groupLabel(group:MdGroup){return group==="iphone-ipad"?"MD iPhone & iPad":"MD MacBook & Apple Watch"}
 function groupLobs(group:MdGroup){return group==="iphone-ipad"?["iPhone","iPad"]:["MacBook","Apple Watch"]}
-function safeWeek(week:string){return week.replace(/[^A-Za-z0-9_-]+/g,"-")}
 
 export default function StockRequestMd(){
  const[data,setData]=useState<Payload|null>(null);
@@ -41,6 +40,7 @@ export default function StockRequestMd(){
  const[selected,setSelected]=useState<Record<string,boolean>>({});
  const[qty,setQty]=useState<Record<string,number>>({});
  const[copied,setCopied]=useState("");
+ const[downloading,setDownloading]=useState("");
 
  function apply(raw:Payload){
   const d=filterDeviceOnly(raw);
@@ -69,30 +69,20 @@ export default function StockRequestMd(){
  function subject(group:MdGroup){return `Request Stock M238 Digimap PIM 2 - ${data?.week||"Week"} - ${group==="iphone-ipad"?"iPhone & iPad":"MacBook & Apple Watch"}`}
  function emailBody(group:MdGroup){
   if(!data)return"";const rows=grouped[group];const lobs=groupLobs(group);
-  const lines=["Dear MD Team,","",`Mohon support stock untuk M238 Digimap PIM 2 berdasarkan evaluasi ${data.week}.`,`Detail request ${lobs.join(" & ")} terlampir pada file Excel.`,`Total item request: ${rows.length}.`,`","Mohon dibantu untuk support replenishment agar opportunity penjualan tidak lost karena ketersediaan stock.","","Terima kasih.","Regards,","M238 Digimap PIM 2"];
-  return lines.join("\n")
+  return ["Dear MD Team,","",`Mohon support stock untuk M238 Digimap PIM 2 berdasarkan evaluasi ${data.week}.`,`Detail request ${lobs.join(" & ")} terlampir pada file Excel.`,`Total item request: ${rows.length}.`,`","Mohon dibantu untuk support replenishment agar opportunity penjualan tidak lost karena ketersediaan stock.","","Terima kasih.","Regards,","M238 Digimap PIM 2"].join("\n")
  }
- async function copy(group:MdGroup,kind:"subject"|"body"|"all"){
-  const key=`${group}-${kind}`;const text=kind==="subject"?subject(group):kind==="body"?emailBody(group):`Subject : ${subject(group)}\n\n${emailBody(group)}`;
-  await navigator.clipboard.writeText(text);setCopied(key);setTimeout(()=>setCopied(""),1200)
+ async function copy(group:MdGroup){
+  const key=`${group}-all`;await navigator.clipboard.writeText(`Subject : ${subject(group)}\n\n${emailBody(group)}`);setCopied(key);setTimeout(()=>setCopied(""),1200)
  }
  function openEmail(group:MdGroup){window.location.href=`mailto:?subject=${encodeURIComponent(subject(group))}&body=${encodeURIComponent(emailBody(group))}`}
  async function downloadExcel(group:MdGroup){
-  if(!data)return;const rows=grouped[group];if(!rows.length)return;
-  const XLSX=await import("xlsx");
-  const workbook=XLSX.utils.book_new();
-  for(const lob of groupLobs(group)){
-   const lobRows=rows.filter(x=>x.lob===lob).map((x,i)=>({
-    No:i+1,Article:x.article,Description:x.description,"Week Sales":x.soldQty,"8W Sales":x.recentSoldQty,SOH:x.soh,Lost:x.lostCount,"Request Qty":x.requestQty,Priority:x.priority,Reason:x.reason
-   }));
-   if(!lobRows.length)continue;
-   const ws=XLSX.utils.json_to_sheet(lobRows);
-   ws["!cols"]=[{wch:5},{wch:18},{wch:46},{wch:11},{wch:10},{wch:8},{wch:8},{wch:12},{wch:11},{wch:42}];
-   ws["!autofilter"]={ref:`A1:J${lobRows.length+1}`};
-   XLSX.utils.book_append_sheet(workbook,ws,lob.slice(0,31));
-  }
-  const fileName=`Request Stock M238 - ${group==="iphone-ipad"?"iPhone-iPad":"MacBook-Watch"} - ${safeWeek(data.week)}.xlsx`;
-  XLSX.writeFile(workbook,fileName,{compression:true})
+  if(!data)return;const rows=grouped[group];if(!rows.length)return;setDownloading(group);
+  try{
+   const r=await fetch("/api/stock-request/export",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({group,week:data.week,rows})});
+   if(!r.ok)throw new Error("Gagal membuat Excel");
+   const blob=await r.blob();const disposition=r.headers.get("content-disposition")||"";const m=disposition.match(/filename="?([^";]+)"?/i);const fileName=m?.[1]||`Request Stock M238.xlsx`;
+   const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)
+  }catch(e){setError(e instanceof Error?e.message:"Gagal membuat Excel")}finally{setDownloading("")}
  }
 
  if(loading&&!data)return <div className="m238m-stack"><Card><p>Memuat analisa stock device…</p></Card></div>;
@@ -115,8 +105,8 @@ export default function StockRequestMd(){
      {rows.length>5?<p><small>+ {rows.length-5} item lainnya di Excel</small></p>:null}
     </Card>
     <div className="m238m-action-list">
-     <button disabled={!rows.length} onClick={()=>void downloadExcel(group)}><Download size={16}/>Download Excel</button>
-     <button disabled={!rows.length} onClick={()=>void copy(group,"all")}><Copy size={16}/>{copied===`${group}-all`?"Copied":"Copy Email"}</button>
+     <button disabled={!rows.length||downloading===group} onClick={()=>void downloadExcel(group)}><Download size={16}/>{downloading===group?"Membuat Excel…":"Download Excel"}</button>
+     <button disabled={!rows.length} onClick={()=>void copy(group)}><Copy size={16}/>{copied===`${group}-all`?"Copied":"Copy Email"}</button>
      <button disabled={!rows.length} onClick={()=>openEmail(group)}><Mail size={16}/>Buka Email</button>
     </div>
    </div>
