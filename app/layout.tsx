@@ -2,6 +2,7 @@ import "./accessory-pricelist.css";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./mobile-dashboard.css";
+import "./stock-request.css";
 import IdleLogout from "@/components/idle-logout";
 
 export const viewport: Viewport = {
