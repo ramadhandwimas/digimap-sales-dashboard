@@ -1,0 +1,30 @@
+/* Stock Request MD: keep the three-column email preview readable on iPhone. */
+.m238m-card div[style*="overflow-x"] > table {
+  width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed !important;
+}
+
+.m238m-card div[style*="overflow-x"] > table th,
+.m238m-card div[style*="overflow-x"] > table td {
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  line-height: 1.35;
+}
+
+.m238m-card div[style*="overflow-x"] > table th:nth-child(1),
+.m238m-card div[style*="overflow-x"] > table td:nth-child(1) {
+  width: 30%;
+}
+
+.m238m-card div[style*="overflow-x"] > table th:nth-child(2),
+.m238m-card div[style*="overflow-x"] > table td:nth-child(2) {
+  width: 52%;
+}
+
+.m238m-card div[style*="overflow-x"] > table th:nth-child(3),
+.m238m-card div[style*="overflow-x"] > table td:nth-child(3) {
+  width: 18%;
+  text-align: center;
+}
