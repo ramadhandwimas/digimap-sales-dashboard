@@ -6,26 +6,25 @@ type Item={lob:string;article:string;description:string;soh:number;soldQty:numbe
 type SnapshotItem={article:string;description:string;lob:string;soh:number};
 type Payload={week:string;period:{from:string;to:string};sohUpdated:string;history?:{snapshotDate:string;days:number};summary:{recommendations:number;outOfStock:number;weekSales:number;lostFeedback:number};recommendations:Item[];outOfStock:Item[];snapshot?:SnapshotItem[];email:{subject:string;body:string};error?:string};
 const num=new Intl.NumberFormat("id-ID");
-const CACHE_KEY="m238-stock-request-v3";
+const CACHE_KEY="m238-stock-request-device-only-v4";
 function Card({children}:{children:ReactNode}){return <section className="m238m-card">{children}</section>}
-const lobOrder=["iPad","MacBook","Apple Watch","iPhone","AirPods","Apple Pencil","Magic Keyboard","Apple Accessories"];
+const lobOrder=["iPhone","iPad","MacBook","Apple Watch"];
 
-function requestLob(article:string,description:string,currentLob=""){
+const accessoryPattern=/CASE|COVER|GLASS|TEMPERED|SCREEN|PROTECTOR|KEYBOARD|PENCIL|AIR\s*PODS?|EARPODS|CABLE|CHARGER|ADAPTER|ADAPTOR|MOUSE|TRACKPAD|BAND|STRAP|SLEEVE|HUB|DOCK|POWER|WALLET|MAGSAFE|UNI\s*Q|STM|UAG|IMPACT|MOVEMENT|CAM\s*CLICK/i;
+function deviceLob(article:string,description:string,currentLob=""){
  const text=`${article} ${description}`.toUpperCase();
+ if(accessoryPattern.test(text))return"";
+ if(!/^APP/i.test(article))return"";
  if(/\bIPHONE\b/.test(text))return"iPhone";
  if(/\bIPAD\b/.test(text))return"iPad";
  if(/MACBOOK|\bMBA\b|\bMBP\b|MAC\s*NEO|\bNEO\b/.test(text))return"MacBook";
  if(/APPLE\s*WATCH|\bWATCH\b|\bAW\s*(?:SE|S\d|ULTRA)/.test(text))return"Apple Watch";
- if(/AIR\s*PODS?/.test(text))return"AirPods";
- if(/APPLE\s*PENCIL|\bPENCIL\b/.test(text))return"Apple Pencil";
- if(/MAGIC\s*KEYBOARD|APPLE\s*KEYBOARD/.test(text))return"Magic Keyboard";
- if(/MAGIC\s*MOUSE|MAGIC\s*TRACKPAD|APPLE\s*ADAPTER|APPLE\s*CABLE|APPLE\s*CHARGER/.test(text))return"Apple Accessories";
- if(["iPhone","iPad","MacBook","Apple Watch","AirPods","Apple Pencil","Magic Keyboard","Apple Accessories"].includes(currentLob))return currentLob;
+ if(["iPhone","iPad","MacBook","Apple Watch"].includes(currentLob))return currentLob;
  return"";
 }
-function filterAppleOnly(d:Payload):Payload{
+function filterDeviceOnly(d:Payload):Payload{
  const normalize=<T extends Item|SnapshotItem>(x:T):T|null=>{
-  const lob=requestLob(x.article,x.description,x.lob);if(!lob)return null;
+  const lob=deviceLob(x.article,x.description,x.lob);if(!lob)return null;
   return {...x,lob} as T;
  };
  const recommendations=d.recommendations.map(normalize).filter((x):x is Item=>Boolean(x));
@@ -43,7 +42,7 @@ export default function StockRequestMd(){
  const[copied,setCopied]=useState("");
 
  function apply(raw:Payload){
-  const d=filterAppleOnly(raw);
+  const d=filterDeviceOnly(raw);
   setData(d);setSelected(Object.fromEntries(d.recommendations.map(x=>[x.article,true])));setQty(Object.fromEntries(d.recommendations.map(x=>[x.article,x.requestQty])));
   try{sessionStorage.setItem(CACHE_KEY,JSON.stringify({at:Date.now(),data:d}))}catch{}
   if(d.snapshot?.length){
@@ -80,16 +79,16 @@ export default function StockRequestMd(){
  }
  function openEmail(){if(data)window.location.href=`mailto:?subject=${encodeURIComponent(data.email.subject)}&body=${encodeURIComponent(emailBody)}`}
 
- if(loading&&!data)return <div className="m238m-stack"><Card><p>Memuat analisa stock…</p></Card></div>;
+ if(loading&&!data)return <div className="m238m-stack"><Card><p>Memuat analisa stock device…</p></Card></div>;
  if(error&&!data)return <div className="m238m-stack"><Card><strong>Stock Request MD</strong><p>{error}</p><button onClick={()=>void load(true)}>Coba lagi</button></Card></div>;
  if(!data)return null;
  return <div className="m238m-stack">
-  <Card><div className="m238m-copy-head"><div><strong>Stock Request MD</strong><p>{data.week} • SOH {data.sohUpdated}</p></div><button onClick={()=>void load(true)} aria-label="Refresh"><RefreshCw size={17}/></button></div><p>Request dibatasi hanya untuk device Apple dan aksesoris Apple. Analisa tetap memakai SOH, Data Copas 8 minggu, lost/feedback, dan history SOH.</p></Card>
+  <Card><div className="m238m-copy-head"><div><strong>Stock Request MD</strong><p>{data.week} • SOH {data.sohUpdated}</p></div><button onClick={()=>void load(true)} aria-label="Refresh"><RefreshCw size={17}/></button></div><p>Request khusus device Apple: iPhone, iPad, MacBook, dan Apple Watch. Aksesoris, AirPods, case, tempered glass, keyboard, pencil, cable, charger, dan produk third-party tidak ikut.</p></Card>
   <div className="m238m-grid"><Card><small>Prioritas</small><h3>{num.format(data.summary.recommendations)}</h3></Card><Card><small>SOH 0</small><h3>{num.format(data.summary.outOfStock)}</h3></Card><Card><small>Week Sales</small><h3>{num.format(data.summary.weekSales)}</h3></Card><Card><small>History SOH</small><h3>{num.format(data.history?.days||1)} hari</h3></Card></div>
   <div className="m238m-section-head"><h2>Rekomendasi Request</h2><span>{chosen.length} dipilih</span></div>
-  <div className="m238m-stack">{data.recommendations.map(x=><Card key={x.article}><label style={{display:"flex",gap:8}}><input type="checkbox" checked={!!selected[x.article]} onChange={e=>setSelected(v=>({...v,[x.article]:e.target.checked}))}/><span><strong>{x.description||x.article}</strong><br/><small>{x.article} • {x.lob}</small></span></label><p>Week {x.soldQty} • 8W {x.recentSoldQty} • SOH {x.soh} • Lost {x.lostCount} • <b>{x.priority}</b></p><small>{x.reason}{x.previousSoh!=null?` • SOH sebelumnya ${x.previousSoh}`:""}{x.historyPeak>x.soh?` • Peak ${x.historyPeak}`:""}</small><div><label>Request Qty <input style={{width:64,marginLeft:8}} inputMode="numeric" value={qty[x.article]??x.requestQty} onChange={e=>setQty(v=>({...v,[x.article]:Math.max(0,Number(e.target.value)||0)}))}/></label></div></Card>)}{!data.recommendations.length?<Card><p>Belum ada item Apple yang masuk prioritas request.</p></Card>:null}</div>
-  {data.outOfStock.length?<><div className="m238m-section-head"><h2>SOH 0</h2><span>{data.summary.outOfStock} item</span></div><Card><p>SOH 0 hanya dihitung untuk device Apple dan aksesoris Apple yang relevan. Produk third-party tidak ikut email request MD.</p></Card></>:null}
-  <div className="m238m-section-head"><h2>Draft Email</h2><span>Format simple</span></div>
+  <div className="m238m-stack">{data.recommendations.map(x=><Card key={x.article}><label style={{display:"flex",gap:8}}><input type="checkbox" checked={!!selected[x.article]} onChange={e=>setSelected(v=>({...v,[x.article]:e.target.checked}))}/><span><strong>{x.description||x.article}</strong><br/><small>{x.article} • {x.lob}</small></span></label><p>Week {x.soldQty} • 8W {x.recentSoldQty} • SOH {x.soh} • Lost {x.lostCount} • <b>{x.priority}</b></p><small>{x.reason}{x.previousSoh!=null?` • SOH sebelumnya ${x.previousSoh}`:""}{x.historyPeak>x.soh?` • Peak ${x.historyPeak}`:""}</small><div><label>Request Qty <input style={{width:64,marginLeft:8}} inputMode="numeric" value={qty[x.article]??x.requestQty} onChange={e=>setQty(v=>({...v,[x.article]:Math.max(0,Number(e.target.value)||0)}))}/></label></div></Card>)}{!data.recommendations.length?<Card><p>Belum ada device yang masuk prioritas request.</p></Card>:null}</div>
+  {data.outOfStock.length?<><div className="m238m-section-head"><h2>SOH 0</h2><span>{data.summary.outOfStock} device</span></div><Card><p>SOH 0 hanya menghitung device Apple. Aksesoris tidak ikut request MD.</p></Card></>:null}
+  <div className="m238m-section-head"><h2>Draft Email</h2><span>Device only</span></div>
   <Card><strong>Subject : {data.email.subject}</strong><pre style={{whiteSpace:"pre-wrap",wordBreak:"break-word",font:"inherit",fontSize:11,lineHeight:1.55}}>{emailBody}</pre></Card>
   <div className="m238m-action-list"><button onClick={()=>void copy("subject")}><Copy size={16}/>{copied==="subject"?"Copied":"Copy Subject"}</button><button onClick={()=>void copy("body")}><Copy size={16}/>{copied==="body"?"Copied":"Copy Body"}</button><button onClick={()=>void copy("all")}><Copy size={16}/>{copied==="all"?"Copied":"Copy Full Email"}</button><button onClick={openEmail}><Mail size={16}/>Buka Email</button></div>
  </div>;
