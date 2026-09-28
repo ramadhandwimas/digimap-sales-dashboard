@@ -32,6 +32,8 @@ function filterDeviceOnly(d:Payload):Payload{
 }
 function groupLabel(group:MdGroup){return group==="iphone-ipad"?"MD iPhone & iPad":"MD MacBook & Apple Watch"}
 function groupLobs(group:MdGroup){return group==="iphone-ipad"?["iPhone","iPad"]:["MacBook","Apple Watch"]}
+function csvCell(v:unknown){const x=String(v??"").replace(/\r?\n/g," ");return `"${x.replace(/"/g,'""')}"`}
+function safeFile(v:string){return v.replace(/[^A-Za-z0-9_-]+/g,"-").replace(/-+/g,"-")}
 
 export default function StockRequestMd(){
  const[data,setData]=useState<Payload|null>(null);
@@ -40,7 +42,6 @@ export default function StockRequestMd(){
  const[selected,setSelected]=useState<Record<string,boolean>>({});
  const[qty,setQty]=useState<Record<string,number>>({});
  const[copied,setCopied]=useState("");
- const[downloading,setDownloading]=useState("");
 
  function apply(raw:Payload){
   const d=filterDeviceOnly(raw);
@@ -69,27 +70,25 @@ export default function StockRequestMd(){
  function subject(group:MdGroup){return `Request Stock M238 Digimap PIM 2 - ${data?.week||"Week"} - ${group==="iphone-ipad"?"iPhone & iPad":"MacBook & Apple Watch"}`}
  function emailBody(group:MdGroup){
   if(!data)return"";const rows=grouped[group];const lobs=groupLobs(group);
-  return ["Dear MD Team,","",`Mohon support stock untuk M238 Digimap PIM 2 berdasarkan evaluasi ${data.week}.`,`Detail request ${lobs.join(" & ")} terlampir pada file Excel.`,`Total item request: ${rows.length}.`,`","Mohon dibantu untuk support replenishment agar opportunity penjualan tidak lost karena ketersediaan stock.","","Terima kasih.","Regards,","M238 Digimap PIM 2"].join("\n")
+  return ["Dear MD Team,","",`Mohon support stock untuk M238 Digimap PIM 2 berdasarkan evaluasi ${data.week}.`,`Detail request ${lobs.join(" & ")} terlampir pada file Excel/CSV.`,`Total item request: ${rows.length}.`,`","Mohon dibantu untuk support replenishment agar opportunity penjualan tidak lost karena ketersediaan stock.","","Terima kasih.","Regards,","M238 Digimap PIM 2"].join("\n")
  }
  async function copy(group:MdGroup){
   const key=`${group}-all`;await navigator.clipboard.writeText(`Subject : ${subject(group)}\n\n${emailBody(group)}`);setCopied(key);setTimeout(()=>setCopied(""),1200)
  }
  function openEmail(group:MdGroup){window.location.href=`mailto:?subject=${encodeURIComponent(subject(group))}&body=${encodeURIComponent(emailBody(group))}`}
- async function downloadExcel(group:MdGroup){
-  if(!data)return;const rows=grouped[group];if(!rows.length)return;setDownloading(group);
-  try{
-   const r=await fetch("/api/stock-request/export",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({group,week:data.week,rows})});
-   if(!r.ok)throw new Error("Gagal membuat Excel");
-   const blob=await r.blob();const disposition=r.headers.get("content-disposition")||"";const m=disposition.match(/filename="?([^";]+)"?/i);const fileName=m?.[1]||`Request Stock M238.xlsx`;
-   const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)
-  }catch(e){setError(e instanceof Error?e.message:"Gagal membuat Excel")}finally{setDownloading("")}
+ function downloadExcel(group:MdGroup){
+  if(!data)return;const rows=grouped[group];if(!rows.length)return;
+  const headers=["LOB","Article","Description","Week Sales","8W Sales","SOH","Lost","Request Qty","Priority","Reason"];
+  const lines=[headers.map(csvCell).join(","),...rows.map(x=>[x.lob,x.article,x.description,x.soldQty,x.recentSoldQty,x.soh,x.lostCount,x.requestQty,x.priority,x.reason].map(csvCell).join(","))];
+  const blob=new Blob(["\ufeff",lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`Request Stock M238 - ${group==="iphone-ipad"?"iPhone-iPad":"MacBook-Watch"} - ${safeFile(data.week)}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)
  }
 
  if(loading&&!data)return <div className="m238m-stack"><Card><p>Memuat analisa stock device…</p></Card></div>;
  if(error&&!data)return <div className="m238m-stack"><Card><strong>Stock Request MD</strong><p>{error}</p><button onClick={()=>void load(true)}>Coba lagi</button></Card></div>;
  if(!data)return null;
  return <div className="m238m-stack">
-  <Card><div className="m238m-copy-head"><div><strong>Stock Request MD</strong><p>{data.week} • SOH {data.sohUpdated}</p></div><button onClick={()=>void load(true)} aria-label="Refresh"><RefreshCw size={17}/></button></div><p>Request device only. Dibagi menjadi 2 MD dan detail request dibuat dalam file Excel agar email lebih ringkas dan rapi.</p></Card>
+  <Card><div className="m238m-copy-head"><div><strong>Stock Request MD</strong><p>{data.week} • SOH {data.sohUpdated}</p></div><button onClick={()=>void load(true)} aria-label="Refresh"><RefreshCw size={17}/></button></div><p>Request device only. Dibagi menjadi 2 MD dan detail request dibuat dalam format spreadsheet agar email lebih ringkas dan rapi.</p></Card>
   <div className="m238m-grid"><Card><small>Prioritas</small><h3>{num.format(data.summary.recommendations)}</h3></Card><Card><small>SOH 0</small><h3>{num.format(data.summary.outOfStock)}</h3></Card><Card><small>Dipilih</small><h3>{num.format(chosen.length)}</h3></Card><Card><small>History SOH</small><h3>{num.format(data.history?.days||1)} hari</h3></Card></div>
 
   <div className="m238m-section-head"><h2>Rekomendasi Request</h2><span>{chosen.length} dipilih</span></div>
@@ -100,12 +99,12 @@ export default function StockRequestMd(){
     <div className="m238m-section-head"><h2>{groupLabel(group)}</h2><span>{rows.length} item</span></div>
     <Card>
      <strong>{group==="iphone-ipad"?"iPhone + iPad":"MacBook + Apple Watch"}</strong>
-     <p>Excel berisi Article, Description, Week Sales, 8W Sales, SOH, Lost, Request Qty, Priority, dan Reason.</p>
+     <p>File spreadsheet berisi LOB, Article, Description, Week Sales, 8W Sales, SOH, Lost, Request Qty, Priority, dan Reason.</p>
      {rows.slice(0,5).map(x=><div key={x.article} style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8,padding:"8px 0",borderBottom:"1px solid rgba(127,127,127,.15)"}}><span><small>{x.lob}</small><br/><b>{x.description}</b><br/><small>{x.article} • SOH {x.soh} • Week {x.soldQty}</small></span><strong>Req {x.requestQty}</strong></div>)}
-     {rows.length>5?<p><small>+ {rows.length-5} item lainnya di Excel</small></p>:null}
+     {rows.length>5?<p><small>+ {rows.length-5} item lainnya di file</small></p>:null}
     </Card>
     <div className="m238m-action-list">
-     <button disabled={!rows.length||downloading===group} onClick={()=>void downloadExcel(group)}><Download size={16}/>{downloading===group?"Membuat Excel…":"Download Excel"}</button>
+     <button disabled={!rows.length} onClick={()=>downloadExcel(group)}><Download size={16}/>Download Excel/CSV</button>
      <button disabled={!rows.length} onClick={()=>void copy(group)}><Copy size={16}/>{copied===`${group}-all`?"Copied":"Copy Email"}</button>
      <button disabled={!rows.length} onClick={()=>openEmail(group)}><Mail size={16}/>Buka Email</button>
     </div>
