@@ -1,7 +1,8 @@
 import {NextRequest,NextResponse} from "next/server";
-import {getGoogleSheetRequestCount,getSheetRanges} from "@/lib/google-sheets";
+import {appendSheetValues,ensureSheet,getGoogleSheetRequestCount,getSheetRanges} from "@/lib/google-sheets";
 
 const SOURCE_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
+const HISTORY_SHEET="SOH History";
 const s=(v:unknown)=>String(v??"").trim();
 const n=(v:unknown)=>Number(String(v??0).replace(/[^0-9.-]/g,""))||0;
 
@@ -28,6 +29,7 @@ export async function GET(req:NextRequest){
   if(!e||!k)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});
 
   try{
+    await ensureSheet(SOURCE_ID,HISTORY_SHEET,["Date","Article","Description","LOB","SOH","Captured At"],e,k);
     const ranges=[
       "'SOH'!D6:D6",
       "'RAW StockPosition'!F1:N40",
@@ -37,15 +39,16 @@ export async function GET(req:NextRequest){
       "'SOH'!X10:Z200",
       "'SOH'!AE10:AG200",
       "'RAW SalesPerson'!AB2:AJ65536",
+      `'${HISTORY_SHEET}'!A2:F50000`,
     ];
-    const [dateRange,rawHead,iphone,ipad,mac,watch,airpods,rawSales]=await getSheetRanges(SOURCE_ID,ranges,e,k);
+    const [dateRange,rawHead,iphone,ipad,mac,watch,airpods,rawSales,historyRows]=await getSheetRanges(SOURCE_ID,ranges,e,k);
     const q=(req.nextUrl.searchParams.get("q")||"").toLowerCase();
     const groups:[string,unknown[][]][]=[
       ["IPHONE",iphone],
       ["IPAD",ipad],
       ["MACBOOK",mac],
       ["APPLE WATCH",watch],
-      ["AIRPODS, PENCIL & KEYBOARD",airpods],
+      ["AIRPODS",airpods],
     ];
 
     const salesDates=rawSales.map(r=>isoDate(r[0])).filter(Boolean).sort();
@@ -59,25 +62,31 @@ export async function GET(req:NextRequest){
       }
     }
 
-    const rows:{article:string;description:string;qty:number;soldQty:number;category:string}[]=[];
+    const allRows:{article:string;description:string;qty:number;soldQty:number;category:string}[]=[];
     for(const [category,data] of groups){
       for(const r of data){
         const article=s(r[0]),description=s(r[1]),qty=n(r[2]);
-        if(!article||article.toUpperCase()==="ARTICLE"||article.toUpperCase()==="GRAND TOTAL"||qty<=0)continue;
+        if(!article||article.toUpperCase()==="ARTICLE"||article.toUpperCase()==="GRAND TOTAL")continue;
         if(/DEMO|\-D(?:\b|$)/i.test(`${article} ${description}`))continue;
-        if(q&&!`${article} ${description}`.toLowerCase().includes(q))continue;
-        rows.push({article,description,qty,soldQty:soldByArticle.get(article.toUpperCase())||0,category});
+        allRows.push({article,description,qty,soldQty:soldByArticle.get(article.toUpperCase())||0,category});
       }
     }
 
     const rawDates=rawHead.flat().map(isoDate).filter(Boolean).sort();
     const sheetDate=isoDate(dateRange?.[0]?.[0]);
-    const updated=displayDate(rawDates.at(-1)||sheetDate);
+    const snapshotDate=sheetDate||rawDates.at(-1)||new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Jakarta",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+    const existing=new Set((historyRows||[]).filter(r=>isoDate(r[0])===snapshotDate).map(r=>s(r[1]).toUpperCase()));
+    const capturedAt=new Date().toISOString();
+    const missing=allRows.filter(x=>!existing.has(x.article.toUpperCase())).map(x=>[snapshotDate,x.article,x.description,x.category,x.qty,capturedAt]);
+    if(missing.length)await appendSheetValues(SOURCE_ID,`'${HISTORY_SHEET}'!A:F`,missing,e,k,"RAW");
+
+    const rows=allRows.filter(x=>x.qty>0&&(!q||`${x.article} ${x.description}`.toLowerCase().includes(q)));
+    const updated=displayDate(snapshotDate);
     const apiRequests=getGoogleSheetRequestCount()-apiStart;
-    console.info("M238_PERF",{op:"read-soh",total:Date.now()-started,apiRequests,source:"source-of-truth",rows:rows.length});
+    console.info("M238_PERF",{op:"read-soh",total:Date.now()-started,apiRequests,source:"source-of-truth",rows:rows.length,historySaved:missing.length});
 
     return NextResponse.json(
-      {updated,soldDate:displayDate(soldDate),rows,source:"source-of-truth"},
+      {updated,soldDate:displayDate(soldDate),rows,source:"source-of-truth",history:{snapshotDate,saved:missing.length}},
       {headers:{"Cache-Control":"no-store"}},
     );
   }catch(err){
