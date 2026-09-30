@@ -51,9 +51,11 @@ function hasDiscount(product?: Pick<PromoProduct,"normalPrice"|"promotionPrice">
 }
 
 export function activePromoPrice(product:Pick<PromoProduct,"normalPrice"|"promotionPrice"|"promoStatus">){
-  const hasPromo=hasDiscount(product);
-  if(!hasPromo)return product.normalPrice||product.promotionPrice;
-  if(product.promoStatus==="ACTIVE"||product.promoStatus==="ENDING_SOON"||product.promoStatus==="FURTHER_NOTICE")return product.promotionPrice;
+  // The latest uploaded Price List is the source of truth for the sell price.
+  // Promo dates remain informational only: if the latest file still contains
+  // a lower Promotion Price, keep using it even when the promo period is
+  // UPCOMING, EXPIRED, or otherwise not currently active by date.
+  if(hasDiscount(product))return product.promotionPrice;
   return product.normalPrice||product.promotionPrice;
 }
 
@@ -172,7 +174,7 @@ export function groupPromoProducts(products: PromoProduct[]): PromoProductGroup[
       promoStartDate: product.promoStartDate,
       promoEndDate: product.promoEndDate,
       promoPeriodType: product.promoPeriodType,
-      promoStatus: product.promoStatus,
+      promoStatus: hasDiscount(product) && product.promoStatus === "EXPIRED" ? "ACTIVE" : product.promoStatus,
       daysRemaining: product.daysRemaining,
       remarks: product.remarks,
       variants: [product],
