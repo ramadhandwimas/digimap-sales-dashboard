@@ -33,6 +33,21 @@ export async function GET(req:NextRequest){
   });
   const total=aggregateSales(rows);
   data.total={...data.total,amount:total.amount,accessories:total.accessories,vas:total.vas,qty:total.qty,invoices:total.invoices,upt:total.upt};
+
+  const visibleIds=new Set((data.staff||[]).map((st:any)=>String(st.id||"")).filter(Boolean));
+  const visibleRows=rows.filter(r=>visibleIds.has(String(r.id||"")));
+  const unassignedRows=rows.filter(r=>!visibleIds.has(String(r.id||"")));
+  const staffTotal=aggregateSales(visibleRows);
+  const unassigned=aggregateSales(unassignedRows);
+  const unassignedStaff=[...new Map(unassignedRows.filter(r=>r.id).map(r=>[String(r.id),{id:String(r.id),name:r.name||String(r.id)}])).values()];
+  data.reconciliation={
+   balanced:Math.abs(total.amount-(staffTotal.amount+unassigned.amount))<1&&total.qty===staffTotal.qty+unassigned.qty,
+   store:{amount:total.amount,device:total.device,accessories:total.accessories,vas:total.vas,qty:total.qty,invoices:total.invoices},
+   visibleStaff:{amount:staffTotal.amount,device:staffTotal.device,accessories:staffTotal.accessories,vas:staffTotal.vas,qty:staffTotal.qty,invoices:staffTotal.invoices},
+   unassigned:{amount:unassigned.amount,device:unassigned.device,accessories:unassigned.accessories,vas:unassigned.vas,qty:unassigned.qty,invoices:unassigned.invoices,staffCount:unassignedStaff.length,staff:unassignedStaff},
+   formula:"store = visibleStaff + unassigned",
+   source:"Data Copas live source + roster visible staff"
+  };
   data.fastSource="Data Copas • voucher excluded • AirPods fixed • cached";
   data.fastUpdatedAt=new Date().toISOString();
   responseCache.set(cacheKey,{at:Date.now(),data});
