@@ -174,7 +174,7 @@ export function groupPromoProducts(products: PromoProduct[]): PromoProductGroup[
       promoStartDate: product.promoStartDate,
       promoEndDate: product.promoEndDate,
       promoPeriodType: product.promoPeriodType,
-      promoStatus: product.promoStatus,
+      promoStatus: hasDiscount(product) && product.promoStatus === "EXPIRED" ? "ACTIVE" : product.promoStatus,
       daysRemaining: product.daysRemaining,
       remarks: product.remarks,
       variants: [product],
