@@ -2,6 +2,7 @@
 import {useState} from "react";
 import dynamic from "next/dynamic";
 import StockRequestMd from "@/components/stock-request-md";
+import MobileNavigationThemePicker from "@/components/mobile-navigation-theme-picker";
 const AccessoryPricelistUpload=dynamic(()=>import("@/components/accessory-pricelist-upload"));
 const DataCopasRepair=dynamic(()=>import("@/components/data-copas-repair"));
 import {Box,ChevronLeft,ChevronRight,Clock3,CreditCard,LogOut,Mail,MessageCircle,Settings,Type,Users,WalletCards} from "lucide-react";
@@ -78,6 +79,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
      <button className="m238m-appearance-summary" onClick={()=>toggle("theme")}><span><strong>Theme Design</strong><small>{activeTheme?.name||"Classic iOS"}</small></span><ChevronRight size={18}/></button>
      {openPanel==="theme"?<div className="m238m-appearance-body"><div className="m238m-theme-grid">{themes.map(t=><button key={t.id} className={"m238m-theme-choice "+(theme===t.id?"active":"")} data-preview={t.id} onClick={()=>{onTheme(t.id);setOpenPanel(null)}}><i className="m238m-theme-preview"><span/><b/><em/></i><strong>{t.name}</strong><small>{t.desc}</small>{theme===t.id?<span className="m238m-theme-check">✓</span>:null}</button>)}</div></div>:null}
     </div>
+    <MobileNavigationThemePicker/>
     <div className={"m238m-appearance-panel "+(openPanel==="speed"?"open":"")}>
      <button className="m238m-appearance-summary" onClick={()=>toggle("speed")}><span><strong>Animation Speed</strong><small>{motionLabels[motion]}</small></span><ChevronRight size={18}/></button>
      {openPanel==="speed"?<div className="m238m-appearance-body"><div className="m238m-motion-pills">{([["instant","Instant"],["minimal","Minimal"],["smooth","Smooth"],["dynamic","Dynamic"],["cinematic","Cinematic"]] as [MotionPreset,string][]).map(([id,label])=><button key={id} className={motion===id?"active":""} onClick={()=>{onMotion(id);setOpenPanel(null)}}>{label}</button>)}</div></div>:null}
