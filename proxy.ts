@@ -30,7 +30,7 @@ export function proxy(request: NextRequest) {
     }
     if (pathname === "/api/daily") {
       const url = request.nextUrl.clone();
-      url.pathname = "/api/daily-fixed";
+      url.pathname = "/api/daily-fast";
       return NextResponse.rewrite(url);
     }
     if (pathname === "/api/daily-summary-fast") {
