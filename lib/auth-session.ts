@@ -10,11 +10,12 @@ type SessionPayload = {
 };
 
 function secret() {
-  return (
-    process.env.DASHBOARD_AUTH_SECRET ||
-    process.env.GOOGLE_PRIVATE_KEY ||
-    "m238-dashboard-development-session"
-  );
+  const configured = process.env.DASHBOARD_AUTH_SECRET?.trim();
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("DASHBOARD_AUTH_SECRET wajib dikonfigurasi di production.");
+  }
+  return "m238-dashboard-local-development-session";
 }
 
 function signature(value: string) {
@@ -33,14 +34,14 @@ export function createSessionToken(nik: string, name: string) {
 
 export function verifySessionToken(token?: string): SessionPayload | null {
   if (!token) return null;
-  const [encoded, supplied] = token.split(".");
-  if (!encoded || !supplied) return null;
-  const expected = signature(encoded),
-    left = Buffer.from(supplied),
-    right = Buffer.from(expected);
-  if (left.length !== right.length || !timingSafeEqual(left, right))
-    return null;
   try {
+    const [encoded, supplied] = token.split(".");
+    if (!encoded || !supplied) return null;
+    const expected = signature(encoded),
+      left = Buffer.from(supplied),
+      right = Buffer.from(expected);
+    if (left.length !== right.length || !timingSafeEqual(left, right))
+      return null;
     const payload = JSON.parse(
       Buffer.from(encoded, "base64url").toString("utf8"),
     ) as SessionPayload;
