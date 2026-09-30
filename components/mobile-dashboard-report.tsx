@@ -226,7 +226,7 @@ function FeedbackView({data,period,activeRange}:{data:Feedback;staff:Staff[];per
 }
 function CxView({data,staff,period,activeRange}:{data:Cx;staff:Staff[];period:string;activeRange:{from:string;to:string}|null}){
  const initialDate=activeRange?(today()>=activeRange.from&&today()<=activeRange.to?today():activeRange.to):(period===periodNow()?today():([...data.rows].sort((a,b)=>b.date.localeCompare(a.date))[0]?.date||`${period}-01`));
- const[selectedDate,setSelectedDate]=useState(initialDate),[activeStaff,setActiveStaff]=useState<Staff[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(""),[detail,setDetail]=useState<"cx"|"member"|null>(null);
+ const[selectedDate,setSelectedDate]=useState(initialDate),[activeStaff,setActiveStaff]=useState<Staff[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState("") ,[detail,setDetail]=useState<"cx"|"member"|null>(null);
  const rows=data.rows,displayPeriod=selectedDate.slice(0,7);
  const load=useCallback(async(date:string)=>{
   setBusy(true);setError("");
@@ -248,7 +248,7 @@ function CxView({data,staff,period,activeRange}:{data:Cx;staff:Staff[];period:st
  return <div className="m238m-stack">
   <Card className="m238m-feedback-date-card"><div><strong>CX & Member Per Tanggal</strong><span>Pilih tanggal untuk reminder dan detail harian</span></div><input type="date" value={selectedDate} max={today()} min={activeRange?.from} onChange={e=>setSelectedDate(e.target.value)}/></Card>
   {busy?<div className="m238m-refreshing"><RefreshCw size={14} className="spin"/> Memuat roster harian…</div>:null}
-  <Card className={missing.length?"m238m-warning-card":"m238m-success-card"}><div className="m238m-copy-head"><strong>Reminder Staff</strong><b>{busy?"…":missing.length?missing.length+" belum isi":"Lengkap"}</b></div><p>{busy?"Memuat status staff…":missing.length?missing.map(x=>shortStaffName(x.name)).join(", "):"Semua staff yang masuk pada tanggal ini sudah mengisi CX / New Member."}</p></Card>
+  <Card className={missing.length?"m238m-warning-card":"m238m-success-card"}><div className="m238m-copy-head"><strong>Reminder Staff</strong><b>{busy?"…":missing.length?missing.length+" belum isi":"Lengkap"}</b></div>{busy?<p>Memuat status staff…</p>:missing.length?<><p>Staff yang belum mengisi CX / New Member:</p><ol style={{margin:"8px 0 0",paddingLeft:22}}>{missing.map(x=><li key={String(x.id)} style={{margin:"4px 0"}}>{x.name}</li>)}</ol></>:<p>Semua staff yang masuk pada tanggal ini sudah mengisi CX / New Member.</p>}</Card>
   {error?<Card className="m238m-error">{error}</Card>:null}
   <div className="m238m-grid">
    <button className="m238m-metric-button" onClick={()=>setDetail("cx")}><Card className="m238m-metric m238m-drill-card"><span>CX Periode</span><strong>{num.format(cx)}</strong><small>Tap detail staff</small><ChevronRight size={15}/></Card></button>
