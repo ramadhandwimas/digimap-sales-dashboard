@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 export const SESSION_COOKIE = "m238_session";
 const MAX_AGE_SECONDS = 60 * 60 * 12;
@@ -12,8 +12,20 @@ type SessionPayload = {
 function secret() {
   const configured = process.env.DASHBOARD_AUTH_SECRET?.trim();
   if (configured) return configured;
+
+  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.trim();
+  if (serviceAccountEmail && privateKey) {
+    return createHash("sha256")
+      .update("m238-dashboard-session-v1\n")
+      .update(serviceAccountEmail)
+      .update("\n")
+      .update(privateKey)
+      .digest("hex");
+  }
+
   if (process.env.NODE_ENV === "production") {
-    throw new Error("DASHBOARD_AUTH_SECRET wajib dikonfigurasi di production.");
+    throw new Error("Konfigurasi autentikasi dashboard belum tersedia.");
   }
   return "m238-dashboard-local-development-session";
 }
