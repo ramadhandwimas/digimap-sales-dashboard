@@ -17,7 +17,12 @@ function transpileFunction(fileUrl,prefix,name,prelude=""){
  return sandboxExports.exports[name];
 }
 
-const scheduleIndex=transpileFunction(new URL("../app/api/daily-fast/route.ts",import.meta.url),"function scheduleIndex","scheduleIndex");
+const scheduleIndex=transpileFunction(
+ new URL("../app/api/daily-fast/route.ts",import.meta.url),
+ "function scheduleIndex",
+ "scheduleIndex",
+ 'const pad=(v)=>String(v).padStart(2,"0");',
+);
 const buildWeekEntries=transpileFunction(
  new URL("../app/api/weekly/route.ts",import.meta.url),
  "function buildWeekEntries",
