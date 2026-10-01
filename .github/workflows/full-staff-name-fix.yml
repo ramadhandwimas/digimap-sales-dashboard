@@ -1,0 +1,44 @@
+name: Full staff name fix
+on:
+  push:
+    branches: [m238-production]
+    paths: ['.github/workflows/full-staff-name-fix.yml']
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: m238-production
+      - name: Apply full-name presentation fix
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p=Path('components/mobile-dashboard-app.tsx')
+          s=p.read_text()
+          pattern=r'function shortStaffName\(name:string\)\{.*?\n\}'
+          repl='function shortStaffName(name:string){ return name.trim(); }'
+          s2,n=re.subn(pattern,repl,s,count=1,flags=re.S)
+          if n!=1:
+              raise SystemExit(f'shortStaffName replacement count={n}')
+          p.write_text(s2)
+          css=Path('app/globals.css')
+          c=css.read_text()
+          marker='/* FULL_STAFF_NAME_20261002 */'
+          if marker not in c:
+              c += '''\n\n/* FULL_STAFF_NAME_20261002 */\n.m238m-team-name,.m238m-staff-main,.m238m-staff-breakdown-row,.m238m-product-detail-row,.m238m-vas-staff-head,.m238m-team-tile,.m238m-attention-card.staff{min-width:0}\n.m238m-team-name strong,.m238m-staff-main strong,.m238m-staff-breakdown-row strong,.m238m-product-detail-row strong,.m238m-vas-staff-head strong,.m238m-team-tile strong,.m238m-attention-card.staff strong{white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.15}\n.m238m-team-name strong,.m238m-team-tile strong,.m238m-attention-card.staff strong{font-size:clamp(.72rem,2.8vw,.92rem)}\n.m238m-staff-breakdown-row strong,.m238m-product-detail-row strong,.m238m-vas-staff-head strong,.m238m-staff-main strong{font-size:clamp(.7rem,2.7vw,.9rem)}\n@media (max-width:420px){.m238m-team-name strong,.m238m-team-tile strong,.m238m-attention-card.staff strong,.m238m-staff-breakdown-row strong,.m238m-product-detail-row strong,.m238m-vas-staff-head strong,.m238m-staff-main strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}}\n'''
+              css.write_text(c)
+      - name: Verify TypeScript source changed
+        run: |
+          grep -F 'function shortStaffName(name:string){ return name.trim(); }' components/mobile-dashboard-app.tsx
+          grep -F 'FULL_STAFF_NAME_20261002' app/globals.css
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add components/mobile-dashboard-app.tsx app/globals.css
+          git commit -m 'Show full staff names with responsive sizing'
+          git push origin HEAD:m238-production
