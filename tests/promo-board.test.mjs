@@ -10,9 +10,9 @@ const require=createRequire(import.meta.url);
 function load(file,overrides={}){
   const source=fs.readFileSync(new URL(`../${file}`,import.meta.url),"utf8");
   const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
-  const module={exports:{}};
-  new Function("require","module","exports",code)(name=>name in overrides?overrides[name]:require(name),module,module.exports);
-  return module.exports;
+  const sandboxExports={exports:{}};
+  new Function("require","module","exports",code)(name=>name in overrides?overrides[name]:require(name),sandboxExports,sandboxExports.exports);
+  return sandboxExports.exports;
 }
 
 const parser=load("lib/promo-board-parser.ts");
@@ -34,23 +34,23 @@ function parse(products,now="2026-09-27T05:00:00.000Z"){
   return parser.parsePromoWorkbook(workbook(products),"audit.xlsx",new Date(now));
 }
 
-test("future promo is UPCOMING in the Jakarta calendar",()=>{
+test("future promo remains UPCOMING while latest Price List promo price stays authoritative",()=>{
   const result=parse([{sap:"FUTURE1",normal:14999000,promo:12999000,remarks:"1 - 31 Oktober 2026"}]);
   assert.equal(result.products[0].promoStatus,"UPCOMING");
-  assert.equal(insights.activePromoPrice(result.products[0]),14999000);
-});
-
-test("expired promo uses normal price as the active price",()=>{
-  const result=parse([{sap:"EXPIRED1",normal:12999000,promo:9999000,remarks:"1 - 20 September 2026"}]);
   assert.equal(insights.activePromoPrice(result.products[0]),12999000);
 });
 
-test("stored promo status is recalculated when a snapshot is read later",()=>{
+test("expired promo keeps latest Price List promo price authoritative",()=>{
+  const result=parse([{sap:"EXPIRED1",normal:12999000,promo:9999000,remarks:"1 - 20 September 2026"}]);
+  assert.equal(insights.activePromoPrice(result.products[0]),9999000);
+});
+
+test("stored promo status is recalculated while latest Price List price stays authoritative",()=>{
   const uploaded=parse([{sap:"STALE1",normal:12999000,promo:9999000,remarks:"1 - 30 September 2026"}],"2026-09-20T05:00:00.000Z").products[0];
   assert.equal(uploaded.promoStatus,"ACTIVE");
   const refreshed=parser.refreshPromoStatus(uploaded,new Date("2026-10-01T05:00:00.000Z"));
   assert.equal(refreshed.promoStatus,"EXPIRED");
-  assert.equal(insights.activePromoPrice(refreshed),12999000);
+  assert.equal(insights.activePromoPrice(refreshed),9999000);
 });
 
 test("Indonesian text prices are parsed without dropping the SKU",()=>{
