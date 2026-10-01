@@ -10,18 +10,32 @@ const num=new Intl.NumberFormat("id-ID");
 const money=new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0});
 const today=()=>new Intl.DateTimeFormat("sv-SE",{year:"numeric",month:"2-digit",day:"2-digit",timeZone:"Asia/Jakarta"}).format(new Date());
 const short=(name:string)=>{const p=name.trim().split(/\s+/);return p.length>1?`${p[0]} ${p[1]?.[0]||""}.`:name};
+const kinds:Kind[]=["UPT","Invoice","Qty"];
 
 export default function MobileDailyKpiDrilldown(){
  const[kind,setKind]=useState<Kind|null>(null),[data,setData]=useState<Data|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState("");
  useEffect(()=>{
-  const bind=()=>{
-   const grid=document.querySelector(".m238m-sales-ops-grid");if(!grid)return()=>{};
-   const cards=Array.from(grid.children).slice(0,3) as HTMLElement[];
-   const clean:Array<()=>void>=[];
-   cards.forEach(el=>{const label=el.textContent?.trim().split(/\s+/)[0] as Kind;if(!["UPT","Invoice","Qty"].includes(label))return;el.setAttribute("role","button");el.setAttribute("tabindex","0");el.style.cursor="pointer";el.classList.add("m238m-tappable-card");const open=()=>setKind(label);const key=(e:KeyboardEvent)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open()}};el.addEventListener("click",open);el.addEventListener("keydown",key);clean.push(()=>{el.removeEventListener("click",open);el.removeEventListener("keydown",key)})});
-   return()=>clean.forEach(fn=>fn());
+  const identify=(el:Element|null):Kind|null=>{
+   if(!el)return null;
+   const grid=el.closest(".m238m-sales-ops-grid");
+   if(!grid)return null;
+   const direct=el.closest(":scope > *")||el;
+   const card=Array.from(grid.children).find(x=>x===direct||x.contains(el));
+   if(!card)return null;
+   const index=Array.from(grid.children).indexOf(card);
+   return index>=0&&index<3?kinds[index]:null;
   };
-  let cleanup=bind();const obs=new MutationObserver(()=>{cleanup();cleanup=bind()});obs.observe(document.body,{childList:true,subtree:true});return()=>{cleanup();obs.disconnect()};
+  const decorate=()=>{
+   document.querySelectorAll(".m238m-sales-ops-grid").forEach(grid=>Array.from(grid.children).slice(0,3).forEach(el=>{
+    const node=el as HTMLElement;node.setAttribute("role","button");node.setAttribute("tabindex","0");node.setAttribute("aria-label",`Lihat detail ${kinds[Array.from(grid.children).indexOf(el)]}`);node.style.cursor="pointer";node.style.touchAction="manipulation";node.classList.add("m238m-tappable-card");
+   }));
+  };
+  const click=(e:MouseEvent)=>{const k=identify(e.target as Element);if(k){e.preventDefault();setKind(k)}};
+  const key=(e:KeyboardEvent)=>{if(e.key!=="Enter"&&e.key!==" ")return;const k=identify(e.target as Element);if(k){e.preventDefault();setKind(k)}};
+  decorate();
+  const obs=new MutationObserver(decorate);obs.observe(document.body,{childList:true,subtree:true});
+  document.addEventListener("click",click,true);document.addEventListener("keydown",key,true);
+  return()=>{obs.disconnect();document.removeEventListener("click",click,true);document.removeEventListener("keydown",key,true)};
  },[]);
  useEffect(()=>{
   if(!kind||data)return;let alive=true;setBusy(true);setError("");
