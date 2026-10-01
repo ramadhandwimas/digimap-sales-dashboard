@@ -1,0 +1,39 @@
+name: Daily Sales nickname fix
+on:
+  push:
+    branches: [m238-production]
+    paths: ['.github/workflows/daily-sales-nickname-fix.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: m238-production
+      - name: Apply nickname only to Daily Sales staff list
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('components/mobile-dashboard-app.tsx')
+          s=p.read_text()
+          marker='function StaffRow({staff,onClick,shortName=false}'
+          if marker not in s:
+            raise SystemExit('StaffRow marker not found')
+          helper='''function dailySalesStaffName(name:string){\n const k=name.trim().toLowerCase();\n if(k.includes("wijaya"))return "Jaya";\n if(k.includes("sekar ayu"))return "Sekar";\n if(k.includes("nadiva"))return "Diva";\n if(k.includes("marchia audrey"))return "Audrey";\n if(k.includes("asri annisa"))return "Annisa";\n if(k.includes("rifo ar"))return "Rifo";\n if(k.includes("andhea fitri"))return "Andhea";\n if(k.includes("astri ramadhany"))return "Astri";\n if(k.includes("farabi"))return "Farabi";\n if(k.includes("rusli siregar"))return "Rusli";\n if(k.includes("aprilia"))return "Aprilia";\n return name;\n}\n'''
+          if 'function dailySalesStaffName(' not in s:
+            s=s.replace(marker,helper+marker,1)
+          old='{shortName?shortStaffName(staff.name):staff.name}'
+          new='{shortName?shortStaffName(staff.name):dailySalesStaffName(staff.name)}'
+          if old not in s:
+            raise SystemExit('StaffRow name expression not found')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add components/mobile-dashboard-app.tsx
+          git commit -m 'Use nicknames in Daily Sales staff list only'
+          git push origin m238-production
