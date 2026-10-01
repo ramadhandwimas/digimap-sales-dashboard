@@ -13,7 +13,7 @@ function sale({date="30-09-2026",id="25011589",name="Rifo Arvian Ario",invoice="
 }
 
 function loadRoute(state){
- const compiledModule={exports:{}};
+ const sandboxExports={exports:{}};
  const next={NextResponse:{json:(body,init={})=>({body,status:init.status??200,headers:init.headers??{},json:async()=>body})}};
  const sheets={
   getSheetRangesFresh:async()=>[state.source,state.destination],
@@ -34,9 +34,9 @@ function loadRoute(state){
  const oldEmail=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,oldKey=process.env.GOOGLE_PRIVATE_KEY;
  process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL="test@example.com";
  process.env.GOOGLE_PRIVATE_KEY="test-key";
- new Function("require","module","exports",code)(customRequire,compiledModule,compiledModule.exports);
+ new Function("require","module","exports",code)(customRequire,sandboxExports,sandboxExports.exports);
  const restore=()=>{if(oldEmail===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=oldEmail;if(oldKey===undefined)delete process.env.GOOGLE_PRIVATE_KEY;else process.env.GOOGLE_PRIVATE_KEY=oldKey};
- return{POST:compiledModule.exports.POST,restore};
+ return{POST:sandboxExports.exports.POST,restore};
 }
 
 async function cutoff(POST,{dryRun=true,planId=""}={}){
