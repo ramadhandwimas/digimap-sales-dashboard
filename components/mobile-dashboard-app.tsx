@@ -72,20 +72,7 @@ const periodNow=()=>today().slice(0,7);
 const monthLabel=(p:string)=>new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(`${p}-01T00:00:00Z`));
 const months=Array.from({length:12},(_,i)=>`2026-${String(i+1).padStart(2,"0")}`);
 function initials(name:string){return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase()}
-function shortStaffName(name:string){
- const raw=name.trim(),key=raw.toLowerCase();
- if(key.startsWith("muhammad farabi"))return "Farabi";
- if(key.startsWith("muhammada farabi"))return "Farabi";
- if(key.startsWith("muhammad haykal"))return "Haykal";
- if(key.startsWith("muhammada haykal"))return "Haykal";
- if(key==="rifo arvian ario"||key.startsWith("rifo arvian"))return "Rifo";
- const parts=raw.split(/\s+/).filter(Boolean);
- if(parts.length<=1)return raw;
- const preferred=parts[0].length<=4&&parts.length>2?parts[1]:parts[0];
- const rest=preferred===parts[0]?parts.slice(1):parts.filter(x=>x!==preferred);
- const initial=rest.find(x=>x.length>1)?.[0]||rest[0]?.[0]||"";
- return initial?`${preferred} ${initial}.`:preferred;
-}
+function shortStaffName(name:string){ return name.trim(); }
 function salesDateLabel(date:string){
  const d=new Date(`${date}T00:00:00+07:00`);
  const day=new Intl.DateTimeFormat("id-ID",{day:"numeric",timeZone:"Asia/Jakarta"}).format(d);

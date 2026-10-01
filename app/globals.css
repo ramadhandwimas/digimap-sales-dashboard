@@ -807,3 +807,11 @@ html.dark body.m238-apple-ui .recharts-default-tooltip {
   .weekly-report-page .overflow-x-auto { overflow: visible !important; }
   .weekly-report-page .shadow-sm { box-shadow: none !important; }
 }
+
+
+/* FULL_STAFF_NAME_20261002 */
+.m238m-team-name,.m238m-staff-main,.m238m-staff-breakdown-row,.m238m-product-detail-row,.m238m-vas-staff-head,.m238m-team-tile,.m238m-attention-card.staff{min-width:0}
+.m238m-team-name strong,.m238m-staff-main strong,.m238m-staff-breakdown-row strong,.m238m-product-detail-row strong,.m238m-vas-staff-head strong,.m238m-team-tile strong,.m238m-attention-card.staff strong{white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.15}
+.m238m-team-name strong,.m238m-team-tile strong,.m238m-attention-card.staff strong{font-size:clamp(.72rem,2.8vw,.92rem)}
+.m238m-staff-breakdown-row strong,.m238m-product-detail-row strong,.m238m-vas-staff-head strong,.m238m-staff-main strong{font-size:clamp(.7rem,2.7vw,.9rem)}
+@media (max-width:420px){.m238m-team-name strong,.m238m-team-tile strong,.m238m-attention-card.staff strong,.m238m-staff-breakdown-row strong,.m238m-product-detail-row strong,.m238m-vas-staff-head strong,.m238m-staff-main strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}}
