@@ -17,7 +17,7 @@ jobs:
     permissions:
       contents: read
     env:
-      VERCEL_ORG_ID: team_tcUrKEIiz00Q7DeEMix1m3ZD
+      VERCEL_ORG_ID: team_tcUrKETiz0OQ7DeEMix1m3ZD
       VERCEL_PROJECT_ID: prj_3fWVL78IrRfxoHVdrZvQvbzlE7PR
 
     steps:

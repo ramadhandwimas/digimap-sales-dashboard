@@ -1,0 +1,51 @@
+name: M238 PR Validation
+
+on:
+  pull_request:
+    branches:
+      - m238-production
+
+concurrency:
+  group: m238-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.0'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The repository has legacy files that predate the new ESLint baseline.
+      # Keep this repair gate strict on every runtime/config/test file touched by the audit;
+      # the next step still performs a full Next.js build before running regression tests.
+      - name: Lint audit repair scope
+        run: >-
+          npx eslint
+          eslint.config.mjs
+          next.config.ts
+          app/api/auth/login/route.ts
+          app/api/cx-member/route.ts
+          app/api/daily-fast/route.ts
+          app/api/feedback/route.ts
+          app/api/store-achievement/route.ts
+          app/api/weekly/route.ts
+          lib/auth-session.ts
+          tests/m238-cutoff-route.test.mjs
+          tests/m238-rollover.test.mjs
+          tests/m238-sales-sanitize.test.mjs
+
+      - name: Build and regression tests
+        run: npm test

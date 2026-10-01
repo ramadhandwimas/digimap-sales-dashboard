@@ -1,11 +1,8 @@
 name: M238 Force Production Once
 
+# Manual-only emergency fallback. Native Vercel Git integration remains primary.
 on:
-  push:
-    branches:
-      - m238-production
-    paths:
-      - .github/workflows/m238-force-production-once.yml
+  workflow_dispatch:
 
 concurrency:
   group: m238-force-production-once
@@ -19,7 +16,7 @@ jobs:
       contents: read
     env:
       VERCEL_ORG_ID: team_tcUrKETiz0OQ7DeEMix1m3ZD
-      VERCEL_PROJECT_ID: prj_3fWVL78IzRfxoHVdxZvQvbz1E7PR
+      VERCEL_PROJECT_ID: prj_3fWVL78IrRfxoHVdrZvQvbzlE7PR
 
     steps:
       - name: Checkout exact production commit

@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 30
 
     env:
-      VERCEL_ORG_ID: team_tcUrKEIiz00Q7DeEMix1m3ZD
+      VERCEL_ORG_ID: team_tcUrKETiz0OQ7DeEMix1m3ZD
       VERCEL_PROJECT_ID: prj_3fWVL78IrRfxoHVdrZvQvbzlE7PR
 
     steps:
@@ -35,7 +35,10 @@ jobs:
       - name: Link M238 project locally
         run: |
           mkdir -p .vercel
-          echo '{"orgId":"team_tcUrKEIiz00Q7DeEMix1m3ZD","projectId":"prj_3fWVL78IrRfxoHVdrZvQvbzlE7PR"}' > .vercel/project.json
+          echo '{"orgId":"'"$VERCEL_ORG_ID"'","projectId":"'"$VERCEL_PROJECT_ID"'"}' > .vercel/project.json
+
+      - name: Pull M238 production environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build M238 on GitHub runner
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
