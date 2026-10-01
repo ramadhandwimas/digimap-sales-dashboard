@@ -12,9 +12,9 @@ function transpileFunction(fileUrl,prefix,name,prelude=""){
  assert.ok(line,`${name} harus tersedia di source`);
  const exported=line.replace(`function ${name}`,`export function ${name}`);
  const code=ts.transpileModule(`${prelude}\n${exported}`,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
- const compiledModule={exports:{}};
- new Function("require","module","exports",code)(require,compiledModule,compiledModule.exports);
- return compiledModule.exports[name];
+ const sandboxExports={exports:{}};
+ new Function("require","module","exports",code)(require,sandboxExports,sandboxExports.exports);
+ return sandboxExports.exports[name];
 }
 
 const scheduleIndex=transpileFunction(new URL("../app/api/daily-fast/route.ts",import.meta.url),"function scheduleIndex","scheduleIndex");
