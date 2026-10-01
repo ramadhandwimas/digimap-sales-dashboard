@@ -1,4 +1,4 @@
-name: Daily Sales nickname fix
+name: Daily Sales two-word name fix
 on:
   push:
     branches: [m238-production]
@@ -12,28 +12,37 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: m238-production
-      - name: Apply nickname only to Daily Sales staff list
+      - name: Apply two-word names only to Daily Sales Staff Hari Ini
         shell: python
         run: |
           from pathlib import Path
           p=Path('components/mobile-dashboard-app.tsx')
           s=p.read_text()
-          marker='function StaffRow({staff,onClick,shortName=false}'
-          if marker not in s:
-            raise SystemExit('StaffRow marker not found')
-          helper='''function dailySalesStaffName(name:string){\n const k=name.trim().toLowerCase();\n if(k.includes("wijaya"))return "Jaya";\n if(k.includes("sekar ayu"))return "Sekar";\n if(k.includes("nadiva"))return "Diva";\n if(k.includes("marchia audrey"))return "Audrey";\n if(k.includes("asri annisa"))return "Annisa";\n if(k.includes("rifo ar"))return "Rifo";\n if(k.includes("andhea fitri"))return "Andhea";\n if(k.includes("astri ramadhany"))return "Astri";\n if(k.includes("farabi"))return "Farabi";\n if(k.includes("rusli siregar"))return "Rusli";\n if(k.includes("aprilia"))return "Aprilia";\n return name;\n}\n'''
-          if 'function dailySalesStaffName(' not in s:
-            s=s.replace(marker,helper+marker,1)
-          old='{shortName?shortStaffName(staff.name):staff.name}'
-          new='{shortName?shortStaffName(staff.name):dailySalesStaffName(staff.name)}'
-          if old not in s:
-            raise SystemExit('StaffRow name expression not found')
-          s=s.replace(old,new,1)
+
+          # Global/default rule: always keep the full staff name.
+          s=s.replace('function shortStaffName(name:string){ return name.trim(); }', 'function shortStaffName(name:string){ return name.trim(); }\nfunction dailyStaffListName(name:string){ const parts=name.trim().split(/\\s+/).filter(Boolean); return parts.length>=3?parts.slice(0,2).join(" "):parts.join(" "); }') if 'function dailyStaffListName(' not in s else s
+
+          # Remove the previous manual nickname helper from StaffRow behavior.
+          old='{shortName?shortStaffName(staff.name):dailySalesStaffName(staff.name)}'
+          if old in s:
+            s=s.replace(old,'{shortName?dailyStaffListName(staff.name):staff.name}',1)
+          else:
+            old2='{shortName?shortStaffName(staff.name):staff.name}'
+            if old2 in s:
+              s=s.replace(old2,'{shortName?dailyStaffListName(staff.name):staff.name}',1)
+            else:
+              raise SystemExit('StaffRow name expression not found')
+
+          # Keep every other dashboard context on full names. Staff Hari Ini is the only caller using shortName.
           p.write_text(s)
       - name: Commit
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add components/mobile-dashboard-app.tsx
-          git commit -m 'Use nicknames in Daily Sales staff list only'
-          git push origin m238-production
+          if git diff --cached --quiet; then
+            echo 'No source changes needed'
+          else
+            git commit -m 'Show first two words only in Daily Sales Staff Hari Ini'
+            git push origin m238-production
+          fi
