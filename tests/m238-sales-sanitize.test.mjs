@@ -7,9 +7,9 @@ import ts from "typescript";
 const require=createRequire(import.meta.url);
 const source=fs.readFileSync(new URL("../lib/m238-sales-sanitize.ts",import.meta.url),"utf8");
 const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-const compiledModule={exports:{}};
-new Function("require","module","exports",code)(require,compiledModule,compiledModule.exports);
-const {aggregateSales,isValidSale,parseSalesRow,productKey,saleKind,vasKey}=compiledModule.exports;
+const sandboxExports={exports:{}};
+new Function("require","module","exports",code)(require,sandboxExports,sandboxExports.exports);
+const {aggregateSales,isValidSale,parseSalesRow,productKey,saleKind,vasKey}=sandboxExports.exports;
 
 function row({date="30-09-2026",id="23010001",name="Tester",invoice="INV1",article="ART1",description="",type="",qty=1,amount=1000000,category="",brand="APPLE",core="APPLE",scheme="DEVICES",vendor="",store="M238"}={}){
  return [date,id,name,invoice,article,description,type,qty,amount,category,brand,core,scheme,vendor,"Week 13 Q4",store,"Digimap"];
