@@ -73,6 +73,7 @@ const monthLabel=(p:string)=>new Intl.DateTimeFormat("id-ID",{month:"long",year:
 const months=Array.from({length:12},(_,i)=>`2026-${String(i+1).padStart(2,"0")}`);
 function initials(name:string){return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase()}
 function shortStaffName(name:string){ return name.trim(); }
+function dailyStaffListName(name:string){ const parts=name.trim().split(/\s+/).filter(Boolean); return parts.length>=3?parts.slice(0,2).join(" "):parts.join(" "); }
 function salesDateLabel(date:string){
  const d=new Date(`${date}T00:00:00+07:00`);
  const day=new Intl.DateTimeFormat("id-ID",{day:"numeric",timeZone:"Asia/Jakarta"}).format(d);
@@ -984,7 +985,7 @@ function dailySalesStaffName(name:string){
 }
 function StaffRow({staff,onClick,shortName=false}:{staff:Staff;onClick:()=>void;shortName?:boolean;fullMoney?:boolean}){
  const target=staff.targets?.amount||staff.target||0,a=target?staff.amount/target*100:staff.achievement||0,gap=target?Math.max(0,target-staff.amount):staff.gap||0;
- return <button className="m238m-staff-row" onClick={onClick}><div className="m238m-avatar">{initials(staff.name)}</div><div className="m238m-staff-main"><div><strong>{shortName?shortStaffName(staff.name):dailySalesStaffName(staff.name)}</strong><b>{money.format(staff.amount)}</b></div><Progress value={a}/><small>{pct(a)} • Gap {money.format(gap)} • UPT {(staff.upt||0).toFixed(1)}</small></div><ChevronRight size={17}/></button>
+ return <button className="m238m-staff-row" onClick={onClick}><div className="m238m-avatar">{initials(staff.name)}</div><div className="m238m-staff-main"><div><strong>{shortName?dailyStaffListName(staff.name):staff.name}</strong><b>{money.format(staff.amount)}</b></div><Progress value={a}/><small>{pct(a)} • Gap {money.format(gap)} • UPT {(staff.upt||0).toFixed(1)}</small></div><ChevronRight size={17}/></button>
 }
 function TeamScreen({rows,allRows,filter,setFilter,onStaff}:{rows:Staff[];allRows:Staff[];filter:string;setFilter:(v:string)=>void;onStaff:(s:Staff)=>void}){
  const label=filter==="top"?"3 staff penjualan tertinggi":filter==="low"?"Staff dengan AR di bawah 100%":"Semua staff store";
