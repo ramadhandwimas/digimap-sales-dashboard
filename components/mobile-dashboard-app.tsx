@@ -967,9 +967,24 @@ function DailyDetail({row}:{row:DailyRow}){
   </Sheet>
  </div>
 }
+function dailySalesStaffName(name:string){
+ const k=name.trim().toLowerCase();
+ if(k.includes("wijaya"))return "Jaya";
+ if(k.includes("sekar ayu"))return "Sekar";
+ if(k.includes("nadiva"))return "Diva";
+ if(k.includes("marchia audrey"))return "Audrey";
+ if(k.includes("asri annisa"))return "Annisa";
+ if(k.includes("rifo ar"))return "Rifo";
+ if(k.includes("andhea fitri"))return "Andhea";
+ if(k.includes("astri ramadhany"))return "Astri";
+ if(k.includes("farabi"))return "Farabi";
+ if(k.includes("rusli siregar"))return "Rusli";
+ if(k.includes("aprilia"))return "Aprilia";
+ return name;
+}
 function StaffRow({staff,onClick,shortName=false}:{staff:Staff;onClick:()=>void;shortName?:boolean;fullMoney?:boolean}){
  const target=staff.targets?.amount||staff.target||0,a=target?staff.amount/target*100:staff.achievement||0,gap=target?Math.max(0,target-staff.amount):staff.gap||0;
- return <button className="m238m-staff-row" onClick={onClick}><div className="m238m-avatar">{initials(staff.name)}</div><div className="m238m-staff-main"><div><strong>{shortName?shortStaffName(staff.name):staff.name}</strong><b>{money.format(staff.amount)}</b></div><Progress value={a}/><small>{pct(a)} • Gap {money.format(gap)} • UPT {(staff.upt||0).toFixed(1)}</small></div><ChevronRight size={17}/></button>
+ return <button className="m238m-staff-row" onClick={onClick}><div className="m238m-avatar">{initials(staff.name)}</div><div className="m238m-staff-main"><div><strong>{shortName?shortStaffName(staff.name):dailySalesStaffName(staff.name)}</strong><b>{money.format(staff.amount)}</b></div><Progress value={a}/><small>{pct(a)} • Gap {money.format(gap)} • UPT {(staff.upt||0).toFixed(1)}</small></div><ChevronRight size={17}/></button>
 }
 function TeamScreen({rows,allRows,filter,setFilter,onStaff}:{rows:Staff[];allRows:Staff[];filter:string;setFilter:(v:string)=>void;onStaff:(s:Staff)=>void}){
  const label=filter==="top"?"3 staff penjualan tertinggi":filter==="low"?"Staff dengan AR di bawah 100%":"Semua staff store";
