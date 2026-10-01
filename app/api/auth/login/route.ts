@@ -66,6 +66,17 @@ function sameSecret(supplied: string, expected: string) {
   return timingSafeEqual(left, right);
 }
 
+function matchesStoredHash(password: string, stored: string) {
+  const [salt, expectedHex] = stored.split(":");
+  if (!salt || !expectedHex) return false;
+  const suppliedHex = createHash("sha256")
+    .update(`${salt}${password}`)
+    .digest("hex");
+  const left = Buffer.from(suppliedHex, "utf8");
+  const right = Buffer.from(expectedHex, "utf8");
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
 const unauthorized = () =>
   NextResponse.json(
     { error: "NIK atau password tidak sesuai." },
@@ -74,12 +85,10 @@ const unauthorized = () =>
 
 export async function POST(request: NextRequest) {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    key = process.env.GOOGLE_PRIVATE_KEY,
-    loginPassword = process.env.DASHBOARD_LOGIN_PASSWORD?.trim(),
-    sessionSecret = process.env.DASHBOARD_AUTH_SECRET?.trim();
-  if (!email || !key || !loginPassword || !sessionSecret)
+    key = process.env.GOOGLE_PRIVATE_KEY;
+  if (!email || !key)
     return NextResponse.json(
-      { error: "Konfigurasi login dashboard belum lengkap." },
+      { error: "Koneksi data login belum tersedia." },
       { status: 503 },
     );
 
@@ -103,24 +112,30 @@ export async function POST(request: NextRequest) {
       { status: 429, headers: { "retry-after": String(WINDOW_MS / 1000) } },
     );
 
-  if (!sameSecret(password, loginPassword)) {
+  const [rows, authRows] = await getSheetRanges(
+      SHEET_ID,
+      ["Config!H28:L60", "Config!AG1000"],
+      email,
+      key,
+    ),
+    storedHash = text(authRows?.[0]?.[0]),
+    configuredPassword = process.env.DASHBOARD_LOGIN_PASSWORD?.trim();
+
+  const passwordOk = configuredPassword
+    ? sameSecret(password, configuredPassword)
+    : matchesStoredHash(password, storedHash);
+  if (!passwordOk) {
     registerFailure(rateKey);
     return unauthorized();
   }
 
-  const [rows] = await getSheetRanges(
-      SHEET_ID,
-      ["Config!H28:L60"],
-      email,
-      key,
-    ),
-    member = rows.find(
-      (row) =>
-        text(row[0]).toUpperCase() === STORE &&
-        text(row[1]) === nik &&
-        text(row[2]) &&
-        !/ONLINE/i.test(text(row[3])),
-    );
+  const member = rows.find(
+    (row) =>
+      text(row[0]).toUpperCase() === STORE &&
+      text(row[1]) === nik &&
+      text(row[2]) &&
+      !/ONLINE/i.test(text(row[3])),
+  );
   if (!member) {
     registerFailure(rateKey);
     return unauthorized();
