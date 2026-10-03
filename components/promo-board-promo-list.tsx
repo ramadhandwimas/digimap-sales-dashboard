@@ -9,28 +9,30 @@ const LOBS=["Semua","iPhone","Mac","iPad","Watch","AirPods"] as const;
 const LABELS:Record<string,string>={Mac:"MacBook",Watch:"Apple Watch"};
 const LOB_RANK:Record<string,number>={iPhone:0,Mac:1,iPad:2,Watch:3,AirPods:4};
 
-function hasPromo(item:PromoCatalogItem){
-  const p=item.group;
-  return p.normalPrice>0&&p.promotionPrice>0&&p.promotionPrice<p.normalPrice;
+function jakartaToday(){
+  return new Intl.DateTimeFormat("sv-SE",{year:"numeric",month:"2-digit",day:"2-digit",timeZone:"Asia/Jakarta"}).format(new Date());
 }
 
-// Promo tab is intentionally focused on current/relevant selling models.
-// Older products remain available in Pricelist, but do not clutter this quick promo view.
-function isCurrentSellingModel(item:PromoCatalogItem){
-  const text=`${item.model} ${item.friendlyName} ${item.generation} ${item.chip}`.toLowerCase().replace(/\s+/g," ");
-  if(item.lob==="iPhone")return /iphone (17|air|17e)/.test(text);
-  if(item.lob==="Mac")return /macbook (neo|air.*m5|pro.*m5)/.test(text)||/\bm5\b/.test(text)&&/macbook/.test(text);
-  if(item.lob==="iPad")return /ipad (11|.*a16|air.*m4|pro.*m5)/.test(text)||/ipad.*\b(a16|m4|m5)\b/.test(text);
-  if(item.lob==="Watch")return /watch.*(series 11|se 3|ultra 3)/.test(text)||/apple watch.*\b(11|se3|se 3|ultra 3)\b/.test(text);
-  if(item.lob==="AirPods")return /airpods (4|4 anc|pro 3)/.test(text);
-  return false;
+function isPromoCurrentlyValid(item:PromoCatalogItem){
+  const p=item.group;
+  if(!(p.normalPrice>0&&p.promotionPrice>0&&p.promotionPrice<p.normalPrice))return false;
+
+  // Promo tab hanya untuk promo yang benar-benar berlaku sekarang.
+  // Item lama/expired/upcoming tetap tersedia di Pricelist, tetapi tidak masuk quick promo list.
+  if(!["ACTIVE","ENDING_SOON","FURTHER_NOTICE"].includes(p.promoStatus))return false;
+
+  if(p.promoStatus==="FURTHER_NOTICE"||p.promoPeriodType==="FURTHER_NOTICE")return true;
+
+  const today=jakartaToday();
+  if(p.promoStartDate&&p.promoStartDate>today)return false;
+  if(p.promoEndDate&&p.promoEndDate<today)return false;
+  return true;
 }
 
 function promoStatus(item:PromoCatalogItem){
   const p=item.group;
   if(p.promoStatus==="ENDING_SOON")return p.daysRemaining===0?"Berakhir hari ini":p.daysRemaining===1?"Berakhir besok":`Sisa ${p.daysRemaining} hari`;
   if(p.promoStatus==="FURTHER_NOTICE")return"Further Notice";
-  if(p.promoStatus==="UPCOMING")return"Akan Datang";
   return"Promo Aktif";
 }
 
@@ -41,7 +43,7 @@ function stockLabel(item:PromoCatalogItem){
 
 export default function PromoBoardPromoList({catalog}:{catalog:PromoCatalogItem[]}){
   const[lob,setLob]=useState<string>("Semua"),[query,setQuery]=useState("");
-  const promos=useMemo(()=>catalog.filter(item=>hasPromo(item)&&isCurrentSellingModel(item)),[catalog]);
+  const promos=useMemo(()=>catalog.filter(isPromoCurrentlyValid),[catalog]);
   const filtered=useMemo(()=>{
     const q=query.trim().toLowerCase();
     return promos.filter(item=>(lob==="Semua"||item.lob===lob)&&(!q||[
@@ -60,7 +62,7 @@ export default function PromoBoardPromoList({catalog}:{catalog:PromoCatalogItem[
       <div className="mt-3 flex gap-2 overflow-x-auto pb-1">{LOBS.map(x=><button key={x} onClick={()=>setLob(x)} className={`min-h-11 shrink-0 rounded-xl px-4 text-sm font-black ${lob===x?"bg-blue-600 text-white":"bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300"}`}>{LABELS[x]||x}</button>)}</div>
     </div>
 
-    <div className="mt-4 flex items-center justify-between"><div><p className="text-xs font-black uppercase tracking-[.14em] text-blue-600">Promo Current Product</p><p className="mt-1 text-sm text-slate-500">{unique.length} promo produk aktif & relevan tahun ini</p></div><div className="grid size-11 place-items-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-950/30"><Tag className="size-5"/></div></div>
+    <div className="mt-4 flex items-center justify-between"><div><p className="text-xs font-black uppercase tracking-[.14em] text-blue-600">Promo Aktif</p><p className="mt-1 text-sm text-slate-500">{unique.length} promo yang masih berlaku saat ini</p></div><div className="grid size-11 place-items-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-950/30"><Tag className="size-5"/></div></div>
 
     {unique.length?<div className="mt-3 overflow-hidden rounded-3xl border bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">{unique.map((item,index)=>{const p=item.group,saving=Math.max(0,p.normalPrice-p.promotionPrice);return <article key={item.key} className={`px-4 py-4 ${index?"border-t dark:border-slate-800":""}`}>
       <div className="flex items-start justify-between gap-3">
@@ -69,6 +71,6 @@ export default function PromoBoardPromoList({catalog}:{catalog:PromoCatalogItem[
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]"><span className="font-black text-emerald-600">Hemat {money.format(saving)} • {p.discountPercentage.toFixed(1)}%</span><span className="font-bold text-slate-500">{stockLabel(item)}</span><span className="font-bold text-slate-400">{item.stockVariants.length} varian</span></div>
       {p.remarks?<p className="mt-2 line-clamp-2 text-[11px] leading-4 text-slate-400">{p.remarks}</p>:null}
-    </article>})}</div>:<div className="mt-4 rounded-3xl border border-dashed p-8 text-center text-sm text-slate-400">Tidak ada promo current product untuk filter ini.</div>}
+    </article>})}</div>:<div className="mt-4 rounded-3xl border border-dashed p-8 text-center text-sm text-slate-400">Tidak ada promo aktif untuk filter ini.</div>}
   </section>;
 }
