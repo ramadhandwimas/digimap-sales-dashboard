@@ -622,13 +622,18 @@ function DailyCategorySheet({date,kind,open,onClose}:{date:string;kind:"device"|
 }
 
 function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,activeRange,onStaff,onDay,onShare}:{mode:SalesMode;setMode:(v:SalesMode)=>void;daily:Daily|null;summary:DailySummary|null;period:string;periodMode:"month"|"week";selectedWeek:string;activeRange:{from:string;to:string}|null;onStaff:(s:Staff)=>void;onDay:(r:DailyRow)=>void;onShare:()=>void}){
- const[showTodayDetail,setShowTodayDetail]=useState(false),[categoryPick,setCategoryPick]=useState<"device"|"accessories"|"vas"|null>(null),[dailyLobPick,setDailyLobPick]=useState<{label:string;key:"iphone"|"mac"|"ipad"|"watch"|"airpods"}|null>(null),[dailyVasPick,setDailyVasPick]=useState<{label:string;key:"qoala"|"telkomsel"|"xl"|"indosat"}|null>(null),[dailyDrillStaff,setDailyDrillStaff]=useState<Staff|null>(null),[dailyProductDetail,setDailyProductDetail]=useState<any>(null),[dailyVasDetail,setDailyVasDetail]=useState<any>(null),[dailyProductBusy,setDailyProductBusy]=useState(false),[dailyVasBusy,setDailyVasBusy]=useState(false);
+ const[showTodayDetail,setShowTodayDetail]=useState(false),[metricPick,setMetricPick]=useState<"upt"|"invoice"|"qty"|null>(null),[metricDetail,setMetricDetail]=useState<any>(null),[metricBusy,setMetricBusy]=useState(false),[categoryPick,setCategoryPick]=useState<"device"|"accessories"|"vas"|null>(null),[dailyLobPick,setDailyLobPick]=useState<{label:string;key:"iphone"|"mac"|"ipad"|"watch"|"airpods"}|null>(null),[dailyVasPick,setDailyVasPick]=useState<{label:string;key:"qoala"|"telkomsel"|"xl"|"indosat"}|null>(null),[dailyDrillStaff,setDailyDrillStaff]=useState<Staff|null>(null),[dailyProductDetail,setDailyProductDetail]=useState<any>(null),[dailyVasDetail,setDailyVasDetail]=useState<any>(null),[dailyProductBusy,setDailyProductBusy]=useState(false),[dailyVasBusy,setDailyVasBusy]=useState(false);
  const ach=daily?.total.target?daily.total.amount/daily.total.target*100:0,device=daily?Math.max(0,daily.total.amount-daily.total.accessories-daily.total.vas):0,dailyGap=daily?Math.max(0,daily.total.target-daily.total.amount):0,accAch=daily?.total.accTarget?daily.total.accessories/daily.total.accTarget*100:0,vasAch=daily?.total.vasTarget?daily.total.vas/daily.total.vasTarget*100:0;
  const dailyLob=daily?.staff.reduce((a,s)=>({iphone:a.iphone+Number(s.lob?.iphone||0),mac:a.mac+Number(s.lob?.mac||0),ipad:a.ipad+Number(s.lob?.ipad||0),watch:a.watch+Number(s.lob?.watch||0),airpods:a.airpods+Number(s.lob?.airpods||0)}),{iphone:0,mac:0,ipad:0,watch:0,airpods:0})||{iphone:0,mac:0,ipad:0,watch:0,airpods:0};
  const dailyVas=daily?.staff.reduce((a,s)=>({qoalaQty:a.qoalaQty+Number(s.vasDetail?.qoala?.qty||0),qoalaValue:a.qoalaValue+Number(s.vasDetail?.qoala?.value||0),telkomselQty:a.telkomselQty+Number(s.vasDetail?.telkomsel?.qty||0),telkomselValue:a.telkomselValue+Number(s.vasDetail?.telkomsel?.value||0),xlQty:a.xlQty+Number(s.vasDetail?.xl?.qty||0),xlValue:a.xlValue+Number(s.vasDetail?.xl?.value||0),indosatQty:a.indosatQty+Number(s.vasDetail?.indosat?.qty||0),indosatValue:a.indosatValue+Number(s.vasDetail?.indosat?.value||0)}),{qoalaQty:0,qoalaValue:0,telkomselQty:0,telkomselValue:0,xlQty:0,xlValue:0,indosatQty:0,indosatValue:0})||{qoalaQty:0,qoalaValue:0,telkomselQty:0,telkomselValue:0,xlQty:0,xlValue:0,indosatQty:0,indosatValue:0};
  const dailyRows=[...(summary?.dailyRows||[])].sort((a,b)=>a.date.localeCompare(b.date));
  const lobMeta=[["iPhone","iphone",dailyLob.iphone],["MacBook","mac",dailyLob.mac],["iPad","ipad",dailyLob.ipad],["Apple Watch","watch",dailyLob.watch],["AirPods","airpods",dailyLob.airpods]] as const;
  const vasMeta=[["Qoala","qoala",dailyVas.qoalaValue,dailyVas.qoalaQty],["Telkomsel","telkomsel",dailyVas.telkomselValue,dailyVas.telkomselQty],["XL","xl",dailyVas.xlValue,dailyVas.xlQty],["Indosat","indosat",dailyVas.indosatValue,dailyVas.indosatQty]] as const;
+ const openMetricDetail=async(kind:"upt"|"invoice"|"qty")=>{
+   setMetricPick(kind);setMetricBusy(true);
+   try{const d=await cachedJson<any>(`/api/daily-staff-detail?date=${daily?.date||today()}&detail=1`,15000,true);setMetricDetail(d||null)}
+   catch{setMetricDetail(null)}finally{setMetricBusy(false)}
+ };
  const openDailyLob=async(label:string,key:"iphone"|"mac"|"ipad"|"watch"|"airpods")=>{
    setDailyLobPick({label,key});setDailyDrillStaff(null);
    if(dailyProductDetail)return;
@@ -672,14 +677,18 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
     </div>
 
     <div className="m238m-sales-ops-grid">
-      <Metric label="UPT" value={daily.total.upt.toFixed(1)} sub="Unit per transaksi"/>
-      <Metric label="Invoice" value={num.format(daily.total.invoices)} sub="Invoice unique"/>
-      <Metric label="Qty" value={num.format(daily.total.qty)} sub="Total unit"/>
+      <button className="m238m-metric-button" onClick={()=>void openMetricDetail("upt")}><Card className="m238m-metric m238m-drill-card"><span>UPT</span><strong>{daily.total.upt.toFixed(1)}</strong><small>Tap detail per staff</small></Card></button>
+      <button className="m238m-metric-button" onClick={()=>void openMetricDetail("invoice")}><Card className="m238m-metric m238m-drill-card"><span>Invoice</span><strong>{num.format(daily.total.invoices)}</strong><small>Tap nomor invoice</small></Card></button>
+      <button className="m238m-metric-button" onClick={()=>void openMetricDetail("qty")}><Card className="m238m-metric m238m-drill-card"><span>Qty</span><strong>{num.format(daily.total.qty)}</strong><small>Tap detail per staff</small></Card></button>
       <button className="m238m-share-sales" onClick={onShare}><Share2 size={18}/><span>Share Daily</span><small>Staff · LOB · VAS</small></button>
     </div>
 
     <div className="m238m-section-head"><h2>Staff Hari Ini</h2><span>{daily.staff.length} staff</span></div>
     <div className="m238m-list">{daily.staff.map(s=><StaffRow key={s.id} staff={s} onClick={()=>onStaff(s)} shortName fullMoney/>)}</div>
+
+    <Sheet open={!!metricPick} onClose={()=>{setMetricPick(null);setMetricDetail(null)}} title={metricPick==="upt"?"UPT • Hari Ini":metricPick==="invoice"?"Invoice • Hari Ini":"Qty • Hari Ini"}>
+      {metricBusy?<Skeleton/>:metricPick==="upt"?<div className="m238m-stack"><Card className="m238m-detail-sales"><span>UPT Store</span><strong>{daily.total.upt.toFixed(1)}</strong><small>{num.format(daily.total.qty)} unit / {num.format(daily.total.invoices)} transaksi</small></Card><div className="m238m-list">{(Array.isArray(metricDetail?.staff)?metricDetail.staff:daily.staff).map((st:Staff)=><Card key={st.id} className="m238m-product-detail-row"><div><strong>{st.name}</strong><span>{num.format(Number(st.qty||0))} unit • {num.format(Number(st.invoices||0))} invoice</span></div><b>{Number(st.upt||0).toFixed(1)}</b></Card>)}</div></div>:metricPick==="qty"?<div className="m238m-stack"><Card className="m238m-detail-sales"><span>Total Qty</span><strong>{num.format(daily.total.qty)}</strong><small>Total unit hari ini</small></Card><div className="m238m-list">{(Array.isArray(metricDetail?.staff)?metricDetail.staff:daily.staff).map((st:Staff)=><Card key={st.id} className="m238m-product-detail-row"><div><strong>{st.name}</strong><span>{num.format(Number(st.invoices||0))} invoice • UPT {Number(st.upt||0).toFixed(1)}</span></div><b>{num.format(Number(st.qty||0))} unit</b></Card>)}</div></div>:<div className="m238m-stack"><Card className="m238m-detail-sales"><span>Invoice Hari Ini</span><strong>{num.format(daily.total.invoices)}</strong><small>Invoice unique</small></Card>{Array.isArray(metricDetail?.detail?.invoiceRows)&&metricDetail.detail.invoiceRows.length?<div className="m238m-list">{metricDetail.detail.invoiceRows.map((r:any,i:number)=><Card key={`${r.invoice}-${r.staffId}-${i}`} className="m238m-product-detail-row"><div><strong>{r.invoice}</strong><span>{r.name} • {num.format(Number(r.qty||0))} qty</span></div><b>{money.format(Number(r.value||0))}</b></Card>)}</div>:<Card className="m238m-empty">Nomor invoice belum tersedia dari source hari ini.</Card>}</div>}
+    </Sheet>
 
     <div className="m238m-sales-drill-actions">
       <button onClick={()=>setShowTodayDetail(true)}><Activity size={17}/><span>Lihat LOB & VAS</span><ChevronRight size={16}/></button>
