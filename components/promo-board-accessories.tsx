@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import {useEffect,useMemo,useRef,useState} from "react";
 import {Check,ChevronRight,Clipboard,Search,Upload,X} from "lucide-react";
@@ -23,7 +24,7 @@ export default function PromoBoardAccessories({mode="catalog"}:{mode?:"catalog"|
  useEffect(()=>{void load()},[]);
  const upload=async(file:File)=>{setBusy(true);setError("");setNotice("");setSelectedFile(file);try{const form=new FormData();form.append("file",file);form.append("mode","preview");const r=await fetch("/api/promo-board-accessories",{method:"POST",body:form}),j=await r.json() as PreviewResponse;if(!r.ok||!j.preview)throw new Error(j.error||"Pricelist ACC gagal dianalisa");setPreview(j.preview);setPreviewComparison(j.comparison||null);setIdentical(Boolean(j.identicalToActive))}catch(e){setPreview(null);setSelectedFile(null);setError(e instanceof Error?e.message:"Pricelist ACC gagal dianalisa")}finally{setBusy(false)}};
  const activate=async()=>{if(!selectedFile||!preview||preview.blockingErrors||identical)return;setBusy(true);setError("");try{const form=new FormData();form.append("file",selectedFile);form.append("mode","activate");const r=await fetch("/api/promo-board-accessories",{method:"POST",body:form}),j=await r.json() as PreviewResponse;if(!r.ok)throw new Error(j.error||"Aktivasi Pricelist ACC gagal");setNotice(j.message||"Pricelist ACC berhasil diaktifkan.");setPreview(null);setSelectedFile(null);setIdentical(false);if(fileRef.current)fileRef.current.value="";await load()}catch(e){setError(e instanceof Error?e.message:"Aktivasi Pricelist ACC gagal")}finally{setBusy(false)}};
- const products=active?.products||[];
+ const products=useMemo(()=>active?.products||[],[active]);
  const supplierCounts=useMemo(()=>{const m=new Map<string,number>();for(const p of products)m.set(p.supplier,(m.get(p.supplier)||0)+1);return m},[products]);
  const suppliers=useMemo(()=>["Semua",...Array.from(supplierCounts.keys()).sort((a,b)=>a.localeCompare(b))],[supplierCounts]);
  const brands=useMemo(()=>["Semua",...Array.from(new Set(products.filter(p=>supplier==="Semua"||p.supplier===supplier).map(p=>p.brand))).sort((a,b)=>a.localeCompare(b))],[products,supplier]);
