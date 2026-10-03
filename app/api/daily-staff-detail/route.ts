@@ -160,6 +160,14 @@ export async function GET(req:NextRequest){
   if(!staffId&&!detailMode)return NextResponse.json({date,staff,detail:null,source},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
 
   const mine=staffId?rows.filter(r=>r.id===staffId):rows,person=staffId?staff.find(x=>x.id===staffId):null;
+  const invoiceMap=new Map<string,{invoice:string;staffId:string;name:string;qty:number;value:number}>();
+  for(const r of mine){
+   if(!r.invoice)continue;
+   const k=r.invoice+"|"+r.id;
+   const current=invoiceMap.get(k)||{invoice:r.invoice,staffId:r.id,name:r.name,qty:0,value:0};
+   current.qty+=r.qty;current.value+=r.amount;invoiceMap.set(k,current);
+  }
+  const invoiceRows=[...invoiceMap.values()].sort((a,b)=>b.value-a.value||a.invoice.localeCompare(b.invoice));
   if(staffId&&!person)return NextResponse.json({date,staff,detail:null,source},{headers:{"cache-control":"private, max-age=30"}});
 
   const productMap=new Map<string,{name:string;lob:string;kind:"device"|"accessories";qty:number;value:number;supplier?:string;brandCode?:string;brandName?:string;article?:string}>(),vasMap=new Map<string,{provider:string;name:string;qty:number;value:number}>();
@@ -196,6 +204,6 @@ export async function GET(req:NextRequest){
   const products=[...productMap.values()].map(p=>({...p,focus:p.kind==="device"&&(isRequiredDeviceFocus(p.name)||focusNames.includes(p.name))})).sort((a,b)=>a.kind.localeCompare(b.kind)||b.qty-a.qty||b.value-a.value),vasItems=[...vasMap.values()].sort((a,b)=>b.value-a.value);
   const base=person||{id:"STORE",name:"M238",amount:staff.reduce((a,x)=>a+x.amount,0),device:staff.reduce((a,x)=>a+x.device,0),accessories:staff.reduce((a,x)=>a+x.accessories,0),vas:staff.reduce((a,x)=>a+x.vas,0),qty:staff.reduce((a,x)=>a+x.qty,0),invoices:staff.reduce((a,x)=>a+x.invoices,0),upt:0,lob:{}};
   if(!person&&base.invoices)base.upt=base.qty/base.invoices;
-  return NextResponse.json({date,staff,detail:{...base,products,vasItems,week,focusNames},source},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
+  return NextResponse.json({date,staff,detail:{...base,products,vasItems,invoiceRows,week,focusNames},source},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Gagal membaca detail staff harian"},{status:500})}
 }
