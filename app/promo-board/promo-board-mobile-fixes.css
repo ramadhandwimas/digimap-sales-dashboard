@@ -1,0 +1,16 @@
+@media (max-width: 640px) {
+  .z-\[10030\] {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+
+  .z-\[10030\] > div {
+    max-height: calc(100dvh - 12px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+}
