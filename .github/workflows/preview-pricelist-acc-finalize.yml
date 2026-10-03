@@ -1,0 +1,98 @@
+name: Preview Pricelist ACC finalize
+on:
+  push:
+    branches: ['preview/m238-pricelist-acc-20261003']
+    paths: ['.github/workflows/preview-pricelist-acc-finalize.yml']
+permissions:
+  contents: write
+jobs:
+  patch-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: preview/m238-pricelist-acc-20261003
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.0'
+          cache: npm
+      - name: Integrate Pricelist ACC into Promo Board
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('components/promo-board-v9.tsx')
+          s=p.read_text()
+
+          # Import and ViewMode.
+          anchor='import PromoBoardPromoList from "@/components/promo-board-promo-list";\n'
+          imp='import PromoBoardAccessories from "@/components/promo-board-accessories";\n'
+          if imp not in s:
+            if anchor not in s: raise SystemExit('Promo import anchor missing')
+            s=s.replace(anchor,anchor+imp,1)
+          s=s.replace('type ViewMode="pricelist"|"promo"|"changes"|"history";','type ViewMode="pricelist"|"accessories"|"promo"|"changes"|"history";',1)
+
+          # Add state for scoped Changes/History and Update picker.
+          old='[view,setView]=useState<ViewMode>("pricelist"),[detail,setDetail]=useState<VariantChoice|null>(null);'
+          new='[view,setView]=useState<ViewMode>("pricelist"),[detail,setDetail]=useState<VariantChoice|null>(null),[changeScope,setChangeScope]=useState<"device"|"accessories">("device"),[historyScope,setHistoryScope]=useState<"device"|"accessories">("device"),[showUpdatePicker,setShowUpdatePicker]=useState(false),[requestAccFile,setRequestAccFile]=useState(false);'
+          if old in s:s=s.replace(old,new,1)
+          elif new not in s:raise SystemExit('State anchor missing')
+
+          # Trigger the hidden ACC file input after switching view.
+          load_effect='useEffect(()=>{void load()},[load]);'
+          acc_effect='useEffect(()=>{if(!requestAccFile||view!=="accessories")return;const timer=setTimeout(()=>{const input=document.getElementById("promo-acc-file-input") as HTMLInputElement|null;if(input){input.click();setRequestAccFile(false)}},0);return()=>clearTimeout(timer)},[requestAccFile,view]);'
+          if acc_effect not in s:
+            if load_effect not in s:raise SystemExit('Load effect anchor missing')
+            s=s.replace(load_effect,load_effect+acc_effect,1)
+
+          # Update button opens chooser instead of direct Device file picker.
+          s=s.replace('onClick={()=>fileRef.current?.click()} className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-blue-600 px-3 text-xs font-black text-white"','onClick={()=>setShowUpdatePicker(true)} className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-blue-600 px-3 text-xs font-black text-white"',1)
+
+          # Five first-class tabs.
+          s=s.replace('(["pricelist","promo","changes","history"] as ViewMode[])','(["pricelist","accessories","promo","changes","history"] as ViewMode[])',1)
+          s=s.replace('{v==="pricelist"?"Pricelist":v==="promo"?"Promo":v==="changes"?"Perubahan":"Riwayat"}','{v==="pricelist"?"Pricelist":v==="accessories"?"Pricelist ACC":v==="promo"?"Promo":v==="changes"?"Perubahan":"Riwayat"}',1)
+          # Make the 5-tab bar horizontally safe on mobile.
+          s=s.replace('className="mt-4 flex rounded-2xl bg-slate-200/70 p-1 dark:bg-slate-800"','className="mt-4 flex overflow-x-auto rounded-2xl bg-slate-200/70 p-1 dark:bg-slate-800"',1)
+          s=s.replace('className={`min-h-10 flex-1 rounded-xl text-xs font-black ${view===v?','className={`min-h-10 min-w-[92px] flex-1 shrink-0 rounded-xl text-xs font-black ${view===v?',1)
+
+          # Render ACC catalog before Promo.
+          marker='{view==="promo"?<PromoBoardPromoList catalog={catalog}/>:view==="pricelist"?'
+          repl='{view==="accessories"?<PromoBoardAccessories mode="catalog"/>:view==="promo"?<PromoBoardPromoList catalog={catalog}/>:view==="pricelist"?'
+          if marker in s:s=s.replace(marker,repl,1)
+          elif repl not in s:raise SystemExit('Main render anchor missing')
+
+          # Changes: add Device / Accessories scope without touching existing Device list.
+          changes_start=':view==="changes"?<section className="mt-4 space-y-2">'
+          changes_new=':view==="changes"?<><div className="mt-4 flex rounded-2xl bg-slate-200/70 p-1 dark:bg-slate-800"><button onClick={()=>setChangeScope("device")} className={`min-h-10 flex-1 rounded-xl text-xs font-black ${changeScope==="device"?"bg-white shadow-sm dark:bg-slate-950":"text-slate-500"}`}>Device</button><button onClick={()=>setChangeScope("accessories")} className={`min-h-10 flex-1 rounded-xl text-xs font-black ${changeScope==="accessories"?"bg-white shadow-sm dark:bg-slate-950":"text-slate-500"}`}>Accessories</button></div>{changeScope==="accessories"?<PromoBoardAccessories mode="changes"/>:<section className="mt-4 space-y-2">'
+          if changes_start in s:s=s.replace(changes_start,changes_new,1)
+          elif changes_new not in s:raise SystemExit('Changes start missing')
+
+          # Close changes conditional at the transition into history.
+          hist_transition='</section>:<section className="mt-4 space-y-2">{history.length?'
+          hist_new='</section>}</>:<><div className="mt-4 flex rounded-2xl bg-slate-200/70 p-1 dark:bg-slate-800"><button onClick={()=>setHistoryScope("device")} className={`min-h-10 flex-1 rounded-xl text-xs font-black ${historyScope==="device"?"bg-white shadow-sm dark:bg-slate-950":"text-slate-500"}`}>Device</button><button onClick={()=>setHistoryScope("accessories")} className={`min-h-10 flex-1 rounded-xl text-xs font-black ${historyScope==="accessories"?"bg-white shadow-sm dark:bg-slate-950":"text-slate-500"}`}>Accessories</button></div>{historyScope==="accessories"?<PromoBoardAccessories mode="history"/>:<section className="mt-4 space-y-2">{history.length?'
+          if hist_transition in s:s=s.replace(hist_transition,hist_new,1)
+          elif hist_new not in s:raise SystemExit('History transition missing')
+
+          # Close history scope before the main component tail.
+          tail='</section>}\n  </div>{detail?<DetailSheet'
+          tail_new='</section>}</>}\n  </div>{showUpdatePicker?<div className="fixed inset-0 z-[10030] flex items-end justify-center bg-slate-950/40 backdrop-blur-sm" onClick={()=>setShowUpdatePicker(false)}><div className="w-full rounded-t-[30px] bg-white p-5 shadow-2xl dark:bg-slate-950 sm:max-w-lg sm:rounded-[30px]" onClick={e=>e.stopPropagation()}><div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200"/><div className="flex items-center justify-between"><div><p className="text-xs font-black uppercase tracking-[.14em] text-blue-600">Update Pricelist</p><h3 className="mt-1 text-xl font-black">Pilih jenis pricelist</h3></div><button onClick={()=>setShowUpdatePicker(false)} className="grid size-10 place-items-center rounded-full bg-slate-100 dark:bg-slate-900"><X className="size-4"/></button></div><div className="mt-4 grid gap-2"><button onClick={()=>{setShowUpdatePicker(false);setTimeout(()=>fileRef.current?.click(),0)}} className="min-h-14 rounded-2xl border bg-white px-4 text-left text-sm font-black dark:border-slate-800 dark:bg-slate-950">Pricelist Device<span className="mt-1 block text-[11px] font-semibold text-slate-400">Upload pricelist Device existing</span></button><button onClick={()=>{setShowUpdatePicker(false);setView("accessories");setRequestAccFile(true)}} className="min-h-14 rounded-2xl bg-blue-600 px-4 text-left text-sm font-black text-white">Pricelist ACC<span className="mt-1 block text-[11px] font-semibold text-blue-100">Upload pricelist Accessories</span></button></div></div></div>:null}{detail?<DetailSheet'
+          if tail in s:s=s.replace(tail,tail_new,1)
+          elif tail_new not in s:raise SystemExit('Tail anchor missing')
+
+          p.write_text(s)
+      - name: Install
+        run: npm ci
+      - name: Lint changed source
+        run: npx eslint components/promo-board-v9.tsx components/promo-board-accessories.tsx lib/promo-board-accessory.ts lib/promo-board-accessory-store.ts app/api/promo-board-accessories/route.ts
+      - name: Build and regression tests
+        run: npm test
+      - name: Commit validated integration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add components/promo-board-v9.tsx
+          if git diff --cached --quiet; then
+            echo 'No integration patch needed'
+          else
+            git commit -m 'Integrate Pricelist ACC into Promo Board'
+            git push origin HEAD:preview/m238-pricelist-acc-20261003
+          fi
