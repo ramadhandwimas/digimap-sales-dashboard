@@ -57,14 +57,28 @@ export default function MobilePromoPanel(){
   };
 
   return <div
-    className={`fixed inset-x-0 top-0 z-[9000] overflow-y-auto bg-slate-50 transition-opacity duration-150 dark:bg-slate-900 ${open?"pointer-events-auto opacity-100":"pointer-events-none opacity-0"}`}
-    style={{bottom:"calc(82px + env(safe-area-inset-bottom))"}}
+    className={`fixed inset-0 z-[9000] overflow-y-auto bg-slate-50 transition-opacity duration-150 dark:bg-slate-900 ${open?"pointer-events-auto opacity-100":"pointer-events-none opacity-0"}`}
     aria-hidden={!open}
     inert={!open}
   >
     <style>{`
       .m238-mobile-promo-panel > main{min-height:100%!important;padding-bottom:calc(120px + env(safe-area-inset-bottom))!important}
       .m238-mobile-promo-panel > main > div{padding-top:8px!important}
+      /* A Promo Board modal must own the full iPhone viewport. The dashboard
+         bottom navigation is hidden only while that modal is open so it can
+         never cover filter rows, picker options, detail, or sort actions. */
+      body:has(.m238-mobile-promo-panel .fixed.inset-0) .m238m-bottom{
+        opacity:0!important;
+        pointer-events:none!important;
+        visibility:hidden!important;
+      }
+      .m238-mobile-promo-panel .fixed.inset-0{
+        max-height:100dvh!important;
+      }
+      .m238-mobile-promo-panel .fixed.inset-0 > .flex.h-\[min\(86dvh\,760px\)\]{
+        height:min(92dvh,820px)!important;
+        max-height:92dvh!important;
+      }
     `}</style>
     <div className="m238-mobile-promo-panel min-h-full" onClick={closeFromDashboardLink}>
       <PromoBoardV9 />
