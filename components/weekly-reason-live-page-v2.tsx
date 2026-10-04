@@ -18,8 +18,7 @@ type LobContext={feedbackCount:number;themes:Theme[];lostStock:Lost[];stockClaim
 type Context={byLob:Record<string,LobContext>;feedbackCount:number;error?:string};
 type Saved={data?:Weekly;snapshot?:{data?:Weekly};found?:boolean};
 const lobOrder:[string,string][]=[["AIRPODS","AirPods"],["APPLE WATCH","Apple Watch"],["IPAD","iPad"],["IPHONE","iPhone"],["MAC","MacBook"]];
-const rank=(label:string)=>{const m=label.match(/Week\s*(\d+)\s*Q(\d+)/i);return Number(m?.[2]||0)*100+Number(m?.[1]||0)};
-const previousWeek=(weeks:string[],week:string)=>{const sorted=[...weeks].sort((a,b)=>rank(a)-rank(b)),i=sorted.indexOf(week);return i>0?sorted[i-1]:(sorted[0]||week)};
+const previousWeek=(weeks:string[],week:string)=>{const i=weeks.indexOf(week);return i>0?weeks[i-1]:(weeks[0]||week)};
 const growth=(a:number,b:number)=>a?(b-a)/a*100:0;
 const sum=(r:Record<string,Agg>={})=>Object.values(r).reduce((a,x)=>({qty:a.qty+(x.qty||0),amount:a.amount+(x.amount||0)}),{qty:0,amount:0});
 function movers(a:Record<string,Agg>={},b:Record<string,Agg>={}){return [...new Set([...Object.keys(a),...Object.keys(b)])].map(name=>({name,diff:(b[name]?.qty||0)-(a[name]?.qty||0)})).filter(x=>x.diff!==0).sort((x,y)=>Math.abs(y.diff)-Math.abs(x.diff))}
