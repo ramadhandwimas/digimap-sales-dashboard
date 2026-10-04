@@ -1,0 +1,40 @@
+name: Preview Weekly Reason Rollover Fix
+
+on:
+  push:
+    branches:
+      - preview/m238-pricelist-acc-20261003
+    paths:
+      - .github/workflows/preview-weekly-reason-rollover-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: preview/m238-pricelist-acc-20261003
+      - name: Patch previous week logic
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('components/weekly-reason-live-page-v2.tsx')
+          s = p.read_text()
+          old = '''const rank=(label:string)=>{const m=label.match(/Week\\s*(\\d+)\\s*Q(\\d+)/i);return Number(m?.[2]||0)*100+Number(m?.[1]||0)};
+          const previousWeek=(weeks:string[],week:string)=>{const sorted=[...weeks].sort((a,b)=>rank(a)-rank(b)),i=sorted.indexOf(week);return i>0?sorted[i-1]:(sorted[0]||week)};'''
+          new = '''const previousWeek=(weeks:string[],week:string)=>{const i=weeks.indexOf(week);return i>0?weeks[i-1]:(weeks[0]||week)};'''
+          if old not in s:
+              raise SystemExit('Expected previousWeek block not found; refusing unsafe patch')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add components/weekly-reason-live-page-v2.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "fix weekly reason Q4 to Q1 comparison"
+          git push origin HEAD:preview/m238-pricelist-acc-20261003
