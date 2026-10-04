@@ -3,6 +3,17 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
 
 const publicPaths = new Set(["/login", "/api/auth/login"]);
 
+function normalizeWeeklyRollover(request: NextRequest) {
+  const url = request.nextUrl.clone();
+  const from = url.searchParams.get("from")?.trim() || "";
+  const to = url.searchParams.get("to")?.trim() || "";
+  if (from === to && /^Week\s*1\s*Q1$/i.test(to)) {
+    url.searchParams.set("from", "Week 13 Q4");
+    return url;
+  }
+  return null;
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (
@@ -19,9 +30,13 @@ export function proxy(request: NextRequest) {
     if (pathname === "/login")
       return NextResponse.redirect(new URL("/", request.url));
     if (pathname === "/api/weekly") {
-      const url = request.nextUrl.clone();
+      const url = normalizeWeeklyRollover(request) || request.nextUrl.clone();
       url.pathname = "/api/weekly-stable";
       return NextResponse.rewrite(url);
+    }
+    if (pathname === "/api/weekly-reason-metrics") {
+      const url = normalizeWeeklyRollover(request);
+      if (url) return NextResponse.rewrite(url);
     }
     if (pathname === "/api/data") {
       const url = request.nextUrl.clone();
