@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./mobile-dashboard.css";
 import IdleLogout from "@/components/idle-logout";
+import MobileTabScrollReset from "@/components/mobile-tab-scroll-reset";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -51,7 +52,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
-      <body className="m238-apple-ui antialiased"><IdleLogout/>{children}</body>
+      <body className="m238-apple-ui antialiased"><IdleLogout/><MobileTabScrollReset/>{children}</body>
     </html>
   );
 }

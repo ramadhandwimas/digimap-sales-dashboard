@@ -39,6 +39,10 @@ export default function ResponsiveDashboardEntry(){
 
   if(mobile===null)return <div className="min-h-[100dvh] bg-[#f2f2f7] dark:bg-black" aria-hidden="true"/>;
   if(!mobile)return <><DesktopDashboard/><M238PromoBoardNavigation/></>;
+
+  // The mobile dashboard owns its fixed bottom navigation. Do not apply a
+  // scroll/visualViewport translate correction here: on iOS Safari that can
+  // move the fixed nav into the document while the browser chrome collapses.
   if(mobileView==="new")return <><MobileDashboard/><MobilePromoPanel/><MobileDailyKpiDrilldown/></>;
 
   return <div className="relative min-h-[100dvh]">

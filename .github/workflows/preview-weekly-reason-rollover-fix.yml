@@ -1,0 +1,49 @@
+name: Preview Weekly Reason Rollover Fix
+
+on:
+  push:
+    branches:
+      - preview/m238-pricelist-acc-20261003
+    paths:
+      - .github/workflows/preview-weekly-reason-rollover-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: preview/m238-pricelist-acc-20261003
+      - name: Remove stale rank usage and preserve API chronology
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('components/weekly-reason-live-page-v2.tsx')
+          s = p.read_text()
+          replacements = {
+            'const latest=weeks.length?[...weeks].sort((a,b)=>rank(a)-rank(b)).at(-1)||"":"";': 'const latest=weeks.at(-1)||"";',
+            'isCurrent=week===(list.length?[...list].sort((a,b)=>rank(a)-rank(b)).at(-1):week)': 'isCurrent=week===(list.at(-1)||week)',
+            'const list=[...(w.availableWeeks||[])].sort((a,b)=>rank(a)-rank(b));': 'const list=[...(w.availableWeeks||[])];'
+          }
+          changed = False
+          for old,new in replacements.items():
+            if old in s:
+              s = s.replace(old,new,1)
+              changed = True
+          if 'rank(' in s:
+            raise SystemExit('Stale rank() usage remains; refusing partial patch')
+          if not changed:
+            raise SystemExit('Expected stale rank usages not found; refusing unsafe patch')
+          p.write_text(s)
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add components/weekly-reason-live-page-v2.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "fix weekly reason rollover runtime error"
+          git push origin HEAD:preview/m238-pricelist-acc-20261003
