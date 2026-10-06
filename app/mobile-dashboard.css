@@ -1461,3 +1461,7 @@
 .m238m-app[data-theme="bumblebee"] .m238m-bottom button .m238m-nav-icon{
   transform:none!important;
 }
+
+/* Invoice sheet: immediate tap response on iOS Safari */
+.m238m-invoice-card-button{touch-action:manipulation!important;-webkit-tap-highlight-color:transparent;cursor:pointer}
+.m238m-sheet-back{min-height:42px;border:0;background:transparent;color:var(--m-blue);font-size:12px;font-weight:850;padding:4px 2px;text-align:left;touch-action:manipulation}
