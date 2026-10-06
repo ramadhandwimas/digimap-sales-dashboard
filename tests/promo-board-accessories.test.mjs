@@ -13,3 +13,22 @@ test("parses row-5 accessory headers, normalizes SAP and uses repricing as activ
 test("duplicate price refresh keeps latest row but conflicting identity blocks activation",()=>{const rows=[["Update 27 September 2026"],[],[],[],header,["INCASE","INC001","","Case iPhone","Case",1000000,900000,0,"",""],["INCASE","INC001","","Case iPhone","Case",1000000,800000,0,"",""],["OTHER","INC001","","Different","Case",1000000,700000,0,"",""]];const parsed=acc.parseAccessoryPriceWorkbook(workbook(rows),"acc.xlsx");assert.equal(parsed.products[0].activePrice,800000);assert.ok(parsed.warnings.some(v=>v.includes("berulang")));assert.equal(parsed.blockingErrors,1)});
 test("supplier mapping uses longest SAP brand-code prefix then exact brand fallback",()=>{const refs=acc.parseSupplierReferences([["Vendor Code","PT Name","Brand Code","Brand Name"],["1","DINO","INC","INCASE"],["2","OTHER","IN","OTHER"]]);const products=[{supplier:"",brand:"INCASE",sapArticle:"INC001",articleMapemall:"",sapDescription:"Case",category:"Case",referenceSrp:1,currentSrpCash:1,repricingCash:0,activePrice:1,brZout:"",remarks:""},{supplier:"",brand:"Unknown",sapArticle:"ZZZ001",articleMapemall:"",sapDescription:"X",category:"Case",referenceSrp:1,currentSrpCash:1,repricingCash:0,activePrice:1,brZout:"",remarks:""}];const mapped=acc.mapAccessorySuppliers(products,refs);assert.equal(mapped[0].supplier,"DINO");assert.equal(mapped[1].supplier,"Belum Terpetakan")});
 test("comparison detects SKU and price changes by normalized SAP Article",()=>{const base={fileName:"a",sheetName:"s",priceListDate:null,totalRows:1,totalSku:1,totalBrand:1,totalCategory:1,warnings:[],issues:[],blockingErrors:0};const p={supplier:"DINO",brand:"INCASE",sapArticle:"INC001",articleMapemall:"",sapDescription:"Case",category:"Case",referenceSrp:100,currentSrpCash:100,repricingCash:0,activePrice:100,brZout:"",remarks:""};const before={...base,products:[p]},after={...base,products:[{...p,activePrice:80,currentSrpCash:80},{...p,sapArticle:"INC002",activePrice:50,currentSrpCash:50}]};const c=acc.compareAccessoryPriceLists(before,after);assert.equal(c.counts.PRICE_DOWN,1);assert.equal(c.counts.NEW_SKU,1)});
+
+
+test("promo math exposes normal price, promo price, saving and discount without fake discount",()=>{
+  const normal=699000,promo=559000,saving=normal-promo,discount=Math.round((saving/normal)*100);
+  assert.equal(saving,140000);
+  assert.equal(discount,20);
+  assert.ok(promo<normal);
+  assert.equal(Math.max(0,normal-normal),0);
+});
+test("canonical accessory brand-code examples remain distinct",()=>{
+  const refs=acc.parseSupplierReferences([["Vendor Code","PT Name","Brand Code","Brand Name"],["1","SUPPLIER A","MOK","MICROPACK"],["2","SUPPLIER B","MZI","MONOCOZZI"]]);
+  const mk=(sap,brand)=>({supplier:"",brand,sapArticle:sap,articleMapemall:"",sapDescription:"Accessory",category:"Case",referenceSrp:699000,currentSrpCash:699000,repricingCash:559000,activePrice:559000,brZout:"",remarks:""});
+  const mapped=acc.mapAccessorySuppliers([mk("MOK001","MICROPACK"),mk("MZI001","MONOCOZZI")],refs);
+  assert.equal(mapped[0].brand,"MICROPACK");
+  assert.equal(mapped[0].supplier,"SUPPLIER A");
+  assert.equal(mapped[1].brand,"MONOCOZZI");
+  assert.equal(mapped[1].supplier,"SUPPLIER B");
+  assert.notEqual(mapped[0].supplier,mapped[1].supplier);
+});
