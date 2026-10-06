@@ -4,6 +4,7 @@ import "./globals.css";
 import "./mobile-dashboard.css";
 import IdleLogout from "@/components/idle-logout";
 import MobileTabScrollReset from "@/components/mobile-tab-scroll-reset";
+import MobileInvoiceTapFix from "@/components/mobile-invoice-tap-fix";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -52,7 +53,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
-      <body className="m238-apple-ui antialiased"><IdleLogout/><MobileTabScrollReset/>{children}</body>
+      <body className="m238-apple-ui antialiased"><IdleLogout/><MobileTabScrollReset/><MobileInvoiceTapFix/>{children}</body>
     </html>
   );
 }
