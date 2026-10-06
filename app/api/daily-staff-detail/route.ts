@@ -160,14 +160,17 @@ export async function GET(req:NextRequest){
   if(!staffId&&!detailMode)return NextResponse.json({date,staff,detail:null,source},{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
 
   const mine=staffId?rows.filter(r=>r.id===staffId):rows,person=staffId?staff.find(x=>x.id===staffId):null;
-  const invoiceMap=new Map<string,{invoice:string;staffId:string;name:string;qty:number;value:number}>();
+  const invoiceMap=new Map<string,{invoice:string;staffId:string;name:string;qty:number;value:number;items:Array<{article:string;description:string;product:string;kind:string;qty:number;value:number}>}>();
   for(const r of mine){
    if(!r.invoice)continue;
    const k=r.invoice+"|"+r.id;
-   const current=invoiceMap.get(k)||{invoice:r.invoice,staffId:r.id,name:r.name,qty:0,value:0};
-   current.qty+=r.qty;current.value+=r.amount;invoiceMap.set(k,current);
+   const current=invoiceMap.get(k)||{invoice:r.invoice,staffId:r.id,name:r.name,qty:0,value:0,items:[]};
+   current.qty+=r.qty;current.value+=r.amount;
+   const itemKind=kind(r.scheme,r.category,r.type,r.desc),product=itemKind==="device"?productVariantName(r.type,r.desc,r.category):(s(r.type)||s(r.desc)||s(r.article)||"Produk"),itemKey=(r.article||product).toUpperCase(),existing=current.items.find(x=>(x.article||x.product).toUpperCase()===itemKey);
+   if(existing){existing.qty+=r.qty;existing.value+=r.amount}else current.items.push({article:r.article,description:r.desc,product,kind:itemKind,qty:r.qty,value:r.amount});
+   invoiceMap.set(k,current);
   }
-  const invoiceRows=[...invoiceMap.values()].sort((a,b)=>b.value-a.value||a.invoice.localeCompare(b.invoice));
+  const invoiceRows=[...invoiceMap.values()].map(x=>({...x,upt:x.qty})).sort((a,b)=>b.value-a.value||a.invoice.localeCompare(b.invoice));
   if(staffId&&!person)return NextResponse.json({date,staff,detail:null,source},{headers:{"cache-control":"private, max-age=30"}});
 
   const productMap=new Map<string,{name:string;lob:string;kind:"device"|"accessories";qty:number;value:number;supplier?:string;brandCode?:string;brandName?:string;article?:string}>(),vasMap=new Map<string,{provider:string;name:string;qty:number;value:number}>();
