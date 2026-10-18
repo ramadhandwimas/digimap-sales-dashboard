@@ -8,7 +8,7 @@ import ts from 'typescript';
 const require=createRequire(import.meta.url);
 function load(file,mocks={}){const code=ts.transpileModule(fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;const loaded={exports:{}};new Function('require','module','exports',code)(id=>mocks[id]?{__esModule:true,...mocks[id]}:require(id),loaded,loaded.exports);return loaded.exports.default}
 const stub=()=>null;
-const Uploader=load('components/accessory-pricelist-upload.tsx',{'@/components/data-copas-repair':{default:stub},'@/components/accessory-master-repair':{default:stub}});
+const Uploader=load('components/accessory-pricelist-upload.tsx',{'@/components/data-copas-repair':{default:props=>React.createElement('copas-check',props)},'@/components/accessory-master-repair':{default:stub}});
 const More=load('components/mobile-dashboard-more.tsx',{'next/dynamic':{default:()=>props=>React.createElement('tool-page',props)},'@/components/stock-request-md':{default:stub}});
 const text=node=>typeof node==='string'?node:Array.isArray(node)?node.map(text).join(''):node?.children?text(node.children):'';
 const button=(view,label)=>view.root.findAllByType('button').find(node=>text(node).includes(label));
@@ -80,4 +80,12 @@ test('double tapping check sends one request and busy controls unlock when it fi
   await act(async()=>{resolve(response(preview));await tick()});
   assert.equal(view.root.findByType('input').props.disabled,false);
  }finally{globalThis.fetch=originalFetch;if(view)await act(async()=>view.unmount())}
+});
+
+test('pricelist menus pass separate Device and Accessories/VAS scopes to the checker',async()=>{
+ for(const [kind,scope] of [['device','device'],['accessory','accessory-vas']]){
+  let view;await act(async()=>{view=create(React.createElement(Uploader,{kind}))});
+  assert.equal(view.root.findByType('copas-check').props.scope,scope);
+  await act(async()=>view.unmount());
+ }
 });

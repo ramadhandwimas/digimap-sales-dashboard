@@ -17,7 +17,8 @@ export default function AccessoryPricelistUpload({kind="accessory",onBusyChange}
  const device=kind==="device";
  const inputId=useId(),[file,setFile]=useState<File|null>(null),[result,setResult]=useState<Result|null>(null);
  const[busy,setBusy]=useState<"preview"|"import"|null>(null),[error,setError]=useState("");
- const[repairBusy,setRepairBusy]=useState(false);
+ const[repairSource,setRepairSource]=useState<"master"|"copas"|null>(null);
+ const repairBusy=repairSource!==null;
  const active=useRef(false),[needsRecheck,setNeedsRecheck]=useState(false);
  const savedImport=useSyncExternalStore(subscribeImports,()=>{try{return localStorage.getItem(`m238-pricelist-import-${kind}`)}catch{return null}},()=>null);
  const lastImport=lastImportValue(savedImport);
@@ -72,6 +73,6 @@ export default function AccessoryPricelistUpload({kind="accessory",onBusyChange}
    {result.preview.length?<details open><summary>Produk yang {result.imported!==undefined?"ditambahkan":"akan ditambahkan"} ({result.newCount})</summary><div className="acc-table"><table><thead><tr>{["Brand","SAP Article","Deskripsi","Kategori","Type","Group","Core"].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{result.preview.map(row=><tr key={row[1]}>{row.map((cell,i)=><td key={i}>{cell||"—"}</td>)}</tr>)}</tbody></table></div>{result.newCount>50?<p className="acc-note">Menampilkan 50 produk pertama.</p>:null}</details>:null}
    {result.review.length?<details><summary>Perlu diperiksa ({result.reviewCount})</summary><div className="acc-review">{result.review.map((item,i)=><div key={`${item.article}-${i}`}><strong>{item.article||"Tanpa SAP Article"}</strong><p>{item.description}</p><p>{item.reason}</p><small>{item.sheet}, baris {item.row}</small></div>)}</div>{result.reviewCount>100?<p className="acc-note">Menampilkan 100 baris pertama.</p>:null}</details>:null}
   </div>:null}
-  <div inert={!!busy}>{device?<DataCopasRepair onBusyChange={value=>{setRepairBusy(value);onBusyChange?.(value)}}/>:<AccessoryMasterRepair onBusyChange={value=>{setRepairBusy(value);onBusyChange?.(value)}}/>}</div>
+  <div inert={!!busy}>{device?<DataCopasRepair scope="device" onBusyChange={value=>{setRepairSource(value?"copas":null);onBusyChange?.(value)}}/>:<><div inert={repairSource==="copas"}><AccessoryMasterRepair onBusyChange={value=>{setRepairSource(value?"master":null);onBusyChange?.(value)}}/></div><div inert={repairSource==="master"}><DataCopasRepair scope="accessory-vas" onBusyChange={value=>{setRepairSource(value?"copas":null);onBusyChange?.(value)}}/></div></>}</div>
  </section>;
 }

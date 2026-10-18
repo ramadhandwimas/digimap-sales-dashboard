@@ -1,3 +1,5 @@
+export type CopasRepairScope="all"|"device"|"accessory-vas";
+
 export type CopasRepairColumn = "G" | "J" | "K" | "L" | "M" | "N";
 
 export type CopasRepairChange = {
@@ -58,7 +60,7 @@ function classificationSignature(row:unknown[]){
   return [row[0],row[3],row[4],row[5],row[6]].map(key).join("|");
 }
 
-export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[][]): CopasRepairPlan {
+export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[][], scope:CopasRepairScope="all"): CopasRepairPlan {
   const articleRows = new Map<string, unknown[][]>();
   const supplierRows = new Map<string, Set<string>>();
 
@@ -92,6 +94,11 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     const current = Array.from({length:17}, (_, column) => copasRows[index]?.[column] ?? "");
     const article = key(current[4]);
     if (!article) continue;
+    const matches = articleRows.get(article)??[];
+    const knownGroups=matches.map(row=>key(row[5])).filter(group=>["DEVICES","ACCESSORIES","VAS"].includes(group));
+    const groups=knownGroups.length?knownGroups:[key(current[12])];
+    if(scope==="device"&&!groups.includes("DEVICES"))continue;
+    if(scope==="accessory-vas"&&!groups.some(group=>group==="ACCESSORIES"||group==="VAS"))continue;
     checkedRows += 1;
     const naColumns = [6,9,10,11,12,13].filter(column => isNA(current[column]));
     const hasNA = naColumns.length > 0;
@@ -99,7 +106,6 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     if (hasNA) rowsWithNA += 1;
 
     const issueBase={row:index+2,article:value(current[4]),description:value(current[5])};
-    const matches = articleRows.get(article)??[];
     if (!matches.length) {
       if (hasNA||missingDeviceType) issues.push({...issueBase,reason:"missing-master",detail:"SAP Article belum ada di Master."});
       continue;

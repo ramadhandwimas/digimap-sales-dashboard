@@ -140,3 +140,29 @@ test("a blank 3PP Vendor without a supplier reference stays in manual review",()
  const plan=planDataCopasRepair([...master,product],[row]);
  assert.equal(plan.candidates.length,0);assert.equal(plan.issues[0].reason,"incomplete-master");
 });
+
+const scopedMaster=[...master,appleDevice,["XL","XXLAPPLE-PLT24","MPD APPLE PLATINUM 24M","PROTECTION","","VAS","APPLE"]];
+const scopedRows=()=>[copas("XXLAPPLE-PLT24",{9:"PROTECTION",10:"XL",11:"APPLE",12:"VAS"}),deviceRow(),copas("SDXE10-500G-G25")];
+
+test("device checks exclude VAS missing Vendor and keep original sheet row addresses",()=>{
+ const plan=planDataCopasRepair(scopedMaster,scopedRows(),"device");
+ assert.equal(plan.checkedRows,1);assert.equal(plan.issues.length,0);assert.equal(plan.vendorRows,0);
+ assert.deepEqual(plan.candidates.map(r=>r.row),[3]);
+ assert.deepEqual(buildDataCopasRepairWrites(plan.candidates),[{range:"'Data Copas'!G3:G3",values:[["IPHONE 18 PRO"]]}]);
+});
+
+test("accessory and VAS checks retain XL Vendor issues and exclude device Type",()=>{
+ const plan=planDataCopasRepair(scopedMaster,scopedRows(),"accessory-vas");
+ assert.equal(plan.checkedRows,2);assert.equal(plan.typeRows,0);assert.equal(plan.vendorRows,1);
+ assert.deepEqual(plan.issues.map(r=>r.article),["XXLAPPLE-PLT24"]);
+ assert.deepEqual(plan.candidates.map(r=>r.row),[4]);
+ const all=planDataCopasRepair(scopedMaster,scopedRows());
+ assert.equal(all.checkedRows,3);assert.equal(all.typeRows,1);assert.equal(all.vendorRows,1);assert.equal(all.issues.length,1);
+});
+
+test("scope follows Master group even when Copas has a stale group, and keeps unknown groups in general checks",()=>{
+ const rows=[copas("XXLAPPLE-PLT24",{12:"DEVICES"}),copas("UNKNOWN"),copas("SDXE10-500G-G25",{12:"DEVICES"})];
+ assert.equal(planDataCopasRepair(scopedMaster,rows,"device").checkedRows,0);
+ assert.equal(planDataCopasRepair(scopedMaster,rows,"accessory-vas").checkedRows,2);
+ assert.equal(planDataCopasRepair(scopedMaster,rows).checkedRows,3);
+});

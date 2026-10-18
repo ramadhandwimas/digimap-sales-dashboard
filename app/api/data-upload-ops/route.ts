@@ -2,7 +2,7 @@ import {NextRequest,NextResponse} from "next/server";
 import {createHash} from "node:crypto";
 import {appendSheetValues,batchWriteRanges,clearAndWrite,getSheetRanges,getSheetRangesFresh} from "@/lib/google-sheets";
 import {buildSummaryFromRawValues,refreshDailySummaryPeriods,upsertDailySummaryRows} from "@/lib/m238-daily-summary-cache";
-import {buildDataCopasRepairWrites,planDataCopasRepair} from "@/lib/data-copas-repair";
+import {buildDataCopasRepairWrites,planDataCopasRepair,type CopasRepairScope} from "@/lib/data-copas-repair";
 
 const DASHBOARD_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const RAW_SHEET="Raw Salesperson";
@@ -74,7 +74,7 @@ function cutoffPlanId(rows:unknown[][],mode:"date"|"month",value:string){
  return createHash("sha256").update(JSON.stringify([mode,value,rows.map(row=>row.map(cleanCell))])).digest("hex");
 }
 function creds(){const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)throw new Error("Google Sheets belum dikonfigurasi");return{email,key}}
-function repairPlanId(candidates:ReturnType<typeof planDataCopasRepair>["candidates"]){return createHash("sha256").update(JSON.stringify(candidates.map(row=>[row.row,row.article,row.changes]))).digest("hex")}
+function repairPlanId(candidates:ReturnType<typeof planDataCopasRepair>["candidates"],scope:CopasRepairScope){return createHash("sha256").update(JSON.stringify([scope,candidates.map(row=>[row.row,row.article,row.changes])])).digest("hex")}
 
 export async function GET(req:NextRequest){
  try{
@@ -94,9 +94,11 @@ export async function POST(req:NextRequest){
  try{
   const body=await req.json(),action=text(body.action),{email,key}=creds();
   if(action==="repair-copas"){
+   const scope=body.scope===undefined?"all":text(body.scope);
+   if(scope!=="all"&&scope!=="device"&&scope!=="accessory-vas")return NextResponse.json({error:"Kategori pemeriksaan tidak valid."},{status:400});
    const[master,copas]=await getSheetRangesFresh(DASHBOARD_ID,["'Master'!A1:L100000",`'${COPAS_SHEET}'!A2:Q50000`],email,key);
-   const plan=planDataCopasRepair(master||[],copas||[]),planId=repairPlanId(plan.candidates),dryRun=body.dryRun===true;
-   const summary={checkedRows:plan.checkedRows,rowsWithNA:plan.rowsWithNA,naRepairRows:plan.naRepairRows,vendorRows:plan.vendorRows,typeRows:plan.typeRows,rowsWithBlankType:plan.rowsWithBlankType,repairRows:plan.candidates.length,changedCells:plan.changedCells,unresolvedNARows:plan.unresolvedNARows,repairItems:plan.candidates.slice(0,300),repairItemsTotal:plan.candidates.length,issues:plan.issues,planId};
+   const plan=planDataCopasRepair(master||[],copas||[],scope),planId=repairPlanId(plan.candidates,scope),dryRun=body.dryRun===true;
+   const summary={scope,checkedRows:plan.checkedRows,rowsWithNA:plan.rowsWithNA,naRepairRows:plan.naRepairRows,vendorRows:plan.vendorRows,typeRows:plan.typeRows,rowsWithBlankType:plan.rowsWithBlankType,repairRows:plan.candidates.length,changedCells:plan.changedCells,unresolvedNARows:plan.unresolvedNARows,repairItems:plan.candidates.slice(0,300),repairItemsTotal:plan.candidates.length,issues:plan.issues,planId};
    if(dryRun||!plan.candidates.length){
     const message=plan.candidates.length
      ?`Ditemukan ${plan.candidates.length} baris yang aman diperbaiki: ${plan.typeRows} baris Type/model, ${plan.vendorRows} baris Vendor, dan klasifikasi kosong/N/A akan disesuaikan.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris perlu diperiksa manual.`:""}`

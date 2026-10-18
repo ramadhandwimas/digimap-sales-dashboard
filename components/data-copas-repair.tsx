@@ -2,11 +2,13 @@
 import {useRef,useState} from "react";
 import {AlertTriangle,ArrowRight,CircleCheck,ListChecks,LoaderCircle,WandSparkles} from "lucide-react";
 
+type Scope="all"|"device"|"accessory-vas";
 type Notice={kind:"success"|"error";text:string}|null;
 type RepairChange={column:string;field:string;from:string;to:string};
 type RepairItem={row:number;article:string;description:string;changes:RepairChange[]};
 type RepairIssue={row:number;article:string;description:string;detail:string};
 type Preview={
+ scope?:Scope;
  checkedRows:number;
  rowsWithNA:number;
  naRepairRows:number;
@@ -23,7 +25,10 @@ type Preview={
  message:string;
 };
 
-export default function DataCopasRepair({onBusyChange}:{onBusyChange?:(busy:boolean)=>void}={}){
+export default function DataCopasRepair({onBusyChange,scope="all"}:{onBusyChange?:(busy:boolean)=>void;scope?:Scope}={}){
+ const scopeLabel=scope==="device"?"Device":scope==="accessory-vas"?"Aksesoris & VAS":"Semua kategori";
+ const scopeDescription=scope==="device"?"Hanya Product Group DEVICES yang diperiksa. Aksesori, AirPods, dan VAS tidak termasuk.":scope==="accessory-vas"?"Hanya Product Group ACCESSORIES dan VAS yang diperiksa. Device tidak termasuk.":"Memeriksa semua kategori berdasarkan SAP Article di Master.";
+ const rules=scope==="device"?"Type/model kosong atau N/A diisi dari kolom Type pada Master.":scope==="accessory-vas"?"Vendor aksesori 3PP dan VAS mengikuti referensi PT Name pada Master. Type aksesori yang tersedia di Master tetap digunakan.":"Type/model diisi dari Master. Vendor aksesori 3PP dan VAS mengikuti referensi PT Name pada Master.";
  const active=useRef(false);
  const[busy,setBusy]=useState<"check"|"apply"|null>(null);
  const[notice,setNotice]=useState<Notice>(null);
@@ -33,7 +38,7 @@ export default function DataCopasRepair({onBusyChange}:{onBusyChange?:(busy:bool
   if(active.current)return;active.current=true;
   setBusy("check");onBusyChange?.(true);setNotice(null);setPreview(null);
   try{
-   const response=await fetch("/api/data-upload-ops",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"repair-copas",dryRun:true}),cache:"no-store"});
+   const response=await fetch("/api/data-upload-ops",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"repair-copas",scope,dryRun:true}),cache:"no-store"});
    const result=await response.json();
    if(!response.ok)throw new Error(result.error||"Pengecekan Data Copas gagal");
    setPreview(result);
@@ -44,11 +49,11 @@ export default function DataCopasRepair({onBusyChange}:{onBusyChange?:(busy:bool
 
  const apply=async()=>{
   if(!preview?.repairRows||active.current)return;
-  const approved=window.confirm(`Perbaiki ${preview.repairRows} baris dan ${preview.changedCells} sel sesuai daftar?\n\nType device kosong/N/A akan diisi dari Master. Vendor aksesori 3PP dan VAS mengikuti PT Name terbaru. Qty dan Amount tidak diubah.`);
+  const approved=window.confirm(`Perbaiki ${preview.repairRows} baris dan ${preview.changedCells} sel sesuai daftar?\n\nKategori: ${scopeLabel}. Perbaikan mengikuti daftar pada kategori ini. Qty dan Amount tidak diubah.`);
   if(!approved)return;
   active.current=true;setBusy("apply");onBusyChange?.(true);setNotice(null);
   try{
-   const response=await fetch("/api/data-upload-ops",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"repair-copas",planId:preview.planId}),cache:"no-store"});
+   const response=await fetch("/api/data-upload-ops",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"repair-copas",scope:preview.scope||scope,planId:preview.planId}),cache:"no-store"});
    const result=await response.json();
    if(!response.ok)throw new Error(result.error||"Perbaikan Data Copas gagal");
    setNotice({kind:"success",text:result.message||"Data Copas berhasil diperbaiki."});
@@ -58,19 +63,19 @@ export default function DataCopasRepair({onBusyChange}:{onBusyChange?:(busy:bool
   finally{active.current=false;setBusy(null);onBusyChange?.(false)}
  };
 
- return <section className="rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950 sm:p-5" aria-label="Cek dan perbaiki Data Copas">
-  <div className="flex items-start gap-3"><span className="rounded-xl bg-blue-50 p-2.5 text-blue-600 dark:bg-blue-950"><WandSparkles size={20}/></span><div><h3 className="font-extrabold">Cek &amp; Perbaiki Data Copas</h3><p className="mt-1 text-sm text-slate-500">Cek Type device dan Vendor aksesori 3PP dari Master terbaru.</p></div></div>
-  <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500 dark:bg-slate-900">Device: Type kosong/N/A diisi dari kolom Type Master. Aksesori 3PP: Vendor mengikuti PT Name pada Master!I:L. Type AirPods yang tersedia di Master tetap digunakan. Placeholder N/A pada kolom yang tidak dipakai dikosongkan. Qty, Amount, dan klasifikasi lain yang sudah terisi tidak diubah.</p>
+ return <section className="rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950 sm:p-5" aria-label={`Cek dan perbaiki Data Copas · ${scopeLabel}`}>
+  <div className="flex items-start gap-3"><span className="rounded-xl bg-blue-50 p-2.5 text-blue-600 dark:bg-blue-950"><WandSparkles size={20}/></span><div><h3 className="font-extrabold">Cek &amp; Perbaiki Data Copas · {scopeLabel}</h3><p className="mt-1 text-sm text-slate-500">{scopeDescription}</p></div></div>
+  <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500 dark:bg-slate-900">{rules} Placeholder N/A pada kolom yang tidak dipakai dikosongkan. Qty, Amount, dan klasifikasi lain yang sudah terisi tidak diubah.</p>
   {notice?<div role="status" className={`mt-3 rounded-xl border p-3 text-sm font-bold ${notice.kind==="success"?"border-emerald-200 bg-emerald-50 text-emerald-700":"border-rose-200 bg-rose-50 text-rose-700"}`}>{notice.kind==="success"?<CircleCheck className="mr-2 inline size-4"/>:null}{notice.text}</div>:null}
 
   {preview?<div className="mt-4 space-y-3">
    <div className="grid grid-cols-2 gap-2">
     <Summary value={preview.repairRows} label="Siap diperbaiki" tone="blue"/>
-    <Summary value={preview.typeRows||0} label="Type/model diisi" tone={preview.typeRows?"blue":"slate"}/>
-    <Summary value={preview.vendorRows} label="Vendor di-update" tone={preview.vendorRows?"blue":"slate"}/>
+    {scope!=="accessory-vas"?<Summary value={preview.typeRows||0} label="Type/model diisi" tone={preview.typeRows?"blue":"slate"}/>:null}
+    {scope!=="device"?<Summary value={preview.vendorRows} label="Vendor di-update" tone={preview.vendorRows?"blue":"slate"}/>:null}
     <Summary value={preview.unresolvedNARows} label="Perlu diperiksa" tone={preview.unresolvedNARows?"amber":"slate"}/>
    </div>
-   <p className="text-xs text-slate-500">Ditemukan {preview.rowsWithBlankType||0} baris Type kosong dan {preview.rowsWithNA} baris N/A. Periksa kolom G · Type dan N · Vendor pada daftar sebelum menyimpan.</p>
+   <p className="text-xs text-slate-500">Diperiksa {preview.checkedRows} baris · {scopeLabel}. Ditemukan {preview.rowsWithNA} baris N/A{scope!=="accessory-vas"?` dan ${preview.rowsWithBlankType||0} baris Type kosong`:""}. Periksa daftar perubahan sebelum menyimpan.</p>
 
    {preview.repairItems.length?<details open className="rounded-xl border border-blue-100 bg-blue-50/40 p-3 dark:border-blue-900 dark:bg-blue-950/20">
     <summary className="cursor-pointer text-sm font-black text-blue-800 dark:text-blue-200">Daftar yang akan diperbaiki ({preview.repairItemsTotal})</summary>
