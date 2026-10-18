@@ -28,6 +28,8 @@ export type CopasRepairPlan = {
   rowsWithNA: number;
   naRepairRows: number;
   vendorRows: number;
+  typeRows: number;
+  rowsWithBlankType: number;
   changedCells: number;
   naRows: number;
   correctedRows: number;
@@ -69,7 +71,7 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     }
     const supplierBrand = key(row[11]);
     const supplierName = value(row[9]);
-    if (supplierBrand && supplierName) {
+    if (supplierBrand && supplierName && !isNA(supplierBrand) && !isNA(supplierName)) {
       const suppliers=supplierRows.get(supplierBrand)??new Set<string>();
       suppliers.add(supplierName);
       supplierRows.set(supplierBrand,suppliers);
@@ -82,6 +84,8 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
   let rowsWithNA = 0;
   let naRepairRows = 0;
   let vendorRows = 0;
+  let typeRows = 0;
+  let rowsWithBlankType = 0;
   let changedCells = 0;
 
   for (let index = 0; index < copasRows.length; index += 1) {
@@ -91,57 +95,71 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     checkedRows += 1;
     const naColumns = [6,9,10,11,12,13].filter(column => isNA(current[column]));
     const hasNA = naColumns.length > 0;
+    const missingDeviceType=key(current[12])==="DEVICES"&&(!value(current[6])||isNA(current[6]));
     if (hasNA) rowsWithNA += 1;
 
     const issueBase={row:index+2,article:value(current[4]),description:value(current[5])};
     const matches = articleRows.get(article)??[];
     if (!matches.length) {
-      if (hasNA) issues.push({...issueBase,reason:"missing-master",detail:"SAP Article belum ada di Master."});
+      if (hasNA||missingDeviceType) issues.push({...issueBase,reason:"missing-master",detail:"SAP Article belum ada di Master."});
       continue;
     }
     if (new Set(matches.map(classificationSignature)).size > 1) {
-      if (hasNA) issues.push({...issueBase,reason:"conflicting-master",detail:"SAP Article mempunyai lebih dari satu klasifikasi berbeda di Master."});
+      if (hasNA||missingDeviceType) issues.push({...issueBase,reason:"conflicting-master",detail:"SAP Article mempunyai lebih dari satu klasifikasi berbeda di Master."});
       continue;
     }
 
     const master = matches[0];
     const brand = value(master[0]);
-    const suppliers=[...(supplierRows.get(key(brand))??[])];
+    const scheme=key(master[5]);
+    const firstParty=key(brand)==="APPLE"||/APPLE\s*CARE|AC\s*PLUS|HELP\s*DESK/i.test(brand);
+    const usesType=scheme==="DEVICES"||(firstParty&&(Boolean(value(master[4]))||key(master[3])==="AIRPODS"));
+    const usesVendor=scheme==="VAS"||(scheme==="ACCESSORIES"&&!firstParty);
+    const blankType=usesType&&!value(current[6]);
+    if(blankType)rowsWithBlankType+=1;
+    const suppliers=usesVendor?[...(supplierRows.get(key(brand))??[])]:[];
     if (suppliers.length > 1) {
-      if (hasNA) issues.push({...issueBase,reason:"conflicting-master",detail:`Brand ${brand} mempunyai lebih dari satu supplier di Master.`});
+      issues.push({...issueBase,reason:"conflicting-master",detail:`Brand ${brand} mempunyai lebih dari satu supplier di Master.`});
       continue;
     }
     const desired = new Map<number, DesiredField>([
-      [6, {column:"G", field:"Type", value:value(master[4])}],
+      [6, {column:"G", field:"Type", value:usesType?value(master[4]):""}],
       [9, {column:"J", field:"Product Category", value:value(master[3])}],
       [10,{column:"K", field:"Brand Name", value:brand}],
       [11,{column:"L", field:"Core Product", value:value(master[6])}],
       [12,{column:"M", field:"Product Scheme", value:value(master[5])}],
-      [13,{column:"N", field:"Vendor", value:suppliers[0]??""}],
+      [13,{column:"N", field:"Vendor", value:usesVendor?(suppliers[0]??""):""}],
     ]);
 
-    const missing = naColumns
+    // Blank Type is a missing device model, not a valid empty classification.
+    // Inapplicable placeholders (3PP Type / first-party Vendor) may be cleared,
+    // without making either of them a prerequisite for the other fields.
+    const repairColumns=[...naColumns];
+    if(blankType)repairColumns.push(6);
+    if(usesVendor&&!value(current[13])&&!repairColumns.includes(13))repairColumns.push(13);
+    const missing = repairColumns
       .map(column=>desired.get(column))
-      .filter((field):field is DesiredField=>Boolean(field&&!field.value));
+      .filter((field):field is DesiredField=>Boolean(field&&(!field.value||isNA(field.value))&&!(field.column==="G"&&!usesType)&&!(field.column==="N"&&!usesVendor)));
     if (missing.length) {
       issues.push({...issueBase,reason:"incomplete-master",detail:`Master belum memiliki ${missing.map(field=>field.field).join(", ")}.`});
       continue;
     }
 
     const changes: CopasRepairChange[] = [];
-    for (const column of naColumns) {
+    for (const column of repairColumns) {
       const target=desired.get(column);
-      if (!target||!target.value||same(current[column],target.value)) continue;
+      if (!target||same(current[column],target.value)) continue;
       changes.push({column:target.column,field:target.field,from:value(current[column]),to:target.value});
     }
     const vendor=desired.get(13);
-    if (vendor?.value&&!same(current[13],vendor.value)) {
+    if (vendor?.value&&!same(current[13],vendor.value)&&!changes.some(change=>change.column==="N")) {
       changes.push({column:"N",field:"Vendor",from:value(current[13]),to:vendor.value});
     }
     if (!changes.length) continue;
     changedCells += changes.length;
     if (hasNA) naRepairRows += 1;
-    if (changes.some(change=>change.column==="N")) vendorRows += 1;
+    if (changes.some(change=>change.column==="N"&&change.to)) vendorRows += 1;
+    if (changes.some(change=>change.column==="G"&&change.to)) typeRows += 1;
     candidates.push({...issueBase,date:value(current[0]),changes});
   }
 
@@ -151,6 +169,8 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     rowsWithNA,
     naRepairRows,
     vendorRows,
+    typeRows,
+    rowsWithBlankType,
     changedCells,
     naRows:candidates.length,
     correctedRows:0,

@@ -94,12 +94,12 @@ export async function POST(req:NextRequest){
  try{
   const body=await req.json(),action=text(body.action),{email,key}=creds();
   if(action==="repair-copas"){
-   const[master,copas]=await getSheetRangesFresh(DASHBOARD_ID,["'Master'!A1:L18606",`'${COPAS_SHEET}'!A2:Q50000`],email,key);
+   const[master,copas]=await getSheetRangesFresh(DASHBOARD_ID,["'Master'!A1:L100000",`'${COPAS_SHEET}'!A2:Q50000`],email,key);
    const plan=planDataCopasRepair(master||[],copas||[]),planId=repairPlanId(plan.candidates),dryRun=body.dryRun===true;
-   const summary={checkedRows:plan.checkedRows,rowsWithNA:plan.rowsWithNA,naRepairRows:plan.naRepairRows,vendorRows:plan.vendorRows,repairRows:plan.candidates.length,changedCells:plan.changedCells,unresolvedNARows:plan.unresolvedNARows,repairItems:plan.candidates.slice(0,300),repairItemsTotal:plan.candidates.length,issues:plan.issues,planId};
+   const summary={checkedRows:plan.checkedRows,rowsWithNA:plan.rowsWithNA,naRepairRows:plan.naRepairRows,vendorRows:plan.vendorRows,typeRows:plan.typeRows,rowsWithBlankType:plan.rowsWithBlankType,repairRows:plan.candidates.length,changedCells:plan.changedCells,unresolvedNARows:plan.unresolvedNARows,repairItems:plan.candidates.slice(0,300),repairItemsTotal:plan.candidates.length,issues:plan.issues,planId};
    if(dryRun||!plan.candidates.length){
     const message=plan.candidates.length
-     ?`Ditemukan ${plan.candidates.length} baris yang aman diperbaiki: ${plan.naRepairRows} baris N/A dan ${plan.vendorRows} baris Vendor akan disesuaikan.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris perlu diperiksa manual.`:""}`
+     ?`Ditemukan ${plan.candidates.length} baris yang aman diperbaiki: ${plan.typeRows} baris Type/model, ${plan.vendorRows} baris Vendor, dan klasifikasi kosong/N/A akan disesuaikan.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris perlu diperiksa manual.`:""}`
      :plan.unresolvedNARows?`Belum ada data yang aman diperbaiki. ${plan.unresolvedNARows} baris N/A perlu diperiksa manual.`:"Data Copas sudah sesuai dengan Master terbaru.";
     return NextResponse.json({ok:true,dryRun,...summary,message},{headers:{"cache-control":"no-store"}});
    }
@@ -124,8 +124,15 @@ export async function POST(req:NextRequest){
    const mode=body.mode==="month"?"month":"date",value=text(body.value);
    if(mode==="date"&&!/^\d{4}-\d{2}-\d{2}$/.test(value))return NextResponse.json({error:"Tanggal cut off tidak valid"},{status:400});
    if(mode==="month"&&!/^\d{4}-\d{2}$/.test(value))return NextResponse.json({error:"Periode cut off tidak valid"},{status:400});
-   const[source,destination]=await getSheetRangesFresh(DASHBOARD_ID,[`'${RAW_SHEET}'!AB2:AR50000`,`'${COPAS_SHEET}'!A2:Q50000`],email,key);
+   const[source,destination,master]=await getSheetRangesFresh(DASHBOARD_ID,[`'${RAW_SHEET}'!AB2:AR50000`,`'${COPAS_SHEET}'!A2:Q50000`,"'Master'!A1:L100000"],email,key);
    const cleanedSource=(source||[]).map(cleanRow);
+   // Apply the same Master mapping to newly cut-off rows. This does not edit
+   // RAW, and older Data Copas rows still use the reviewable repair flow.
+   if(master?.length){
+    const classification=planDataCopasRepair(master,cleanedSource);
+    const columns={G:6,J:9,K:10,L:11,M:12,N:13};
+    for(const candidate of classification.candidates)for(const change of candidate.changes)cleanedSource[candidate.row-2][columns[change.column]]=change.to;
+   }
    let ignoredCount=0;
    const selected:unknown[][]=[];
    for(const row of cleanedSource){

@@ -11,6 +11,8 @@ type Preview={
  rowsWithNA:number;
  naRepairRows:number;
  vendorRows:number;
+ typeRows?:number;
+ rowsWithBlankType?:number;
  repairRows:number;
  changedCells:number;
  unresolvedNARows:number;
@@ -35,14 +37,14 @@ export default function DataCopasRepair({onBusyChange}:{onBusyChange?:(busy:bool
    const result=await response.json();
    if(!response.ok)throw new Error(result.error||"Pengecekan Data Copas gagal");
    setPreview(result);
-   if(!Number(result.rowsWithNA||0))setNotice({kind:"success",text:"Data Copas sudah bersih. Tidak ada N/A pada kolom klasifikasi."});
+   if(!Number(result.repairRows||0)&&!Number(result.unresolvedNARows||0))setNotice({kind:"success",text:"Data Copas sudah sesuai. Tidak ada Type kosong atau klasifikasi N/A yang perlu diperbaiki."});
   }catch(error){setNotice({kind:"error",text:error instanceof Error?error.message:"Pengecekan Data Copas gagal"})}
   finally{active.current=false;setBusy(null);onBusyChange?.(false)}
  };
 
  const apply=async()=>{
   if(!preview?.repairRows||active.current)return;
-  const approved=window.confirm(`Perbaiki ${preview.repairRows} baris dan ${preview.changedCells} sel sesuai daftar?\n\nN/A akan diisi dari Master dan Vendor akan mengikuti PT Name terbaru. Qty dan Amount tidak diubah.`);
+  const approved=window.confirm(`Perbaiki ${preview.repairRows} baris dan ${preview.changedCells} sel sesuai daftar?\n\nType device kosong/N/A akan diisi dari Master. Vendor aksesori 3PP dan VAS mengikuti PT Name terbaru. Qty dan Amount tidak diubah.`);
   if(!approved)return;
   active.current=true;setBusy("apply");onBusyChange?.(true);setNotice(null);
   try{
@@ -57,17 +59,18 @@ export default function DataCopasRepair({onBusyChange}:{onBusyChange?:(busy:bool
  };
 
  return <section className="rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950 sm:p-5" aria-label="Cek dan perbaiki Data Copas">
-  <div className="flex items-start gap-3"><span className="rounded-xl bg-blue-50 p-2.5 text-blue-600 dark:bg-blue-950"><WandSparkles size={20}/></span><div><h3 className="font-extrabold">Cek &amp; Perbaiki Data Copas</h3><p className="mt-1 text-sm text-slate-500">Cari N/A, tampilkan daftar perbaikannya, lalu isi dari Master terbaru.</p></div></div>
-  <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500 dark:bg-slate-900">Sel N/A diisi dari Master terbaru. Nama Vendor juga disamakan dengan PT Name terbaru pada Master!I:L jika referensinya tersedia. Qty, Amount, dan klasifikasi lain yang sudah terisi tidak diubah.</p>
+  <div className="flex items-start gap-3"><span className="rounded-xl bg-blue-50 p-2.5 text-blue-600 dark:bg-blue-950"><WandSparkles size={20}/></span><div><h3 className="font-extrabold">Cek &amp; Perbaiki Data Copas</h3><p className="mt-1 text-sm text-slate-500">Cek Type device dan Vendor aksesori 3PP dari Master terbaru.</p></div></div>
+  <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500 dark:bg-slate-900">Device: Type kosong/N/A diisi dari kolom Type Master. Aksesori 3PP: Vendor mengikuti PT Name pada Master!I:L. Type AirPods yang tersedia di Master tetap digunakan. Placeholder N/A pada kolom yang tidak dipakai dikosongkan. Qty, Amount, dan klasifikasi lain yang sudah terisi tidak diubah.</p>
   {notice?<div role="status" className={`mt-3 rounded-xl border p-3 text-sm font-bold ${notice.kind==="success"?"border-emerald-200 bg-emerald-50 text-emerald-700":"border-rose-200 bg-rose-50 text-rose-700"}`}>{notice.kind==="success"?<CircleCheck className="mr-2 inline size-4"/>:null}{notice.text}</div>:null}
 
   {preview?<div className="mt-4 space-y-3">
-   <div className="grid grid-cols-3 gap-2">
+   <div className="grid grid-cols-2 gap-2">
     <Summary value={preview.repairRows} label="Siap diperbaiki" tone="blue"/>
+    <Summary value={preview.typeRows||0} label="Type/model diisi" tone={preview.typeRows?"blue":"slate"}/>
     <Summary value={preview.vendorRows} label="Vendor di-update" tone={preview.vendorRows?"blue":"slate"}/>
     <Summary value={preview.unresolvedNARows} label="Perlu diperiksa" tone={preview.unresolvedNARows?"amber":"slate"}/>
    </div>
-   <p className="text-xs text-slate-500">Ditemukan {preview.rowsWithNA} baris N/A, termasuk {preview.naRepairRows} baris yang aman diperbaiki. Nilai Vendor akan mengikuti PT Name terbaru dari Master.</p>
+   <p className="text-xs text-slate-500">Ditemukan {preview.rowsWithBlankType||0} baris Type kosong dan {preview.rowsWithNA} baris N/A. Periksa kolom G · Type dan N · Vendor pada daftar sebelum menyimpan.</p>
 
    {preview.repairItems.length?<details open className="rounded-xl border border-blue-100 bg-blue-50/40 p-3 dark:border-blue-900 dark:bg-blue-950/20">
     <summary className="cursor-pointer text-sm font-black text-blue-800 dark:text-blue-200">Daftar yang akan diperbaiki ({preview.repairItemsTotal})</summary>
@@ -76,7 +79,7 @@ export default function DataCopasRepair({onBusyChange}:{onBusyChange?:(busy:bool
      <div className="font-black">Baris {item.row} · {item.article}</div>
      <div className="mt-1 text-slate-500">{item.description||"Tanpa deskripsi"}</div>
      <div className="mt-2 space-y-1">{item.changes.map(change=><div key={change.column} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-lg bg-slate-50 px-2 py-1.5 dark:bg-slate-900">
-      <span><b>{change.column} · {change.field}</b><br/><span className="text-rose-600">{change.from||"Kosong"}</span></span><ArrowRight className="size-3.5 text-slate-400"/><span className="font-bold text-emerald-700 break-words">{change.to}</span>
+      <span><b>{change.column} · {change.field}</b><br/><span className="text-rose-600">{change.from||"Kosong"}</span></span><ArrowRight className="size-3.5 text-slate-400"/><span className="font-bold text-emerald-700 break-words">{change.to||"Kosong (tidak digunakan)"}</span>
      </div>)}</div>
     </article>)}</div>
    </details>:null}
