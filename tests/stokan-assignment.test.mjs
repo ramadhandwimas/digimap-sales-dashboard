@@ -9,6 +9,7 @@ function load(path,mocks={}){
  const loaded={exports:{}};new Function('require','module','exports',code)(id=>mocks[id]??require(id),loaded,loaded.exports);return loaded.exports;
 }
 const assignment=load('lib/stokan-assignment.ts');
+const context=load('lib/stokan-context.ts');
 const headers=['No','Stocker','Brand','Artikel','Description','S/N','Qty','Backroom','Dropbox','Floor','StockDate','Period','UploadID','UploadedAt'];
 const batch='STK-20261018-ABC12345';
 const stock=(no,stocker,id=batch)=>[no,stocker,'BRAND',`SAP${no}`,'Description','SN',no,'Counted','Box','Floor','2026-10-18','Week 3 Q1',id,'2026-10-18T00:00:00Z'];
@@ -39,15 +40,15 @@ test('reassignment changes only Stocker cells and rejects missing, duplicate, st
 });
 
 function harness(){
- const state={rows:[stock(1,'Alice'),stock(2,'Bob'),stock(3,'Bob','STK-20261018-OTHER')],writes:[]};
- const read=async(_id,ranges)=>ranges.map(range=>range.startsWith('Config!')?[['M238','1','Alice','Sales Assistant'],['M238','2','Bob','Sales Assistant'],['M238','3','SPV','Supervisor']]:range.includes('A1:N1')?[headers]:state.rows);
+ const state={fullWrites:[],rows:[stock(1,'Alice'),stock(2,'Bob'),stock(3,'Bob','STK-20261018-OTHER')],writes:[]};
+ const read=async(_id,ranges)=>ranges.map(range=>range.startsWith('Config!')?[['M238','1','Alice','Sales Assistant'],['M238','2','Bob','Sales Assistant'],['M238','3','SPV','Supervisor'],['M238','4','Trainer','Store Trainer'],['M238','5','Trainee','MT'],['M238','6','Cashier','Cashier'],['M996','7','Other','MT']]:range.includes('A1:N1')?[headers]:state.rows.slice(Number(range.match(/A(\d+)/)?.[1]||2)-2,Number(range.match(/:N(\d+)/)?.[1]||20000)-1));
  const route=load('app/api/stokan/route.ts',{
   'next/server':{NextResponse:{json:(body,init={})=>({body,status:init.status??200})}},
-  '@/lib/stokan-assignment':assignment,
-  '@/lib/google-sheets':{getSheetRanges:read,getSheetRangesFresh:read,ensureSheet:async()=>{},clearAndWrite:async()=>{throw new Error('Unexpected full row rewrite')},batchWriteRanges:async(_id,writes)=>{state.writes.push(...writes);for(const write of writes){const start=Number(write.range.match(/!B(\d+)/)[1]);write.values.forEach((row,index)=>{state.rows[start-2+index][1]=row[0]})}}},
+  '@/lib/stokan-assignment':assignment,'@/lib/stokan-context':context,
+  '@/lib/google-sheets':{getSheetRanges:read,getSheetRangesFresh:read,ensureSheet:async()=>{},clearAndWrite:async(_id,_clear,range,values)=>{state.fullWrites.push({range,values});const start=Number(range.match(/A(\d+)/)[1]);values.forEach((row,index)=>{state.rows[start-2+index]=row})},batchWriteRanges:async(_id,writes)=>{state.writes.push(...writes);for(const write of writes){const start=Number(write.range.match(/!B(\d+)/)[1]);write.values.forEach((row,index)=>{state.rows[start-2+index][1]=row[0]})}}},
  });
  const post=body=>route.POST({headers:new Headers({'content-type':'application/json'}),json:async()=>body});
- return{state,post};
+ return{state,post,GET:route.GET};
 }
 test('API persists staff reassignment in the same batch without altering articles, notes, quantities or other history',async()=>{
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
@@ -60,7 +61,37 @@ test('API persists staff reassignment in the same batch without altering article
   assert.equal(result.status,200);assert.equal(result.body.verified,true);assert.equal(result.body.uploadID,batch);
   assert.deepEqual(state.writes,[{range:"'STOKAN'!B3:B3",values:[['Alice']]}]);
   assert.deepEqual(state.rows.map(row=>row.filter((_,i)=>i!==1)),before.map(row=>row.filter((_,i)=>i!==1)));
-  assert.deepEqual(state.rows[2],before[2]);
+  assert.deepEqual(state.rows[2],before[2]);assert.equal(state.fullWrites.length,0);
   const stale=await post({action:'reassign',uploadID:batch,selectedStaff:['Alice'],rows});assert.equal(stale.status,409);assert.equal(state.writes.length,1);
  }finally{if(email===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=email;if(key===undefined)delete process.env.GOOGLE_PRIVATE_KEY;else process.env.GOOGLE_PRIVATE_KEY=key}
+});
+
+test('SA, Store Trainer and MT are available and a new commit uses current Jakarta date/week',async()=>{
+ const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
+ process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL='test@example.com';process.env.GOOGLE_PRIVATE_KEY='test';
+ try{
+  const {GET,post,state}=harness();
+  const data=await GET({nextUrl:new URL('https://example.com/api/stokan')});
+  assert.deepEqual(data.body.staff.map(person=>person.name),['Alice','Bob','Trainer','Trainee']);
+  const result=await post({action:'commit',period:'OLD WEEK',stockDate:'2000-01-01',selectedStaff:['Trainer','Trainee'],rows:[{stocker:'Trainer',article:'NEW1',serial:'SN',totalStock:2},{stocker:'Trainee',article:'NEW2',serial:'SN2',totalStock:3}]});
+  assert.equal(result.status,200);assert.equal(result.body.verified,true);
+  const expected=context.currentStokanContext();
+  assert.equal(state.fullWrites.length,1);
+  assert.ok(state.fullWrites[0].values.every(row=>row[10]===expected.stockDate&&row[11]===expected.period));
+  assert.deepEqual(state.fullWrites[0].values.map(row=>row[1]),['Trainer','Trainee']);
+ }finally{if(email===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=email;if(key===undefined)delete process.env.GOOGLE_PRIVATE_KEY;else process.env.GOOGLE_PRIVATE_KEY=key}
+});
+
+test('Jakarta clock follows Apple fiscal weeks, quarter rollover and the 53-week year',()=>{
+ const current=instant=>context.currentStokanContext(new Date(instant));
+ assert.equal(current('2026-10-18T16:59:59Z').stockDate,'2026-10-18');
+ assert.equal(current('2026-10-18T17:00:00Z').stockDate,'2026-10-19');
+ assert.equal(current('2026-10-18T17:00:00Z').period,'Week 4 Q1');
+ assert.equal(current('2026-09-26T16:59:59Z').period,'Week 13 Q4');
+ assert.equal(current('2026-09-26T17:00:00Z').period,'Week 1 Q1');
+ assert.equal(current('2026-12-26T17:00:00Z').period,'Week 1 Q2');
+ assert.equal(current('2022-12-24T17:00:00Z').period,'Week 14 Q1');
+ assert.equal(current('2022-12-31T17:00:00Z').period,'Week 1 Q2');
+ for(const role of ['Sales Assistant','SA','ST','Store Trainer','MT','Management Trainee'])assert.equal(context.isStokanPosition(role),true);
+ for(const role of ['Supervisor','Store Supervisor','Cashier','Online',''])assert.equal(context.isStokanPosition(role),false);
 });
