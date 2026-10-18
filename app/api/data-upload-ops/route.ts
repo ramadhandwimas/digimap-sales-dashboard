@@ -1,3 +1,5 @@
+import {excludeRemovedInvoices} from "@/lib/copas-invoices";
+import {acquireCopasLock,releaseCopasLock,readRemovedInvoiceFingerprints} from "@/lib/copas-invoice-store";
 import {NextRequest,NextResponse} from "next/server";
 import {createHash} from "node:crypto";
 import {appendSheetValues,batchWriteRanges,clearAndWrite,getSheetRanges,getSheetRangesFresh} from "@/lib/google-sheets";
@@ -91,11 +93,13 @@ export async function GET(req:NextRequest){
 }
 
 export async function POST(req:NextRequest){
+ let copasLocked=false;
  try{
   const body=await req.json(),action=text(body.action),{email,key}=creds();
   if(action==="repair-copas"){
    const scope=body.scope===undefined?"all":text(body.scope);
    if(scope!=="all"&&scope!=="device"&&scope!=="accessory-vas")return NextResponse.json({error:"Kategori pemeriksaan tidak valid."},{status:400});
+   if(body.dryRun!==true){await acquireCopasLock({email,key});copasLocked=true}
    const[master,copas]=await getSheetRangesFresh(DASHBOARD_ID,["'Master'!A1:L100000",`'${COPAS_SHEET}'!A2:Q50000`],email,key);
    const plan=planDataCopasRepair(master||[],copas||[],scope),planId=repairPlanId(plan.candidates,scope),dryRun=body.dryRun===true;
    const summary={scope,checkedRows:plan.checkedRows,rowsWithNA:plan.rowsWithNA,naRepairRows:plan.naRepairRows,vendorRows:plan.vendorRows,typeRows:plan.typeRows,rowsWithBlankType:plan.rowsWithBlankType,repairRows:plan.candidates.length,changedCells:plan.changedCells,unresolvedNARows:plan.unresolvedNARows,repairItems:plan.candidates.slice(0,300),repairItemsTotal:plan.candidates.length,issues:plan.issues,planId};
@@ -126,6 +130,7 @@ export async function POST(req:NextRequest){
    const mode=body.mode==="month"?"month":"date",value=text(body.value);
    if(mode==="date"&&!/^\d{4}-\d{2}-\d{2}$/.test(value))return NextResponse.json({error:"Tanggal cut off tidak valid"},{status:400});
    if(mode==="month"&&!/^\d{4}-\d{2}$/.test(value))return NextResponse.json({error:"Periode cut off tidak valid"},{status:400});
+   if(body.dryRun!==true){await acquireCopasLock({email,key});copasLocked=true}
    const[source,destination,master]=await getSheetRangesFresh(DASHBOARD_ID,[`'${RAW_SHEET}'!AB2:AR50000`,`'${COPAS_SHEET}'!A2:Q50000`,"'Master'!A1:L100000"],email,key);
    const cleanedSource=(source||[]).map(cleanRow);
    // Apply the same Master mapping to newly cut-off rows. This does not edit
@@ -136,7 +141,7 @@ export async function POST(req:NextRequest){
     for(const candidate of classification.candidates)for(const change of candidate.changes)cleanedSource[candidate.row-2][columns[change.column]]=change.to;
    }
    let ignoredCount=0;
-   const selected:unknown[][]=[];
+   let selected:unknown[][]=[];
    for(const row of cleanedSource){
     if(!hasData(row)){ignoredCount++;continue}
     const d=isoDate(row[0]);
@@ -145,12 +150,15 @@ export async function POST(req:NextRequest){
     if(!validCutoffRow(row)){ignoredCount++;continue}
     selected.push(row);
    }
+   const removed=excludeRemovedInvoices(selected,await readRemovedInvoiceFingerprints({email,key}));
+   selected=removed.rows;
    if(!selected.length){
     return NextResponse.json({
      ok:true,dryRun:body.dryRun===true,rows:0,sourceCount:0,sourceAmount:0,currentCount:0,currentAmount:0,
      newCount:0,newAmount:0,skippedCount:0,skippedAmount:0,ignoredCount,projectedCount:0,projectedAmount:0,
      differenceCount:0,differenceAmount:0,isBalanced:true,bulkSales:[],bulkSalesCount:0,planId:cutoffPlanId([],mode,value),
-     message:"Tidak ada data penjualan valid pada periode yang dipilih."
+     excludedCount:removed.excludedCount,excludedAmount:removed.excludedAmount,
+     message:removed.excludedCount?`${removed.excludedCount} baris exchange/cancel dilewati. Tidak ada transaksi baru untuk Cut Off.`:"Tidak ada data penjualan valid pada periode yang dipilih."
     },{headers:{"cache-control":"no-store"}});
    }
 
@@ -205,6 +213,7 @@ export async function POST(req:NextRequest){
     }));
    const planId=cutoffPlanId(newRows,mode,value);
    const check={
+    excludedCount:removed.excludedCount,excludedAmount:removed.excludedAmount,
     sourceCount:selected.length,sourceAmount:selectedAmount,currentCount,currentAmount,
     newCount:newRows.length,newAmount,skippedCount,skippedAmount,ignoredCount,
     projectedCount,projectedAmount,differenceCount,differenceAmount,
@@ -249,4 +258,5 @@ export async function POST(req:NextRequest){
   }
   return NextResponse.json({error:"Action tidak dikenal"},{status:400});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Operasi gagal"},{status:500})}
+ finally{if(copasLocked){const{email,key}=creds();await releaseCopasLock({email,key}).catch(error=>console.error("Cutoff unlock failed",error))}}
 }

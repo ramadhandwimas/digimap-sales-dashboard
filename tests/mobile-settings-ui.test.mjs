@@ -89,3 +89,16 @@ test('pricelist menus pass separate Device and Accessories/VAS scopes to the che
   await act(async()=>view.unmount());
  }
 });
+
+test('Settings exposes invoice exchange/cancel checking and blocks back navigation while it is running',async()=>{
+ let view;await act(async()=>{view=create(React.createElement(More,{theme:'classic',motion:'smooth',motionStyle:'clean',font:'system',onTheme:()=>{},onMotion:()=>{},onMotionStyle:()=>{},onFont:()=>{},onAction:()=>{}}))});
+ try{
+  await act(async()=>button(view,'Settings').props.onClick());
+  await act(async()=>button(view,'Cek Invoice Exchange/Cancel').props.onClick());
+  assert.equal(view.root.findAllByType('h1')[0].children.join(''),'Cek Invoice Exchange/Cancel');
+  await act(async()=>view.root.findByType('tool-page').props.onBusyChange(true));
+  assert.equal(view.root.findByProps({'aria-label':'Kembali ke Settings'}).props.disabled,true);
+  await act(async()=>view.root.findByType('tool-page').props.onBusyChange(false));
+  assert.equal(view.root.findByProps({'aria-label':'Kembali ke Settings'}).props.disabled,false);
+ }finally{await act(async()=>view.unmount())}
+});

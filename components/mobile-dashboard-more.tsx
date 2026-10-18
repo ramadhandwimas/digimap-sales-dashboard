@@ -3,15 +3,16 @@ import {useEffect,useRef,useState} from "react";
 import dynamic from "next/dynamic";
 import StockRequestMd from "@/components/stock-request-md";
 const AccessoryPricelistUpload=dynamic(()=>import("@/components/accessory-pricelist-upload"));
+const CopasInvoiceCheck=dynamic(()=>import("@/components/copas-invoice-check"));
 const DataCopasRepair=dynamic(()=>import("@/components/data-copas-repair"));
-import {Box,ChevronLeft,ChevronRight,Clock3,CreditCard,LogOut,Mail,MessageCircle,Settings,Type,Users,WalletCards,FileSpreadsheet,Smartphone,WandSparkles,Palette,Check} from "lucide-react";
+import {Box,ChevronLeft,ChevronRight,Clock3,CreditCard,LogOut,Mail,MessageCircle,Settings,Type,Users,WalletCards,FileSpreadsheet,Smartphone,WandSparkles,Palette,Check,ReceiptText} from "lucide-react";
 
 type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono"|"webhero"|"mecha"|"alliance";
 type MotionPreset="instant"|"minimal"|"smooth"|"dynamic"|"cinematic";
 type MotionStyle="clean"|"ios-spring"|"glass-flow"|"playful-bounce"|"executive"|"stagger"|"blur"|"elastic"|"fade-up"|"zoom-soft"|"slide-flow"|"float";
 type FontPreset="system"|"rounded"|"compact"|"modern"|"editorial"|"tech"|"soft"|"bold"|"mono";
 
-type Screen="menu"|"settings"|"stock-request"|"pricelist"|"device-pricelist"|"copas-repair"|"appearance";
+type Screen="menu"|"settings"|"stock-request"|"pricelist"|"device-pricelist"|"copas-repair"|"appearance"|"copas-invoices";
 
 export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMotion,onMotionStyle,onFont,onAction,onBusyChange}:{theme:ThemePreset;motion:MotionPreset;motionStyle:MotionStyle;font:FontPreset;onTheme:(v:ThemePreset)=>void;onMotion:(v:MotionPreset)=>void;onMotionStyle:(v:MotionStyle)=>void;onFont:(v:FontPreset)=>void;onAction:(action:string)=>void;onBusyChange?:(busy:boolean)=>void}){
  const[screen,setScreen]=useState<Screen>("menu"),[busy,setBusy]=useState(false);
@@ -19,8 +20,8 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  const changeBusy=(value:boolean)=>{setBusy(value);onBusyChange?.(value)};
  useEffect(()=>{window.scrollTo({top:0,behavior:"instant"});headingRef.current?.focus({preventScroll:true})},[screen]);
  const navigate=(next:Screen)=>{if(!busy)setScreen(next)};
- const titles:Record<Screen,string>={menu:"More",settings:"Settings","stock-request":"Stock Request MD",pricelist:"Pricelist Aksesoris","device-pricelist":"Pricelist Device","copas-repair":"Perbaiki Data Copas",appearance:"Tampilan"};
- const subheading:Record<Screen,string>={menu:"Menu tambahan M238",settings:"Data master dan pengaturan dashboard","stock-request":"SOH, penjualan dan kebutuhan stok",pricelist:"Data Master / Accessories & VAS","device-pricelist":"Data Master / Apple Device","copas-repair":"Data Master / Perbaikan klasifikasi",appearance:"Tema, font dan animasi"};
+ const titles:Record<Screen,string>={menu:"More",settings:"Settings","stock-request":"Stock Request MD",pricelist:"Pricelist Aksesoris","device-pricelist":"Pricelist Device","copas-repair":"Perbaiki Data Copas",appearance:"Tampilan","copas-invoices":"Cek Invoice Exchange/Cancel"};
+ const subheading:Record<Screen,string>={menu:"Menu tambahan M238",settings:"Data master dan pengaturan dashboard","stock-request":"SOH, penjualan dan kebutuhan stok",pricelist:"Data Master / Accessories & VAS","device-pricelist":"Data Master / Apple Device","copas-repair":"Data Master / Perbaikan klasifikasi",appearance:"Tema, font dan animasi","copas-invoices":"Data Copas / Pemeriksaan transaksi"};
  const pageHeader=(back:Screen)=><header className="m238-settings-heading"><button type="button" disabled={busy} onClick={()=>navigate(back)} aria-label={back==="settings"?"Kembali ke Settings":"Kembali ke More"}><ChevronLeft size={20}/></button><div><h1 ref={headingRef} tabIndex={-1}>{titles[screen]}</h1><p>{subheading[screen]}</p></div></header>;
 
  const themes:{id:ThemePreset;name:string;desc:string}[]=[
@@ -55,8 +56,8 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
 
  if(screen==="stock-request")return <div className="m238-settings">{pageHeader("menu")}<StockRequestMd/></div>;
 
- if(screen==="pricelist"||screen==="device-pricelist"||screen==="copas-repair")return <div className="m238-settings m238-settings-tool">{pageHeader("settings")}
-  {screen==="copas-repair"?<DataCopasRepair onBusyChange={changeBusy}/>:<AccessoryPricelistUpload key={screen} kind={screen==="device-pricelist"?"device":"accessory"} onBusyChange={changeBusy}/>}
+ if(screen==="pricelist"||screen==="device-pricelist"||screen==="copas-repair"||screen==="copas-invoices")return <div className="m238-settings m238-settings-tool">{pageHeader("settings")}
+  {screen==="copas-invoices"?<CopasInvoiceCheck onBusyChange={changeBusy}/>:screen==="copas-repair"?<DataCopasRepair onBusyChange={changeBusy}/>:<AccessoryPricelistUpload key={screen} kind={screen==="device-pricelist"?"device":"accessory"} onBusyChange={changeBusy}/>}
  </div>;
 
  if(screen==="appearance")return <div className="m238-settings">{pageHeader("settings")}
@@ -77,6 +78,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
    ["pricelist","Pricelist Aksesoris","Tambah Accessories dan VAS ke Master",FileSpreadsheet],
    ["device-pricelist","Pricelist Device","Tambah unit baru dan klasifikasi",Smartphone],
    ["copas-repair","Perbaiki Data Copas","Cek dan perbaiki N/A dari Master",WandSparkles],
+   ["copas-invoices","Cek Invoice Exchange/Cancel","Cari dan hapus transaksi di Data Copas",ReceiptText],
   ] as const).map(([next,title,description,Icon])=><button type="button" key={next} onClick={()=>navigate(next)}><span className="m238-settings-icon"><Icon size={19}/></span><span className="m238-settings-copy"><strong>{title}</strong><small>{description}</small></span><ChevronRight size={18}/></button>)}</div></section>
   <section className="m238-settings-group"><h2>Preferensi</h2><div className="m238-settings-list"><button type="button" onClick={()=>navigate("appearance")}><span className="m238-settings-icon"><Palette size={19}/></span><span className="m238-settings-copy"><strong>Tampilan</strong><small>{activeTheme?.name||theme} · {fontLabels[font]} · {motionLabels[motion]}</small></span><ChevronRight size={18}/></button></div></section>
   <p className="m238-settings-hint">Pilih menu Data Master untuk upload dan pemeriksaan. Setiap perubahan data ditampilkan terlebih dahulu sebelum disimpan.</p>

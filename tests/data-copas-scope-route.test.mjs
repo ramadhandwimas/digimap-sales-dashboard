@@ -17,6 +17,7 @@ function harness(){
   'next/server':{NextResponse:{json:(body,init={})=>({body,status:init.status??200})}},
   '@/lib/google-sheets':{getSheetRangesFresh:async()=>{state.reads++;return[master,[row('XXLAPPLE-PLT24','VAS'),row('APP18','DEVICES')]]},batchWriteRanges:async(_id,writes)=>state.writes.push(...writes)},
   '@/lib/data-copas-repair':repair,
+  '@/lib/copas-invoices':{},'@/lib/copas-invoice-store':{acquireCopasLock:async()=>{},releaseCopasLock:async()=>{}},
   '@/lib/m238-daily-summary-cache':{refreshDailySummaryPeriods:async()=>{}},
  });
  const post=body=>route.POST({json:async()=>({action:'repair-copas',...body})});

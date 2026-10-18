@@ -7,6 +7,10 @@ import ts from "typescript";
 const nodeRequire=createRequire(import.meta.url);
 const source=fs.readFileSync(new URL("../app/api/data-upload-ops/route.ts",import.meta.url),"utf8");
 const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
+const copasSource=fs.readFileSync(new URL("../lib/copas-invoices.ts",import.meta.url),"utf8");
+const copasCode=ts.transpileModule(copasSource,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const copasLoaded={exports:{}};new Function("require","module","exports",copasCode)(nodeRequire,copasLoaded,copasLoaded.exports);
+
 
 function sale({date="30-09-2026",id="25011589",name="Rifo Arvian Ario",invoice="INV-1",article="APP001",description="iPhone",qty=1,amount=1000000}={}){
  return [date,id,name,invoice,article,description,"",qty,amount,"IPHONE","APPLE","APPLE","DEVICES","","Week 13 Q4","M238","Digimap"];
@@ -25,6 +29,8 @@ function loadRoute(state){
  const summary={buildSummaryFromRawValues:async()=>[],refreshDailySummaryPeriods:async()=>{},upsertDailySummaryRows:async()=>{}};
  const repair={buildDataCopasRepairWrites:()=>[],planDataCopasRepair:()=>({checkedRows:0,rowsWithNA:0,naRepairRows:0,vendorRows:0,candidates:state.repairCandidates||[],changedCells:0,unresolvedNARows:0,issues:[]})};
  const customRequire=(id)=>{
+  if(id==="@/lib/copas-invoices")return copasLoaded.exports;
+  if(id==="@/lib/copas-invoice-store")return{readRemovedInvoiceFingerprints:async()=>state.removed||[],acquireCopasLock:async()=>"lock",releaseCopasLock:async()=>{state.released=true}};
   if(id==="next/server")return next;
   if(id==="@/lib/google-sheets")return sheets;
   if(id==="@/lib/m238-daily-summary-cache")return summary;
@@ -91,5 +97,17 @@ test("new cutoff rows apply Master Type/Vendor mapping without editing RAW or tr
   assert.equal(saved.status,200);assert.equal(state.appended.length,1);
   const values=state.appended[0][2];
   assert.equal(values[0][6],"IPHONE 18 PRO");assert.equal(values[0][7],raw[7]);assert.equal(values[0][8],raw[8]);assert.equal(raw[6],"");
+ }finally{route.restore()}
+});
+
+test("Cut Off excludes only archived occurrences and does not reinsert canceled invoice rows",async()=>{
+ const duplicate=sale(),state={source:[duplicate,duplicate],destination:[],appended:[],removed:[copasLoaded.exports.invoiceFingerprint(duplicate)]},route=loadRoute(state);
+ try{
+  const preview=await cutoff(route.POST);
+  assert.equal(preview.body.excludedCount,1);assert.equal(preview.body.sourceCount,1);assert.equal(preview.body.newCount,1);
+  const saved=await cutoff(route.POST,{dryRun:false,planId:preview.body.planId});
+  assert.equal(saved.status,200);assert.equal(state.appended[0][2].length,1);assert.equal(state.released,true);
+  state.removed.push(copasLoaded.exports.invoiceFingerprint(duplicate));
+  const excluded=await cutoff(route.POST);assert.equal(excluded.body.newCount,0);assert.equal(excluded.body.excludedCount,2);
  }finally{route.restore()}
 });
