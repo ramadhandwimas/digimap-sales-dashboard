@@ -114,7 +114,8 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     if(scope==="accessory-vas"&&!groups.some(group=>group==="ACCESSORIES"||group==="VAS"))continue;
     checkedRows += 1;
     const naColumns = [6,9,10,11,12,13].filter(column => isNA(current[column]));
-    const hasNA = naColumns.length > 0;
+    // A missing Vendor is optional until Master provides a usable reference.
+    let hasNA = naColumns.some(column=>column!==13);
     const missingDeviceType=key(current[12])==="DEVICES"&&(!value(current[6])||isNA(current[6]));
     if (hasNA) rowsWithNA += 1;
 
@@ -142,6 +143,7 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
       issues.push({...issueBase,reason:"conflicting-master",detail:`Brand ${brand} mempunyai lebih dari satu supplier di Master.`});
       continue;
     }
+    if(naColumns.includes(13)&&(!usesVendor||suppliers.length===1)&&!hasNA){hasNA=true;rowsWithNA+=1}
     const desired = new Map<number, DesiredField>([
       [6, {column:"G", field:"Type", value:usesType?value(master[4]):""}],
       [9, {column:"J", field:"Product Category", value:value(master[3])}],
@@ -154,9 +156,9 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     // Blank Type is a missing device model, not a valid empty classification.
     // Inapplicable placeholders (3PP Type / first-party Vendor) may be cleared,
     // without making either of them a prerequisite for the other fields.
-    const repairColumns=[...naColumns];
+    const repairColumns=naColumns.filter(column=>column!==13||!usesVendor||suppliers.length===1);
     if(blankType)repairColumns.push(6);
-    if(usesVendor&&!value(current[13])&&!repairColumns.includes(13))repairColumns.push(13);
+    if(usesVendor&&suppliers.length===1&&!value(current[13])&&!repairColumns.includes(13))repairColumns.push(13);
     const missing = repairColumns
       .map(column=>desired.get(column))
       .filter((field):field is DesiredField=>Boolean(field&&(!field.value||isNA(field.value))&&!(field.column==="G"&&!usesType)&&!(field.column==="N"&&!usesVendor)));

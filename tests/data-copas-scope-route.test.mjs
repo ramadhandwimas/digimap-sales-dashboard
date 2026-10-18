@@ -33,7 +33,7 @@ test('repair API enforces scope for preview and persisted sheet ranges, and bind
   const crossed=await post({scope:'all',planId:preview.body.planId});assert.equal(crossed.status,409);assert.equal(state.writes.length,0);
   const saved=await post({scope:'device',planId:preview.body.planId});assert.equal(saved.status,200);
   assert.ok(state.writes.length>0);assert.ok(state.writes.every(write=>/![GJKLMN]3:[GJKLMN]3$/.test(write.range)));
-  const accessory=await post({scope:'accessory-vas',dryRun:true});assert.equal(accessory.body.checkedRows,1);assert.equal(accessory.body.issues[0].article,'XXLAPPLE-PLT24');
+  const accessory=await post({scope:'accessory-vas',dryRun:true});assert.equal(accessory.body.checkedRows,1);assert.equal(accessory.body.issues.length,0);assert.equal(accessory.body.repairItems.some(item=>item.changes.some(change=>change.column==='N')),false);
   const general=await post({dryRun:true});assert.equal(general.body.scope,'all');assert.equal(general.body.checkedRows,2);
  }finally{
   if(oldEmail===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=oldEmail;

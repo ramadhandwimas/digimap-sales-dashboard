@@ -65,7 +65,7 @@ export default function DataCopasRepair({onBusyChange,scope="all"}:{onBusyChange
 
  return <section className="rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950 sm:p-5" aria-label={`Cek dan perbaiki Data Copas · ${scopeLabel}`}>
   <div className="flex items-start gap-3"><span className="rounded-xl bg-blue-50 p-2.5 text-blue-600 dark:bg-blue-950"><WandSparkles size={20}/></span><div><h3 className="font-extrabold">Cek &amp; Perbaiki Data Copas · {scopeLabel}</h3><p className="mt-1 text-sm text-slate-500">{scopeDescription}</p></div></div>
-  <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500 dark:bg-slate-900">{rules} Placeholder N/A pada kolom yang tidak dipakai dikosongkan. Qty, Amount, dan klasifikasi lain yang sudah terisi tidak diubah.</p>
+  <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500 dark:bg-slate-900">{rules} Vendor tanpa referensi di Master dilewati tanpa peringatan. Placeholder N/A pada kolom yang tidak dipakai dikosongkan. Qty, Amount, dan klasifikasi lain yang sudah terisi tidak diubah.</p>
   {notice?<div role="status" className={`mt-3 rounded-xl border p-3 text-sm font-bold ${notice.kind==="success"?"border-emerald-200 bg-emerald-50 text-emerald-700":"border-rose-200 bg-rose-50 text-rose-700"}`}>{notice.kind==="success"?<CircleCheck className="mr-2 inline size-4"/>:null}{notice.text}</div>:null}
 
   {preview?<div className="mt-4 space-y-3">

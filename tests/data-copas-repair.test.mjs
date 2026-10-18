@@ -134,11 +134,11 @@ test("an inapplicable device Vendor N/A does not block Type and is cleared as a 
  assert.ok(plan.candidates[0].changes.some(c=>c.column==="N"&&c.to===""));
 });
 
-test("a blank 3PP Vendor without a supplier reference stays in manual review",()=>{
+test("a blank 3PP Vendor without a supplier reference does not create a warning",()=>{
  const product=["NEWBRAND","NEW001","Case","CASE","","ACCESSORIES","APPLE"];
  const row=copas("NEW001",{6:"",9:"CASE",10:"NEWBRAND",11:"APPLE",12:"ACCESSORIES",13:""});
  const plan=planDataCopasRepair([...master,product],[row]);
- assert.equal(plan.candidates.length,0);assert.equal(plan.issues[0].reason,"incomplete-master");
+ assert.equal(plan.candidates.length,0);assert.equal(plan.issues.length,0);
 });
 
 const scopedMaster=[...master,appleDevice,["XL","XXLAPPLE-PLT24","MPD APPLE PLATINUM 24M","PROTECTION","","VAS","APPLE"]];
@@ -151,13 +151,13 @@ test("device checks exclude VAS missing Vendor and keep original sheet row addre
  assert.deepEqual(buildDataCopasRepairWrites(plan.candidates),[{range:"'Data Copas'!G3:G3",values:[["IPHONE 18 PRO"]]}]);
 });
 
-test("accessory and VAS checks retain XL Vendor issues and exclude device Type",()=>{
+test("accessory and VAS checks ignore absent XL Vendor and exclude device Type",()=>{
  const plan=planDataCopasRepair(scopedMaster,scopedRows(),"accessory-vas");
  assert.equal(plan.checkedRows,2);assert.equal(plan.typeRows,0);assert.equal(plan.vendorRows,1);
- assert.deepEqual(plan.issues.map(r=>r.article),["XXLAPPLE-PLT24"]);
+ assert.deepEqual(plan.issues,[]);
  assert.deepEqual(plan.candidates.map(r=>r.row),[4]);
  const all=planDataCopasRepair(scopedMaster,scopedRows());
- assert.equal(all.checkedRows,3);assert.equal(all.typeRows,1);assert.equal(all.vendorRows,1);assert.equal(all.issues.length,1);
+ assert.equal(all.checkedRows,3);assert.equal(all.typeRows,1);assert.equal(all.vendorRows,1);assert.equal(all.issues.length,0);
 });
 
 test("scope follows Master group even when Copas has a stale group, and keeps unknown groups in general checks",()=>{
@@ -191,10 +191,25 @@ test("XL Apple can resolve XXL Brand Code and SKU prefix without changing brand,
  assert.equal(planDataCopasRepair([...master,xlProduct(),reference],[xlSale()],"device").checkedRows,0);
 });
 
-test("XL Apple retains manual review when XXL supplier is missing or conflicting",()=>{
+test("XL Apple ignores missing XXL supplier but retains review for conflicting references",()=>{
  const product=xlProduct();
- assert.equal(planDataCopasRepair([...master,product],[xlSale()]).issues[0].reason,"incomplete-master");
+ assert.equal(planDataCopasRepair([...master,product],[xlSale()]).issues.length,0);
  const conflicting=[...xlReference];conflicting[9]="DIFFERENT SUPPLIER PT";conflicting[11]="XL APPLE";
  const plan=planDataCopasRepair([...master,product,xlReference,conflicting],[xlSale()]);
  assert.equal(plan.candidates.length,0);assert.equal(plan.issues[0].reason,"conflicting-master");
+});
+
+test("unavailable Vendor is preserved silently while other classifications can be repaired",()=>{
+ const product=["NEWBRAND","NEW001","Case","CASE","","ACCESSORIES","APPLE"];
+ for(const vendor of ["","N/A","Existing Vendor"]){
+  const row=copas("NEW001",{6:"",9:"CASE",10:"NEWBRAND",11:"APPLE",12:"ACCESSORIES",13:vendor});
+  const clean=planDataCopasRepair([...master,product],[row]);
+  assert.equal(clean.issues.length,0);assert.equal(clean.candidates.length,0);assert.equal(clean.rowsWithNA,0);
+  row[9]="N/A";
+  const repaired=planDataCopasRepair([...master,product],[row]);
+  assert.equal(repaired.issues.length,0);assert.deepEqual(repaired.candidates[0].changes,[{column:"J",field:"Product Category",from:"N/A",to:"CASE"}]);
+  const supplier=["","","","","","","","","9","NEW VENDOR PT","NEW","NEWBRAND"];
+  const updated=planDataCopasRepair([...master,product,supplier],[row]);
+  assert.equal(updated.vendorRows,1);assert.ok(updated.candidates[0].changes.some(c=>c.column==="N"&&c.to==="NEW VENDOR PT"));
+ }
 });
