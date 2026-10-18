@@ -38,13 +38,14 @@ export function parseSpwToNormalized(rows:unknown[][],classification:Map<string,
 }
 
 export function rowClass(r:FastSalesRow){if(r.scheme==="VAS")return"VAS";if(r.scheme==="ACCESSORIES")return"ACC";if(r.scheme==="DEVICES")return"DEVICE";return"UNCLASSIFIED"}
+export function sourceInvoiceKey(row:FastSalesRow){return row.invoice?`${row.key?.split("|")[0]||row.store}|${row.invoice}`:""}
 function product(r:FastSalesRow){if(r.brand!=="APPLE")return"";if(r.scheme==="ACCESSORIES"&&/AIRPODS/.test(r.category))return"airpods";if(r.scheme!=="DEVICES")return"";if(/IPHONE/.test(r.category))return"iphone";if(/^(MAC|MACBOOK|MAC BOOK)$/.test(r.category)||/MACBOOK/.test(r.type))return"mac";if(/IPAD/.test(r.category))return"ipad";if(/APPLE WATCH|SMARTWATCH|WATCH/.test(r.category))return"watch";return""}
 function vasType(r:FastSalesRow){if(r.scheme!=="VAS")return"";const t=`${r.article} ${r.category} ${r.brand} ${r.vendor} ${r.description}`.toUpperCase().replace(/\s+/g," ");if(t.includes("QOALA")||/(^|\s)KLA/.test(t)||t.includes("PROTEKSI"))return"qoala";if(t.includes("TELKOMSEL")||/(^|\s)TSL(\s|$)/.test(t))return"telkomsel";if(t.includes("INDOSAT")||/(^|\s)IDT(\s|$)/.test(t))return"indosat";if(/(^|\s)XL(\s|$)|XXL/.test(t))return"xl";return""}
 export function aggregateDaily(rows:FastSalesRow[],validation="PENDING_RAW_SYNC"){
  const groups=new Map<string,FastSalesRow[]>();for(const r of rows){if(!r.date||!r.id||r.qty<=0)continue;const k=`${r.date}|${r.id}|${r.store}`;const list=groups.get(k)||[];list.push(r);groups.set(k,list)}
  const now=new Date().toISOString();const out:FastDailyCache[]=[];
  for(const list of groups.values()){
-  const first=list[0],invoices=new Set(list.map(x=>x.invoice).filter(Boolean));let accessories=0,vas=0,amount=0,qty=0,iphone=0,mac=0,ipad=0,watch=0,airpods=0,qoalaQty=0,qoalaValue=0,telkomselQty=0,telkomselValue=0,xlQty=0,xlValue=0,indosatQty=0,indosatValue=0;
+  const first=list[0],invoices=new Set(list.map(sourceInvoiceKey).filter(Boolean));let accessories=0,vas=0,amount=0,qty=0,iphone=0,mac=0,ipad=0,watch=0,airpods=0,qoalaQty=0,qoalaValue=0,telkomselQty=0,telkomselValue=0,xlQty=0,xlValue=0,indosatQty=0,indosatValue=0;
   for(const r of list){amount+=r.amount;qty+=r.qty;const cls=rowClass(r);if(cls==="ACC")accessories+=r.amount;if(cls==="VAS")vas+=r.amount;const p=product(r);if(p==="iphone")iphone+=r.qty;else if(p==="mac")mac+=r.qty;else if(p==="ipad")ipad+=r.qty;else if(p==="watch")watch+=r.qty;else if(p==="airpods")airpods+=r.qty;const vt=vasType(r);if(vt==="qoala"){qoalaQty+=r.qty;qoalaValue+=r.amount}else if(vt==="telkomsel"){telkomselQty+=r.qty;telkomselValue+=r.amount}else if(vt==="xl"){xlQty+=r.qty;xlValue+=r.amount}else if(vt==="indosat"){indosatQty+=r.qty;indosatValue+=r.amount}}
   const inv=invoices.size;out.push({date:first.date,id:first.id,name:first.name,store:first.store,accessories,vas,amount,invoices:inv,qty,upt:inv?qty/inv:0,atv:inv?amount/inv:0,iphone,mac,ipad,watch,airpods,qoalaQty,qoalaValue,telkomselQty,telkomselValue,xlQty,xlValue,indosatQty,indosatValue,updatedAt:now,validation});
  }
@@ -56,3 +57,16 @@ export const cacheHeaders=["Date","Sales ID","Sales Name","Store","ACC Amount","
 export const normalizedValues=(r:FastSalesRow)=>[r.date,r.id,r.name,r.invoice,r.article,r.description,r.type,r.qty,r.amount,r.category,r.brand,r.core,r.scheme,r.vendor,r.week,r.store,r.key];
 export const cacheValues=(r:FastDailyCache)=>[r.date,r.id,r.name,r.store,r.accessories,r.vas,r.amount,r.invoices,r.qty,r.upt,r.atv,r.iphone,r.mac,r.ipad,r.watch,r.airpods,r.qoalaQty,r.qoalaValue,r.telkomselQty,r.telkomselValue,r.xlQty,r.xlValue,r.indosatQty,r.indosatValue,r.updatedAt,r.validation];
 export function cacheFromValues(r:unknown[]):FastDailyCache{return{date:isoDate(r[0]),id:text(r[1]),name:text(r[2]),store:up(r[3])||"M238",accessories:num(r[4]),vas:num(r[5]),amount:num(r[6]),invoices:num(r[7]),qty:num(r[8]),upt:num(r[9]),atv:num(r[10]),iphone:num(r[11]),mac:num(r[12]),ipad:num(r[13]),watch:num(r[14]),airpods:num(r[15]),qoalaQty:num(r[16]),qoalaValue:num(r[17]),telkomselQty:num(r[18]),telkomselValue:num(r[19]),xlQty:num(r[20]),xlValue:num(r[21]),indosatQty:num(r[22]),indosatValue:num(r[23]),updatedAt:text(r[24]),validation:text(r[25])}}
+// Master is authoritative after pricelist imports; historical classification
+// rows can still contain N/A until their spreadsheet formulas recalculate.
+export function mergeMasterClassifications(map:Map<string,Classification>,master:unknown[][]){
+ const vendors=new Map<string,string>();
+ for(const row of master.slice(1))if(text(row[11])&&text(row[9]))vendors.set(up(row[11]),up(row[9]));
+ for(const row of master.slice(1)){
+  const article=up(row[1]),scheme=up(row[5]);
+  if(!article||!["DEVICES","ACCESSORIES","VAS"].includes(scheme))continue;
+  const previous=map.get(article);
+  map.set(article,{type:text(row[4]),category:up(row[3]),brand:up(row[0]),core:up(row[6]),scheme,vendor:vendors.get(up(row[0]))||previous?.vendor||"",week:previous?.week||"",store:"M238"});
+ }
+ return map;
+}

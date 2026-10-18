@@ -37,14 +37,16 @@ export function planMasterRepairs(master:unknown[][],suppliers:unknown[][]):Repa
   const mapped=supplierBrand(articleKey(data[1])).brand||data[0],set=brandCores.get(key(mapped))||new Set<string>();
   set.add(key(data[6]));brandCores.set(key(mapped),set);
  }
+ const scopedArticles=new Set<string>();
  const plan:RepairPlan={checked:0,duplicateArticles:[...duplicates.values()].filter(rows=>rows.length>1).length,candidates:[],review:[]};
  for(const {row,raw,data} of rows){
   if(data.every(value=>!value))continue;
-  plan.checked++;
+  if(key(data[5])==="DEVICES")continue;
   const article=articleKey(data[1]),description=data[2];
   const text=key(data.join(" ")),isAppleCare=isAppleCareProduct(data[0],data[2],data[3]),vas=classifyVasProduct(article,data[0],data[2],data[3]);
   const mapped=supplierBrand(article),isAccessory=key(data[5])==="ACCESSORIES"||mapped.matched||isAppleCare;
   if(!isAccessory&&!vas)continue;
+  plan.checked++;scopedArticles.add(article);
   if(!article){plan.review.push({row,article:"",description,reason:"SAP Article kosong; baris tidak dapat diperbaiki otomatis."});continue}
   const duplicateRows=duplicates.get(article)||[];
   // Existing duplicate SAP rows are left untouched. They may be intentional
@@ -82,5 +84,6 @@ export function planMasterRepairs(master:unknown[][],suppliers:unknown[][]):Repa
   for(let i=0;i<INDEXES.length;i++){const index=INDEXES[i],before=raw[index],after=proposed[index];if(before!==after)changes.push({field:FIELDS[i],before,after})}
   if(changes.length)plan.candidates.push({id:`${row}:${article}`,row,article,description,current:raw,proposed,changes,reasons:[...new Set(reasons)]});
  }
+ plan.duplicateArticles=[...duplicates.entries()].filter(([article,rows])=>rows.length>1&&scopedArticles.has(article)).length;
  return plan;
 }

@@ -259,3 +259,11 @@ if(process.env.MASTER_FIXTURE){
  console.log("Live-reference dry run",{total:plan.total,new:plan.rows.length,existing:plan.existing,duplicates:plan.duplicates,review:plan.review.length,reasons:plan.review.reduce((a,r)=>(a[r.reason]=(a[r.reason]||0)+1,a),{})});
  if(process.env.REVIEW_OUTPUT)fs.writeFileSync(process.env.REVIEW_OUTPUT,JSON.stringify(plan,null,2));
 }
+
+test("accessory Master repair never checks or reclassifies DEVICES even with a matching supplier prefix",()=>{
+ const device=["APPLE","AMNDEVICE","IPHONE 18","IPHONE","IPHONE 18","DEVICES","APPLE"];
+ const plan=repair.planMasterRepairs([header,device,device,sample],suppliers);
+ assert.equal(plan.checked,1);assert.equal(plan.duplicateArticles,0);
+ assert.ok(plan.candidates.every(row=>row.article!=="AMNDEVICE"));
+ assert.ok(plan.review.every(row=>row.article!=="AMNDEVICE"));
+});

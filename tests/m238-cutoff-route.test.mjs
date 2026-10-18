@@ -16,14 +16,14 @@ function loadRoute(state){
  const sandboxExports={exports:{}};
  const next={NextResponse:{json:(body,init={})=>({body,status:init.status??200,headers:init.headers??{},json:async()=>body})}};
  const sheets={
-  getSheetRangesFresh:async()=>[state.source,state.destination],
+  getSheetRangesFresh:async()=>[state.source,state.destination,state.master],
   getSheetRanges:async()=>[[],[]],
   appendSheetValues:async(...args)=>{state.appended.push(args);return{}},
   batchWriteRanges:async()=>{},
   clearAndWrite:async()=>{},
  };
  const summary={buildSummaryFromRawValues:async()=>[],refreshDailySummaryPeriods:async()=>{},upsertDailySummaryRows:async()=>{}};
- const repair={buildDataCopasRepairWrites:()=>[],planDataCopasRepair:()=>({checkedRows:0,rowsWithNA:0,naRepairRows:0,vendorRows:0,candidates:[],changedCells:0,unresolvedNARows:0,issues:[]})};
+ const repair={buildDataCopasRepairWrites:()=>[],planDataCopasRepair:()=>({checkedRows:0,rowsWithNA:0,naRepairRows:0,vendorRows:0,candidates:state.repairCandidates||[],changedCells:0,unresolvedNARows:0,issues:[]})};
  const customRequire=(id)=>{
   if(id==="next/server")return next;
   if(id==="@/lib/google-sheets")return sheets;
@@ -77,5 +77,19 @@ test("Cut Off re-reads latest Data Copas state on every preview",async()=>{
   assert.equal(second.body.newCount,0);
   assert.equal(second.body.skippedCount,1);
   assert.equal(second.body.isBalanced,true);
+ }finally{route.restore()}
+});
+
+
+test("new cutoff rows apply Master Type/Vendor mapping without editing RAW or transaction amounts",async()=>{
+ const raw=sale();raw[6]="";
+ const state={source:[raw],destination:[],appended:[],master:[["Brand","SAP Article"]],repairCandidates:[{row:2,changes:[{column:"G",to:"IPHONE 18 PRO"}]}]};
+ const route=loadRoute(state);
+ try{
+  const preview=await cutoff(route.POST);
+  const saved=await cutoff(route.POST,{dryRun:false,planId:preview.body.planId});
+  assert.equal(saved.status,200);assert.equal(state.appended.length,1);
+  const values=state.appended[0][2];
+  assert.equal(values[0][6],"IPHONE 18 PRO");assert.equal(values[0][7],raw[7]);assert.equal(values[0][8],raw[8]);assert.equal(raw[6],"");
  }finally{route.restore()}
 });

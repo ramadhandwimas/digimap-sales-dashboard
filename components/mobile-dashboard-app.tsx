@@ -110,6 +110,7 @@ function Sheet({open,onClose,title,children}:{open:boolean;onClose:()=>void;titl
 }
 
 export default function MobileDashboardApp(){
+  const[moreTaskBusy,setMoreTaskBusy]=useState(false);
   const[tab,setTab]=useState<Tab>("home"),[period,setPeriod]=useState(periodNow()),[draftPeriod,setDraftPeriod]=useState(periodNow()),[periodMode,setPeriodMode]=useState<"month"|"week">("month"),[draftPeriodMode,setDraftPeriodMode]=useState<"month"|"week">("month"),[selectedWeek,setSelectedWeek]=useState(""),[draftWeek,setDraftWeek]=useState(""),[activeRange,setActiveRange]=useState<{from:string;to:string}|null>(null),[sheet,setSheet]=useState<SheetName>(null),[moreKind,setMoreKind]=useState(""),[moreData,setMoreData]=useState<any>(null),[moreBusy,setMoreBusy]=useState(false);
   const[overview,setOverview]=useState<Overview|null>(null),[fullOverview,setFullOverview]=useState<Overview|null>(null),[traffic,setTraffic]=useState<Traffic|null>(null),[daily,setDaily]=useState<Daily|null>(null),[summary,setSummary]=useState<DailySummary|null>(null),[weekly,setWeekly]=useState<Weekly|null>(null),[weeklySummary,setWeeklySummary]=useState<DailySummary|null>(null),[feedback,setFeedback]=useState<Feedback|null>(null),[cx,setCx]=useState<Cx|null>(null),[staffDetail,setStaffDetail]=useState<Staff|null>(null),[staffDetailMode,setStaffDetailMode]=useState<"daily"|"monthly">("monthly"),[dayDetail,setDayDetail]=useState<DailyRow|null>(null);
   const[homeMode,setHomeMode]=useState<HomeMode>("monthly"),[salesMode,setSalesMode]=useState<SalesMode>("daily"),[reportMode,setReportMode]=useState<ReportMode>("weekly"),[teamFilter,setTeamFilter]=useState("all"),[adminStart,setAdminStart]=useState<"soh"|"bnpl">("soh"),[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[error,setError]=useState(""),[dark,setDark]=useState(false),[themePreset,setThemePreset]=useState<ThemePreset>("classic"),[motionPreset,setMotionPreset]=useState<MotionPreset>("smooth"),[motionStyle,setMotionStyle]=useState<MotionStyle>("clean"),[fontPreset,setFontPreset]=useState<FontPreset>("system");
@@ -387,10 +388,10 @@ export default function MobileDashboardApp(){
       {tab==="team"?<TeamScreen rows={team} allRows={teamAll} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
       {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]} period={period} periodMode={periodMode} activeRange={activeRange}/>:null}
       {tab==="admin"?<AdminScreen initialTab={adminStart} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>:null}
-      {tab==="more"?<MoreScreen theme={themePreset} motion={motionPreset} motionStyle={motionStyle} font={fontPreset} onTheme={applyTheme} onMotion={applyMotion} onMotionStyle={applyMotionStyle} onFont={applyFont} onAction={handleMore}/>:null}
+      {tab==="more"?<MoreScreen theme={themePreset} motion={motionPreset} motionStyle={motionStyle} font={fontPreset} onTheme={applyTheme} onMotion={applyMotion} onMotionStyle={applyMotionStyle} onFont={applyFont} onAction={handleMore} onBusyChange={setMoreTaskBusy}/>:null}
     </main>
 
-    <nav className="m238m-bottom" style={{"--m238m-active-index":String(["home","sales","team","report","more"].indexOf(tab==="admin"?"more":tab))} as CSSProperties}>
+    <nav aria-label="Navigasi utama" className="m238m-bottom" style={{"--m238m-active-index":String(["home","sales","team","report","more"].indexOf(tab==="admin"?"more":tab))} as CSSProperties}>
       <span className="m238m-liquid-bubble" aria-hidden="true"/>
       {(themePreset==="midnight"
         ?[["home","Home",Activity],["sales","Sales",CreditCard],["team","Team",Briefcase],["report","Report",FileSpreadsheet],["more","More",Settings]]
@@ -413,7 +414,7 @@ export default function MobileDashboardApp(){
         :themePreset==="alliance"
         ?[["home","Home",Shield],["sales","Sales",TrendingUp],["team","Team",Users],["report","Report",ClipboardCheck],["more","More",Settings]]
         :[["home","Home",Home],["sales","Sales",TrendingUp],["team","Team",Users],["report","Report",FileDown],["more","More",MoreHorizontal]]
-      ).map(([key,label,Icon])=><button key={String(key)} onClick={()=>setTab(key as Tab)} className={(tab===key||(tab==="admin"&&key==="more"))?"active":""}><span className="m238m-nav-icon"><Icon size={themePreset==="playful"?22:21}/></span><span className="m238m-nav-label">{String(label)}</span></button>)}
+      ).map(([key,label,Icon])=><button key={String(key)} disabled={moreTaskBusy} aria-current={(tab===key||(tab==="admin"&&key==="more"))?"page":undefined} onClick={()=>setTab(key as Tab)} className={(tab===key||(tab==="admin"&&key==="more"))?"active":""}><span className="m238m-nav-icon"><Icon size={themePreset==="playful"?22:21}/></span><span className="m238m-nav-label">{String(label)}</span></button>)}
     </nav>
 
     <Sheet open={sheet==="period"} onClose={()=>setSheet(null)} title="Pilih Periode">
