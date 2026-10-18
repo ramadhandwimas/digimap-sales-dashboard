@@ -1,5 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {batchClearRanges,batchWriteRanges,ensureSheets,getGoogleSheetRequestCount} from "@/lib/google-sheets";
+import {acquireSpwLock,releaseSpwLock,replaceSpwRanges,SpwWriteError} from "@/lib/spw-store";
 import {cacheHeaders,normalizedHeaders} from "@/lib/m238-fast-sales";
 import {sohFastHeaders} from "@/lib/m238-fast-soh";
 import {clearActiveSpwSummaryRows} from "@/lib/m238-daily-summary-cache";
@@ -13,9 +14,16 @@ export async function POST(req:NextRequest){
  const timing={read:0,clear:0,write:0,total:0};
  try{
   if(action==="clear-spw"){
-   let t=Date.now();try{await batchClearRanges(MASTER_ID,["'SPW'!A1:C65536",`'${NORMALIZED}'!A2:Q50000`,`'${CACHE}'!A2:Z20000`],e,k)}catch{await ensureSheets(MASTER_ID,[{title:NORMALIZED,headers:normalizedHeaders},{title:CACHE,headers:cacheHeaders}],e,k);timing.read=Date.now()-t;t=Date.now();await batchClearRanges(MASTER_ID,["'SPW'!A1:C65536",`'${NORMALIZED}'!A2:Q50000`,`'${CACHE}'!A2:Z20000`],e,k)}timing.clear=Date.now()-t;
-   const cleared=["","","M238","",0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,new Date().toISOString(),"CLEARED"];t=Date.now();await batchWriteRanges(MASTER_ID,[{range:`'${CACHE}'!A2`,values:[cleared]}],e,k,"RAW");await clearActiveSpwSummaryRows({email:e,key:k});timing.write=Date.now()-t;timing.total=Date.now()-started;const apiRequests=getGoogleSheetRequestCount()-apiStart;console.info("M238_PERF",{op:"clear-spw",timing,apiRequests});
-   return NextResponse.json({ok:true,message:"SPW aktif dan Fast Daily Sales berhasil dikosongkan. Silakan upload file terbaru.",performance:{...timing,apiRequests}},{headers:{"cache-control":"no-store"}})
+   const credentials={email:e,key:k};await acquireSpwLock(credentials);
+   let safeToUnlock=true;
+   try{
+   await ensureSheets(MASTER_ID,[{title:"SPW M238",headers:["Report","Article / Invoice","Amount"]},{title:"SPW M996",headers:["Report","Article / Invoice","Amount"]},{title:NORMALIZED,headers:normalizedHeaders},{title:CACHE,headers:cacheHeaders}],e,k);
+   const t=Date.now();
+   const cleared=["","","M238","",0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,new Date().toISOString(),"CLEARED"];
+   await replaceSpwRanges(credentials,[{title:"SPW",startRow:0,width:3,values:[]},{title:"SPW M238",startRow:1,width:3,values:[]},{title:"SPW M996",startRow:1,width:3,values:[]},{title:NORMALIZED,startRow:1,width:17,values:[]},{title:CACHE,startRow:1,width:26,values:[cleared]}]);
+   await clearActiveSpwSummaryRows({email:e,key:k});timing.write=Date.now()-t;timing.total=Date.now()-started;const apiRequests=getGoogleSheetRequestCount()-apiStart;console.info("M238_PERF",{op:"clear-spw",timing,apiRequests});
+   }catch(error){if(error instanceof SpwWriteError&&!error.safeToUnlock)safeToUnlock=false;throw error}finally{if(safeToUnlock)await releaseSpwLock(credentials)}
+   return NextResponse.json({ok:true,message:"SPW aktif dan Fast Daily Sales berhasil dikosongkan. Silakan upload file terbaru.",performance:{...timing,apiRequests:getGoogleSheetRequestCount()-apiStart}},{headers:{"cache-control":"no-store"}})
   }
   let t=Date.now();try{await batchClearRanges(MASTER_ID,["'SOH'!A1:I10000",`'${SOH_CACHE}'!A2:F10000`],e,k)}catch{await ensureSheets(MASTER_ID,[{title:SOH_CACHE,headers:sohFastHeaders}],e,k);timing.read=Date.now()-t;t=Date.now();await batchClearRanges(MASTER_ID,["'SOH'!A1:I10000",`'${SOH_CACHE}'!A2:F10000`],e,k)}timing.clear=Date.now()-t;
   t=Date.now();await batchWriteRanges(MASTER_ID,[{range:`'${SOH_CACHE}'!A2`,values:[["","",0,"",new Date().toISOString(),"CLEARED"]]}],e,k,"RAW");timing.write=Date.now()-t;timing.total=Date.now()-started;const apiRequests=getGoogleSheetRequestCount()-apiStart;console.info("M238_PERF",{op:"clear-soh",timing,apiRequests});

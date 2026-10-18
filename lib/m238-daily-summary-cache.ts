@@ -4,7 +4,7 @@ import {
   ensureSheets,
   getSheetRanges,
 } from "@/lib/google-sheets";
-import type { FastSalesRow } from "@/lib/m238-fast-sales";
+import { sourceInvoiceKey, type FastSalesRow } from "@/lib/m238-fast-sales";
 
 const SOURCE_ID = "160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const MASTER_ID = "1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk";
@@ -418,6 +418,7 @@ export async function readCachedSummaryPeriods(
 export async function upsertDailySummaryRows(
   incoming: DailySummaryCacheRow[],
   credentials: Credentials,
+  replaceActiveSpw = false,
 ) {
   if (!incoming.length) return;
   await ensureCacheSheets(credentials);
@@ -430,7 +431,7 @@ export async function upsertDailySummaryRows(
   const map = new Map<string, DailySummaryCacheRow>();
   for (const values of storedValues ?? []) {
     const row = cacheRowFromValues(values);
-    if (row.date) map.set(rowKey(row), row);
+    if (row.date && !(replaceActiveSpw && row.store === STORE && row.source === "SPW")) map.set(rowKey(row), row);
   }
   for (const row of incoming) {
     const existing = map.get(rowKey(row));
@@ -619,7 +620,7 @@ function aggregateRows(
   const updatedAt = new Date().toISOString();
   const result: DailySummaryCacheRow[] = [];
   for (const [date, rows] of groups) {
-    const invoices = new Set(rows.map((row) => row.invoice).filter(Boolean));
+    const invoices = new Set(rows.map(sourceInvoiceKey).filter(Boolean));
     let amount = 0,
       qty = 0,
       device = 0,

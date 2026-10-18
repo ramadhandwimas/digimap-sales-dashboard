@@ -38,13 +38,14 @@ export function parseSpwToNormalized(rows:unknown[][],classification:Map<string,
 }
 
 export function rowClass(r:FastSalesRow){if(r.scheme==="VAS")return"VAS";if(r.scheme==="ACCESSORIES")return"ACC";if(r.scheme==="DEVICES")return"DEVICE";return"UNCLASSIFIED"}
+export function sourceInvoiceKey(row:FastSalesRow){return row.invoice?`${row.key?.split("|")[0]||row.store}|${row.invoice}`:""}
 function product(r:FastSalesRow){if(r.brand!=="APPLE")return"";if(r.scheme==="ACCESSORIES"&&/AIRPODS/.test(r.category))return"airpods";if(r.scheme!=="DEVICES")return"";if(/IPHONE/.test(r.category))return"iphone";if(/^(MAC|MACBOOK|MAC BOOK)$/.test(r.category)||/MACBOOK/.test(r.type))return"mac";if(/IPAD/.test(r.category))return"ipad";if(/APPLE WATCH|SMARTWATCH|WATCH/.test(r.category))return"watch";return""}
 function vasType(r:FastSalesRow){if(r.scheme!=="VAS")return"";const t=`${r.article} ${r.category} ${r.brand} ${r.vendor} ${r.description}`.toUpperCase().replace(/\s+/g," ");if(t.includes("QOALA")||/(^|\s)KLA/.test(t)||t.includes("PROTEKSI"))return"qoala";if(t.includes("TELKOMSEL")||/(^|\s)TSL(\s|$)/.test(t))return"telkomsel";if(t.includes("INDOSAT")||/(^|\s)IDT(\s|$)/.test(t))return"indosat";if(/(^|\s)XL(\s|$)|XXL/.test(t))return"xl";return""}
 export function aggregateDaily(rows:FastSalesRow[],validation="PENDING_RAW_SYNC"){
  const groups=new Map<string,FastSalesRow[]>();for(const r of rows){if(!r.date||!r.id||r.qty<=0)continue;const k=`${r.date}|${r.id}|${r.store}`;const list=groups.get(k)||[];list.push(r);groups.set(k,list)}
  const now=new Date().toISOString();const out:FastDailyCache[]=[];
  for(const list of groups.values()){
-  const first=list[0],invoices=new Set(list.map(x=>x.invoice).filter(Boolean));let accessories=0,vas=0,amount=0,qty=0,iphone=0,mac=0,ipad=0,watch=0,airpods=0,qoalaQty=0,qoalaValue=0,telkomselQty=0,telkomselValue=0,xlQty=0,xlValue=0,indosatQty=0,indosatValue=0;
+  const first=list[0],invoices=new Set(list.map(sourceInvoiceKey).filter(Boolean));let accessories=0,vas=0,amount=0,qty=0,iphone=0,mac=0,ipad=0,watch=0,airpods=0,qoalaQty=0,qoalaValue=0,telkomselQty=0,telkomselValue=0,xlQty=0,xlValue=0,indosatQty=0,indosatValue=0;
   for(const r of list){amount+=r.amount;qty+=r.qty;const cls=rowClass(r);if(cls==="ACC")accessories+=r.amount;if(cls==="VAS")vas+=r.amount;const p=product(r);if(p==="iphone")iphone+=r.qty;else if(p==="mac")mac+=r.qty;else if(p==="ipad")ipad+=r.qty;else if(p==="watch")watch+=r.qty;else if(p==="airpods")airpods+=r.qty;const vt=vasType(r);if(vt==="qoala"){qoalaQty+=r.qty;qoalaValue+=r.amount}else if(vt==="telkomsel"){telkomselQty+=r.qty;telkomselValue+=r.amount}else if(vt==="xl"){xlQty+=r.qty;xlValue+=r.amount}else if(vt==="indosat"){indosatQty+=r.qty;indosatValue+=r.amount}}
   const inv=invoices.size;out.push({date:first.date,id:first.id,name:first.name,store:first.store,accessories,vas,amount,invoices:inv,qty,upt:inv?qty/inv:0,atv:inv?amount/inv:0,iphone,mac,ipad,watch,airpods,qoalaQty,qoalaValue,telkomselQty,telkomselValue,xlQty,xlValue,indosatQty,indosatValue,updatedAt:now,validation});
  }

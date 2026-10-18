@@ -1,4 +1,5 @@
 "use client";
+import {SpwStoreSelect} from "@/components/spw-store-select";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
@@ -460,10 +461,11 @@ fileRef = useRef<HTMLInputElement>(null),
     try {
       const body = new FormData();
       body.append("file", file);
+      body.append("store", fileRef.current?.dataset.store||"M238");
       const r = await fetch("/api/upload-spw", { method: "POST", body }),
         j = await r.json();
       if (!r.ok) throw new Error(j.error);
-      setMessage(`Upload ${num.format(j.rows)} baris berhasil.`);
+      setMessage(`SPW ${j.store||"M238"} berhasil. Gabungan M238 + M996: Rp ${num.format(Number(j.combinedAmount)||0)}.`);
       await load(true);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Upload gagal");
@@ -2264,6 +2266,7 @@ function DataUpload({
   uploadStatus: string;
   message: string;
 }) {
+  const [spwStore,setSpwStore]=useState("M238");
   return (
     <div className="space-y-5">
       <div>
@@ -2273,8 +2276,10 @@ function DataUpload({
         <div className="rounded-2xl border bg-white p-5 shadow-sm dark:bg-slate-950">
           <FileSpreadsheet className="size-5 text-blue-600" />
           <h3 className="mt-2 font-extrabold">Upload SPW</h3>
+          <SpwStoreSelect value={spwStore} onChange={setSpwStore} disabled={saving}/>
           <input
             ref={fileRef}
+            data-store={spwStore}
             type="file"
             accept=".xlsx,.xls,.csv"
             className="mt-5 block w-full rounded-xl border p-3 text-sm"
