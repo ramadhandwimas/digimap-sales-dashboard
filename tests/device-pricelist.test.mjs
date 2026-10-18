@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import {createRequire} from 'node:module';
 import ts from 'typescript';
 const require=createRequire(import.meta.url);
-function load(file,mocks={}){const source=fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8'),module={exports:{}};const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;new Function('require','module','exports',code)(id=>mocks[id]??require(id),module,module.exports);return module.exports}
+function load(file,mocks={}){const source=fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8'),loaded={exports:{}};const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;new Function('require','module','exports',code)(id=>mocks[id]??require(id),loaded,loaded.exports);return loaded.exports}
 const accessory=load('lib/accessory-pricelist.ts');
 const catalog=load('lib/promo-board-catalog.ts');
 const device=load('lib/device-pricelist.ts',{'./accessory-pricelist':accessory,'./promo-board-catalog':catalog});

@@ -37,7 +37,7 @@ export async function POST(req:NextRequest){
    try{[classRows]=await getSheetRanges(MASTER_ID,[`'${CLASS_CACHE}'!A2:I20000`],email,key)}catch{await ensureSheets(MASTER_ID,[{title:NORMALIZED,headers:normalizedHeaders},{title:CACHE,headers:cacheHeaders},{title:CLASS_CACHE,headers:classificationHeaders}],email,key);[classRows]=await getSheetRanges(MASTER_ID,[`'${CLASS_CACHE}'!A2:I20000`],email,key)}
    let classMap=classificationMapFromValues(classRows||[]),sourceRaw:unknown[][]=[],classificationRefreshed=false,parsed=parseSpwToNormalized(report.rows,classMap,"M238");
    if(!classMap.size||parsed.unknownClassification>0){const source=await getSheetRanges(SOURCE_ID,["'Data Copas'!A2:Q50000","'RAW SalesPerson'!AB2:AR50000"],email,key);const copas=source[0]||[];sourceRaw=source[1]||[];const fresh=buildClassificationMap([copas,sourceRaw]);for(const[k,v]of fresh)classMap.set(k,v);classificationRefreshed=true;parsed=parseSpwToNormalized(report.rows,classMap,"M238")}
-   const [master]=await getSheetRangesFresh(SOURCE_ID,["'Master'!A1:L20000"],email,key);
+   const [master]=await getSheetRangesFresh(SOURCE_ID,["'Master'!A1:L100000"],email,key);
    classMap=mergeMasterClassifications(classMap,master);classificationRefreshed=true;
    parsed=parseSpwToNormalized(report.rows,classMap,store);
    const combined=combineSpw(snapshots,classMap);
