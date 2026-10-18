@@ -166,3 +166,35 @@ test("scope follows Master group even when Copas has a stale group, and keeps un
  assert.equal(planDataCopasRepair(scopedMaster,rows,"accessory-vas").checkedRows,2);
  assert.equal(planDataCopasRepair(scopedMaster,rows).checkedRows,3);
 });
+
+const xlProduct=(brand="XL APPLE",article="XXLAPPLE-PLT24")=>[brand,article,"MPD APPLE PLATINUM 24M","PROVIDER","","VAS","APPLE"];
+const xlSale=(article="XXLAPPLE-PLT24",vendor="")=>copas(article,{6:"",9:"PROVIDER",10:"XL APPLE",11:"APPLE",12:"VAS",13:vendor});
+const xlReference=["","","","","","","","","001","XL SUPPLIER PT","XXL","XXL"];
+
+test("XL Apple VAS uses the XXL supplier PT Name for blank, N/A and outdated Vendors",()=>{
+ for(const brand of ["XL APPLE","XL Apple","XL","XXL","XXLAPPLE"]){
+  for(const vendor of ["","N/A","Old Vendor"]){
+   const plan=planDataCopasRepair([...master,xlProduct(brand),xlReference],[xlSale(undefined,vendor)],"accessory-vas");
+   assert.equal(plan.issues.length,0);assert.equal(plan.vendorRows,1);
+   assert.deepEqual(plan.candidates[0].changes,[{column:"N",field:"Vendor",from:vendor,to:"XL SUPPLIER PT"}]);
+   const fixed=xlSale(undefined,"XL SUPPLIER PT");
+   assert.equal(planDataCopasRepair([...master,xlProduct(brand),xlReference],[fixed]).candidates.length,0);
+  }
+ }
+});
+
+test("XL Apple can resolve XXL Brand Code and SKU prefix without changing brand, Type or category",()=>{
+ const reference=[...xlReference];reference[11]="XL Axiata";
+ const plan=planDataCopasRepair([...master,xlProduct("APPLE SERVICE"),reference],[xlSale()]);
+ assert.equal(plan.issues.length,0);assert.deepEqual(plan.candidates[0].changes.map(c=>c.column),["N"]);
+ assert.equal(plan.candidates[0].changes[0].to,"XL SUPPLIER PT");
+ assert.equal(planDataCopasRepair([...master,xlProduct(),reference],[xlSale()],"device").checkedRows,0);
+});
+
+test("XL Apple retains manual review when XXL supplier is missing or conflicting",()=>{
+ const product=xlProduct();
+ assert.equal(planDataCopasRepair([...master,product],[xlSale()]).issues[0].reason,"incomplete-master");
+ const conflicting=[...xlReference];conflicting[9]="DIFFERENT SUPPLIER PT";conflicting[11]="XL APPLE";
+ const plan=planDataCopasRepair([...master,product,xlReference,conflicting],[xlSale()]);
+ assert.equal(plan.candidates.length,0);assert.equal(plan.issues[0].reason,"conflicting-master");
+});

@@ -53,6 +53,9 @@ const value = (input: unknown) => String(input ?? "")
 const key = (input: unknown) => value(input).toUpperCase();
 const isNA = (input: unknown) => /^(?:#?N\/?A|NOT AVAILABLE)$/i.test(value(input));
 const same = (left: unknown, right: unknown) => key(left) === key(right);
+// XL Apple is the XL/XXL VAS family; Vendor still comes from Master PT Name.
+const isXlSupplier = (input:unknown) => ["XL","XXL","XLAPPLE","XXLAPPLE"].includes(key(input).replace(/[^A-Z0-9]/g,""));
+const supplierKey = (input:unknown) => isXlSupplier(input)?"XXL":key(input);
 
 type DesiredField = {column:CopasRepairColumn;field:string;value:string};
 
@@ -77,6 +80,16 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
       const suppliers=supplierRows.get(supplierBrand)??new Set<string>();
       suppliers.add(supplierName);
       supplierRows.set(supplierBrand,suppliers);
+      if(isXlSupplier(supplierBrand)){
+        const aliases=supplierRows.get(supplierKey(supplierBrand))??new Set<string>();
+        aliases.add(supplierName);supplierRows.set(supplierKey(supplierBrand),aliases);
+      }
+    }
+    // Some references use XXL in Brand Code with a different display name.
+    if (isXlSupplier(row[10]) && supplierName && !isNA(supplierName)) {
+      const suppliers=supplierRows.get("XXL")??new Set<string>();
+      suppliers.add(supplierName);
+      supplierRows.set("XXL",suppliers);
     }
   }
 
@@ -123,7 +136,8 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     const usesVendor=scheme==="VAS"||(scheme==="ACCESSORIES"&&!firstParty);
     const blankType=usesType&&!value(current[6]);
     if(blankType)rowsWithBlankType+=1;
-    const suppliers=usesVendor?[...(supplierRows.get(key(brand))??[])]:[];
+    const vendorKey=scheme==="VAS"&&(isXlSupplier(brand)||/^X{1,2}LAPPLE/.test(article))?"XXL":key(brand);
+    const suppliers=usesVendor?[...(supplierRows.get(vendorKey)??[])]:[];
     if (suppliers.length > 1) {
       issues.push({...issueBase,reason:"conflicting-master",detail:`Brand ${brand} mempunyai lebih dari satu supplier di Master.`});
       continue;
