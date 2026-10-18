@@ -1,0 +1,83 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {createRequire} from 'node:module';
+import React from 'react';
+import {act,create} from 'react-test-renderer';
+import ts from 'typescript';
+const require=createRequire(import.meta.url);
+function load(file,mocks={}){const code=ts.transpileModule(fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;const loaded={exports:{}};new Function('require','module','exports',code)(id=>mocks[id]?{__esModule:true,...mocks[id]}:require(id),loaded,loaded.exports);return loaded.exports.default}
+const stub=()=>null;
+const Uploader=load('components/accessory-pricelist-upload.tsx',{'@/components/data-copas-repair':{default:stub},'@/components/accessory-master-repair':{default:stub}});
+const More=load('components/mobile-dashboard-more.tsx',{'next/dynamic':{default:()=>props=>React.createElement('tool-page',props)},'@/components/stock-request-md':{default:stub}});
+const text=node=>typeof node==='string'?node:Array.isArray(node)?node.map(text).join(''):node?.children?text(node.children):'';
+const button=(view,label)=>view.root.findAllByType('button').find(node=>text(node).includes(label));
+const tick=()=>new Promise(resolve=>setImmediate(resolve));
+const values=new Map();
+globalThis.IS_REACT_ACT_ENVIRONMENT=true;
+globalThis.localStorage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)};
+const browserEvents=new EventTarget();
+globalThis.window={scrollTo:()=>{},addEventListener:(...args)=>browserEvents.addEventListener(...args),removeEventListener:(...args)=>browserEvents.removeEventListener(...args),dispatchEvent:event=>browserEvents.dispatchEvent(event)};
+const preview={total:1,newCount:1,deviceCount:1,accessoryCount:0,vasCount:0,existing:0,duplicates:0,ignored:0,reviewCount:0,preview:[['APPLE','APP18','iPhone 18','IPHONE','IPHONE 18','DEVICES','APPLE']],review:[],planId:'plan-1'};
+const response=(body,ok=true)=>({ok,json:async()=>body});
+
+test('Settings opens independent tool pages, locks back while working, and groups appearance controls',async()=>{
+ const changes=[],busy=[];let view;
+ await act(async()=>{view=create(React.createElement(More,{theme:'classic',motion:'smooth',motionStyle:'clean',font:'system',onTheme:v=>changes.push(v),onMotion:()=>{},onMotionStyle:()=>{},onFont:()=>{},onAction:()=>{},onBusyChange:v=>busy.push(v)}))});
+ await act(async()=>button(view,'Settings').props.onClick());
+ assert.equal(view.root.findAllByType('h1')[0].children.join(''),'Settings');
+ assert.equal(view.root.findAllByType('tool-page').length,0);
+ await act(async()=>button(view,'Pricelist Device').props.onClick());
+ assert.equal(view.root.findByType('tool-page').props.kind,'device');
+ assert.ok(!view.root.findByProps({className:'m238-settings m238-settings-tool'}).props.className.includes('m238m-more'));
+ await act(async()=>view.root.findByType('tool-page').props.onBusyChange(true));
+ assert.equal(view.root.findByProps({'aria-label':'Kembali ke Settings'}).props.disabled,true);
+ await act(async()=>view.root.findByType('tool-page').props.onBusyChange(false));
+ await act(async()=>view.root.findByProps({'aria-label':'Kembali ke Settings'}).props.onClick());
+ await act(async()=>button(view,'Tampilan').props.onClick());
+ assert.equal(view.root.findAllByType('h1')[0].children.join(''),'Tampilan');
+ await act(async()=>button(view,'Midnight Pro').props.onClick());
+ assert.deepEqual(changes,['midnight']);assert.deepEqual(busy,[true,false]);
+ assert.ok(view.root.findAllByType('summary').some(n=>text(n)==='Pengaturan animasi lanjutan'));
+ await act(async()=>view.unmount());
+});
+
+test('upload keeps file and preview on failure, requires a fresh check, and records successful import',async()=>{
+ values.clear();const originalFetch=globalThis.fetch,busy=[],calls=[];let view;
+ globalThis.fetch=async(url,options)=>{calls.push({url,mode:options.body.get('mode'),file:options.body.get('file').name});return response(preview)};
+ try{
+  await act(async()=>{view=create(React.createElement(Uploader,{kind:'device',onBusyChange:v=>busy.push(v)}))});
+  const file=new File(['fake Excel'],'device.xlsx');
+  await act(async()=>view.root.findByType('input').props.onChange({target:{files:[file]}}));
+  await act(async()=>{button(view,'Cek Pricelist').props.onClick();await tick()});
+  assert.ok(button(view,'Tambahkan 1 Produk'));assert.equal(view.root.findByType('details').props.open,true);
+  globalThis.fetch=async()=>{throw new Error('Koneksi terputus')};
+  await act(async()=>{button(view,'Tambahkan 1 Produk').props.onClick();await tick()});
+  assert.ok(text(view.toJSON()).includes('APP18'));assert.ok(text(view.toJSON()).includes('device.xlsx'));
+  assert.equal(button(view,'Tambahkan 1 Produk').props.disabled,true);
+  globalThis.fetch=async(_url,options)=>response(options.body.get('mode')==='preview'?preview:{...preview,imported:1,message:'1 produk berhasil ditambahkan'});
+  await act(async()=>{button(view,'Cek Pricelist').props.onClick();await tick()});
+  assert.equal(button(view,'Tambahkan 1 Produk').props.disabled,false);
+  await act(async()=>{button(view,'Tambahkan 1 Produk').props.onClick();await tick()});
+  assert.equal(button(view,'Tambahkan 1 Produk'),undefined);
+  assert.equal(JSON.parse(values.get('m238-pricelist-import-device')).fileName,'device.xlsx');
+  assert.ok(text(view.toJSON()).includes('Terakhir berhasil di perangkat ini'));
+  assert.ok(busy.every((value,index)=>value===(index%2===0)));
+  assert.equal(calls[0].url,'/api/upload-device-pricelist');
+ }finally{globalThis.fetch=originalFetch;if(view)await act(async()=>view.unmount())}
+});
+
+test('double tapping check sends one request and busy controls unlock when it finishes',async()=>{
+ const originalFetch=globalThis.fetch;let resolve,requests=0,view;
+ globalThis.fetch=()=>{requests++;return new Promise(done=>{resolve=done})};
+ try{
+  await act(async()=>{view=create(React.createElement(Uploader))});
+  await act(async()=>view.root.findByType('input').props.onChange({target:{files:[new File(['x'],'accessory.xlsx')]}}));
+  const click=button(view,'Cek Pricelist').props.onClick;
+  await act(async()=>{click();click()});
+  assert.equal(requests,1);assert.equal(view.root.findByType('input').props.disabled,true);
+  assert.ok(view.root.findByProps({role:'status'}));
+  await act(async()=>{resolve(response(preview));await tick()});
+  assert.equal(view.root.findByType('input').props.disabled,false);
+ }finally{globalThis.fetch=originalFetch;if(view)await act(async()=>view.unmount())}
+});

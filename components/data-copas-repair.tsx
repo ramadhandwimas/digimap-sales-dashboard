@@ -1,5 +1,5 @@
 "use client";
-import {useState} from "react";
+import {useRef,useState} from "react";
 import {AlertTriangle,ArrowRight,CircleCheck,ListChecks,LoaderCircle,WandSparkles} from "lucide-react";
 
 type Notice={kind:"success"|"error";text:string}|null;
@@ -21,13 +21,15 @@ type Preview={
  message:string;
 };
 
-export default function DataCopasRepair(){
+export default function DataCopasRepair({onBusyChange}:{onBusyChange?:(busy:boolean)=>void}={}){
+ const active=useRef(false);
  const[busy,setBusy]=useState<"check"|"apply"|null>(null);
  const[notice,setNotice]=useState<Notice>(null);
  const[preview,setPreview]=useState<Preview|null>(null);
 
  const check=async()=>{
-  setBusy("check");setNotice(null);setPreview(null);
+  if(active.current)return;active.current=true;
+  setBusy("check");onBusyChange?.(true);setNotice(null);setPreview(null);
   try{
    const response=await fetch("/api/data-upload-ops",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"repair-copas",dryRun:true}),cache:"no-store"});
    const result=await response.json();
@@ -35,14 +37,14 @@ export default function DataCopasRepair(){
    setPreview(result);
    if(!Number(result.rowsWithNA||0))setNotice({kind:"success",text:"Data Copas sudah bersih. Tidak ada N/A pada kolom klasifikasi."});
   }catch(error){setNotice({kind:"error",text:error instanceof Error?error.message:"Pengecekan Data Copas gagal"})}
-  finally{setBusy(null)}
+  finally{active.current=false;setBusy(null);onBusyChange?.(false)}
  };
 
  const apply=async()=>{
-  if(!preview?.repairRows)return;
+  if(!preview?.repairRows||active.current)return;
   const approved=window.confirm(`Perbaiki ${preview.repairRows} baris dan ${preview.changedCells} sel sesuai daftar?\n\nN/A akan diisi dari Master dan Vendor akan mengikuti PT Name terbaru. Qty dan Amount tidak diubah.`);
   if(!approved)return;
-  setBusy("apply");setNotice(null);
+  active.current=true;setBusy("apply");onBusyChange?.(true);setNotice(null);
   try{
    const response=await fetch("/api/data-upload-ops",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"repair-copas",planId:preview.planId}),cache:"no-store"});
    const result=await response.json();
@@ -51,7 +53,7 @@ export default function DataCopasRepair(){
    setPreview(null);
    window.dispatchEvent(new CustomEvent("m238:data-activity",{detail:{label:"Perbaiki Data Copas",timestamp:new Date().toISOString(),detail:`${result.repairRows??0} baris • ${result.changedCells??0} sel`}}));
   }catch(error){setNotice({kind:"error",text:error instanceof Error?error.message:"Perbaikan Data Copas gagal"})}
-  finally{setBusy(null)}
+  finally{active.current=false;setBusy(null);onBusyChange?.(false)}
  };
 
  return <section className="rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950 sm:p-5" aria-label="Cek dan perbaiki Data Copas">

@@ -6,7 +6,7 @@ import type {RepairCandidate,RepairReview} from "@/lib/accessory-master-repair";
 
 type Result={checked:number;duplicateArticles:number;fixableCount:number;reviewCount:number;candidates:RepairCandidate[];review:RepairReview[];hasMore:boolean;planId:string};
 
-export default function AccessoryMasterRepair(){
+export default function AccessoryMasterRepair({onBusyChange}:{onBusyChange?:(busy:boolean)=>void}={}){
  const[result,setResult]=useState<Result|null>(null),[selected,setSelected]=useState<Set<string>>(new Set());
  const[busy,setBusy]=useState<"preview"|"apply"|null>(null),[error,setError]=useState(""),[success,setSuccess]=useState("");
  const active=useRef(false);
@@ -18,14 +18,14 @@ export default function AccessoryMasterRepair(){
  }
  async function preview(preserveSuccess=false){
   if(active.current)return;
-  active.current=true;setBusy("preview");setError("");if(!preserveSuccess)setSuccess("");
+  active.current=true;setBusy("preview");onBusyChange?.(true);setError("");if(!preserveSuccess)setSuccess("");
   try{const payload=await call({mode:"preview"});setResult(payload);setSelected(new Set())}
   catch(e){setError(e instanceof Error?e.message:"Master gagal diperiksa.")}
-  finally{active.current=false;setBusy(null)}
+  finally{active.current=false;setBusy(null);onBusyChange?.(false)}
  }
  async function apply(){
   if(!result||!selected.size||active.current)return;
-  active.current=true;setBusy("apply");setError("");setSuccess("");
+  active.current=true;setBusy("apply");onBusyChange?.(true);setError("");setSuccess("");
   try{
    const payload=await call({mode:"apply",planId:result.planId,selected:[...selected]});
    setSuccess(payload.message||"Perbaikan berhasil disimpan.");
@@ -34,7 +34,7 @@ export default function AccessoryMasterRepair(){
    const issue=e as Error&{payload?:Result};
    if(issue.payload?.planId){setResult(issue.payload);setSelected(new Set())}
    setError(issue.message||"Perbaikan gagal disimpan.");
-  }finally{active.current=false;setBusy(null)}
+  }finally{active.current=false;setBusy(null);onBusyChange?.(false)}
  }
  const toggle=(id:string)=>setSelected(current=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next});
  return <div className="acc-repair">
