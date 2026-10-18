@@ -1,5 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import * as XLSX from "xlsx";
+import {currentStokanContext,isStokanPosition} from "@/lib/stokan-context";
 import {planStokanReassignment} from "@/lib/stokan-assignment";
 import {batchWriteRanges,clearAndWrite,ensureSheet,getSheetRanges,getSheetRangesFresh} from "@/lib/google-sheets";
 
@@ -10,7 +11,6 @@ const HEADERS=["No","Stocker","Brand","Artikel","Description","S/N","Qty","Backr
 const s=(v:unknown)=>String(v??"").replace(/\u00a0/g," ").replace(/\s+/g," ").trim();
 const safe=(v:unknown,max=160)=>s(v).replace(/[\r\n]/g," ").slice(0,max);
 const norm=(v:unknown)=>s(v).toUpperCase();
-const isoDate=(v:unknown)=>/^\d{4}-\d{2}-\d{2}$/.test(s(v))?s(v):"";
 const qtyValue=(v:unknown):number|null=>{if(typeof v==="number")return Number.isFinite(v)&&v>=0?v:null;const t=s(v).replace(/,/g,"");if(!t)return null;const x=Number(t);return Number.isFinite(x)&&x>=0?x:null};
 
 type ParsedRow={brand:string;article:string;description:string;serial:string;totalStock:number|null;sourceNo:string};
@@ -18,10 +18,10 @@ type Staff={id:string;name:string;position:string};
 type BatchWork={uploadID:string;stockDate:string;period:string;uploadedAt:string;totalArticles:number;totalStock:number;stockers:Set<string>};
 type FinalRow={stocker:string;brand:string;article:string;description:string;serial:string;totalStock:number;sourceNo:string};
 
-async function salesAssistants(email:string,key:string){
+async function stokanStaff(email:string,key:string){
  const [rows]=await getSheetRanges(SOURCE_ID,["Config!H1:L160"],email,key);
  const out=new Map<string,Staff>();
- for(const r of rows){const store=norm(r[0]),id=s(r[1]),name=s(r[2]),position=s(r[3]);if(store!=="M238"||!name||norm(position)!=="SALES ASSISTANT")continue;const k=id||name.toUpperCase();if(!out.has(k))out.set(k,{id,name,position})}
+ for(const r of rows){const store=norm(r[0]),id=s(r[1]),name=s(r[2]),position=s(r[3]);if(store!=="M238"||!name||!isStokanPosition(position))continue;const k=id||name.toUpperCase();if(!out.has(k))out.set(k,{id,name,position})}
  return Array.from(out.values());
 }
 function splitArticle(v:unknown){const raw=s(v),i=raw.indexOf("/");if(i<0)return{article:safe(raw,140),description:""};return{article:safe(raw.slice(0,i),140),description:safe(raw.slice(i+1),260)}}
@@ -47,17 +47,17 @@ function sameSavedRow(expected:FinalRow,actual:unknown[]){return s(actual[1])===
 
 export async function GET(req:NextRequest){
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});
- try{const {header,body}=await ensureNormalizedSchema(email,key);const mapped=(body||[]).map((r,i)=>mapByHeader(header,r,i+2));const batches=new Map<string,BatchWork>();for(const r of mapped){if(!r.uploadID)continue;let b=batches.get(r.uploadID);if(!b){b={uploadID:r.uploadID,stockDate:r.stockDate,period:r.period,uploadedAt:r.uploadedAt,totalArticles:0,totalStock:0,stockers:new Set<string>()};batches.set(r.uploadID,b)}b.totalArticles++;b.totalStock+=r.totalStock;if(r.stocker)b.stockers.add(r.stocker)}const history=Array.from(batches.values()).sort((a,b)=>b.uploadedAt.localeCompare(a.uploadedAt)).map(b=>({uploadID:b.uploadID,stockDate:b.stockDate,period:b.period,uploadedAt:b.uploadedAt,totalArticles:b.totalArticles,totalStock:b.totalStock,totalStockers:b.stockers.size}));const requested=s(req.nextUrl.searchParams.get("uploadID")),selectedID=requested||(history[0]?.uploadID||"");const rows=mapped.filter(r=>r.uploadID===selectedID);const staff=await salesAssistants(email,key),selected=history.find(x=>x.uploadID===selectedID)||null;return NextResponse.json({history,selected,rows,staff,schemaValid:headerMatches(header),readBackValid:true},{headers:{"cache-control":"no-store"}})}catch(e){return responseError(e)}
+ try{const {header,body}=await ensureNormalizedSchema(email,key);const mapped=(body||[]).map((r,i)=>mapByHeader(header,r,i+2));const batches=new Map<string,BatchWork>();for(const r of mapped){if(!r.uploadID)continue;let b=batches.get(r.uploadID);if(!b){b={uploadID:r.uploadID,stockDate:r.stockDate,period:r.period,uploadedAt:r.uploadedAt,totalArticles:0,totalStock:0,stockers:new Set<string>()};batches.set(r.uploadID,b)}b.totalArticles++;b.totalStock+=r.totalStock;if(r.stocker)b.stockers.add(r.stocker)}const history=Array.from(batches.values()).sort((a,b)=>b.uploadedAt.localeCompare(a.uploadedAt)).map(b=>({uploadID:b.uploadID,stockDate:b.stockDate,period:b.period,uploadedAt:b.uploadedAt,totalArticles:b.totalArticles,totalStock:b.totalStock,totalStockers:b.stockers.size}));const requested=s(req.nextUrl.searchParams.get("uploadID")),selectedID=requested||(history[0]?.uploadID||"");const rows=mapped.filter(r=>r.uploadID===selectedID);const staff=await stokanStaff(email,key),selected=history.find(x=>x.uploadID===selectedID)||null;return NextResponse.json({history,selected,rows,staff,schemaValid:headerMatches(header),readBackValid:true},{headers:{"cache-control":"no-store"}})}catch(e){return responseError(e)}
 }
 
 export async function POST(req:NextRequest){
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});
  try{const contentType=req.headers.get("content-type")||"";
-  if(contentType.includes("multipart/form-data")){const form=await req.formData(),file=form.get("file");if(!(file instanceof File))return NextResponse.json({error:"File stokan tidak ditemukan"},{status:400});const parsed=await parseWorkbook(file),staff=await salesAssistants(email,key);if(!staff.length)return NextResponse.json({error:"Tidak ada Sales Assistant yang tersedia untuk periode ini."},{status:422});const min=Math.floor(parsed.rows.length/staff.length),max=Math.ceil(parsed.rows.length/staff.length);return NextResponse.json({ok:true,fileName:file.name,sheet:parsed.sheet,descriptionSource:parsed.descriptionSource,rows:parsed.rows,totalArticles:parsed.rows.length,totalStock:parsed.rows.reduce((a,r)=>a+(r.totalStock??0),0),staff,distribution:{min,max},samples:parsed.rows.slice(0,10),valid:parsed.rows.every(r=>!!r.article&&r.totalStock!==null)})}
+  if(contentType.includes("multipart/form-data")){const form=await req.formData(),file=form.get("file");if(!(file instanceof File))return NextResponse.json({error:"File stokan tidak ditemukan"},{status:400});const parsed=await parseWorkbook(file),staff=await stokanStaff(email,key);if(!staff.length)return NextResponse.json({error:"Tidak ada staff SA, ST, atau MT yang tersedia untuk periode ini."},{status:422});const min=Math.floor(parsed.rows.length/staff.length),max=Math.ceil(parsed.rows.length/staff.length);return NextResponse.json({ok:true,fileName:file.name,sheet:parsed.sheet,descriptionSource:parsed.descriptionSource,rows:parsed.rows,totalArticles:parsed.rows.length,totalStock:parsed.rows.reduce((a,r)=>a+(r.totalStock??0),0),staff,distribution:{min,max},samples:parsed.rows.slice(0,10),valid:parsed.rows.every(r=>!!r.article&&r.totalStock!==null)})}
   const body=await req.json(),action=s(body.action);
   if(action==="clear"){const uploadID=s(body.uploadID);const {body:raw}=await ensureNormalizedSchema(email,key);if(uploadID){const indexes:number[]=[];for(let i=0;i<raw.length;i++)if(s(raw[i]?.[12])===uploadID)indexes.push(i+2);if(indexes.length){const start=Math.min(...indexes),end=Math.max(...indexes);await clearAndWrite(MASTER_ID,`'${TAB}'!A${start}:N${end}`,`'${TAB}'!A1`,[HEADERS],email,key,"RAW")}}else await clearAndWrite(MASTER_ID,`'${TAB}'!A2:N20000`,`'${TAB}'!A1`,[HEADERS],email,key,"RAW");return NextResponse.json({ok:true,message:"Stokan berhasil dikosongkan. Silakan upload file week berikutnya."})}
   if(action==="reassign"){
-   const uploadID=s(body.uploadID),staff=await salesAssistants(email,key);
+   const uploadID=s(body.uploadID),staff=await stokanStaff(email,key);
    const [header,raw]=await getSheetRangesFresh(MASTER_ID,[`'${TAB}'!A1:N1`,`'${TAB}'!A2:N20000`],email,key);
    if(!headerMatches(header?.[0]||[]))return NextResponse.json({error:"Struktur Stokan berubah. Muat ulang sebelum menyimpan."},{status:409});
    let plan;
@@ -69,7 +69,7 @@ export async function POST(req:NextRequest){
    return NextResponse.json({ok:true,verified:true,uploadID,rows:plan.current.length,message:"Pembagian staff berhasil diperbarui. Stokan siap dibuat PDF."});
   }
   if(action==="commit"){
-   const period=safe(body.period,80),stockDate=isoDate(body.stockDate),input=Array.isArray(body.rows)?body.rows:[];if(!period||!stockDate)return NextResponse.json({error:"Periode dan tanggal stokan wajib diisi."},{status:400});const staff=await salesAssistants(email,key);if(!staff.length)return NextResponse.json({error:"Tidak ada Sales Assistant yang tersedia untuk periode ini."},{status:422});const selected=body.selectedStaff===undefined?staff.map(person=>person.name):body.selectedStaff;
+   const {period,stockDate}=currentStokanContext(),input=Array.isArray(body.rows)?body.rows:[];if(!period||!stockDate)return NextResponse.json({error:"Periode dan tanggal stokan wajib diisi."},{status:400});const staff=await stokanStaff(email,key);if(!staff.length)return NextResponse.json({error:"Tidak ada staff SA, ST, atau MT yang tersedia untuk periode ini."},{status:422});const selected=body.selectedStaff===undefined?staff.map(person=>person.name):body.selectedStaff;
    if(!Array.isArray(selected)||!selected.length||selected.some(name=>typeof name!=="string"||!staff.some(person=>person.name===name)))return NextResponse.json({error:"Pilih minimal satu staff yang tersedia."},{status:400});
    const allowed=new Set(selected);const rows:FinalRow[]=input.map((r:Record<string,unknown>,i:number)=>({brand:safe(r.brand,120),article:safe(r.article,140),description:safe(r.description,260),serial:safe(r.serial,180),totalStock:qtyValue(r.totalStock)??-1,sourceNo:s(r.sourceNo)||String(i+1),stocker:s(r.stocker)}));if(!rows.length)return NextResponse.json({error:"Tidak ada artikel Accessories yang dapat diproses."},{status:400});if(rows.some(r=>!r.article||r.totalStock<0||!allowed.has(r.stocker)))return NextResponse.json({error:"Pembagian belum valid. Pastikan semua Artikel, Qty, dan Stocker terisi dengan benar."},{status:400});
    const {body:existing}=await ensureNormalizedSchema(email,key);const uploadID=`STK-${stockDate.replace(/-/g,"")}-${crypto.randomUUID().slice(0,8).toUpperCase()}`,uploadedAt=new Date().toISOString();const values=rows.map((r,i)=>[i+1,r.stocker,r.brand,r.article,r.description,r.serial,r.totalStock,"","","",stockDate,period,uploadID,uploadedAt]);const start=(existing?.length||0)+2,end=start+values.length-1;await clearAndWrite(MASTER_ID,null,`'${TAB}'!A${start}:N${end}`,values,email,key,"RAW");

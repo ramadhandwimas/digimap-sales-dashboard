@@ -11,7 +11,9 @@ function load(path,mocks={}){
  const loaded={exports:{}};new Function('require','module','exports',code)(id=>mocks[id]??require(id),loaded,loaded.exports);return loaded.exports;
 }
 const assignment=load('lib/stokan-assignment.ts'),picker=load('components/stokan-staff-picker.tsx');
-const mocks={'@/lib/stokan-assignment':assignment,'@/components/stokan-staff-picker':picker};
+const context=load('lib/stokan-context.ts');
+const clock=load('components/use-stokan-clock.ts',{'@/lib/stokan-context':context});
+const mocks={'@/components/use-stokan-clock':clock,'@/lib/stokan-assignment':assignment,'@/components/stokan-staff-picker':picker};
 const Desktop=load('components/stokan-page.tsx',mocks).default;
 const Mobile=load('components/mobile-operations.tsx',{...mocks,'@/lib/m238-client-cache':{cachedJson:async()=>({}),peekJsonCache:()=>null}}).default;
 const text=node=>typeof node==='string'?node:Array.isArray(node)?node.map(text).join(''):node?.children?text(node.children):'';
@@ -36,8 +38,9 @@ for(const [name,Component,props] of [['desktop',Desktop,{}],['mobile',Mobile,{ki
   };
   try{
    await act(async()=>{view=create(React.createElement(Component,props));await tick()});
+   assert.equal(view.root.findByProps({type:'date'}).props.value,context.currentStokanContext().stockDate);
    await act(async()=>button(view,'Atur Staff').props.onClick());
-   const bob=view.root.findAllByType('label').find(node=>text(node)==='Bob').findByType('input');
+   const bob=view.root.findAllByType('label').find(node=>text(node).startsWith('Bob')).findByType('input');
    await act(async()=>bob.props.onChange({target:{checked:false}}));
    assert.ok(text(view.toJSON()).includes('2 dari 3 staff dipilih'));
    await act(async()=>button(view,'Proses & Bagi Otomatis').props.onClick());
@@ -56,6 +59,7 @@ for(const [name,Component,props] of [['desktop',Desktop,{}],['mobile',Mobile,{ki
   globalThis.fetch=async(_url,options={})=>{calls.push(options.method||'GET');return response(data())};
   try{
    await act(async()=>{view=create(React.createElement(Component,props));await tick()});
+   assert.equal(view.root.findByProps({type:'date'}).props.value,context.currentStokanContext().stockDate);
    await act(async()=>button(view,'Atur Staff').props.onClick());
    await act(async()=>button(view,'Kosongkan pilihan').props.onClick());
    assert.equal(button(view,'Proses & Bagi Otomatis').props.disabled,true);
@@ -74,12 +78,28 @@ for(const [name,Component,props] of [['desktop',Desktop,{}],['mobile',Mobile,{ki
   try{
    await act(async()=>{view=create(React.createElement(Component,props));await tick()});
    await act(async()=>{view.root.findByProps({type:'file'}).props.onChange({target:{files:[new File(['fixture'],'stock.xlsx')]}});await tick()});
-   await act(async()=>view.root.findAllByType('label').find(node=>text(node)==='Bob').findByType('input').props.onChange({target:{checked:false}}));
+   await act(async()=>view.root.findAllByType('label').find(node=>text(node).startsWith('Bob')).findByType('input').props.onChange({target:{checked:false}}));
    await act(async()=>button(view,'Proses & Bagi Otomatis').props.onClick());
    await act(async()=>{button(view,'Simpan Pembagian').props.onClick();await tick()});
-   assert.equal(calls[0].action,'commit');assert.deepEqual(calls[0].selectedStaff,['Alice','Carol']);
+   assert.equal(calls[0].action,'commit');assert.equal(calls[0].stockDate,context.currentStokanContext().stockDate);assert.equal(calls[0].period,context.currentStokanContext().period);assert.deepEqual(calls[0].selectedStaff,['Alice','Carol']);
    assert.equal(calls[0].rows.length,5);assert.ok(calls[0].rows.every(row=>row.stocker!=='Bob'));
   }finally{if(view)await act(async()=>view.unmount());globalThis.fetch=originalFetch}
  });
 
 }
+
+test('an open Stokan screen advances its Jakarta date and week automatically at the week boundary',async()=>{
+ let instant='2026-10-24T16:59:59Z',update;
+ const timedClock=load('components/use-stokan-clock.ts',{'@/lib/stokan-context':{currentStokanContext:()=>context.currentStokanContext(new Date(instant))}});
+ const originalInterval=globalThis.setInterval,originalClear=globalThis.clearInterval;
+ globalThis.setInterval=fn=>{update=fn;return 123};globalThis.clearInterval=()=>{};
+ function Clock(){const value=timedClock.useStokanClock();return React.createElement('span',null,`${value.stockDate} ${value.period}`)}
+ let view;
+ try{
+  await act(async()=>{view=create(React.createElement(Clock))});
+  assert.equal(text(view.toJSON()),'2026-10-24 Week 4 Q1');
+  instant='2026-10-24T17:00:00Z';
+  await act(async()=>update());
+  assert.equal(text(view.toJSON()),'2026-10-25 Week 5 Q1');
+ }finally{if(view)await act(async()=>view.unmount());globalThis.setInterval=originalInterval;globalThis.clearInterval=originalClear}
+});
