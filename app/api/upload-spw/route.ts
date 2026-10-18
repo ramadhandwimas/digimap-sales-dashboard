@@ -3,7 +3,7 @@ import {ensureSheets,getGoogleSheetRequestCount,getSheetRanges,getSheetRangesFre
 import {combineSpw,isSpwStore,spwSheet} from "@/lib/spw-stores";
 import {acquireSpwLock,releaseSpwLock,replaceSpwRanges,SpwWriteError} from "@/lib/spw-store";
 import {parseSpwWorkbook} from "@/lib/spw-upload";
-import {aggregateDaily,buildClassificationMap,cacheHeaders,cacheValues,classificationHeaders,classificationMapFromValues,classificationValues,normalizedHeaders,normalizedValues,parseSpwToNormalized,rowClass,type FastSalesRow} from "@/lib/m238-fast-sales";
+import {aggregateDaily,buildClassificationMap,mergeMasterClassifications,cacheHeaders,cacheValues,classificationHeaders,classificationMapFromValues,classificationValues,normalizedHeaders,normalizedValues,parseSpwToNormalized,rowClass,type FastSalesRow} from "@/lib/m238-fast-sales";
 import {buildSummaryFromFastSales,upsertDailySummaryRows} from "@/lib/m238-daily-summary-cache";
 
 const MASTER_ID="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk",SOURCE_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
@@ -37,6 +37,9 @@ export async function POST(req:NextRequest){
    try{[classRows]=await getSheetRanges(MASTER_ID,[`'${CLASS_CACHE}'!A2:I20000`],email,key)}catch{await ensureSheets(MASTER_ID,[{title:NORMALIZED,headers:normalizedHeaders},{title:CACHE,headers:cacheHeaders},{title:CLASS_CACHE,headers:classificationHeaders}],email,key);[classRows]=await getSheetRanges(MASTER_ID,[`'${CLASS_CACHE}'!A2:I20000`],email,key)}
    let classMap=classificationMapFromValues(classRows||[]),sourceRaw:unknown[][]=[],classificationRefreshed=false,parsed=parseSpwToNormalized(report.rows,classMap,"M238");
    if(!classMap.size||parsed.unknownClassification>0){const source=await getSheetRanges(SOURCE_ID,["'Data Copas'!A2:Q50000","'RAW SalesPerson'!AB2:AR50000"],email,key);const copas=source[0]||[];sourceRaw=source[1]||[];const fresh=buildClassificationMap([copas,sourceRaw]);for(const[k,v]of fresh)classMap.set(k,v);classificationRefreshed=true;parsed=parseSpwToNormalized(report.rows,classMap,"M238")}
+   const [master]=await getSheetRangesFresh(SOURCE_ID,["'Master'!A1:L20000"],email,key);
+   classMap=mergeMasterClassifications(classMap,master);classificationRefreshed=true;
+   parsed=parseSpwToNormalized(report.rows,classMap,store);
    const combined=combineSpw(snapshots,classMap);
    timing.read=Date.now()-t;if(!parsed.rows.length)throw new Error("Tidak ada sales row valid yang dapat diproses dari SPW.");
 

@@ -13,7 +13,7 @@ type FontPreset="system"|"rounded"|"compact"|"modern"|"editorial"|"tech"|"soft"|
 
 export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMotion,onMotionStyle,onFont,onAction}:{theme:ThemePreset;motion:MotionPreset;motionStyle:MotionStyle;font:FontPreset;onTheme:(v:ThemePreset)=>void;onMotion:(v:MotionPreset)=>void;onMotionStyle:(v:MotionStyle)=>void;onFont:(v:FontPreset)=>void;onAction:(action:string)=>void}){
  const[screen,setScreen]=useState<"menu"|"settings"|"stock-request">("menu");
- const[openPanel,setOpenPanel]=useState<"theme"|"speed"|"style"|"font"|"pricelist"|"copas-repair"|null>(null);
+ const[openPanel,setOpenPanel]=useState<"theme"|"speed"|"style"|"font"|"pricelist"|"device-pricelist"|"copas-repair"|null>(null);
 
  const themes:{id:ThemePreset;name:string;desc:string}[]=[
   {id:"classic",name:"Classic iOS",desc:"Clean, ringan, familiar"},
@@ -32,7 +32,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  const styleLabels:Record<MotionStyle,string>={clean:"Clean","ios-spring":"iOS Spring","glass-flow":"Glass Flow","playful-bounce":"Bounce",executive:"Executive",stagger:"Stagger",blur:"Blur",elastic:"Elastic","fade-up":"Fade Up","zoom-soft":"Soft Zoom","slide-flow":"Slide Flow",float:"Float"};
  const fontLabels:Record<FontPreset,string>={system:"System / iOS",rounded:"Rounded",compact:"Compact",modern:"Modern",editorial:"Editorial",tech:"Tech",soft:"Soft",bold:"Bold Display",mono:"Mono"};
  const activeTheme=themes.find(t=>t.id===theme);
- const toggle=(panel:"theme"|"speed"|"style"|"font"|"pricelist"|"copas-repair")=>setOpenPanel(v=>v===panel?null:panel);
+ const toggle=(panel:"theme"|"speed"|"style"|"font"|"pricelist"|"device-pricelist"|"copas-repair")=>setOpenPanel(v=>v===panel?null:panel);
 
  const items=[
   {label:"SOH",sub:"Cek stock on hand",icon:Box,action:"soh"},
@@ -64,6 +64,10 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
    <div className={"m238m-appearance-panel "+(openPanel==="pricelist"?"open":"")}>
     <button className="m238m-appearance-summary" onClick={()=>toggle("pricelist")} aria-expanded={openPanel==="pricelist"}><span><strong>Upload Pricelist Aksesoris</strong><small>Tambahkan aksesoris baru ke Master</small></span><ChevronRight size={18}/></button>
     {openPanel==="pricelist"?<AccessoryPricelistUpload/>:null}
+   </div>
+   <div className={"m238m-appearance-panel "+(openPanel==="device-pricelist"?"open":"")}>
+    <button className="m238m-appearance-summary" onClick={()=>toggle("device-pricelist")} aria-expanded={openPanel==="device-pricelist"}><span><strong>Upload Pricelist Device</strong><small>Tambahkan unit baru dan klasifikasi ke Master</small></span><ChevronRight size={18}/></button>
+    {openPanel==="device-pricelist"?<AccessoryPricelistUpload kind="device"/>:null}
    </div>
    <div className={"m238m-appearance-panel "+(openPanel==="copas-repair"?"open":"")}>
     <button className="m238m-appearance-summary" onClick={()=>toggle("copas-repair")} aria-expanded={openPanel==="copas-repair"}><span><strong>Cek &amp; Perbaiki Data Copas</strong><small>Perbaiki N/A dari Master terbaru</small></span><ChevronRight size={18}/></button>

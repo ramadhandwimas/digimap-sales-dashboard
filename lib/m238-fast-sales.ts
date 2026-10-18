@@ -57,3 +57,16 @@ export const cacheHeaders=["Date","Sales ID","Sales Name","Store","ACC Amount","
 export const normalizedValues=(r:FastSalesRow)=>[r.date,r.id,r.name,r.invoice,r.article,r.description,r.type,r.qty,r.amount,r.category,r.brand,r.core,r.scheme,r.vendor,r.week,r.store,r.key];
 export const cacheValues=(r:FastDailyCache)=>[r.date,r.id,r.name,r.store,r.accessories,r.vas,r.amount,r.invoices,r.qty,r.upt,r.atv,r.iphone,r.mac,r.ipad,r.watch,r.airpods,r.qoalaQty,r.qoalaValue,r.telkomselQty,r.telkomselValue,r.xlQty,r.xlValue,r.indosatQty,r.indosatValue,r.updatedAt,r.validation];
 export function cacheFromValues(r:unknown[]):FastDailyCache{return{date:isoDate(r[0]),id:text(r[1]),name:text(r[2]),store:up(r[3])||"M238",accessories:num(r[4]),vas:num(r[5]),amount:num(r[6]),invoices:num(r[7]),qty:num(r[8]),upt:num(r[9]),atv:num(r[10]),iphone:num(r[11]),mac:num(r[12]),ipad:num(r[13]),watch:num(r[14]),airpods:num(r[15]),qoalaQty:num(r[16]),qoalaValue:num(r[17]),telkomselQty:num(r[18]),telkomselValue:num(r[19]),xlQty:num(r[20]),xlValue:num(r[21]),indosatQty:num(r[22]),indosatValue:num(r[23]),updatedAt:text(r[24]),validation:text(r[25])}}
+// Master is authoritative after pricelist imports; historical classification
+// rows can still contain N/A until their spreadsheet formulas recalculate.
+export function mergeMasterClassifications(map:Map<string,Classification>,master:unknown[][]){
+ const vendors=new Map<string,string>();
+ for(const row of master.slice(1))if(text(row[11])&&text(row[9]))vendors.set(up(row[11]),up(row[9]));
+ for(const row of master.slice(1)){
+  const article=up(row[1]),scheme=up(row[5]);
+  if(!article||!["DEVICES","ACCESSORIES","VAS"].includes(scheme))continue;
+  const previous=map.get(article);
+  map.set(article,{type:text(row[4]),category:up(row[3]),brand:up(row[0]),core:up(row[6]),scheme,vendor:vendors.get(up(row[0]))||previous?.vendor||"",week:previous?.week||"",store:"M238"});
+ }
+ return map;
+}
