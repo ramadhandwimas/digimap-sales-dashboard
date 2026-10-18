@@ -21,7 +21,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  useEffect(()=>{window.scrollTo({top:0,behavior:"instant"});headingRef.current?.focus({preventScroll:true})},[screen]);
  const navigate=(next:Screen)=>{if(!busy)setScreen(next)};
  const titles:Record<Screen,string>={menu:"More",settings:"Settings","stock-request":"Stock Request MD",pricelist:"Pricelist Aksesoris","device-pricelist":"Pricelist Device","copas-repair":"Perbaiki Data Copas",appearance:"Tampilan","copas-invoices":"Cek Invoice Exchange/Cancel"};
- const subheading:Record<Screen,string>={menu:"Menu tambahan M238",settings:"Data master dan pengaturan dashboard","stock-request":"SOH, penjualan dan kebutuhan stok",pricelist:"Data Master / Accessories & VAS","device-pricelist":"Data Master / Apple Device","copas-repair":"Data Master / Perbaikan klasifikasi",appearance:"Tema, font dan animasi","copas-invoices":"Data Copas / Pemeriksaan transaksi"};
+ const subheading:Record<Screen,string>={menu:"Menu tambahan M238",settings:"Data master dan pengaturan dashboard","stock-request":"SOH, penjualan dan kebutuhan stok",pricelist:"Data Master / Accessories & VAS","device-pricelist":"Data Master / Apple Device","copas-repair":"Data Master / Perbaikan klasifikasi",appearance:"Tema, font dan animasi","copas-invoices":"RAW kolom Y / Pemeriksaan Data Copas"};
  const pageHeader=(back:Screen)=><header className="m238-settings-heading"><button type="button" disabled={busy} onClick={()=>navigate(back)} aria-label={back==="settings"?"Kembali ke Settings":"Kembali ke More"}><ChevronLeft size={20}/></button><div><h1 ref={headingRef} tabIndex={-1}>{titles[screen]}</h1><p>{subheading[screen]}</p></div></header>;
 
  const themes:{id:ThemePreset;name:string;desc:string}[]=[
@@ -78,7 +78,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
    ["pricelist","Pricelist Aksesoris","Tambah Accessories dan VAS ke Master",FileSpreadsheet],
    ["device-pricelist","Pricelist Device","Tambah unit baru dan klasifikasi",Smartphone],
    ["copas-repair","Perbaiki Data Copas","Cek dan perbaiki N/A dari Master",WandSparkles],
-   ["copas-invoices","Cek Invoice Exchange/Cancel","Cari dan hapus transaksi di Data Copas",ReceiptText],
+   ["copas-invoices","Cek Invoice Exchange/Cancel","Periksa invoice kolom Y di Data Copas",ReceiptText],
   ] as const).map(([next,title,description,Icon])=><button type="button" key={next} onClick={()=>navigate(next)}><span className="m238-settings-icon"><Icon size={19}/></span><span className="m238-settings-copy"><strong>{title}</strong><small>{description}</small></span><ChevronRight size={18}/></button>)}</div></section>
   <section className="m238-settings-group"><h2>Preferensi</h2><div className="m238-settings-list"><button type="button" onClick={()=>navigate("appearance")}><span className="m238-settings-icon"><Palette size={19}/></span><span className="m238-settings-copy"><strong>Tampilan</strong><small>{activeTheme?.name||theme} · {fontLabels[font]} · {motionLabels[motion]}</small></span><ChevronRight size={18}/></button></div></section>
   <p className="m238-settings-hint">Pilih menu Data Master untuk upload dan pemeriksaan. Setiap perubahan data ditampilkan terlebih dahulu sebelum disimpan.</p>
