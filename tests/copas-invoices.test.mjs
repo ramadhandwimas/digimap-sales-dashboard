@@ -9,7 +9,7 @@ const model=load('lib/copas-invoices.ts');
 const row=(invoice='10005011',article='APP001')=>['18-10-2026','123','Staff',invoice,article,'iPhone','iPhone',1,20000000,'IPHONE','APPLE','APPLE','DEVICES','','Week 4 Q1','M238','Digimap','FORMULA R','FORMULA S'];
 const credentials={email:'test@example.com',key:'test'};
 function harness(){
- const state={sheets:[{sheetId:11,title:'Data Copas',gridProperties:{rowCount:100,columnCount:26}}],values:{11:[['Date','Sales ID','Sales Name','Invoice'],row(),row('10005012'),row()]},locks:new Set(),batches:[],reject:false,cache:[]};
+ const state={sheets:[{sheetId:11,title:'Data Copas',gridProperties:{rowCount:100,columnCount:26}},{sheetId:12,title:'RAW SalesPerson',gridProperties:{rowCount:100,columnCount:26}}],values:{11:[['Date','Sales ID','Sales Name','Invoice'],row(),row('10005012'),row()],12:[['RAW'],[...Array(24).fill(''),'10005011'],[...Array(24).fill(''),'10005011'],[...Array(24).fill(''),'10005099']]},locks:new Set(),batches:[],reject:false,cache:[]};
  const response=(body={},status=200)=>({ok:status<400,status,json:async()=>body,text:async()=>JSON.stringify(body)});
  const sheets={
   getSheetRangesFresh:async(_id,ranges)=>ranges.map(range=>{
@@ -78,13 +78,28 @@ test('permission failure does not clear or archive any transaction',async()=>{
 test('API requires login, same origin, reviewed plan and selected rows; stale plans do not mutate transactions',async()=>{
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=credentials.email;process.env.GOOGLE_PRIVATE_KEY=credentials.key;
  try{
-  const {state,post}=harness();assert.equal((await post({action:'search',invoice:'10005011'},'invalid')).status,401);assert.equal((await post({action:'search',invoice:'10005011'},'valid','https://other.example')).status,403);assert.equal(state.batches.length,0);
-  const preview=await post({action:'search',invoice:'10005011'});assert.equal(preview.status,200);assert.equal(preview.body.items.length,2);assert.equal(preview.body.items[0].values,undefined);assert.equal(state.batches.length,0);
+  const {state,post}=harness();assert.equal((await post({action:'check',invoice:'10005011'},'invalid')).status,401);assert.equal((await post({action:'check',invoice:'10005011'},'valid','https://other.example')).status,403);assert.equal(state.batches.length,0);
+  const preview=await post({action:'check',invoice:'10005011'});assert.equal(preview.status,200);assert.equal(preview.body.groups[0].items.length,2);assert.equal(preview.body.groups[0].items[0].values,undefined);assert.equal(state.batches.length,0);assert.equal(preview.body.sourceInvoiceCount,2);assert.equal(preview.body.foundInvoiceCount,1);assert.equal(preview.body.notFoundInvoiceCount,1);assert.deepEqual(preview.body.groups[0].sourceRows,[2,3]);
+  const unlistedId=model.findCopasInvoice(state.values[11].slice(1),'10005012').items[0].id;
+  const unlisted=await post({action:'delete',planId:preview.body.planId,selectedIds:[unlistedId],reason:'exchange'});assert.equal(unlisted.status,400);assert.equal(state.values[11][2][3],'10005012');
   const invalid=await post({action:'delete',invoice:'10005011',planId:preview.body.planId,selectedIds:[],reason:'cancel'});assert.equal(invalid.status,400);assert.equal(state.locks.size,0);
-  state.values[11][1][8]=1;
-  const stale=await post({action:'delete',invoice:'10005011',planId:preview.body.planId,selectedIds:[preview.body.items[0].id],reason:'cancel'});assert.equal(stale.status,409);assert.equal(state.locks.size,0);assert.equal(state.values[11][1][3],'10005011');
-  const current=await post({action:'search',invoice:'10005011'}),deleted=await post({action:'delete',invoice:'10005011',planId:current.body.planId,selectedIds:[current.body.items[0].id],reason:'exchange'});
+  state.values[12][1][24]='10005012';
+  const changedY=await post({action:'delete',planId:preview.body.planId,selectedIds:[preview.body.groups[0].items[0].id],reason:'exchange'});assert.equal(changedY.status,409);
+  state.values[12][1][24]='10005011';state.values[11][1][8]=1;
+  const stale=await post({action:'delete',invoice:'10005011',planId:preview.body.planId,selectedIds:[preview.body.groups[0].items[0].id],reason:'cancel'});assert.equal(stale.status,409);assert.equal(state.locks.size,0);assert.equal(state.values[11][1][3],'10005011');
+  const current=await post({action:'check',invoice:'10005011'}),deleted=await post({action:'delete',invoice:'10005011',planId:current.body.planId,selectedIds:[current.body.groups[0].items[0].id],reason:'exchange'});
   assert.equal(deleted.status,200);assert.equal(deleted.body.deletedRows,1);assert.deepEqual(state.cache,[['2026-10']]);assert.equal(state.values[11][1][3],'');assert.equal(state.values[11][3][3],'10005011');
-  const repeated=await post({action:'delete',invoice:'10005011',planId:current.body.planId,selectedIds:[current.body.items[0].id],reason:'exchange'});assert.equal(repeated.status,409);
+  const repeated=await post({action:'delete',invoice:'10005011',planId:current.body.planId,selectedIds:[current.body.groups[0].items[0].id],reason:'exchange'});assert.equal(repeated.status,409);
  }finally{if(email===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=email;if(key===undefined)delete process.env.GOOGLE_PRIVATE_KEY;else process.env.GOOGLE_PRIVATE_KEY=key}
+});
+
+test('column Y drives the check, deduplicates invoices and never infers an invoice from RAW helper row alignment',()=>{
+ const copas=[row('0012'),row('12'),row('112'),row('12')];
+ const checked=model.checkRawExchangeInvoices(copas,[[12],['0012'],[12],[''],['N/A'],['-'],['missing']]);
+ assert.equal(checked.sourceInvoiceCount,3);assert.equal(checked.foundInvoiceCount,2);assert.equal(checked.notFoundInvoiceCount,1);
+ assert.deepEqual(checked.groups.map(group=>group.invoice),['12','0012','missing']);
+ assert.deepEqual(checked.groups[0].sourceRows,[2,4]);assert.equal(checked.groups[0].items.length,2);
+ assert.deepEqual(checked.items.map(item=>item.row),[3,5,2]);assert.ok(checked.items.every(item=>item.invoice!=='112'));
+ const changed=model.checkRawExchangeInvoices(copas,[[12],['0012'],['missing']]);assert.notEqual(changed.planId,checked.planId);
+ const empty=model.checkRawExchangeInvoices(copas,[]);assert.equal(empty.items.length,0);assert.equal(empty.sourceInvoiceCount,0);
 });

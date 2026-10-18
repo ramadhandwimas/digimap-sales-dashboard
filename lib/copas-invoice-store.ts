@@ -22,6 +22,12 @@ export async function readCopasInvoiceSnapshot(credentials:CopasCredentials){
  if(log&&!HEADERS.every((header,index)=>history?.[0]?.[index]===header))throw new CopasInvoiceError("Struktur riwayat exchange/cancel berubah. Penghapusan tidak dilanjutkan.",409);
  return{sheet,log,sheets,rows:rows||[],history:history||[]};
 }
+export async function readRawExchangeColumn(credentials:CopasCredentials,sheets:Sheet[]){
+ const raw=sheets.find(sheet=>sheet.title.toUpperCase().replace(/\s/g,"")==="RAWSALESPERSON");
+ if(!raw||raw.gridProperties.columnCount<25||raw.gridProperties.rowCount<2||raw.gridProperties.rowCount>200000)throw new CopasInvoiceError("RAW SalesPerson kolom Y tidak tersedia atau strukturnya berubah.",422);
+ const title=raw.title.replace(/'/g,"''"),[rows]=await getSheetRangesFresh(COPAS_ID,[`'${title}'!Y2:Y${raw.gridProperties.rowCount}`],credentials.email,credentials.key);
+ return rows||[];
+}
 export async function readRemovedInvoiceFingerprints(credentials:CopasCredentials){
  const log=(await metadata(credentials)).find(sheet=>sheet.title===LOG);if(!log)return [];
  const [rows]=await getSheetRangesFresh(COPAS_ID,[`'${LOG}'!F1:F${log.gridProperties.rowCount}`],credentials.email,credentials.key);
