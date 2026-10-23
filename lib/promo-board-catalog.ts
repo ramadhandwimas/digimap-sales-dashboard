@@ -258,6 +258,7 @@ function genericColorOf(value:string,lob:string){
   if(lob==="Watch")return watchColorOf(value);
   const text=upper(value).replace(/\s+/g," ");
   const colors:[RegExp,string][]=[
+    [/STAR WHITE/,"Star White"],[/NIGHT SKY/,"Night Sky"],[/BURGUNDY/,"Burgundy"],[/GLACIER/,"Glacier"],
     [/COSMIC ORANGE/,"Cosmic Orange"],[/DEEP BLUE/,"Deep Blue"],[/MIST BLUE/,"Mist Blue"],[/CLOUD WHITE/,"Cloud White"],[/LIGHT GOLD/,"Light Gold"],[/SOFT PINK/,"Soft Pink"],
     [/DESERT TITANIUM/,"Desert Titanium"],[/NATURAL TITANIUM/,"Natural Titanium"],[/WHITE TITANIUM/,"White Titanium"],[/BLACK TITANIUM/,"Black Titanium"],
     [/SPACE BLACK|\bSP BLK\b|\bSB\b/,"Space Black"],[/SPACE GR(?:E|A)Y|\bSPG\b|\bGRY\b/,"Space Grey"],[/ROSE GOLD/,"Rose Gold"],[/SKY BLUE|\bSKY\b/,"Sky Blue"],

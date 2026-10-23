@@ -93,6 +93,15 @@ test("Further Notice has no artificial end date",()=>{
   assert.equal(result.products[0].promoEndDate,null);
 });
 
+test("Further Notice without a row year uses the price-list heading year",()=>{
+  const bytes=workbook([{sap:"FN-NOYEAR",normal:14999000,promo:12999000,remarks:"21 October - further notice"}],{date:"23 October 2026"});
+  const result=parser.parsePromoWorkbook(bytes,"PRICE LIST DIGIMAP (23 October 2026 - Further Notice).xlsx",new Date("2026-10-24T00:00:00.000Z"));
+  assert.equal(result.products[0].promoStartDate,"2026-10-21");
+  assert.equal(result.products[0].promoEndDate,null);
+  assert.equal(result.products[0].promoStatus,"FURTHER_NOTICE");
+  assert.equal(result.blockingErrors,0);
+});
+
 test("unknown period is reviewable but not blocking",()=>{
   const result=parse([{sap:"UNKNOWN1",normal:14999000,promo:12999000,remarks:"Sampai pemberitahuan toko"}]);
   assert.equal(result.products[0].promoStatus,"UNKNOWN");
@@ -175,6 +184,18 @@ test("MacBook Neo color codes are not confused with the -IND region suffix",()=>
   const colors=catalogApi.buildPromoCatalog(result.products,[])
     .flatMap(item=>item.stockVariants.map(variant=>variant.color));
   assert.deepEqual(colors,["Silver","Citrus","Indigo","Blush"]);
+});
+
+test("iPhone 18 series colors follow the product descriptions",()=>{
+  const result=parse([
+    {sap:"18PRO-BURGUNDY",description:"IPHONE 18 PRO 256GB BURGUNDY",normal:27499000,promo:27499000},
+    {sap:"18PM-GLACIER",description:"IPHONE 18 PRO MAX 512GB GLACIER",normal:32999000,promo:32999000},
+    {sap:"DUO-WHITE",description:"IPHONE DUO 256GB STAR WHITE",normal:19999000,promo:19999000},
+    {sap:"DUO-SKY",description:"IPHONE DUO 256GB NIGHT SKY",normal:19999000,promo:19999000},
+  ]);
+  const colors=catalogApi.buildPromoCatalog(result.products,[])
+    .flatMap(item=>item.stockVariants.map(variant=>variant.color));
+  assert.deepEqual(colors.sort(),["Burgundy","Glacier","Night Sky","Star White"].sort());
 });
 
 test("mobile form fields keep a 16px font to prevent iOS focus zoom",()=>{
