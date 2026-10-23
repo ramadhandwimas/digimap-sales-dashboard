@@ -169,6 +169,7 @@ function inferLob(product:PromoProduct){
 
 function parseIphoneModel(value:string){
   const text=upper(value);
+  if(/\b(?:IPHONE\s*)?DUO\b/.test(text))return"iPhone Duo";
   if(/IPHONE\s+AIR\b/.test(text))return"iPhone Air";
   const match=text.match(/IPHONE\s*(1[0-9])\s*(PRO\s*MAX|PRO|PLUS|E)?\b/)||text.match(/\bIP\s*(1[0-9])\s*(PRO\s*MAX|PRO|PLUS|E)?\b/);
   if(!match)return"";
@@ -280,7 +281,9 @@ export function parsePromoSku(product:PromoProduct):PromoSkuMeta{
   const section=product.section;
   let model="Unknown Model",generation="",chip="",size="";
   if(lob==="iPhone"){
-    model=parseIphoneModel(description)||parseIphoneModel(section)||"Unknown Model";
+    // An explicit but unrecognised iPhone name must not inherit another model
+    // from a broad price-list section (for example, the previous iPhone 18 heading).
+    model=parseIphoneModel(description)||(/\bIPHONE\b/i.test(description)?"Unknown Model":parseIphoneModel(section)||"Unknown Model");
   }else if(lob==="iPad"){
     const parsed=parseIpadModel(product);model=parsed.model;generation=parsed.generation;chip=parsed.chip;size=parsed.size;
   }else if(lob==="Watch"){

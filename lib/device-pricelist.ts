@@ -64,7 +64,7 @@ export function planDevicePricelist(items:DeviceItem[],master:unknown[][],_suppl
   const categoryByLob:Record<string,string>={iPhone:"IPHONE",iPad:"IPAD",Mac:"MAC",Watch:"APPLE WATCH",AirPods:"AIRPODS"};
   const productGroup=meta.lob==="AirPods"?"ACCESSORIES":"DEVICES";
   const known=modelRows.get(`${productGroup}|${key(meta.model)}`)||[];
-  const types=[...new Set(known.map(row=>cleanText(row[4])).filter(value=>value&&!/^#?N\/?A$/i.test(value)))];
+  const types=[...new Set(known.map(row=>cleanText(row[4])).filter(value=>value&&!/^#?N\/?A$/i.test(value)).filter(value=>meta.lob!=="iPhone"||key(modelOf(value,"IPHONE","").model)===key(meta.model)))];
   if(types.length>1){reject("Type model ini mempunyai beberapa klasifikasi berbeda di Master.");continue}
   const categories=[...new Set(known.map(row=>key(row[3])).filter(Boolean))];
   const type=types[0]||key(meta.model);
