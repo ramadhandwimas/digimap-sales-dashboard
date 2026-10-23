@@ -102,3 +102,21 @@ test('Settings exposes invoice exchange/cancel checking and blocks back navigati
   assert.equal(view.root.findByProps({'aria-label':'Kembali ke Settings'}).props.disabled,false);
  }finally{await act(async()=>view.unmount())}
 });
+
+
+test('Settings groups all desktop data actions and opens each missing tool as a separate mobile page',async()=>{
+ let view;const busy=[];
+ await act(async()=>{view=create(React.createElement(More,{theme:'classic',motion:'smooth',motionStyle:'clean',font:'system',onTheme:()=>{},onMotion:()=>{},onMotionStyle:()=>{},onFont:()=>{},onAction:()=>{},onBusyChange:v=>busy.push(v)}))});
+ try{
+  await act(async()=>button(view,'Settings').props.onClick());
+  assert.deepEqual(view.root.findAllByType('h2').map(node=>text(node)),['Data Penjualan','Data Master','Stok Toko','Preferensi','Admin']);
+  for(const [label,tool] of [['Upload SPW','spw-upload'],['No Exchange Invoice',null],['Cut Off Data','cutoff'],['Clear SPW','spw-clear'],['Upload SOH','soh-upload'],['Clear SOH','soh-clear']]){
+   await act(async()=>button(view,label).props.onClick());
+   assert.equal(text(view.root.findByType('h1')),label);const page=view.root.findByType('tool-page');
+   if(tool)assert.equal(page.props.tool,tool);
+   await act(async()=>page.props.onBusyChange(true));assert.equal(view.root.findByProps({'aria-label':'Kembali ke Settings'}).props.disabled,true);
+   await act(async()=>page.props.onBusyChange(false));await act(async()=>view.root.findByProps({'aria-label':'Kembali ke Settings'}).props.onClick());
+  }
+  assert.equal(busy.filter(Boolean).length,6);
+ }finally{await act(async()=>view.unmount())}
+});

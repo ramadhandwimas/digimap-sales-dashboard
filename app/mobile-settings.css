@@ -64,3 +64,12 @@
 .acc-pricelist input[type="file"]{font-size:16px}
 @media(max-width:380px){.m238-settings-heading h1{font-size:20px}.m238-settings-copy strong{font-size:13px}.acc-steps li{flex-direction:column;font-size:10px}}
 @media(prefers-reduced-motion:reduce){.m238-settings *{scroll-behavior:auto!important;transition:none!important}}
+
+/* Embedded data tools use the same full-page layout as other Settings tools. */
+.m238-settings-form{min-width:0;padding:16px;border:1px solid var(--m-line);border-radius:18px;background:var(--m-surface);overflow-wrap:anywhere}
+.m238-settings-tool :is(input,select){max-width:100%;min-width:0;font-size:16px}
+.m238-settings-tool input[type="file"]{width:100%;font-size:13px}
+.m238-settings-tool button{min-height:44px;white-space:normal;overflow-wrap:anywhere}
+.m238-settings-tool .grid>div{min-width:0;overflow-wrap:anywhere}
+.m238-settings-admin .m238-settings-icon{color:#e5484d;background:color-mix(in srgb,#e5484d 10%,var(--m-surface))}
+@media(max-width:380px){.m238-settings-form{padding:13px}.m238-settings-heading h1{overflow-wrap:anywhere}}
