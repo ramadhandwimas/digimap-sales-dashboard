@@ -56,3 +56,17 @@ test('empty column Y reports no exchange invoices and never offers deletion',asy
   assert.ok(text(view.toJSON()).includes('Belum ada nomor invoice di RAW SalesPerson kolom Y.'));assert.equal(button(view,'Hapus'),undefined);
  }finally{if(view)await act(async()=>view.unmount());globalThis.fetch=originalFetch}
 });
+
+
+test('compact works for already deleted invoices, confirms, locks repeated clicks and refreshes row selections',async()=>{
+ const originalFetch=globalThis.fetch,originalWindow=globalThis.window,calls=[],busy=[];let view,approved=false,release;
+ globalThis.window={confirm:()=>approved};
+ globalThis.fetch=async(_url,options)=>{const body=JSON.parse(options.body);calls.push(body);if(body.action==='compact'){await new Promise(resolve=>{release=resolve});return{ok:true,json:async()=>({message:'17 baris kosong dirapikan.'})}}return{ok:true,json:async()=>({...result,groups:[],totalRows:0})}};
+ try{
+  await act(async()=>{view=create(React.createElement(InvoiceCheck,{onBusyChange:value=>busy.push(value)}))});
+  await act(async()=>button(view,'Rapikan Baris Kosong').props.onClick());assert.equal(calls.length,0);
+  approved=true;await act(async()=>{button(view,'Rapikan Baris Kosong').props.onClick();button(view,'Rapikan Baris Kosong').props.onClick();await tick()});
+  assert.deepEqual(calls,[{action:'compact'}]);assert.equal(button(view,'Rapikan Baris Kosong').props.disabled,true);
+  await act(async()=>{release();await tick()});assert.deepEqual(calls,[{action:'compact'},{action:'check'}]);assert.ok(text(view.toJSON()).includes('17 baris kosong dirapikan.'));assert.equal(button(view,'Hapus'),undefined);assert.deepEqual(busy,[true,false]);
+ }finally{if(view)await act(async()=>view.unmount());globalThis.fetch=originalFetch;globalThis.window=originalWindow}
+});

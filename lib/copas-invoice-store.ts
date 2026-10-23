@@ -45,20 +45,40 @@ export async function releaseCopasLock(credentials:CopasCredentials){
  const result=await batch(credentials,[unlock()]);if(!result.ok)throw new CopasInvoiceError("Kunci proses Data Copas belum dapat dilepas.",503);
 }
 const cells=(values:unknown[])=>({values:values.map(value=>({userEnteredValue:typeof value==="number"?{numberValue:value}:{stringValue:String(value??"")}}))});
+// Shift only the transaction table; columns R onward stay at their original positions.
+function compactRequests(snapshot:Awaited<ReturnType<typeof readCopasInvoiceSnapshot>>,removedRows:number[]=[]){
+ const indices=new Set(removedRows.map(row=>row-1));
+ const occupied=(row:unknown[])=>row.slice(0,17).some(value=>value!==null&&value!==undefined&&String(value)!=="");
+ const last=snapshot.rows.findLastIndex(occupied);
+ snapshot.rows.forEach((row,index)=>{if(index<last&&!occupied(row))indices.add(index+1)});
+ const ranges:Array<{start:number;end:number}>=[];
+ for(const index of [...indices].sort((a,b)=>a-b)){
+  const last=ranges.at(-1);if(last&&last.end===index)last.end=index+1;else ranges.push({start:index,end:index+1});
+ }
+ return {blankRows:indices.size-removedRows.length,requests:ranges.reverse().map(({start,end})=>({deleteRange:{range:{sheetId:snapshot.sheet.sheetId,startRowIndex:start,endRowIndex:end,startColumnIndex:0,endColumnIndex:17},shiftDimension:"ROWS"}}))};
+}
+async function applyRemovalBatch(credentials:CopasCredentials,requests:unknown[]){
+ let response:Response;
+ try{response=await batch(credentials,requests)}catch{throw new CopasInvoiceError("Status perubahan belum terkonfirmasi. Muat ulang untuk memeriksa transaksi dan hubungi pengelola jika proses masih terkunci.",503,false)}
+ if(!response.ok)throw new CopasInvoiceError(`Perubahan ditolak Google Sheets (${response.status}). Data tidak diubah sebagian.`,503,response.status<500);
+}
+export async function compactCopasRows(credentials:CopasCredentials,snapshot:Awaited<ReturnType<typeof readCopasInvoiceSnapshot>>){
+ const plan=compactRequests(snapshot);
+ await applyRemovalBatch(credentials,[...plan.requests,unlock()]);
+ return {compactedRows:plan.blankRows};
+}
 export function buildCopasInvoiceRemoval(snapshot:Awaited<ReturnType<typeof readCopasInvoiceSnapshot>>,items:ReturnType<typeof findCopasInvoice>["items"],actor:string,reason:string,operationId:string,timestamp:string){
  let log=snapshot.log;const requests:unknown[]=[];
  if(!log){let id=randomInt(1_000_000,2_000_000_000);while(snapshot.sheets.some(sheet=>sheet.sheetId===id))id=randomInt(1_000_000,2_000_000_000);log={sheetId:id,title:LOG,gridProperties:{rowCount:1000,columnCount:23}};requests.push({addSheet:{properties:{...log,hidden:true}}},{updateCells:{range:{sheetId:id,startRowIndex:0,endRowIndex:1,startColumnIndex:0,endColumnIndex:23},rows:[cells(HEADERS)],fields:"userEnteredValue"}})}
  const start=Math.max(1,snapshot.history.length),end=start+items.length;
  if(end>log.gridProperties.rowCount)requests.push({appendDimension:{sheetId:log.sheetId,dimension:"ROWS",length:end-log.gridProperties.rowCount}});
  requests.push({updateCells:{range:{sheetId:log.sheetId,startRowIndex:start,endRowIndex:end,startColumnIndex:0,endColumnIndex:23},rows:items.map(item=>cells([operationId,timestamp,actor,reason,item.row,invoiceFingerprint(item.values),...item.values])),fields:"userEnteredValue"}});
- for(const item of items)requests.push({updateCells:{range:{sheetId:snapshot.sheet.sheetId,startRowIndex:item.row-1,endRowIndex:item.row,startColumnIndex:0,endColumnIndex:17},rows:[],fields:"userEnteredValue"}});
+ requests.push(...compactRequests(snapshot,items.map(item=>item.row)).requests);
  requests.push(unlock());return requests;
 }
 export async function removeCopasInvoice(credentials:CopasCredentials,snapshot:Awaited<ReturnType<typeof readCopasInvoiceSnapshot>>,items:ReturnType<typeof findCopasInvoice>["items"],actor:string,reason:string){
  const operationId=randomUUID(),timestamp=new Date().toISOString();
- let response:Response;
- try{response=await batch(credentials,buildCopasInvoiceRemoval(snapshot,items,actor,reason,operationId,timestamp))}catch{throw new CopasInvoiceError("Status penghapusan belum terkonfirmasi. Muat ulang untuk memeriksa transaksi dan hubungi pengelola jika proses masih terkunci.",503,false)}
- if(!response.ok)throw new CopasInvoiceError(`Penghapusan ditolak Google Sheets (${response.status}). Data tidak dihapus sebagian.`,503,response.status<500);
+ await applyRemovalBatch(credentials,buildCopasInvoiceRemoval(snapshot,items,actor,reason,operationId,timestamp));
  return{operationId,timestamp};
 }
 
