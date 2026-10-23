@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
 import {createPortal} from "react-dom";
+import MobileVersionSwitch from "@/components/mobile-version-switch";
 import dynamic from "next/dynamic";
 const AccessoryPricelistUpload=dynamic(()=>import("@/components/accessory-pricelist-upload"));
 const DataCopasRepair=dynamic(()=>import("@/components/data-copas-repair"));
@@ -55,7 +56,7 @@ export default function M238SettingsEnhancer(){
  const tabs:Tab[]=["general","appearance","pricelist","device-pricelist","copas","operations","system"];
  const onlineNow=useMemo(()=>loginRows.filter(x=>{const t=Date.parse(x.lastLogin);return Number.isFinite(t)&&Date.now()-t<15*60*1000}).length,[loginRows]);
  if(!host)return null;
- return createPortal(<div className="space-y-5"><div className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2 shadow-sm dark:bg-slate-950">{tabs.map(k=><button key={k} onClick={()=>setTab(k)} className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-black capitalize ${tab===k?"bg-blue-600 text-white":"bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300"}`}>{k==="pricelist"?"Upload Pricelist Aksesoris":k==="device-pricelist"?"Upload Pricelist Device":k==="copas"?"Perbaiki Data Copas":k}</button>)}</div>
+ return createPortal(<div className="space-y-5"><MobileVersionSwitch value="classic"/><div className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2 shadow-sm dark:bg-slate-950">{tabs.map(k=><button key={k} onClick={()=>setTab(k)} className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-black capitalize ${tab===k?"bg-blue-600 text-white":"bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300"}`}>{k==="pricelist"?"Upload Pricelist Aksesoris":k==="device-pricelist"?"Upload Pricelist Device":k==="copas"?"Perbaiki Data Copas":k}</button>)}</div>
  {tab==="pricelist"&&<AccessoryPricelistUpload/>}
  {tab==="device-pricelist"&&<AccessoryPricelistUpload kind="device"/>}
  {tab==="copas"&&<DataCopasRepair/>}

@@ -1,6 +1,7 @@
 "use client";
 import {useCallback,useEffect,useRef,useState} from "react";
 import dynamic from "next/dynamic";
+import MobileVersionSwitch from "@/components/mobile-version-switch";
 import StockRequestMd from "@/components/stock-request-md";
 const AccessoryPricelistUpload=dynamic(()=>import("@/components/accessory-pricelist-upload"));
 const CopasInvoiceCheck=dynamic(()=>import("@/components/copas-invoice-check"));
@@ -80,6 +81,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  </div>;
 
  if(screen==="settings")return <div className="m238-settings">{pageHeader("menu")}
+  <MobileVersionSwitch value="new" disabled={busy}/>
   {([
    ["Data Penjualan",[
     ["spw-upload","Upload SPW","Pilih M238 atau M996, hasil digabung",Upload],

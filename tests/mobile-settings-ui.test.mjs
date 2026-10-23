@@ -9,7 +9,7 @@ const require=createRequire(import.meta.url);
 function load(file,mocks={}){const code=ts.transpileModule(fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;const loaded={exports:{}};new Function('require','module','exports',code)(id=>mocks[id]?{__esModule:true,...mocks[id]}:require(id),loaded,loaded.exports);return loaded.exports.default}
 const stub=()=>null;
 const Uploader=load('components/accessory-pricelist-upload.tsx',{'@/components/data-copas-repair':{default:props=>React.createElement('copas-check',props)},'@/components/accessory-master-repair':{default:stub}});
-const More=load('components/mobile-dashboard-more.tsx',{'next/dynamic':{default:()=>props=>React.createElement('tool-page',props)},'@/components/stock-request-md':{default:stub}});
+const More=load('components/mobile-dashboard-more.tsx',{'next/dynamic':{default:()=>props=>React.createElement('tool-page',props)},'@/components/stock-request-md':{default:stub},'@/components/mobile-version-switch':{default:load('components/mobile-version-switch.tsx')}});
 const text=node=>typeof node==='string'?node:Array.isArray(node)?node.map(text).join(''):node?.children?text(node.children):'';
 const button=(view,label)=>view.root.findAllByType('button').find(node=>text(node).includes(label));
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -119,5 +119,15 @@ test('Settings groups all desktop data actions and opens each missing tool as a 
    await act(async()=>page.props.onBusyChange(false));await act(async()=>view.root.findByProps({'aria-label':'Kembali ke Settings'}).props.onClick());
   }
   assert.equal(busy.filter(Boolean).length,6);
+ }finally{await act(async()=>view.unmount())}
+});
+
+
+test('compact version controls appear only on Settings, not More or tool pages',async()=>{
+ let view;await act(async()=>{view=create(React.createElement(More,{theme:'classic',motion:'smooth',motionStyle:'clean',font:'system',onTheme:()=>{},onMotion:()=>{},onMotionStyle:()=>{},onFont:()=>{},onAction:()=>{}}))});
+ try{
+  assert.equal(view.root.findAllByProps({className:'m238-settings-version'}).length,0);
+  await act(async()=>button(view,'Settings').props.onClick());assert.equal(view.root.findAllByProps({className:'m238-settings-version'}).length,1);assert.equal(button(view,'Mobile').props['aria-pressed'],true);
+  await act(async()=>button(view,'Pricelist Device').props.onClick());assert.equal(view.root.findAllByProps({className:'m238-settings-version'}).length,0);
  }finally{await act(async()=>view.unmount())}
 });
