@@ -64,3 +64,27 @@ test('device route previews without writes, imports once, and rejects stale prev
  const again=await h.send('preview');assert.equal(again.body.newCount,0);
  assert.equal((await h.send('import',again.body.planId)).body.imported,0);assert.equal(h.state.commits,1);
 });
+
+
+test('all eight Duo capacities/colors remain IPHONE DUO beneath an iPhone 18 section',()=>{
+ const descriptions=['256GB','512GB','1TB','2TB'].flatMap(capacity=>['STAR WHITE','NIGHT SKY'].map(color=>`IPHONE DUO ${capacity} ${color}`));
+ const ws=XLSX.utils.aoa_to_sheet([['SAP Article','SAPDescription'],['iPhone 18'],...descriptions.map((description,index)=>[`APPDUO${index}`,description])]);
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Device');
+ const parsed=device.parseDevicePricelist(XLSX.write(wb,{type:'array',bookType:'xlsx'})),plan=device.planDevicePricelist(parsed.items,master,[]);
+ assert.equal(plan.rows.length,8);assert.equal(plan.review.length,0);
+ assert.ok(plan.rows.every(row=>row[3]==='IPHONE'&&row[4]==='IPHONE DUO'&&row[5]==='DEVICES'));
+ assert.deepEqual(plan.rows.map(row=>row[2]),descriptions);
+});
+test('short Duo description uses iPhone context but never inherits iPhone 18 Type from Master',()=>{
+ const polluted=[...master,['APPLE','OLD-DUO','IPHONE DUO 256GB STAR WHITE','IPHONE','IPHONE 18','DEVICES','APPLE']];
+ const plan=device.planDevicePricelist([item('DUO1','DUO 512GB NIGHT SKY',{category:'IPHONE',section:'iPhone 18'})],polluted,[]);
+ assert.equal(plan.rows[0][4],'IPHONE DUO');assert.equal(plan.review.length,0);
+ const conflict=device.planDevicePricelist([item('DUO2','IPHONE DUO 2TB STAR WHITE',{section:'iPhone 18',type:'IPHONE 18'})],master,[]);
+ assert.equal(conflict.rows.length,0);assert.equal(conflict.review.length,1);
+});
+test('unrecognised explicit iPhone name requires review instead of borrowing a section model',()=>{
+ const plan=device.planDevicePricelist([item('UNKNOWN','IPHONE FUTURE 256GB',{section:'iPhone 18'})],master,[]);
+ assert.equal(plan.rows.length,0);assert.equal(plan.review.length,1);
+ const ordinary=device.planDevicePricelist([item('NORMAL','IPHONE 18 PRO MAX 512GB',{section:'iPhone Duo'})],master,[]);
+ assert.equal(ordinary.rows[0][4],'IPHONE 18 PRO MAX');
+});
