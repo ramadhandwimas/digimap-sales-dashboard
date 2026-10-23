@@ -21,11 +21,12 @@ function harness(){
    if(suffix.startsWith('?fields='))return response({sheets:state.sheets.map(properties=>({properties}))});
    const {requests}=JSON.parse(options.body);state.batches.push(requests);
    if(requests[0]?.createDeveloperMetadata){const id=requests[0].createDeveloperMetadata.developerMetadata.metadataId;if(state.locks.has(id))return response({},400);state.locks.add(id);return response()}
-   if(state.reject&&requests.some(request=>request.updateCells?.range.sheetId===11))return response({},403);
+   if(state.reject&&requests.some(request=>(request.updateCells?.range.sheetId===11||request.deleteRange?.range.sheetId===11)))return response({},403);
    for(const request of requests){
     if(request.addSheet){const properties=request.addSheet.properties;state.sheets.push(properties);state.values[properties.sheetId]=[]}
     if(request.appendDimension){state.sheets.find(sheet=>sheet.sheetId===request.appendDimension.sheetId).gridProperties.rowCount+=request.appendDimension.length}
     if(request.updateCells){const {range,rows}=request.updateCells,target=state.values[range.sheetId];for(let r=range.startRowIndex;r<range.endRowIndex;r++){target[r]??=[];for(let c=range.startColumnIndex;c<range.endColumnIndex;c++){const value=rows[r-range.startRowIndex]?.values[c-range.startColumnIndex]?.userEnteredValue;target[r][c]=value?.numberValue??value?.stringValue??''}}}
+    if(request.deleteRange){const {range,shiftDimension}=request.deleteRange;assert.equal(shiftDimension,'ROWS');const target=state.values[range.sheetId],count=range.endRowIndex-range.startRowIndex;for(let r=range.startRowIndex;r<target.length;r++){const moved=target[r+count]?.slice(range.startColumnIndex,range.endColumnIndex)||[];for(let c=range.startColumnIndex;c<range.endColumnIndex;c++)target[r][c]=moved[c-range.startColumnIndex]??''}}
     if(request.deleteDeveloperMetadata)state.locks.delete(request.deleteDeveloperMetadata.dataFilter.developerMetadataLookup.metadataId);
    }
    return response();
@@ -51,12 +52,12 @@ test('invoice matching is exact, keeps leading zeros, and reviews duplicate line
  const otherStore=row('12');otherStore[15]='M996';assert.notEqual(model.invoiceFingerprint(otherStore),key);
 });
 
-test('removal archives and clears only selected A:Q cells in one atomic batch, preserving formulas and other invoices',async()=>{
+test('removal archives and shifts only selected A:Q cells in one atomic batch, preserving formulas and other invoices',async()=>{
  const {store,state}=harness(),before=structuredClone(state.values[11]),snapshot=await store.readCopasInvoiceSnapshot(credentials),plan=model.findCopasInvoice(snapshot.rows,'10005011');
  assert.equal(state.batches.length,0);
  await store.acquireCopasLock(credentials);
  await store.removeCopasInvoice(credentials,snapshot,[plan.items[1]],'123 Admin','cancel');
- const changes=state.batches[1],clear=changes.find(request=>request.updateCells?.range.sheetId===11).updateCells;
+ const changes=state.batches[1],clear=changes.find(request=>request.deleteRange).deleteRange;
  assert.deepEqual(clear.range,{sheetId:11,startRowIndex:3,endRowIndex:4,startColumnIndex:0,endColumnIndex:17});
  assert.equal(changes.at(-1).deleteDeveloperMetadata.dataFilter.developerMetadataLookup.metadataId,238190126);
  assert.deepEqual(state.values[11].slice(0,3),before.slice(0,3));assert.ok(state.values[11][3].slice(0,17).every(value=>value===''));assert.deepEqual(state.values[11][3].slice(17),before[3].slice(17));
@@ -90,7 +91,7 @@ test('API requires login, same origin, reviewed plan and selected rows; stale pl
   state.values[12][1][24]='10005011';state.values[11][1][8]=1;
   const stale=await post({action:'delete',invoice:'10005011',planId:preview.body.planId,selectedIds:[preview.body.groups[0].items[0].id],reason:'cancel'});assert.equal(stale.status,409);assert.equal(state.locks.size,0);assert.equal(state.values[11][1][3],'10005011');
   const current=await post({action:'check',invoice:'10005011'}),deleted=await post({action:'delete',invoice:'10005011',planId:current.body.planId,selectedIds:[current.body.groups[0].items[0].id],reason:'exchange'});
-  assert.equal(deleted.status,200);assert.equal(deleted.body.deletedRows,1);assert.deepEqual(state.cache,[['2026-10']]);assert.equal(state.values[11][1][3],'');assert.equal(state.values[11][3][3],'10005011');
+  assert.equal(deleted.status,200);assert.equal(deleted.body.deletedRows,1);assert.deepEqual(state.cache,[['2026-10']]);assert.equal(state.values[11][1][3],'10005012');assert.equal(state.values[11][2][3],'10005011');assert.equal(state.values[11][3][3],'');
   const repeated=await post({action:'delete',invoice:'10005011',planId:current.body.planId,selectedIds:[current.body.groups[0].items[0].id],reason:'exchange'});assert.equal(repeated.status,409);
  }finally{if(email===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=email;if(key===undefined)delete process.env.GOOGLE_PRIVATE_KEY;else process.env.GOOGLE_PRIVATE_KEY=key}
 });
@@ -140,4 +141,29 @@ test('exchange entry validation preserves leading zeros and uses the first blank
  assert.deepEqual(model.planRawExchangeEntry([['Inv-1']],'inv-1'),{invoice:'inv-1',rowNumber:2,added:false});
  assert.equal(model.planRawExchangeEntry([[123]],'00123').added,true);
  for(const value of ['',null,{},'a'.repeat(101),'123\n456'])assert.throws(()=>model.planRawExchangeEntry([],value));
+});
+
+
+test('deletion compacts old gaps and disjoint selections bottom-up, preserving transaction order, header and R onward',async()=>{
+ const {store,state}=harness();
+ state.values[11]=[['header'],row('keep1'),[],row('remove'),row('remove'),row('keep2'),[],row('remove'),row('keep3')];
+ state.values[11].forEach((value,index)=>{value[17]=`=R${index+1}`});
+ const before=structuredClone(state.values[11]),snapshot=await store.readCopasInvoiceSnapshot(credentials),items=model.findCopasInvoice(snapshot.rows,'remove').items;
+ await store.acquireCopasLock(credentials);await store.removeCopasInvoice(credentials,snapshot,items,'Admin','exchange');
+ assert.deepEqual(state.values[11].slice(1,4).map(value=>value[3]),['keep1','keep2','keep3']);
+ assert.deepEqual(state.values[11].map(value=>value[17]),before.map(value=>value[17]));assert.deepEqual(state.values[11][0],before[0]);
+ assert.deepEqual(state.batches[1].filter(value=>value.deleteRange).map(value=>[value.deleteRange.range.startRowIndex,value.deleteRange.range.endRowIndex]),[[6,8],[2,5]]);
+ const log=state.sheets.find(sheet=>sheet.title==='Data Copas Exchange Log');
+ assert.deepEqual(state.values[log.sheetId].slice(1).map(value=>value[4]),[4,5,8]);
+ assert.equal(state.values[11].length,before.length);assert.equal(state.locks.size,0);
+});
+
+test('standalone compact repairs existing gaps without a column Y match or archiving transactions',async()=>{
+ const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=credentials.email;process.env.GOOGLE_PRIVATE_KEY=credentials.key;
+ try{
+  const {state,post}=harness();state.values[11]=[['header'],[],row('keep'),[],row('keep2')];state.values[12]=[['RAW']];
+  const result=await post({action:'compact'});assert.equal(result.status,200);assert.equal(result.body.compactedRows,2);
+  assert.deepEqual(state.values[11].slice(1,3).map(value=>value[3]),['keep','keep2']);assert.equal(state.sheets.length,2);assert.equal(state.locks.size,0);
+  const again=await post({action:'compact'});assert.equal(again.status,200);assert.equal(again.body.compactedRows,0);
+ }finally{if(email===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=email;if(key===undefined)delete process.env.GOOGLE_PRIVATE_KEY;else process.env.GOOGLE_PRIVATE_KEY=key}
 });
