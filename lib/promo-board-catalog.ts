@@ -1,5 +1,6 @@
 import type {PromoProduct} from "@/lib/promo-board-parser";
 import type {PromoProductGroup} from "@/lib/promo-board-insights";
+import type {AccessoryPriceProduct} from "@/lib/promo-board-accessory";
 
 export type SohRow={article:string;description:string;qty:number;soldQty:number;category:string};
 export type StockStatus="READY"|"LOW_STOCK"|"OUT_OF_STOCK"|"UNKNOWN";
@@ -158,8 +159,10 @@ function inferLob(product:PromoProduct){
   const category=upper(product.category);
   const detect=(text:string)=>{
     if(/IPHONE|\bIP\s*1[0-9]\b|\bIP1[0-9]\b/.test(text))return"iPhone";
-    if(/IPAD/.test(text))return"iPad";
     if(/AIRPODS/.test(text))return"AirPods";
+    if(/APPLE\s+PENCIL/.test(text))return"Pencil";
+    if(/MAGIC\s+KEYBOARD|SMART\s+KEYBOARD|\bKEYBOARD\b/.test(text))return"Keyboard";
+    if(/IPAD/.test(text))return"iPad";
     if(/\bMBA\b|\bMBP\b|\bMBN\b|MACBOOK|IMAC|MAC MINI|MAC STUDIO/.test(text))return"Mac";
     if(/APPLE WATCH|\bWATCH\b|\bAW\s*(?:SE|S?\d|ULTRA)/.test(text))return"Watch";
     return"";
@@ -243,6 +246,28 @@ function parseAirPodsModel(product:PromoProduct){
   return gen?`AirPods ${gen[1]}`:"AirPods";
 }
 
+function parsePencilModel(product:PromoProduct){
+  const text=upper(`${product.sapDescription} ${product.section}`);
+  if(/PENCIL\s+PRO/.test(text))return"Apple Pencil Pro";
+  if(/PENCIL.*2ND\s+GEN|2ND\s+GEN.*PENCIL/.test(text))return"Apple Pencil (2nd Gen)";
+  if(/PENCIL.*1ST\s+GEN.*USB-?C/.test(text))return"Apple Pencil (1st Gen USB-C)";
+  if(/PENCIL.*USB-?C/.test(text))return"Apple Pencil (USB-C)";
+  if(/PENCIL.*1ST\s+(?:GEN|GENERATION)/.test(text))return"Apple Pencil (1st Gen)";
+  return"Apple Pencil";
+}
+
+function parseKeyboardModel(product:PromoProduct){
+  const text=upper(`${product.sapDescription} ${product.section}`);
+  const size=text.match(/\b(10(?:\.9)?|11|12\.9|13)(?:\s*(?:INCH|\"))?\b/)?.[1]||"";
+  if(/IPAD\s+AIR\s+MAGIC\s+KEYBOARD/.test(text))return clean(`iPad Air Magic Keyboard${size?` ${size}`:""}`);
+  if(/IPAD\s+MAGIC\s+KEYBOARD/.test(text))return clean(`iPad Magic Keyboard${size?` ${size}`:""}`);
+  if(/MAGIC\s+KEYBOARD\s+FOLIO/.test(text))return"Magic Keyboard Folio";
+  if(/MAGIC\s+KEYBOARD.*TOUCH\s+ID.*NUM/.test(text))return"Magic Keyboard Touch ID + Numeric Keypad";
+  if(/MAGIC\s+KEYBOARD.*TOUCH\s+ID/.test(text))return"Magic Keyboard Touch ID";
+  if(/SMART\s+KEYBOARD/.test(text))return clean(`Smart Keyboard${size?` ${size}`:""}`);
+  return"Magic Keyboard";
+}
+
 function watchColorOf(value:string){
   const text=upper(value);
   if(/\b(?:NT\s+TI|N\s*T\s+B\/BB|NATURAL\s+TI|NATURAL TITANIUM)\b/.test(text))return"Natural Titanium";
@@ -293,14 +318,47 @@ export function parsePromoSku(product:PromoProduct):PromoSkuMeta{
     const parsed=parseMacModel(product);model=parsed.model;generation=parsed.generation;chip=parsed.chip;size=parsed.size;
   }else if(lob==="AirPods"){
     model=parseAirPodsModel(product);
+  }else if(lob==="Pencil"){
+    model=parsePencilModel(product);
+  }else if(lob==="Keyboard"){
+    model=parseKeyboardModel(product);
   }
 
   const capacity=capacityOf(description)||capacityOf(section);
   const connectivity=connectivityOf(description,lob)||connectivityOf(section,lob);
   const ram=lob==="Mac"?ramOf(description):"";
   const configuration=lob==="Mac"?computeConfig(description):"";
-  const color=lob==="AirPods"?"":genericColorOf(description,lob);
+  const detectedColor=genericColorOf(description,lob);
+  const color=lob==="AirPods"?(detectedColor==="Unknown Color"?"Standard":detectedColor):lob==="Pencil"?"White":lob==="Keyboard"?((/\b(?:BLACK|BLK|BL)\b/.test(upper(description))?"Black":/\b(?:WHITE|WHT|WH)\b/.test(upper(description))?"White":"Standard")):detectedColor;
   return{lob,model,generation,chip,size,capacity,connectivity,ram,configuration,color};
+}
+
+function firstPartyAccessoryLob(product:AccessoryPriceProduct){
+  if(upper(product.brand)!=="APPLE")return"";
+  const text=upper(`${product.sapDescription} ${product.category}`);
+  if(/AIRPODS/.test(text)&&/EARPHONE|HEADPHONE/.test(upper(product.category)))return"AirPods";
+  if(/APPLE\s+PENCIL/.test(text)&&upper(product.category)==="STYLUS")return"Pencil";
+  if(/KEYBOARD/.test(text)&&upper(product.category)==="KEYBOARD")return"Keyboard";
+  return"";
+}
+
+export function mergeFirstPartyAccessoryProducts(deviceProducts:PromoProduct[],accessoryProducts:AccessoryPriceProduct[],sohRows:SohRow[]){
+  const stockArticles=new Set(sohRows.map(row=>promoStockKey(row.article)).filter(Boolean));
+  const merged=new Map(deviceProducts.map(product=>[promoStockKey(product.sapArticle),product]));
+  for(const source of accessoryProducts){
+    const article=promoStockKey(source.sapArticle),lob=firstPartyAccessoryLob(source);
+    if(!article||!lob||!stockArticles.has(article)||merged.has(article))continue;
+    const normalPrice=source.referenceSrp||source.currentSrpCash||source.activePrice;
+    const promotionPrice=source.activePrice||source.currentSrpCash||normalPrice;
+    const savingAmount=normalPrice>promotionPrice?normalPrice-promotionPrice:0;
+    merged.set(article,{
+      sapArticle:source.sapArticle,sapDescription:source.sapDescription,category:source.category,section:lob,
+      normalPrice,promotionPrice,savingAmount,discountPercentage:normalPrice>0?savingAmount/normalPrice*100:0,
+      remarks:source.remarks||"Pricelist Accessories aktif",promotionInstallmentBundling:null,promotionCashBundling:null,
+      brZout:source.brZout,eolStatus:"",promoStartDate:null,promoEndDate:null,promoPeriodType:"FURTHER_NOTICE",promoStatus:"FURTHER_NOTICE",daysRemaining:null,
+    });
+  }
+  return[...merged.values()];
 }
 
 function friendlyName(meta:PromoSkuMeta){
@@ -402,6 +460,6 @@ export function auditPromoProducts(products:PromoProduct[],sohRows:SohRow[]):Pro
 }
 
 export function promoLobOrder(value:string){
-  const index=["iPhone","iPad","Mac","Watch","AirPods","Accessories","Others"].indexOf(value);
+  const index=["iPhone","iPad","Mac","Watch","AirPods","Pencil","Keyboard","Accessories","Others"].indexOf(value);
   return index<0?999:index;
 }
