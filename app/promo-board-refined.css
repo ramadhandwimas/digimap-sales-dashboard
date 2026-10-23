@@ -1,0 +1,43 @@
+/* Shared styling for the Promo route and the mobile dashboard's Promo panel. */
+.pb-page{background:radial-gradient(ellipse at 90% 0%,#e8efff 0%,transparent 32%),#f7f8fc!important;color:#182033;--pb-line:#e5e9f1;--pb-muted:#728096}
+.pb-page .pb-toolbar{background:#f7f8fcf5;border-color:var(--pb-line);padding-bottom:12px}
+.pb-page .pb-toolbar p:last-child{font-size:15px;font-weight:750;color:inherit;letter-spacing:-.02em}
+.pb-page .pb-tabs{background:#edf0f6;border:1px solid #e3e7ef;border-radius:14px}
+.pb-page .pb-tabs>button{min-height:40px;border-radius:10px;font-weight:650}
+.pb-page .pb-filters{padding:14px;border-radius:20px;border-color:var(--pb-line);box-shadow:0 4px 18px #2a416406}
+.pb-page input{font-size:16px;min-width:0}
+.pb-page .pb-filters input,.pb-page .pb-promo-list input{border:1px solid #e8ebf2;background:#f7f9fc;border-radius:13px}
+.pb-model-select{display:flex;align-items:center;gap:12px;margin-top:12px;border-top:1px solid var(--pb-line);padding-top:12px}
+.pb-model-select label{font-size:12px;font-weight:600;color:var(--pb-muted)}
+.pb-model-select select{min-width:0;flex:1;min-height:44px;border:1px solid var(--pb-line);border-radius:12px;padding:8px 12px;background:white;color:inherit;font-size:14px;font-weight:650}
+.pb-page .pb-product-ticket{border-radius:22px;border-color:var(--pb-line);box-shadow:0 7px 28px #21345308}
+.pb-product-ticket h2{font-size:24px;font-weight:750}
+.pb-product-ticket button{transition:background .15s,color .15s}
+.pb-product-ticket .pb-price{border:0;border-radius:18px;background:linear-gradient(130deg,#f1f6ff,#f8faff);padding:18px}
+.pb-product-ticket .pb-price>div:first-child>div:first-child>p:nth-child(2){font-size:30px;font-weight:750;letter-spacing:-.04em}
+.pb-product-ticket .pb-price>div:first-child>div:last-child{max-width:40%}
+.pb-promo-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.pb-promo-card{min-width:0;border:1px solid var(--pb-line);border-radius:18px;background:white;padding:16px;box-shadow:0 4px 18px #2a416406}
+.pb-promo-card>div:first-child{flex-wrap:wrap}
+.pb-promo-card>div:first-child>div{min-width:0}
+.pb-upload-sheet input[type=file]{margin-top:8px;width:100%;border:1px dashed #aebfe3;border-radius:14px;background:#f5f8ff;padding:18px 12px;font-size:14px}
+.pb-file-label{display:block;margin-top:20px;font-size:13px;font-weight:700}
+.pb-upload-status,.pb-retry{margin-top:16px;padding:14px;border:1px solid #c9dbff;border-radius:14px;background:#edf4ff;font-size:13px;line-height:1.6;color:#2454a5}
+.pb-retry{display:flex;align-items:center;justify-content:space-between;gap:12px;overflow-wrap:anywhere}
+.pb-retry strong{min-width:0}.pb-retry button{flex-shrink:0;min-height:44px;font-weight:700}
+.pb-upload-issues{margin-top:14px;padding:14px;background:#fff9ed;border:1px solid #f1dfb4;border-radius:14px;font-size:12px;line-height:1.6}
+.pb-upload-issues h3{font-size:13px;font-weight:750;color:#8c520b}.pb-upload-issues article{margin-top:12px;padding-top:10px;border-top:1px solid #eddfc4;overflow-wrap:anywhere}.pb-upload-issues small{opacity:.7}.pb-upload-issues button{margin-top:8px;min-height:40px;font-weight:700}
+.dark .pb-page{background:#10151f!important;color:#e5ecf8;--pb-line:#293345;--pb-muted:#9caac0}
+.dark .pb-page .pb-toolbar{background:#10151ff5}.dark .pb-page .pb-tabs{background:#1b2535;border-color:#293345}
+.dark .pb-model-select select,.dark .pb-promo-card{background:#162030}
+.dark .pb-product-ticket .pb-price{background:linear-gradient(130deg,#192c47,#192233)}
+.dark .pb-page .pb-filters input,.dark .pb-page .pb-promo-list input{background:#162030;border-color:#293345}
+.dark .pb-upload-sheet input[type=file],.dark .pb-retry,.dark .pb-upload-status{background:#172b48;border-color:#304c75;color:#c2d9ff}
+.dark .pb-upload-issues{background:#30291a;border-color:#66502b}.dark .pb-upload-issues h3{color:#f2c574}
+@media(max-width:600px){.pb-promo-cards{grid-template-columns:1fr}.pb-promo-card{padding:15px}.pb-page .pb-toolbar p:last-child{font-size:14px}.pb-retry{align-items:flex-start;flex-direction:column}}
+@media(prefers-reduced-motion:reduce){.pb-product-ticket button{transition:none}}
+
+.pb-upload-issues{max-height:420px;overflow:auto}
+.pb-page button:focus-visible,.pb-page select:focus-visible{outline:2px solid #3a72e4;outline-offset:2px}
+
+.pb-upload-sheet{padding-bottom:calc(24px + env(safe-area-inset-bottom))}

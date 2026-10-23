@@ -23,7 +23,7 @@ export async function POST(request:NextRequest){
  if(!email||!key)return json({error:"Koneksi Google Sheets belum dikonfigurasi."},503);
  if(Number(request.headers.get("content-length"))>MAX_PRICELIST_BYTES+65536)return json({error:"Ukuran file maksimal 4 MB."},413);
  const credentials={email,key};
- let lock:string|undefined,commitAttempted=false;
+ let lock:string|undefined,commitAttempted=false,stage="read-file";
  try{
   const form=await request.formData(),file=form.get("file"),mode=form.get("mode");
   if(!(file instanceof File)||!file.size||! /\.xlsx?$/i.test(file.name))return json({error:"Pilih file pricelist Excel .xlsx atau .xls."},400);
@@ -31,18 +31,23 @@ export async function POST(request:NextRequest){
   if(mode!=="preview"&&mode!=="import")return json({error:"Mode upload tidak valid."},400);
   let parsed:ReturnType<typeof parsePricelist>;
   try{parsed=parsePricelist(await file.arrayBuffer())}catch(error){return json({error:error instanceof Error?error.message:"File tidak valid."},422)}
+  stage="acquire-lock";
   if(mode==="import")lock=await acquireImportLock(credentials);
+  stage="read-master";
   const snapshot=await readMaster(credentials);
+  stage="classify";
   const plan=planPricelist(parsed.items,snapshot.master,snapshot.suppliers,parsed.ignored);
   const result=summary(plan);
   if(mode==="preview")return json({ok:true,...result});
   if(form.get("planId")!==result.planId)return json({error:"Isi Master berubah sejak pengecekan. Periksa hasil terbaru lalu simpan kembali.",...result},409);
   if(!plan.rows.length)return json({ok:true,imported:0,...result,message:"Tidak ada device baru yang siap ditambahkan."});
+  stage="save-master";
   commitAttempted=true;
   await commitMaster(credentials,snapshot,plan.rows,lock!);
   lock=undefined;
   return json({ok:true,...result,imported:plan.rows.length,message:`${plan.rows.length} produk baru berhasil ditambahkan ke Master (${result.deviceCount} Device, ${result.accessoryCount} AirPods).`});
  }catch(error){
+  console.error("Device pricelist upload failed",{stage,commitAttempted,message:error instanceof Error?error.message:"Unknown failure"});
   if(error instanceof ImportError&&error.safeToUnlock)commitAttempted=false;
   return json({error:error instanceof ImportError?error.message:commitAttempted?"Hasil simpan belum terkonfirmasi. Cek pricelist ulang sebelum mencoba lagi.":error instanceof Error?error.message:"Pricelist gagal diproses."},error instanceof ImportError?error.status:500);
  }finally{
