@@ -24,6 +24,7 @@ const response=(body,ok=true)=>({ok,json:async()=>body});
 test('Settings opens independent tool pages, locks back while working, and groups appearance controls',async()=>{
  const changes=[],busy=[];let view;
  await act(async()=>{view=create(React.createElement(More,{theme:'classic',motion:'smooth',motionStyle:'clean',font:'system',onTheme:v=>changes.push(v),onMotion:()=>{},onMotionStyle:()=>{},onFont:()=>{},onAction:()=>{},onBusyChange:v=>busy.push(v)}))});
+ assert.equal(button(view,'Versi Lama'),undefined);
  await act(async()=>button(view,'Settings').props.onClick());
  assert.equal(view.root.findAllByType('h1')[0].children.join(''),'Settings');
  assert.equal(view.root.findAllByType('tool-page').length,0);

@@ -8,7 +8,7 @@ const DailySalesTools=dynamic(()=>import("@/components/m238-data-actions").then(
 const SohTools=dynamic(()=>import("@/components/m238-data-actions").then(module=>module.SohDataActions));
 const ExchangeInvoiceInput=dynamic(()=>import("@/components/exchange-invoice-input"));
 const DataCopasRepair=dynamic(()=>import("@/components/data-copas-repair"));
-import {Box,ChevronLeft,ChevronRight,Clock3,CreditCard,LogOut,Mail,MessageCircle,Settings,Type,Users,WalletCards,FileSpreadsheet,Smartphone,WandSparkles,Palette,Check,ReceiptText,Upload,CalendarCheck,Trash2} from "lucide-react";
+import {Box,ChevronLeft,ChevronRight,CreditCard,LogOut,Mail,MessageCircle,Settings,Type,Users,WalletCards,FileSpreadsheet,Smartphone,WandSparkles,Palette,Check,ReceiptText,Upload,CalendarCheck,Trash2} from "lucide-react";
 
 type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono"|"webhero"|"mecha"|"alliance";
 type MotionPreset="instant"|"minimal"|"smooth"|"dynamic"|"cinematic";
@@ -53,7 +53,6 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
   {label:"Feedback",sub:"Input feedback staff",icon:MessageCircle,action:"add-feedback"},
   {label:"CX & New Member",sub:"Input CX dan member",icon:Users,action:"add-cx"},
   {label:"Incentive",sub:"Estimasi incentive staff",icon:WalletCards,action:"incentive"},
-  {label:"Versi Lama",sub:"Buka tampilan desktop lama",icon:Clock3,action:"mobile-view"},
   {label:"Settings",sub:"Pricelist, perbaikan data dan tampilan",icon:Settings,action:"settings"},
  ] as const;
 
