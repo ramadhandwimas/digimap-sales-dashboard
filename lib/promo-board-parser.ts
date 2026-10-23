@@ -115,10 +115,10 @@ function periodStatus(start:Date,end:Date,now:Date){
   return{start:iso(start),end:iso(end),type:"DATE_RANGE" as PromoPeriodType,status,daysRemaining:diff,error:null};
 }
 
-function parsePromoPeriod(remarks: string, now: Date) {
+function parsePromoPeriod(remarks: string, now: Date, priceListYear?:number) {
   if (!remarks) return { start: null, end: null, type: "UNKNOWN" as PromoPeriodType, status: "UNKNOWN" as PromoStatus, daysRemaining: null };
   const text=remarks.replace(/[–—]/g,"-").replace(/\s+/g," ").trim();
-  const fallbackYear=now.getFullYear();
+  const fallbackYear=priceListYear||jakartaToday(now).getUTCFullYear();
 
   // "3 - 29 Maret 2026" / "6-26 September 2026"
   const sameMonth=text.match(new RegExp(`(\\d{1,2})\\s*-\\s*(\\d{1,2})\\s+(${MONTH_PATTERN})\\s+(20\\d{2})`,"i"));
@@ -138,6 +138,11 @@ function parsePromoPeriod(remarks: string, now: Date) {
       start=makeDate(sameMonth[1],sameMonth[3],sameMonth[4]);
     }else if(fullDates.length){
       start=fullDates[0];
+    }else{
+      // Current Digimap files may omit the year in rows such as
+      // "21 October - Further Notice". The price-list heading supplies it.
+      const openEnded=text.match(new RegExp(`(\\d{1,2})\\s+(${MONTH_PATTERN})(?:\\s+(20\\d{2}))?\\s*-\\s*FURTHER(?:\\s+NOTICE)?`,"i"));
+      if(openEnded)start=makeDate(openEnded[1],openEnded[2],openEnded[3]||fallbackYear);
     }
     if(/\d{1,2}\s+[A-Za-z]+/i.test(text)&&!start)return{start:null,end:null,type:"UNKNOWN" as PromoPeriodType,status:"UNKNOWN" as PromoStatus,daysRemaining:null,error:"Tanggal mulai Further Notice tidak valid."};
     const status:PromoStatus=start&&jakartaToday(now).getTime()<start.getTime()?"UPCOMING":"FURTHER_NOTICE";
@@ -234,6 +239,8 @@ export function parsePromoWorkbook(buffer: ArrayBuffer, fileName: string, now = 
   if (!sheetName) throw new Error("Sheet PRICE LIST APPLE DEVICE tidak ditemukan.");
 
   const rows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], { header: 1, raw: true, defval: null });
+  const priceListDate=detectPriceListDate(rows);
+  const priceListYear=Number(priceListDate?.slice(0,4))||jakartaToday(now).getUTCFullYear();
   const headerIndex = rows.findIndex((row) => row.some((cell) => key(cell) === "SAP ARTICLE") && row.some((cell) => key(cell).includes("SAPDESCRIPTION")));
   if (headerIndex < 0) throw new Error("Header SAP Article / SAPDescription tidak ditemukan.");
 
@@ -275,7 +282,7 @@ export function parsePromoWorkbook(buffer: ArrayBuffer, fileName: string, now = 
     }
 
     const remarks = cols.remarks >= 0 ? clean(row[cols.remarks]) : "";
-    const period = parsePromoPeriod(remarks, now);
+    const period = parsePromoPeriod(remarks, now, priceListYear);
     if(period.error){
       issues.push({severity:"BLOCKING",code:"INVALID_PERIOD",row:excelRow,sapArticle:sap,productName:description,value:remarks,reason:period.error});
     }else if(remarks&&period.type==="UNKNOWN"){
@@ -315,5 +322,5 @@ export function parsePromoWorkbook(buffer: ArrayBuffer, fileName: string, now = 
   }
 
   const warnings=issues.filter(issue=>issue.severity!=="INFO").map(issue=>`Baris ${issue.row}${issue.sapArticle?` • ${issue.sapArticle}`:""}: ${issue.reason}`);
-  return { fileName, sheetName, priceListDate: detectPriceListDate(rows), totalRows: rows.length, totalSku: products.length, products, warnings,issues,blockingErrors:issues.filter(issue=>issue.severity==="BLOCKING").length };
+  return { fileName, sheetName, priceListDate, totalRows: rows.length, totalSku: products.length, products, warnings,issues,blockingErrors:issues.filter(issue=>issue.severity==="BLOCKING").length };
 }
