@@ -1,6 +1,6 @@
 import {randomInt,randomUUID} from "node:crypto";
 import {getSheetRangesFresh,sheetRequestOnce} from "./google-sheets";
-import {invoiceFingerprint,type findCopasInvoice} from "./copas-invoices";
+import {invoiceFingerprint,planRawExchangeEntry,type findCopasInvoice} from "./copas-invoices";
 export const COPAS_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const LOG="Data Copas Exchange Log",LOCK=238190126;
 const HEADERS=["Operation ID","Removed At","Removed By","Reason","Original Row","Fingerprint","Date","Sales ID","Sales Name","Invoice","SAP Article","Description","Type","Qty","Amount","Product Category","Brand","Core","Scheme","Vendor","Week","Store","Concept"];
@@ -60,4 +60,17 @@ export async function removeCopasInvoice(credentials:CopasCredentials,snapshot:A
  try{response=await batch(credentials,buildCopasInvoiceRemoval(snapshot,items,actor,reason,operationId,timestamp))}catch{throw new CopasInvoiceError("Status penghapusan belum terkonfirmasi. Muat ulang untuk memeriksa transaksi dan hubungi pengelola jika proses masih terkunci.",503,false)}
  if(!response.ok)throw new CopasInvoiceError(`Penghapusan ditolak Google Sheets (${response.status}). Data tidak dihapus sebagian.`,503,response.status<500);
  return{operationId,timestamp};
+}
+
+export async function saveRawExchangeInvoice(credentials:CopasCredentials,invoice:string){
+ const sheets=await metadata(credentials),column=await readRawExchangeColumn(credentials,sheets),plan=planRawExchangeEntry(column,invoice);
+ if(!plan.added)return plan;
+ const raw=sheets.find(sheet=>sheet.title.toUpperCase().replace(/\s/g,"")==="RAWSALESPERSON")!;
+ const requests:unknown[]=[];
+ if(plan.rowNumber>raw.gridProperties.rowCount)requests.push({appendDimension:{sheetId:raw.sheetId,dimension:"ROWS",length:plan.rowNumber-raw.gridProperties.rowCount}});
+ requests.push({updateCells:{range:{sheetId:raw.sheetId,startRowIndex:plan.rowNumber-1,endRowIndex:plan.rowNumber,startColumnIndex:24,endColumnIndex:25},rows:[cells([plan.invoice])],fields:"userEnteredValue"}},unlock());
+ let response:Response;
+ try{response=await batch(credentials,requests)}catch{throw new CopasInvoiceError("Status penyimpanan belum terkonfirmasi. Cek daftar kolom Y sebelum mencoba lagi.",503,false)}
+ if(!response.ok)throw new CopasInvoiceError(`Nomor invoice exchange belum disimpan (${response.status}).`,503,response.status<500);
+ return plan;
 }
