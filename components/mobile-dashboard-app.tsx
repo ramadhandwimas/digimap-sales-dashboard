@@ -273,6 +273,11 @@ export default function MobileDashboardApp(){
     }finally{setRefreshing(false)}
   },[tab,salesMode,reportMode,loadOverview,loadDaily,loadSummary,loadWeekly,loadFeedback,loadCx]);
 
+  const refreshSettingsData=useCallback(async()=>{
+    const results=await Promise.allSettled([loadDaily(true),loadOverview(true),loadSummary(true)]);
+    if(results.some(result=>result.status==="rejected"))setError("Data tersimpan. Sebagian tampilan belum diperbarui; tekan Refresh untuk mencoba lagi.");
+  },[loadDaily,loadOverview,loadSummary]);
+
   const openStaff=async(staff:Staff,mode:"daily"|"monthly"="monthly")=>{
     setStaffDetailMode(mode);setStaffDetail(staff);setSheet("staff");if(mode==="daily")return;
     try{
@@ -388,7 +393,7 @@ export default function MobileDashboardApp(){
       {tab==="team"?<TeamScreen rows={team} allRows={teamAll} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
       {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]} period={period} periodMode={periodMode} activeRange={activeRange}/>:null}
       {tab==="admin"?<AdminScreen initialTab={adminStart} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>:null}
-      {tab==="more"?<MoreScreen theme={themePreset} motion={motionPreset} motionStyle={motionStyle} font={fontPreset} onTheme={applyTheme} onMotion={applyMotion} onMotionStyle={applyMotionStyle} onFont={applyFont} onAction={handleMore} onBusyChange={setMoreTaskBusy}/>:null}
+      {tab==="more"?<MoreScreen theme={themePreset} motion={motionPreset} motionStyle={motionStyle} font={fontPreset} onTheme={applyTheme} onMotion={applyMotion} onMotionStyle={applyMotionStyle} onFont={applyFont} onAction={handleMore} onBusyChange={setMoreTaskBusy} onChanged={refreshSettingsData}/>:null}
     </main>
 
     <nav aria-label="Navigasi utama" className="m238m-bottom" style={{"--m238m-active-index":String(["home","sales","team","report","more"].indexOf(tab==="admin"?"more":tab))} as CSSProperties}>
