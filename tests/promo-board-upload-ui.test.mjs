@@ -8,7 +8,7 @@ import ts from 'typescript';
 const require=createRequire(import.meta.url);
 const source=fs.readFileSync(new URL('../components/promo-board-v9.tsx',import.meta.url),'utf8');
 const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,module={exports:{}};
-const mocks={'@/lib/promo-board-insights':{activePromoPrice:p=>p.promotionPrice},'@/lib/promo-board-catalog':{buildPromoCatalog:()=>[]},'@/components/promo-board-promo-list':{default:()=>null},'@/components/promo-board-accessories':{default:()=>null}};
+const mocks={'@/lib/promo-board-insights':{activePromoPrice:p=>p.promotionPrice},'@/lib/promo-board-catalog':{buildPromoCatalog:()=>[],mergeFirstPartyAccessoryProducts:products=>products},'@/components/promo-board-promo-list':{default:()=>null},'@/components/promo-board-accessories':{default:()=>null}};
 new Function('require','module','exports',code)(id=>mocks[id]?{__esModule:true,...mocks[id]}:require(id),module,module.exports);const Board=module.exports.default;
 const text=node=>typeof node==='string'?node:Array.isArray(node)?node.map(text).join(''):node?.children?text(node.children):'';
 const button=(view,label)=>view.root.findAllByType('button').find(node=>text(node).includes(label));

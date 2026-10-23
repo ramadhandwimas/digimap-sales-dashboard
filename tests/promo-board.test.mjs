@@ -198,6 +198,28 @@ test("iPhone 18 series colors follow the product descriptions",()=>{
   assert.deepEqual(colors.sort(),["Burgundy","Glacier","Night Sky","Star White"].sort());
 });
 
+test("active Apple AirPods, Pencil and Keyboard prices join exact SOH articles into Device catalog",()=>{
+  const accessories=[
+    {brand:"APPLE",sapArticle:"AP-AIR",sapDescription:"AIRPODS PRO 3",category:"Earphone",referenceSrp:4499000,currentSrpCash:4499000,repricingCash:3899000,activePrice:3899000,remarks:"",brZout:""},
+    {brand:"APPLE",sapArticle:"AP-PENCIL",sapDescription:"APPLE PENCIL PRO-ITP",category:"Stylus",referenceSrp:2899000,currentSrpCash:2899000,repricingCash:0,activePrice:2899000,remarks:"",brZout:""},
+    {brand:"APPLE",sapArticle:"AP-KEY",sapDescription:"IPAD MAGIC KEYBOARD 13 BLACK-ITS",category:"Keyboard",referenceSrp:7849000,currentSrpCash:7849000,repricingCash:0,activePrice:7849000,remarks:"",brZout:""},
+    {brand:"APPLE",sapArticle:"NO-STOCK",sapDescription:"APPLE PENCIL (USB-C)",category:"Stylus",referenceSrp:1699000,currentSrpCash:1699000,repricingCash:0,activePrice:1699000,remarks:"",brZout:""},
+    {brand:"MICROPACK",sapArticle:"THIRD-PARTY",sapDescription:"KEYBOARD BT",category:"Keyboard",referenceSrp:1000000,currentSrpCash:1000000,repricingCash:0,activePrice:1000000,remarks:"",brZout:""},
+  ];
+  const soh=[
+    {article:"AP-AIR",description:"AIRPODS PRO 3",qty:30,soldQty:0,category:"AIRPODS, PENCIL & KEYBOARD"},
+    {article:"AP-PENCIL",description:"APPLE PENCIL PRO-ITP",qty:40,soldQty:0,category:"AIRPODS, PENCIL & KEYBOARD"},
+    {article:"AP-KEY",description:"IPAD MAGIC KEYBOARD 13 BLACK-ITS",qty:7,soldQty:0,category:"AIRPODS, PENCIL & KEYBOARD"},
+  ];
+  const merged=catalogApi.mergeFirstPartyAccessoryProducts([],accessories,soh);
+  const catalog=catalogApi.buildPromoCatalog(merged,soh);
+  assert.deepEqual(catalog.map(item=>item.lob).sort(),["AirPods","Keyboard","Pencil"].sort());
+  assert.deepEqual(catalog.map(item=>item.totalSoh).sort((a,b)=>a-b),[7,30,40]);
+  assert.equal(catalog.find(item=>item.lob==="AirPods").group.promotionPrice,3899000);
+  assert.equal(catalog.find(item=>item.lob==="Pencil").model,"Apple Pencil Pro");
+  assert.equal(catalog.find(item=>item.lob==="Keyboard").model,"iPad Magic Keyboard 13");
+});
+
 test("mobile form fields keep a 16px font to prevent iOS focus zoom",()=>{
   const css=fs.readFileSync(new URL("../app/globals.css",import.meta.url),"utf8");
   assert.match(css,/input:not\(\[type=["']?file["']?\]\)[\s\S]*font-size:\s*16px\s*!important/);
