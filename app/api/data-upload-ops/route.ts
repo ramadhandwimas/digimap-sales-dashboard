@@ -1,8 +1,8 @@
-import {excludeRemovedInvoices} from "@/lib/copas-invoices";
-import {acquireCopasLock,releaseCopasLock,readRemovedInvoiceFingerprints} from "@/lib/copas-invoice-store";
+import {excludeRemovedInvoices,planRawExchangeEntry} from "@/lib/copas-invoices";
+import {acquireCopasLock,releaseCopasLock,readRemovedInvoiceFingerprints,saveRawExchangeInvoice,CopasInvoiceError} from "@/lib/copas-invoice-store";
 import {NextRequest,NextResponse} from "next/server";
 import {createHash} from "node:crypto";
-import {appendSheetValues,batchWriteRanges,clearAndWrite,getSheetRanges,getSheetRangesFresh} from "@/lib/google-sheets";
+import {appendSheetValues,batchWriteRanges,getSheetRanges,getSheetRangesFresh} from "@/lib/google-sheets";
 import {buildSummaryFromRawValues,refreshDailySummaryPeriods,upsertDailySummaryRows} from "@/lib/m238-daily-summary-cache";
 import {buildDataCopasRepairWrites,planDataCopasRepair,type CopasRepairScope} from "@/lib/data-copas-repair";
 
@@ -93,7 +93,7 @@ export async function GET(req:NextRequest){
 }
 
 export async function POST(req:NextRequest){
- let copasLocked=false;
+ let copasLocked=false,copasUnlockSafe=true;
  try{
   const body=await req.json(),action=text(body.action),{email,key}=creds();
   if(action==="repair-copas"){
@@ -246,17 +246,14 @@ export async function POST(req:NextRequest){
    },{headers:{"cache-control":"no-store"}});
   }
   if(action==="exchange"){
-   const invoice=text(body.invoice),noExchange=text(body.noExchange);
-   if(!invoice||!noExchange)return NextResponse.json({error:"No Invoice dan No Exchange wajib diisi"},{status:400});
-   const[helper,noExchangeCol]=await getSheetRanges(DASHBOARD_ID,[`'${RAW_SHEET}'!AB2:AR50000`,`'${RAW_SHEET}'!Y2:Y50000`],email,key);
-   const wanted=invoice.toUpperCase(),idx=(helper||[]).findIndex(r=>text(r[3]).toUpperCase()===wanted);
-   if(idx<0)return NextResponse.json({error:"Invoice tidak ditemukan."},{status:404});
-   if(text(noExchangeCol?.[idx]?.[0]))return NextResponse.json({error:"No Exchange invoice ini sudah terisi."},{status:409});
-   const rowNumber=idx+2;
-   await clearAndWrite(DASHBOARD_ID,null,`'${RAW_SHEET}'!Y${rowNumber}:Y${rowNumber}`,[[noExchange]],email,key,"USER_ENTERED");
-   return NextResponse.json({ok:true,message:"No Exchange berhasil disimpan."});
+   let invoice:string;
+   try{invoice=planRawExchangeEntry([],body.noExchange).invoice}catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Nomor invoice exchange wajib diisi."},{status:400})}
+   await acquireCopasLock({email,key});copasLocked=true;
+   const saved=await saveRawExchangeInvoice({email,key},invoice);
+   if(saved.added)copasLocked=false; // The atomic Y write also releases the lock.
+   return NextResponse.json({ok:true,added:saved.added,noExchange:saved.invoice,rowNumber:saved.rowNumber,message:saved.added?"Nomor invoice exchange berhasil disimpan ke kolom Y.":"Nomor invoice exchange sudah terdaftar di kolom Y."},{headers:{"cache-control":"no-store"}});
   }
   return NextResponse.json({error:"Action tidak dikenal"},{status:400});
- }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Operasi gagal"},{status:500})}
- finally{if(copasLocked){const{email,key}=creds();await releaseCopasLock({email,key}).catch(error=>console.error("Cutoff unlock failed",error))}}
+ }catch(e){if(e instanceof CopasInvoiceError)copasUnlockSafe=e.safeToUnlock;return NextResponse.json({error:e instanceof Error?e.message:"Operasi gagal"},{status:e instanceof CopasInvoiceError?e.status:500})}
+ finally{if(copasLocked&&copasUnlockSafe){const{email,key}=creds();await releaseCopasLock({email,key}).catch(error=>console.error("Cutoff unlock failed",error))}}
 }

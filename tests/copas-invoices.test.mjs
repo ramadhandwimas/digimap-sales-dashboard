@@ -34,7 +34,9 @@ function harness(){
  const store=load('lib/copas-invoice-store.ts',{'./google-sheets':sheets,'./copas-invoices':model});
  const route=load('app/api/copas-invoices/route.ts',{'next/server':{NextResponse:{json:(body,init={})=>({body,status:init.status??200})}},'@/lib/auth-session':{SESSION_COOKIE:'session',verifySessionToken:token=>token==='valid'?{nik:'123',name:'Admin'}:null},'@/lib/copas-invoices':model,'@/lib/copas-invoice-store':store,'@/lib/m238-daily-summary-cache':{refreshDailySummaryPeriods:async periods=>state.cache.push(periods)}});
  const post=(body,token='valid',origin='https://example.com')=>route.POST({cookies:{get:()=>({value:token})},headers:new Headers({origin}),nextUrl:new URL('https://example.com/api/copas-invoices'),json:async()=>body});
- return{state,store,post};
+ const ops=load('app/api/data-upload-ops/route.ts',{'next/server':{NextResponse:{json:(body,init={})=>({body,status:init.status??200})}},'@/lib/google-sheets':sheets,'@/lib/copas-invoices':model,'@/lib/copas-invoice-store':store,'@/lib/data-copas-repair':{},'@/lib/m238-daily-summary-cache':{}});
+ const postExchange=body=>ops.POST({json:async()=>body});
+ return{state,store,post,postExchange};
 }
 
 test('invoice matching is exact, keeps leading zeros, and reviews duplicate line occurrences independently',()=>{
@@ -102,4 +104,40 @@ test('column Y drives the check, deduplicates invoices and never infers an invoi
  assert.deepEqual(checked.items.map(item=>item.row),[3,5,2]);assert.ok(checked.items.every(item=>item.invoice!=='112'));
  const changed=model.checkRawExchangeInvoices(copas,[[12],['0012'],['missing']]);assert.notEqual(changed.planId,checked.planId);
  const empty=model.checkRawExchangeInvoices(copas,[]);assert.equal(empty.items.length,0);assert.equal(empty.sourceInvoiceCount,0);
+});
+
+test('pending exchange invoices save directly in an empty Y cell without an existing transaction and without changing adjacent columns',async()=>{
+ const {store,state}=harness();
+ state.sheets=state.sheets.filter(sheet=>sheet.sheetId!==11); // No Data Copas sheet is required to record a pending invoice.
+ state.values[12][4]=Array.from({length:26},(_,i)=>i===24?'':`keep-${i}`);
+ const before=structuredClone(state.values);
+ await store.acquireCopasLock(credentials);
+ const saved=await store.saveRawExchangeInvoice(credentials,'00100051953');
+ assert.equal(saved.added,true);assert.equal(saved.rowNumber,5);assert.equal(state.values[12][4][24],'00100051953');assert.equal(state.locks.size,0);
+ const expected=structuredClone(before);expected[12][4][24]='00100051953';assert.deepEqual(state.values,expected);
+ const writes=state.batches.flatMap(batch=>batch.filter(request=>request.updateCells));
+ assert.equal(writes.length,1);assert.equal(writes[0].updateCells.range.startColumnIndex,24);assert.equal(writes[0].updateCells.range.endColumnIndex,25);
+ await store.acquireCopasLock(credentials);
+ const repeated=await store.saveRawExchangeInvoice(credentials,' 00100051953 ');assert.equal(repeated.added,false);assert.equal(repeated.rowNumber,5);
+ await store.releaseCopasLock(credentials);assert.deepEqual(state.values,expected);
+});
+
+test('direct exchange API accepts only the exchange number, skips duplicates and validates empty input',async()=>{
+ const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=credentials.email;process.env.GOOGLE_PRIVATE_KEY=credentials.key;
+ try{
+  const {postExchange,state}=harness();
+  const empty=await postExchange({action:'exchange',noExchange:'  '});assert.equal(empty.status,400);assert.equal(state.batches.length,0);
+  const saved=await postExchange({action:'exchange',noExchange:'100051953'});
+  assert.equal(saved.status,200);assert.equal(saved.body.added,true);assert.equal(saved.body.noExchange,'100051953');assert.equal(state.locks.size,0);
+  const again=await postExchange({action:'exchange',noExchange:'100051953'});assert.equal(again.status,200);assert.equal(again.body.added,false);assert.equal(state.locks.size,0);
+  assert.equal(state.values[12].filter(row=>row[24]==='100051953').length,1);
+  assert.equal(state.values[11][1][3],'10005011');
+ }finally{if(email===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=email;if(key===undefined)delete process.env.GOOGLE_PRIVATE_KEY;else process.env.GOOGLE_PRIVATE_KEY=key}
+});
+
+test('exchange entry validation preserves leading zeros and uses the first blank Y slot',()=>{
+ assert.deepEqual(model.planRawExchangeEntry([['existing'],[],['later']],' 00123 '),{invoice:'00123',rowNumber:3,added:true});
+ assert.deepEqual(model.planRawExchangeEntry([['Inv-1']],'inv-1'),{invoice:'inv-1',rowNumber:2,added:false});
+ assert.equal(model.planRawExchangeEntry([[123]],'00123').added,true);
+ for(const value of ['',null,{},'a'.repeat(101),'123\n456'])assert.throws(()=>model.planRawExchangeEntry([],value));
 });

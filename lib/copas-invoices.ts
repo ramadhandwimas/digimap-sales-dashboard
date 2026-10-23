@@ -42,3 +42,13 @@ export function excludeRemovedInvoices<T extends unknown[]>(rows:T[],fingerprint
  const kept=rows.filter(row=>{const id=invoiceFingerprint(row),count=counts.get(id)||0;if(!count)return true;counts.set(id,count-1);excludedCount++;excludedAmount+=Number(row[8])||0;return false});
  return{rows:kept,excludedCount,excludedAmount};
 }
+
+export function planRawExchangeEntry(column:unknown[][],input:unknown){
+ if(typeof input!=="string"&&typeof input!=="number")throw new Error("Masukkan nomor invoice exchange.");
+ const invoice=text(input);
+ if(!invoice||invoice.length>100||/[\r\n]/.test(invoice))throw new Error("Masukkan satu nomor invoice exchange (maksimal 100 karakter).");
+ const duplicate=column.findIndex(row=>key(row[0])===key(invoice));
+ if(duplicate>=0)return{invoice,rowNumber:duplicate+2,added:false};
+ const empty=column.findIndex(row=>!text(row[0]));
+ return{invoice,rowNumber:(empty<0?column.length:empty)+2,added:true};
+}
