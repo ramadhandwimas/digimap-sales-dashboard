@@ -19,25 +19,36 @@ function browser(mobile=true,saved=null){
  globalThis.document={getElementById:id=>({focus:()=>focus.push(id)})};
  return{values,media,focus,resize:()=>mediaEvents.dispatchEvent(new Event('change')),restore:()=>Object.assign(globalThis,original)};
 }
-const tab=(view,id)=>view.root.findByProps({id:`m238-view-tab-${id}`});
-test('mobile version tabs switch in both directions, persist the choice, and support arrow-key navigation',async()=>{
+
+test('mobile pages have no global version tabs; Settings events still switch and persist the selected version',async()=>{
  const browserState=browser();let view;
  try{
   await act(async()=>{view=create(React.createElement(Entry))});
-  assert.equal(view.root.findAllByProps({role:'tab'}).length,2);assert.equal(tab(view,'new').props['aria-selected'],true);assert.equal(view.root.findAllByType('mobile-dashboard').length,1);
-  await act(async()=>tab(view,'classic').props.onClick());assert.equal(browserState.values.get('m238-mobile-view'),'classic');assert.equal(view.root.findAllByType('desktop-dashboard').length,1);assert.equal(tab(view,'classic').props['aria-selected'],true);
-  await act(async()=>tab(view,'classic').props.onKeyDown({key:'ArrowLeft',preventDefault(){}}));assert.equal(tab(view,'new').props['aria-selected'],true);assert.deepEqual(browserState.focus,['m238-view-tab-new']);
-  assert.equal(view.root.findByProps({role:'tabpanel'}).props['aria-labelledby'],'m238-view-tab-new');
-  await act(async()=>view.root.findByType('mobile-dashboard').props.onBusyChange(true));assert.equal(tab(view,'classic').props.disabled,true);
-  await act(async()=>tab(view,'classic').props.onClick());assert.equal(view.root.findAllByType('mobile-dashboard').length,1);
-  await act(async()=>view.root.findByType('mobile-dashboard').props.onBusyChange(false));assert.equal(tab(view,'classic').props.disabled,false);
+  assert.equal(view.root.findAllByProps({role:'tablist'}).length,0);assert.equal(view.root.findAllByType('button').length,0);assert.equal(view.root.findAllByType('mobile-dashboard').length,1);
+  await act(async()=>window.dispatchEvent(new CustomEvent('m238:mobile-view-change',{detail:'classic'})));
+  assert.equal(browserState.values.get('m238-mobile-view'),'classic');assert.equal(view.root.findAllByType('desktop-dashboard').length,1);assert.equal(view.root.findAllByType('button').length,0);
+  await act(async()=>window.dispatchEvent(new CustomEvent('m238:mobile-view-change',{detail:'new'})));assert.equal(view.root.findAllByType('mobile-dashboard').length,1);
  }finally{if(view)await act(async()=>view.unmount());browserState.restore()}
 });
-test('saved classic opens with top tabs while desktop screens keep their existing dashboard',async()=>{
+test('saved classic choice is restored and desktop screens keep the existing dashboard',async()=>{
  const browserState=browser(true,'classic');let view;
  try{
-  await act(async()=>{view=create(React.createElement(Entry))});assert.equal(tab(view,'classic').props['aria-selected'],true);
-  browserState.media.matches=false;await act(async()=>browserState.resize());assert.equal(view.root.findAllByProps({role:'tablist'}).length,0);assert.equal(view.root.findAllByType('desktop-dashboard').length,1);
-  browserState.media.matches=true;await act(async()=>browserState.resize());assert.equal(tab(view,'classic').props['aria-selected'],true);
+  await act(async()=>{view=create(React.createElement(Entry))});assert.equal(view.root.findAllByType('desktop-dashboard').length,1);
+  browserState.media.matches=false;await act(async()=>browserState.resize());assert.equal(view.root.findAllByType('desktop-dashboard').length,1);assert.equal(view.root.findAllByType('button').length,0);
+ }finally{if(view)await act(async()=>view.unmount());browserState.restore()}
+});
+const switchCode=ts.transpileModule(fs.readFileSync(new URL('../components/mobile-version-switch.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,switchModule={exports:{}};
+new Function('require','module','exports',switchCode)(require,switchModule,switchModule.exports);const Switch=switchModule.exports.default;
+test('compact Settings controls work in either version and respect the disabled state',async()=>{
+ const browserState=browser(),events=[];let view;
+ window.addEventListener('m238:mobile-view-change',event=>events.push(event.detail));
+ try{
+  await act(async()=>{view=create(React.createElement(Switch,{value:'new'}))});
+  assert.equal(view.root.findAllByType('button')[0].props['aria-pressed'],true);
+  await act(async()=>view.root.findAllByType('button')[1].props.onClick());assert.deepEqual(events,['classic']);
+  await act(async()=>view.update(React.createElement(Switch,{value:'classic',disabled:true})));
+  await act(async()=>view.root.findAllByType('button')[0].props.onClick());assert.deepEqual(events,['classic']);
+  await act(async()=>view.update(React.createElement(Switch,{value:'classic'})));
+  await act(async()=>view.root.findAllByType('button')[0].props.onClick());assert.deepEqual(events,['classic','new']);
  }finally{if(view)await act(async()=>view.unmount());browserState.restore()}
 });
