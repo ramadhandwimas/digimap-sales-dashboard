@@ -24,7 +24,7 @@ const response=(body,ok=true)=>({ok,json:async()=>body});
 test('Settings opens independent tool pages, locks back while working, and groups appearance controls',async()=>{
  const changes=[],busy=[];let view;
  await act(async()=>{view=create(React.createElement(More,{theme:'classic',motion:'smooth',motionStyle:'clean',font:'system',onTheme:v=>changes.push(v),onMotion:()=>{},onMotionStyle:()=>{},onFont:()=>{},onAction:()=>{},onBusyChange:v=>busy.push(v)}))});
- assert.equal(button(view,'Versi Lama'),undefined);
+ assert.ok(button(view,'Versi Lama'));
  await act(async()=>button(view,'Settings').props.onClick());
  assert.equal(view.root.findAllByType('h1')[0].children.join(''),'Settings');
  assert.equal(view.root.findAllByType('tool-page').length,0);
@@ -123,11 +123,11 @@ test('Settings groups all desktop data actions and opens each missing tool as a 
 });
 
 
-test('compact version controls appear only on Settings, not More or tool pages',async()=>{
+test('compact version controls sit beside More heading and are absent from Settings and tool pages',async()=>{
  let view;await act(async()=>{view=create(React.createElement(More,{theme:'classic',motion:'smooth',motionStyle:'clean',font:'system',onTheme:()=>{},onMotion:()=>{},onMotionStyle:()=>{},onFont:()=>{},onAction:()=>{}}))});
  try{
-  assert.equal(view.root.findAllByProps({className:'m238-settings-version'}).length,0);
-  await act(async()=>button(view,'Settings').props.onClick());assert.equal(view.root.findAllByProps({className:'m238-settings-version'}).length,1);assert.equal(button(view,'Mobile').props['aria-pressed'],true);
+  const heading=view.root.findByProps({className:'m238-more-heading'});assert.equal(heading.findAllByType('button').length,2);assert.equal(button(view,'Mobile').props['aria-pressed'],true);
+  await act(async()=>button(view,'Settings').props.onClick());assert.equal(button(view,'Versi Lama'),undefined);assert.equal(button(view,'Mobile'),undefined);
   await act(async()=>button(view,'Pricelist Device').props.onClick());assert.equal(view.root.findAllByProps({className:'m238-settings-version'}).length,0);
  }finally{await act(async()=>view.unmount())}
 });
