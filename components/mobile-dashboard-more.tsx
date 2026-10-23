@@ -81,7 +81,6 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  </div>;
 
  if(screen==="settings")return <div className="m238-settings">{pageHeader("menu")}
-  <MobileVersionSwitch value="new" disabled={busy}/>
   {([
    ["Data Penjualan",[
     ["spw-upload","Upload SPW","Pilih M238 atau M996, hasil digabung",Upload],
@@ -102,7 +101,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  </div>;
 
  return <div className="m238m-more m238m-more-direct">
-  <div className="m238m-more-title"><strong>More</strong><span>Menu tambahan M238</span></div>
+  <div className="m238-more-heading"><div className="m238m-more-title"><strong>More</strong><span>Menu tambahan M238</span></div><MobileVersionSwitch value="new" compact disabled={busy}/></div>
   <div className="m238m-direct-menu">
    {items.map(({label,sub,icon:Icon,action})=><button key={action} onClick={()=>action==="settings"?navigate("settings"):action==="stock-request"?navigate("stock-request"):onAction(action)}>
     <span className="m238m-direct-icon"><Icon size={19}/></span>

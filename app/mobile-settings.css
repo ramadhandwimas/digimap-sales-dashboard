@@ -87,3 +87,11 @@
  .dark .m238-settings-version-controls{background:var(--m-surface2,#20242c);border-color:var(--m-line,#333a48)}
  .dark .m238-settings-version-controls>button[aria-pressed="true"]{background:var(--m-surface,#353e4d);color:var(--m-blue,#8ab9ff)}
 }
+
+/* More's version switch sits beside its heading, outside the menu rows. */
+.m238-more-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+.m238-more-heading>.m238m-more-title{min-width:0}
+.m238-more-heading>.m238-version-compact{flex-shrink:0;padding:0}
+.m238m-more .m238-settings-version-controls>button{display:inline-flex;align-items:center;justify-content:center;width:auto;height:32px;min-height:32px;padding:5px 10px;border:0;border-radius:7px;font-size:12px;font-weight:700;line-height:1.4;color:var(--m-secondary);background:transparent}
+.m238m-more .m238-settings-version-controls>button[aria-pressed="true"]{background:var(--m-surface);color:var(--m-blue)}
+@media(max-width:350px){.m238-more-heading{gap:6px}.m238m-more .m238-settings-version-controls>button{padding:5px 7px;font-size:11px}}
