@@ -27,12 +27,13 @@ export default function AccessoryPricelistUpload({kind="accessory",onBusyChange}
 
  async function run(mode:"preview"|"import"){
   if(!file||active.current||repairBusy||mode==="import"&&(!result||needsRecheck||result.imported!==undefined))return;
+  if(!/\.xlsx?$/i.test(file.name)||file.size>4*1024*1024||!file.size){setError("Pilih file Excel .xlsx / .xls, maksimal 4 MB.");return}
   active.current=true;setBusy(mode);onBusyChange?.(true);setError("");
   try{
    const body=new FormData();body.append("file",file);body.append("mode",mode);
    if(mode==="import"&&result)body.append("planId",result.planId);
-   const response=await fetch(device?"/api/upload-device-pricelist":"/api/upload-accessory-pricelist",{method:"POST",body});
-   const payload=await response.json();
+   const response=await fetch(device?"/api/upload-device-pricelist":"/api/upload-accessory-pricelist",{method:"POST",body,cache:"no-store"});
+   const payload=await response.json().catch(()=>({error:response.status===401?"Sesi login berakhir. Silakan login kembali.":response.status===413?"File terlalu besar. Maksimal 4 MB.":"Server belum merespons dengan benar. Coba cek pricelist lagi."}));
    if(!response.ok){
     if(payload.planId)setResult(payload);
     setNeedsRecheck(true);
@@ -57,7 +58,7 @@ export default function AccessoryPricelistUpload({kind="accessory",onBusyChange}
     {busy==="import"?<LoaderCircle className="animate-spin" size={17}/>:<Upload size={17}/>}{busy==="import"?"Menyimpan…":`Tambahkan ${result.newCount.toLocaleString("id-ID")} Produk`}
    </button>:null}
   </div>
-  <p className="acc-note">{device?"Upload pricelist Apple Device dengan kolom SAP Article dan SAP Description / SAPDescription. Periksa preview lalu tambahkan produk baru. Setelah tersimpan, gunakan Cek & Perbaiki Data Copas di bawah untuk memperbaiki N/A. Untuk Daily Sales aktif, upload ulang SPW setelah impor.":"Pengecekan memakai SAP Article dan isi Master terbaru. AppleCare tetap Accessories; Qoala, Telkomsel, XL, dan Indosat masuk VAS. Produk yang belum cocok akan ditampilkan untuk diperiksa."}</p>
+  <details className="acc-help"><summary>Panduan file dan langkah berikutnya</summary><p className="acc-note">{device?"Upload pricelist Apple Device dengan kolom SAP Article dan SAP Description / SAPDescription. Periksa preview lalu tambahkan produk baru. Setelah tersimpan, gunakan Cek & Perbaiki Data Copas di bawah untuk memperbaiki N/A. Untuk Daily Sales aktif, upload ulang SPW setelah impor.":"Pengecekan memakai SAP Article dan isi Master terbaru. AppleCare tetap Accessories; Qoala, Telkomsel, XL, dan Indosat masuk VAS. Produk yang belum cocok akan ditampilkan untuk diperiksa."}</p></details>
   {file?<p className="acc-file-name">{file.name} · {(file.size/1024).toLocaleString("id-ID",{maximumFractionDigits:0})} KB</p>:null}
   {busy?<p role="status" className="acc-progress"><LoaderCircle className="animate-spin" size={16}/>{busy==="import"?"Menyimpan produk ke Master. Tunggu hingga selesai.":"Membaca file dan mencocokkan SAP Article dengan Master…"}</p>:null}
   {error?<div role="alert" className="acc-error"><p>{error}</p><p>File dan hasil pemeriksaan tetap tersedia. Klik Cek Pricelist untuk memeriksa ulang sebelum menyimpan.</p></div>:null}
@@ -70,7 +71,7 @@ export default function AccessoryPricelistUpload({kind="accessory",onBusyChange}
    </div>
    <p className="acc-note">{device?`${result.deviceCount||0} Device · ${result.accessoryCount} AirPods`:`${result.accessoryCount} Accessories · ${result.vasCount} VAS`} · {result.total.toLocaleString("id-ID")} baris produk · {result.duplicates} duplikat dalam file · {result.ignored} baris kosong/header dilewati.</p>
    {result.newCount===0&&result.imported===undefined?<p>{device?"Tidak ada device baru yang siap ditambahkan.":"Tidak ada produk Accessories/VAS baru yang siap ditambahkan."}</p>:null}
-   {result.preview.length?<details open><summary>Produk yang {result.imported!==undefined?"ditambahkan":"akan ditambahkan"} ({result.newCount})</summary><div className="acc-table"><table><thead><tr>{["Brand","SAP Article","Deskripsi","Kategori","Type","Group","Core"].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{result.preview.map(row=><tr key={row[1]}>{row.map((cell,i)=><td key={i}>{cell||"—"}</td>)}</tr>)}</tbody></table></div>{result.newCount>50?<p className="acc-note">Menampilkan 50 produk pertama.</p>:null}</details>:null}
+   {result.preview.length?<details open><summary>Produk yang {result.imported!==undefined?"ditambahkan":"akan ditambahkan"} ({result.newCount})</summary><div className="acc-product-cards">{result.preview.map(row=><article key={row[1]}><div><small>{row[3]} · {row[5]}</small><h4>{row[2]}</h4><p>{row[1]}</p></div><dl><div><dt>Type</dt><dd>{row[4]||"—"}</dd></div><div><dt>Brand / Core</dt><dd>{row[0]} / {row[6]}</dd></div></dl></article>)}</div><div className="acc-table acc-table-desktop"><table><thead><tr>{["Brand","SAP Article","Deskripsi","Kategori","Type","Group","Core"].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{result.preview.map(row=><tr key={row[1]}>{row.map((cell,i)=><td key={i}>{cell||"—"}</td>)}</tr>)}</tbody></table></div>{result.newCount>50?<p className="acc-note">Menampilkan 50 produk pertama.</p>:null}</details>:null}
    {result.review.length?<details><summary>Perlu diperiksa ({result.reviewCount})</summary><div className="acc-review">{result.review.map((item,i)=><div key={`${item.article}-${i}`}><strong>{item.article||"Tanpa SAP Article"}</strong><p>{item.description}</p><p>{item.reason}</p><small>{item.sheet}, baris {item.row}</small></div>)}</div>{result.reviewCount>100?<p className="acc-note">Menampilkan 100 baris pertama.</p>:null}</details>:null}
   </div>:null}
   <div inert={!!busy}>{device?<DataCopasRepair scope="device" onBusyChange={value=>{setRepairSource(value?"copas":null);onBusyChange?.(value)}}/>:<><div inert={repairSource==="copas"}><AccessoryMasterRepair onBusyChange={value=>{setRepairSource(value?"master":null);onBusyChange?.(value)}}/></div><div inert={repairSource==="master"}><DataCopasRepair scope="accessory-vas" onBusyChange={value=>{setRepairSource(value?"copas":null);onBusyChange?.(value)}}/></div></>}</div>

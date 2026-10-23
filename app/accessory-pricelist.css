@@ -35,3 +35,19 @@
 .acc-pricelist .acc-success{display:flex;align-items:center;gap:7px}
 @media(max-width:480px){.acc-pricelist{padding:16px}.acc-pricelist .acc-actions button{width:100%}}
 @media(max-width:600px){.acc-pricelist .acc-change{grid-template-columns:1fr 14px 1fr}.acc-pricelist .acc-change b{grid-column:1/-1}.acc-pricelist .acc-select-actions button{flex:1}}
+/* Use readable product cards on phones instead of a seven-column spreadsheet. */
+.acc-product-cards{display:none}
+.acc-pricelist .acc-help{margin-top:12px;padding-top:10px}
+.acc-pricelist .acc-help>summary{font-size:12px;opacity:.75}
+.acc-pricelist .acc-counts>div{background:var(--m-surface2,#f7f9fc);border:0;border-radius:14px;padding:14px 10px}
+.acc-pricelist .acc-counts strong{font-size:25px;letter-spacing:-.03em}
+@media(max-width:600px){
+ .acc-pricelist .acc-table-desktop{display:none}
+ .acc-product-cards{display:grid;gap:10px;margin-top:12px}
+ .acc-product-cards article{padding:14px;border:1px solid var(--m-line,#dbe1ea);border-radius:14px;min-width:0;overflow-wrap:anywhere}
+ .acc-product-cards h4{font-size:14px;line-height:1.45;font-weight:750;margin:4px 0}
+ .acc-product-cards p{font-size:11px;opacity:.65}
+ .acc-product-cards dl{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:1px solid var(--m-line,#e3e8ef);padding-top:10px;margin-top:10px}
+ .acc-product-cards dt{font-size:10px;opacity:.6}.acc-product-cards dd{font-size:12px;font-weight:700;margin:3px 0 0}
+ .acc-pricelist .acc-counts strong{font-size:22px}.acc-pricelist .acc-counts span{font-size:10px;line-height:1.4;display:block;margin-top:4px}
+}

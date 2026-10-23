@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./mobile-dashboard.css";
 import "./mobile-settings.css";
+import "./promo-board-refined.css";
 import IdleLogout from "@/components/idle-logout";
 import MobileTabScrollReset from "@/components/mobile-tab-scroll-reset";
 import MobileInvoiceTapFix from "@/components/mobile-invoice-tap-fix";

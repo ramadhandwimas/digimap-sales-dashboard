@@ -51,7 +51,7 @@ test('upload keeps file and preview on failure, requires a fresh check, and reco
   const file=new File(['fake Excel'],'device.xlsx');
   await act(async()=>view.root.findByType('input').props.onChange({target:{files:[file]}}));
   await act(async()=>{button(view,'Cek Pricelist').props.onClick();await tick()});
-  assert.ok(button(view,'Tambahkan 1 Produk'));assert.equal(view.root.findByType('details').props.open,true);
+  assert.ok(button(view,'Tambahkan 1 Produk'));assert.ok(view.root.findAllByType('details').some(node=>node.props.open===true));
   globalThis.fetch=async()=>{throw new Error('Koneksi terputus')};
   await act(async()=>{button(view,'Tambahkan 1 Produk').props.onClick();await tick()});
   assert.ok(text(view.toJSON()).includes('APP18'));assert.ok(text(view.toJSON()).includes('device.xlsx'));
