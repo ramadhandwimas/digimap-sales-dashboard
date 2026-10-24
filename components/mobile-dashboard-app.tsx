@@ -185,7 +185,7 @@ export default function MobileDashboardApp(){
     setDaily(value);
   },[]);
   const loadSummary=useCallback(async(force=false)=>{
-    const mode=periodMode==="week"&&activeRange?"range":"monthly",url=`/api/daily-summary-fast?from=${activeDates.from}&to=${activeDates.to}&mode=${mode}`;
+    const mode=periodMode==="week"&&activeRange?"range":"monthly",archiveRevision=activeDates.from<"2026-01-01"?"&archiveRev=20251024d":"",url=`/api/daily-summary-fast?from=${activeDates.from}&to=${activeDates.to}&mode=${mode}${archiveRevision}`;
     const d=await swrJson<DailySummary>(url,180000,(data)=>setSummary(data),{force,scope:"summary",timeoutMs:period.startsWith("2025-")?30000:20000,onRefreshError:()=>setError("Gagal memperbarui data. Menampilkan data terakhir.")});
     return d;
   },[period,periodMode,activeRange,activeDates]);

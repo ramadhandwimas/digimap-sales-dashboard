@@ -7,6 +7,7 @@ const overview=fs.readFileSync(new URL("../app/api/overview/route.ts",import.met
 const staff=fs.readFileSync(new URL("../app/api/staff-performance-month/route.ts",import.meta.url),"utf8");
 const mobileCss=fs.readFileSync(new URL("../app/mobile-dashboard.css",import.meta.url),"utf8");
 const dailySummary=fs.readFileSync(new URL("../app/api/daily-summary-fast/route.ts",import.meta.url),"utf8");
+const fixedDailySummary=fs.readFileSync(new URL("../app/api/daily-summary-fast-fixed/route.ts",import.meta.url),"utf8");
 
 test("mobile period picker exposes 2026 and archived 2025",()=>{
  assert.match(mobile,/const periodYears=\[2026,2025\]/);
@@ -28,4 +29,8 @@ test("mobile initial and daily loading use lightweight paths",()=>{
  assert.match(dailySummary,/if\(years\.has\("2026"\)\)sourceRanges\.push/);
  assert.match(dailySummary,/if\(years\.has\("2025"\)\)sourceRanges\.push/);
  assert.match(dailySummary,/if\(!years\.has\("2025"\)\)try/);
+ assert.match(fixedDailySummary,/const includesArchive2025=requestedFrom<"2026-01-01"/);
+ assert.match(fixedDailySummary,/!includesArchive2025&&email&&key/);
+ assert.match(fixedDailySummary,/includesArchive2025\?"ARCHIVE":"BASE"/);
+ assert.match(mobile,/archiveRev=20251024d/);
 });
