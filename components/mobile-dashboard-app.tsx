@@ -70,7 +70,8 @@ const pct=(v:number|null|undefined)=>`${new Intl.NumberFormat("id-ID",{maximumFr
 const today=()=>new Intl.DateTimeFormat("sv-SE",{year:"numeric",month:"2-digit",day:"2-digit",timeZone:"Asia/Jakarta"}).format(new Date());
 const periodNow=()=>today().slice(0,7);
 const monthLabel=(p:string)=>new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(`${p}-01T00:00:00Z`));
-const months=Array.from({length:12},(_,i)=>`2026-${String(i+1).padStart(2,"0")}`);
+const periodYears=[2026,2025] as const;
+const monthsByYear=Object.fromEntries(periodYears.map(year=>[year,Array.from({length:12},(_,i)=>`${year}-${String(i+1).padStart(2,"0")}`)])) as Record<(typeof periodYears)[number],string[]>;
 function initials(name:string){return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase()}
 function shortStaffName(name:string){ return name.trim(); }
 function dailyStaffListName(name:string){ const parts=name.trim().split(/\s+/).filter(Boolean); return parts.length>=3?parts.slice(0,2).join(" "):parts.join(" "); }
@@ -129,10 +130,11 @@ export default function MobileDashboardApp(){
     if(!hadOverview)setLoading(true);else setRefreshing(true);
     const warning=(e:Error)=>setError(e.message==="OFFLINE"?"Offline. Menampilkan data terakhir.":"Gagal memperbarui data. Menampilkan data terakhir.");
     const overviewPromise=swrJson<Overview>(overviewUrl,180000,(data)=>setOverview(data),{force,scope:"overview",onRefreshError:warning});
-    const trafficPromise=swrJson<Traffic>(trafficUrl,180000,(data)=>setTraffic(data),{force,scope:"traffic",onRefreshError:warning});
+    // Traffic is secondary information. Let Overview paint first, then fill CVR/traffic
+    // without keeping the whole Home screen in a loading state.
+    void swrJson<Traffic>(trafficUrl,180000,(data)=>setTraffic(data),{force,scope:"traffic",onRefreshError:warning}).catch(()=>undefined);
     try{
-      const[o]=await Promise.all([overviewPromise,trafficPromise.catch(()=>undefined)]);
-      return o;
+      return await overviewPromise;
     }finally{setLoading(false);setRefreshing(false)}
   },[overviewUrl,trafficUrl]);
 
@@ -178,47 +180,15 @@ export default function MobileDashboardApp(){
   },[]);
 
   const loadDaily=useCallback(async(force=false)=>{
-    const date=today(),period=date.slice(0,7),legacyUrl=`/api/data?period=${period}${force?`&refresh=1&t=${Date.now()}`:""}`,scheduleUrl=`/api/daily?date=${date}`;
-    const[legacy,schedule]=await Promise.all([
-      cachedJson<any>(legacyUrl,force?0:60000,force),
-      cachedJson<any>(scheduleUrl,force?0:60000,force)
-    ]);
-    const legacyRows=(legacy.dailyStaff||[]) as Staff[],scheduleRows=(schedule.staff||[]) as Staff[],legacyById=new Map(legacyRows.map(s=>[String(s.id),s]));
-    const activeIds=new Set(scheduleRows.map(s=>String(s.id)));
-    const rows:Staff[]=[
-      ...scheduleRows.map(meta=>{
-        const actual=legacyById.get(String(meta.id));
-        return actual?{...meta,
-          amount:Number(actual.amount||0),device:Number(actual.device||0),accessories:Number(actual.accessories||0),vas:Number(actual.vas||0),
-          qty:Number(actual.qty||0),invoices:Number(actual.invoices||0),upt:Number(actual.upt||0),atv:Number(actual.atv||0),
-          lob:actual.lob||meta.lob,vasDetail:actual.vasDetail||meta.vasDetail
-        }:meta
-      }),
-      ...legacyRows.filter(s=>!activeIds.has(String(s.id))&&Number(s.amount||0)>0).map(s=>({...s,status:s.status||"EXTRA",share:0,targets:{...(s.targets||{}),amount:0,device:0,accessories:0,vas:0}}))
-    ];
-    const total=rows.reduce((a,s)=>({
-      amount:a.amount+Number(s.amount||0),
-      accessories:a.accessories+Number(s.accessories||0),
-      vas:a.vas+Number(s.vas||0),
-      qty:a.qty+Number(s.qty||0),
-      invoices:a.invoices+Number(s.invoices||0),
-      target:a.target+Number(s.targets?.amount||0),
-      accTarget:a.accTarget+Number(s.targets?.accessories||0),
-      vasTarget:a.vasTarget+Number(s.targets?.vas||0)
-    }),{amount:0,accessories:0,vas:0,qty:0,invoices:0,target:0,accTarget:0,vasTarget:0});
-    setDaily({
-      date:String(legacy.latestDate||date),
-      staff:rows,
-      total:{...total,upt:total.invoices?total.qty/total.invoices:0},
-      fastSource:"legacy-sales+daily-schedule",
-      fastUpdatedAt:String(legacy.generatedAt||new Date().toISOString())
-    });
+    const date=today(),url=`/api/daily-fast?date=${date}${force?"&fresh=1":""}`;
+    const value=await cachedJson<Daily>(url,force?0:60000,force,{scope:"daily"});
+    setDaily(value);
   },[]);
   const loadSummary=useCallback(async(force=false)=>{
-    const mode=periodMode==="week"&&activeRange?"range":"monthly",url=`/api/daily-summary-fast?from=${activeDates.from}&to=${activeDates.to}&mode=${mode}`;
-    const d=await swrJson<DailySummary>(url,180000,(data)=>setSummary(data),{force,scope:"summary",onRefreshError:()=>setError("Gagal memperbarui data. Menampilkan data terakhir.")});
+    const mode=periodMode==="week"&&activeRange?"range":"monthly",archiveRevision=activeDates.from<"2026-01-01"?"&archiveRev=20251024d":"",url=`/api/daily-summary-fast?from=${activeDates.from}&to=${activeDates.to}&mode=${mode}${archiveRevision}`;
+    const d=await swrJson<DailySummary>(url,180000,(data)=>setSummary(data),{force,scope:"summary",timeoutMs:period.startsWith("2025-")?30000:20000,onRefreshError:()=>setError("Gagal memperbarui data. Menampilkan data terakhir.")});
     return d;
-  },[periodMode,activeRange,activeDates]);
+  },[period,periodMode,activeRange,activeDates]);
   const loadWeekly=useCallback(async(force=false,weekOverride="")=>{
     let url="/api/weekly-stable";
     if(weekOverride){
@@ -327,7 +297,8 @@ export default function MobileDashboardApp(){
     return teamAll;
   },[teamAll,teamFilter]);
 
-  const openPeriodSheet=()=>{setDraftPeriod(period);setDraftPeriodMode(periodMode);setDraftWeek(selectedWeek||weekly?.labelB||"");setSheet("period");if(!weekly)void loadWeekly()};
+  const openPeriodSheet=()=>{setDraftPeriod(period);setDraftPeriodMode(periodMode);setDraftWeek(selectedWeek||weekly?.labelB||"");setSheet("period");if(periodMode==="week"&&!weekly)void loadWeekly()};
+  const changeDraftPeriodMode=(mode:"month"|"week")=>{setDraftPeriodMode(mode);if(mode==="week"&&!weekly)void loadWeekly()};
   const applyPeriod=async()=>{
     if(draftPeriodMode==="week"){
       if(!draftWeek)return;
@@ -341,7 +312,7 @@ export default function MobileDashboardApp(){
       }finally{setRefreshing(false)}
       return;
     }
-    setPeriodMode("month");setActiveRange(null);setSelectedWeek("");setPeriod(draftPeriod);setWeeklySummary(null);setFeedback(null);setCx(null);setSheet(null);
+    setPeriodMode("month");setActiveRange(null);setSelectedWeek("");setPeriod(draftPeriod);setSummary(null);setWeeklySummary(null);setFeedback(null);setCx(null);setSheet(null);
   };
   const shareText=`M238 PIM 2 • ${overview?.label||monthLabel(period)}\nSales ${money.format(overview?.summary.amount||0)}\nAchievement ${pct(achievement)}\nUPT ${(overview?.summary.upt||0).toFixed(1)}`;
   const doShare=async(kind:string)=>{if(kind==="wa")window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`,"_blank");else if(kind==="copy")await navigator.clipboard.writeText(shareText);else if(rootRef.current&&kind==="png")await exportReportPng(rootRef.current,`M238-${period}`);else if(rootRef.current&&kind==="pdf")await exportReportPdf(rootRef.current,`M238-${period}`);else if(kind==="xlsx"&&overview)await exportReportXlsx([{name:"Overview",rows:[["Periode",overview.label],["Sales",overview.summary.amount],["Target",overview.target.amount],["Achievement",achievement],["UPT",overview.summary.upt],[],["Staff","Sales","Achievement"],...overview.staff.map(s=>[s.name,s.amount,s.achievement??0])]}],`M238-${period}`);setSheet(null)};
@@ -422,8 +393,8 @@ export default function MobileDashboardApp(){
     </nav>
 
     <Sheet open={sheet==="period"} onClose={()=>setSheet(null)} title="Pilih Periode">
-      <div className="m238m-period-sheet-top"><Segmented value={draftPeriodMode} onChange={setDraftPeriodMode} items={[{value:"month",label:"Month"},{value:"week",label:"Week"}]}/><button className="m238m-primary" disabled={draftPeriodMode==="week"&&!draftWeek} onClick={()=>void applyPeriod()}>Terapkan</button></div>
-      {draftPeriodMode==="month"?<div className="m238m-sheet-list">{months.map(p=><button key={p} onClick={()=>setDraftPeriod(p)} className={draftPeriod===p?"selected":""}><span>{monthLabel(p)}</span>{draftPeriod===p?<strong>✓</strong>:null}</button>)}</div>:<div className="m238m-sheet-list">{(weekly?.availableWeeks||[]).slice().reverse().map(w=><button key={w} onClick={()=>setDraftWeek(w)} className={draftWeek===w?"selected":""}><span>{w}</span>{draftWeek===w?<strong>✓</strong>:null}</button>)}</div>}
+      <div className="m238m-period-sheet-top"><Segmented value={draftPeriodMode} onChange={changeDraftPeriodMode} items={[{value:"month",label:"Month"},{value:"week",label:"Week"}]}/><button className="m238m-primary" disabled={draftPeriodMode==="week"&&!draftWeek} onClick={()=>void applyPeriod()}>Terapkan</button></div>
+      {draftPeriodMode==="month"?<div className="m238m-sheet-list">{periodYears.map(year=><div key={year} className="m238m-period-year-group"><div className="m238m-period-year">{year}</div>{monthsByYear[year].map(p=><button key={p} onClick={()=>setDraftPeriod(p)} className={draftPeriod===p?"selected":""}><span>{monthLabel(p)}</span>{draftPeriod===p?<strong>✓</strong>:null}</button>)}</div>)}</div>:<div className="m238m-sheet-list">{(weekly?.availableWeeks||[]).slice().reverse().map(w=><button key={w} onClick={()=>setDraftWeek(w)} className={draftWeek===w?"selected":""}><span>{w}</span>{draftWeek===w?<strong>✓</strong>:null}</button>)}</div>}
     </Sheet>
 
     <Sheet open={sheet==="share"} onClose={()=>setSheet(null)} title="Share Report">
