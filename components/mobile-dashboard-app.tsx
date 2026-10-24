@@ -186,9 +186,9 @@ export default function MobileDashboardApp(){
   },[]);
   const loadSummary=useCallback(async(force=false)=>{
     const mode=periodMode==="week"&&activeRange?"range":"monthly",url=`/api/daily-summary-fast?from=${activeDates.from}&to=${activeDates.to}&mode=${mode}`;
-    const d=await swrJson<DailySummary>(url,180000,(data)=>setSummary(data),{force,scope:"summary",onRefreshError:()=>setError("Gagal memperbarui data. Menampilkan data terakhir.")});
+    const d=await swrJson<DailySummary>(url,180000,(data)=>setSummary(data),{force,scope:"summary",timeoutMs:period.startsWith("2025-")?30000:20000,onRefreshError:()=>setError("Gagal memperbarui data. Menampilkan data terakhir.")});
     return d;
-  },[periodMode,activeRange,activeDates]);
+  },[period,periodMode,activeRange,activeDates]);
   const loadWeekly=useCallback(async(force=false,weekOverride="")=>{
     let url="/api/weekly-stable";
     if(weekOverride){
@@ -312,7 +312,7 @@ export default function MobileDashboardApp(){
       }finally{setRefreshing(false)}
       return;
     }
-    setPeriodMode("month");setActiveRange(null);setSelectedWeek("");setPeriod(draftPeriod);setWeeklySummary(null);setFeedback(null);setCx(null);setSheet(null);
+    setPeriodMode("month");setActiveRange(null);setSelectedWeek("");setPeriod(draftPeriod);setSummary(null);setWeeklySummary(null);setFeedback(null);setCx(null);setSheet(null);
   };
   const shareText=`M238 PIM 2 • ${overview?.label||monthLabel(period)}\nSales ${money.format(overview?.summary.amount||0)}\nAchievement ${pct(achievement)}\nUPT ${(overview?.summary.upt||0).toFixed(1)}`;
   const doShare=async(kind:string)=>{if(kind==="wa")window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`,"_blank");else if(kind==="copy")await navigator.clipboard.writeText(shareText);else if(rootRef.current&&kind==="png")await exportReportPng(rootRef.current,`M238-${period}`);else if(rootRef.current&&kind==="pdf")await exportReportPdf(rootRef.current,`M238-${period}`);else if(kind==="xlsx"&&overview)await exportReportXlsx([{name:"Overview",rows:[["Periode",overview.label],["Sales",overview.summary.amount],["Target",overview.target.amount],["Achievement",achievement],["UPT",overview.summary.upt],[],["Staff","Sales","Achievement"],...overview.staff.map(s=>[s.name,s.amount,s.achievement??0])]}],`M238-${period}`);setSheet(null)};
