@@ -1465,3 +1465,7 @@
 /* Invoice sheet: immediate tap response on iOS Safari */
 .m238m-invoice-card-button{touch-action:manipulation!important;-webkit-tap-highlight-color:transparent;cursor:pointer}
 .m238m-sheet-back{min-height:42px;border:0;background:transparent;color:var(--m-blue);font-size:12px;font-weight:850;padding:4px 2px;text-align:left;touch-action:manipulation}
+
+/* Period archive navigation */
+.m238m-period-year-group+.m238m-period-year-group{border-top:8px solid var(--m-bg)}
+.m238m-period-year{position:sticky;top:92px;z-index:2;padding:9px 14px;background:var(--m-surface2);color:var(--m-secondary);font-size:12px;font-weight:900;letter-spacing:.08em}
