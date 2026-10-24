@@ -1,50 +1,15 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getSheetRanges} from "@/lib/google-sheets";
+import {M238_FOCUS_PRODUCTS,m238FocusProductName} from "@/lib/m238-focus-products";
 
 const ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0",STORE="M238";
 const s=(v:unknown)=>String(v??"").trim(),up=(v:unknown)=>s(v).toUpperCase();
 const n=(v:unknown)=>typeof v==="number"?v:Number(String(v??"").replace(/\./g,"").replace(/,/g,".").replace(/[^0-9.-]/g,""))||0;
 const iso=(v:unknown)=>{const x=s(v);if(/^\d{2}-\d{2}-\d{4}$/.test(x)){const[d,m,y]=x.split("-");return`${y}-${m}-${d}`}if(/^\d{4}-\d{2}-\d{2}/.test(x))return x.slice(0,10);if(typeof v==="number")return new Date(Date.UTC(1899,11,30)+v*86400000).toISOString().slice(0,10);return""};
-const SUPPORTED=[
-"iPhone 17 Pro Max","iPhone 17 Pro","iPhone 17","iPhone Air","iPhone 16","iPhone 15",
-"MacBook Neo","MacBook Air M5","MacBook Air M4","MacBook Pro M5","MacBook Pro M4",
-"iPad 11","iPad Air 11 M4","iPad Air 13 M4","iPad Pro 11","iPad Pro 13","iPad mini",
-"Apple Watch Series 11","Apple Watch SE 3","Apple Watch Ultra 3",
-"AirPods Pro 3","AirPods 4 ANC","AirPods 4"
-] as const;
+const SUPPORTED=M238_FOCUS_PRODUCTS;
 
 function productName(type:string,desc:string,category:string){
- const x=`${type} ${desc} ${category}`.toUpperCase().replace(/\s+/g," ");
-
- if(/IPHONE\s*17\s*PRO\s*MAX/.test(x))return "iPhone 17 Pro Max";
- if(/IPHONE\s*17\s*PRO/.test(x))return "iPhone 17 Pro";
- if(/IPHONE\s*17(?!\s*PRO)/.test(x))return "iPhone 17";
- if(/IPHONE\s*AIR/.test(x))return "iPhone Air";
- if(/IPHONE\s*16/.test(x))return "iPhone 16";
- if(/IPHONE\s*15/.test(x))return "iPhone 15";
-
- if(/MACBOOK.*NEO|\bMBN\b/.test(x))return "MacBook Neo";
- if(/MACBOOK\s*AIR.*M5|MBA.*M5/.test(x))return "MacBook Air M5";
- if(/MACBOOK\s*AIR.*M4|MBA.*M4/.test(x))return "MacBook Air M4";
- if(/MACBOOK\s*PRO.*M5|MBP.*M5/.test(x))return "MacBook Pro M5";
- if(/MACBOOK\s*PRO.*M4|MBP.*M4/.test(x))return "MacBook Pro M4";
-
- if(/IPAD\s*AIR.*13.*M4/.test(x))return "iPad Air 13 M4";
- if(/IPAD\s*AIR.*11.*M4/.test(x))return "iPad Air 11 M4";
- if(/IPAD\s*PRO.*13/.test(x))return "iPad Pro 13";
- if(/IPAD\s*PRO.*11/.test(x))return "iPad Pro 11";
- if(/IPAD\s*MINI/.test(x))return "iPad mini";
- if(/\bIPAD\s*(?:11|11TH)\b/.test(x))return "iPad 11";
-
- if(/WATCH.*ULTRA.*3|AW.*ULTRA.*3/.test(x))return "Apple Watch Ultra 3";
- if(/WATCH.*SE.*3|AW.*SE.*3/.test(x))return "Apple Watch SE 3";
- if(/WATCH.*SERIES.*11|WATCH.*S11|AW.*S11/.test(x))return "Apple Watch Series 11";
-
- if(/AIRPODS.*PRO.*3|APP.*PRO.*3/.test(x))return "AirPods Pro 3";
- if(/AIRPODS.*4.*ANC|AIRPODS.*ANC.*4/.test(x))return "AirPods 4 ANC";
- if(/AIRPODS.*4/.test(x))return "AirPods 4";
-
- return "";
+ return m238FocusProductName(type,desc,category);
 }
 
 function focusCell(v:unknown){return productName(s(v),s(v),s(v))}
