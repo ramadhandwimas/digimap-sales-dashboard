@@ -28,6 +28,10 @@ function lobKey(category:string,type:string,desc:string){
 }
 function productName(type:string,desc:string,category:string){
  const x=[type,desc,category].join(" ").toUpperCase().replace(/\s+/g," ");
+ if(/IPHONE\s*DUO|\bDUO\b/.test(x))return"iPhone Duo";
+ if(/IPHONE\s*18\s*PRO\s*MAX/.test(x))return"iPhone 18 Pro Max";
+ if(/IPHONE\s*18\s*PRO/.test(x))return"iPhone 18 Pro";
+ if(/IPHONE\s*18(?!\s*PRO)/.test(x))return"iPhone 18";
  if(/IPHONE\s*17\s*PRO\s*MAX/.test(x))return"iPhone 17 Pro Max";
  if(/IPHONE\s*17\s*PRO/.test(x))return"iPhone 17 Pro";
  if(/IPHONE\s*17(?!\s*PRO)/.test(x))return"iPhone 17";
