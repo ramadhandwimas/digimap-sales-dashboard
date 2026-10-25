@@ -38,6 +38,7 @@ type Staff={
 };
 type Overview={
  period:string;label:string;
+ trafficTotal?:number;
  target:{amount:number;device:number;accessories:number;vas:number};
  summary:{amount:number;device:number;accessories:number;vas:number;invoices:number;qty:number;upt:number;atv:number;achievement:number;gap:number;pace:number;status:string;estimate:{amount:number;device:number;accessories:number;vas:number};point:{total:number;device:number;accessories:number;vas:number}};
  staff:Staff[];daily:{date:string;amount:number}[];
@@ -150,12 +151,13 @@ export default function MobileDashboardApp(){
     const hadOverview=!!peekJsonCache<Overview>(overviewUrl);
     if(!hadOverview)setLoading(true);else setRefreshing(true);
     const warning=(e:Error)=>setError(e.message==="OFFLINE"?"Offline. Menampilkan data terakhir.":"Gagal memperbarui data. Menampilkan data terakhir.");
-    const overviewPromise=swrJson<Overview>(overviewUrl,180000,(data)=>setOverview(data),{force,scope:"overview",onRefreshError:warning});
-    // Traffic is secondary information. Let Overview paint first, then fill CVR/traffic
-    // without keeping the whole Home screen in a loading state.
-    void swrJson<Traffic>(trafficUrl,180000,(data)=>setTraffic(data),{force,scope:"traffic",onRefreshError:warning}).catch(()=>undefined);
+    const overviewPromise=swrJson<Overview>(overviewUrl,300000,(data)=>{setOverview(data);if(typeof data.trafficTotal==="number")setTraffic({total:data.trafficTotal})},{force,scope:"overview",onRefreshError:warning});
     try{
-      return await overviewPromise;
+      const data=await overviewPromise;
+      // The fast overview already carries Traffic. Only use the separate legacy
+      // request when the cache-backed response is unavailable.
+      if(typeof data.trafficTotal!=="number")void swrJson<Traffic>(trafficUrl,300000,(value)=>setTraffic(value),{force,scope:"traffic",onRefreshError:warning}).catch(()=>undefined);
+      return data;
     }finally{setLoading(false);setRefreshing(false)}
   },[overviewUrl,trafficUrl]);
 
