@@ -43,6 +43,17 @@ test('Settings opens independent tool pages, locks back while working, and group
  await act(async()=>view.unmount());
 });
 
+test('More exposes Data Health Center as a separate lightweight page',async()=>{
+ let view;await act(async()=>{view=create(React.createElement(More,{theme:'classic',motion:'smooth',motionStyle:'clean',font:'system',onTheme:()=>{},onMotion:()=>{},onMotionStyle:()=>{},onFont:()=>{},onAction:()=>{}}))});
+ try{
+  assert.ok(button(view,'Data Health Center'));
+  await act(async()=>button(view,'Data Health Center').props.onClick());
+  assert.equal(text(view.root.findByType('h1')),'Data Health Center');
+  assert.equal(view.root.findAllByType('tool-page').length,1);
+  assert.equal(view.root.findByProps({'aria-label':'Kembali ke More'}).props.disabled,false);
+ }finally{await act(async()=>view.unmount())}
+});
+
 test('upload keeps file and preview on failure, requires a fresh check, and records successful import',async()=>{
  values.clear();const originalFetch=globalThis.fetch,busy=[],calls=[];let view;
  globalThis.fetch=async(url,options)=>{calls.push({url,mode:options.body.get('mode'),file:options.body.get('file').name});return response(preview)};
