@@ -43,14 +43,19 @@ test('Settings opens independent tool pages, locks back while working, and group
  await act(async()=>view.unmount());
 });
 
-test('More exposes Data Health Center as a separate lightweight page',async()=>{
+test('More exposes data checks and activity as separate lightweight pages',async()=>{
  let view;await act(async()=>{view=create(React.createElement(More,{theme:'classic',motion:'smooth',motionStyle:'clean',font:'system',onTheme:()=>{},onMotion:()=>{},onMotionStyle:()=>{},onFont:()=>{},onAction:()=>{}}))});
  try{
-  assert.ok(button(view,'Data Health Center'));
-  await act(async()=>button(view,'Data Health Center').props.onClick());
-  assert.equal(text(view.root.findByType('h1')),'Data Health Center');
+  assert.ok(button(view,'Cek Masalah Data'));
+  assert.ok(button(view,'Riwayat Aktivitas'));
+  await act(async()=>button(view,'Cek Masalah Data').props.onClick());
+  assert.equal(text(view.root.findByType('h1')),'Cek Masalah Data');
   assert.equal(view.root.findAllByType('tool-page').length,1);
   assert.equal(view.root.findByProps({'aria-label':'Kembali ke More'}).props.disabled,false);
+  await act(async()=>view.root.findByProps({'aria-label':'Kembali ke More'}).props.onClick());
+  await act(async()=>button(view,'Riwayat Aktivitas').props.onClick());
+  assert.equal(text(view.root.findByType('h1')),'Riwayat Aktivitas');
+  assert.equal(view.root.findAllByType('tool-page').length,1);
  }finally{await act(async()=>view.unmount())}
 });
 

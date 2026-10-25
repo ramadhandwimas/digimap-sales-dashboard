@@ -58,7 +58,7 @@ export default function DataCopasRepair({onBusyChange,scope="all"}:{onBusyChange
    if(!response.ok)throw new Error(result.error||"Perbaikan Data Copas gagal");
    setNotice({kind:"success",text:result.message||"Data Copas berhasil diperbaiki."});
    setPreview(null);
-   window.dispatchEvent(new CustomEvent("m238:data-activity",{detail:{label:"Perbaiki Data Copas",timestamp:new Date().toISOString(),detail:`${result.repairRows??0} baris • ${result.changedCells??0} sel`}}));
+   window.dispatchEvent?.(new CustomEvent("m238:data-activity",{detail:{label:"Perbaiki Data Copas",timestamp:new Date().toISOString(),detail:`${result.repairRows??0} baris • ${result.changedCells??0} sel`}}));
   }catch(error){setNotice({kind:"error",text:error instanceof Error?error.message:"Perbaikan Data Copas gagal"})}
   finally{active.current=false;setBusy(null);onBusyChange?.(false)}
  };

@@ -3,7 +3,7 @@
 import {useCallback,useEffect,useMemo,useRef,useState,type CSSProperties,type ReactNode} from "react";
 import dynamic from "next/dynamic";
 import {
-  Activity,Box,Briefcase,CalendarDays,ChevronRight,ClipboardCheck,Copy,CreditCard,FileDown,
+  Activity,Bell,Box,Briefcase,CalendarDays,ChevronRight,ClipboardCheck,Copy,CreditCard,FileDown,
   FileSpreadsheet,Ghost,Home,Lightbulb,LogOut,MessageCircle,MoreHorizontal,Moon,
   PackageSearch,RefreshCw,Settings,Share2,Sun,Tag,Target,TrendingUp,Users,WalletCards,X,Cpu,Shield,Zap
 } from "lucide-react";
@@ -89,6 +89,27 @@ function Progress({value}:{value:number}){return <div className="m238m-progress"
 function Metric({label,value,sub}:{label:string;value:string;sub?:string}){return <Card className="m238m-metric"><span>{label}</span><strong>{value}</strong>{sub?<small>{sub}</small>:null}</Card>}
 function Segmented<T extends string>({value,onChange,items}:{value:T;onChange:(v:T)=>void;items:{value:T;label:string}[]}){return <div className="m238m-segment">{items.map(x=><button key={x.value} onClick={()=>onChange(x.value)} className={value===x.value?"active":""}>{x.label}</button>)}</div>}
 function Skeleton(){return <div className="m238m-stack m238m-fade"><div className="m238m-skeleton hero"/><div className="m238m-grid">{Array.from({length:4},(_,i)=><div key={i} className="m238m-skeleton tile"/>)}</div><div className="m238m-skeleton list"/><div className="m238m-skeleton list"/></div>}
+
+function ClosingNeeds({overview}:{overview:Overview}){
+ const staff=(overview.staff||[]).filter(x=>!/digimap\.co\.id|online/i.test(`${x.name} ${x.position||""}`));
+ const storageKey=`m238-closing-staff:${overview.period}:${today()}`;
+ const[selected,setSelected]=useState<string[]|null>(null);
+ useEffect(()=>{
+  try{const saved=JSON.parse(localStorage.getItem(storageKey)||"null");setSelected(Array.isArray(saved)?saved.map(String):staff.map(x=>String(x.id||x.name)))}catch{setSelected(staff.map(x=>String(x.id||x.name)))}
+ },[storageKey]);
+ useEffect(()=>{if(selected!==null)localStorage.setItem(storageKey,JSON.stringify(selected))},[selected,storageKey]);
+ if(overview.period!==periodNow()||overview.target.amount<=0)return null;
+ const current=today(),end=new Date(Date.UTC(Number(overview.period.slice(0,4)),Number(overview.period.slice(5,7)),0));
+ const now=new Date(`${current}T00:00:00Z`),daysRemaining=Math.max(1,Math.floor((end.getTime()-now.getTime())/86400000)+1);
+ const gap=Math.max(0,overview.summary.gap),dailyNeed=Math.ceil(gap/daysRemaining),activeIds=selected??staff.map(x=>String(x.id||x.name));
+ const perStaff=activeIds.length?Math.ceil(dailyNeed/activeIds.length):0;
+ const toggle=(id:string)=>setSelected(currentIds=>(currentIds??[]).includes(id)?(currentIds??[]).filter(x=>x!==id):[...(currentIds??[]),id]);
+ return <Card className="m238m-closing">
+  <div className="m238m-closing-head"><div><span>Kebutuhan Closing</span><strong>{gap>0?money.format(dailyNeed):"Target tercapai"}</strong><small>{gap>0?`per hari selama ${daysRemaining} hari tersisa`:"Tidak ada gap ke target bulan ini"}</small></div><Target size={20}/></div>
+  {gap>0?<><div className="m238m-closing-stats"><div><span>Proyeksi</span><b>{money.format(overview.summary.estimate.amount)}</b></div><div><span>Per staff aktif</span><b>{activeIds.length?money.format(perStaff):"Pilih staff"}</b></div></div>
+  <details className="m238m-closing-staff"><summary><Users size={16}/> Staff aktif manual <b>{activeIds.length}/{staff.length}</b></summary><div>{staff.map(person=>{const id=String(person.id||person.name);return <label key={id}><input type="checkbox" checked={activeIds.includes(id)} onChange={()=>toggle(id)}/><span>{shortStaffName(person.name)}<small>{person.position||person.status||"Staff"}</small></span></label>})}</div></details></>:null}
+ </Card>
+}
 
 function Sheet({open,onClose,title,children}:{open:boolean;onClose:()=>void;title:string;children:ReactNode}){
   const[startY,setStartY]=useState<number|null>(null),[dragY,setDragY]=useState(0);
@@ -427,7 +448,7 @@ export default function MobileDashboardApp(){
 
 
 function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fullLoading,onOpenPromo,onOpenSalesDetail,onGoSales,onGoTeam,onGoReport,onShare}:{mode:HomeMode;setMode:(v:HomeMode)=>void;overview:Overview;traffic:Traffic|null;cvr:number;achievement:number;periodMode:"month"|"week";fullLoading:boolean;onOpenPromo:()=>void;onOpenSalesDetail:()=>void;onGoSales:()=>void;onGoTeam:()=>void;onGoReport:()=>void;onShare:()=>void}){
- const salesRows=overview.daily||[],latestSales=salesRows.at(-1)?.amount||0,prevSales=salesRows.at(-2)?.amount||0,salesDelta=prevSales?((latestSales-prevSales)/prevSales)*100:null;
+ const salesRows=overview.daily||[],latestDataDate=salesRows.at(-1)?.date||"",latestSales=salesRows.at(-1)?.amount||0,prevSales=salesRows.at(-2)?.amount||0,salesDelta=prevSales?((latestSales-prevSales)/prevSales)*100:null;
  const trafficRows=traffic?.daily||[],latestTraffic=trafficRows.at(-1)?.traffic||0,prevTraffic=trafficRows.at(-2)?.traffic||0,trafficDelta=prevTraffic?((latestTraffic-prevTraffic)/prevTraffic)*100:null;
  const insight=salesDelta==null
   ? (achievement>=100?"Target bulan ini sudah tercapai. Pertahankan momentum penjualan.":achievement>=80?"Achievement sudah mendekati target. Fokuskan opportunity yang siap closing.":"Achievement masih perlu didorong. Prioritaskan opportunity dan follow-up yang aktif.")
@@ -438,6 +459,10 @@ function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fu
   {label:"Accessories",actual:overview.summary.accessories,target:overview.target.accessories},
   {label:"VAS",actual:overview.summary.vas,target:overview.target.vas}
  ].filter(x=>x.target>0&&x.actual<x.target).sort((a,b)=>(a.actual/a.target)-(b.actual/b.target));
+ const homeAlerts=overview.period===periodNow()?[
+  ...(latestDataDate&&latestDataDate<today()?[{key:"stale",title:"Data penjualan belum hari ini",detail:`Data terakhir ${salesDateLabel(latestDataDate)}. Perbarui SPW bila transaksi hari ini sudah tersedia.`}]:[]),
+  ...(overview.target.amount<=0?[{key:"target",title:"Target bulan belum tersedia",detail:"Tambahkan target agar kebutuhan closing dan achievement dapat dihitung."}]:overview.summary.estimate.amount<overview.target.amount?[{key:"projection",title:"Proyeksi masih di bawah target",detail:`Estimasi akhir bulan ${money.format(overview.summary.estimate.amount)}.`}]:[])
+ ]:[];
  const staffRows=(overview.staff||[]).filter(x=>!/digimap\.co\.id|online/i.test(`${x.name} ${x.position||""}`));
  const ranked=[...staffRows].sort((a,b)=>b.amount-a.amount);
  const topStaff=ranked[0]||null;
@@ -461,11 +486,13 @@ function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fu
       <Card className="m238m-hero m238m-home-hero"><div className="m238m-hero-title"><span>Total Sales</span><ChevronRight size={18}/></div><strong>{money.format(overview.summary.amount)}</strong><p>{pct(achievement)} dari Target</p><Progress value={achievement}/><div className="m238m-hero-meta"><span>Target <b>{money.format(overview.target.amount)}</b></span><span>{periodMode==="month"?"Point Store":"Periode"} <b>{periodMode==="month"?overview.summary.point.total.toFixed(1):overview.label}</b></span></div></Card>
     </button>
     <div className="m238m-grid m238m-home-kpis"><Metric label="Achievement" value={pct(achievement)} sub={overview.summary.status}/><Metric label="Gap ke Target" value={money.format(overview.summary.gap)} sub={overview.summary.gap>0?"Sisa ke target":"Target tercapai"}/><Metric label="CVR" value={pct(cvr)} sub="Traffic → transaksi"/><Metric label="UPT" value={overview.summary.upt.toFixed(1)} sub="Unit per transaksi"/></div>
-    <div className="m238m-section-head"><h2>Needs Attention</h2><span>{categoryAttention.length+(followStaff?1:0)} item</span></div>
+    <ClosingNeeds overview={overview}/>
+    <div className="m238m-section-head"><h2>Notifikasi Penting</h2><span>{homeAlerts.length+categoryAttention.length+(followStaff?1:0)} item</span></div>
+    {homeAlerts.length?<div className="m238m-home-alerts">{homeAlerts.map(alert=><Card key={alert.key} className="m238m-home-alert"><Bell size={18}/><div><strong>{alert.title}</strong><small>{alert.detail}</small></div></Card>)}</div>:null}
     <div className="m238m-attention-grid">
       {categoryAttention.slice(0,3).map(x=>{const a=x.target?x.actual/x.target*100:0;return <Card key={x.label} className="m238m-attention-card"><span>{x.label}</span><strong>{pct(a)}</strong><small>Belum achieve • gap {money.format(Math.max(0,x.target-x.actual))}</small></Card>})}
       {followStaff?<button className="m238m-click-card" onClick={onGoTeam}><Card className="m238m-attention-card staff"><span>Staff perlu follow-up</span><strong>{shortStaffName(followStaff.name)}</strong><small>Achievement {pct(followStaff.achievement??0)} • cek Team</small></Card></button>:null}
-      {!categoryAttention.length&&!followStaff?<Card className="m238m-attention-ok"><Target size={18}/><div><strong>Tidak ada warning utama</strong><small>Target kategori dan staff berada di jalur yang baik.</small></div></Card>:null}
+      {!homeAlerts.length&&!categoryAttention.length&&!followStaff?<Card className="m238m-attention-ok"><Target size={18}/><div><strong>Tidak ada warning utama</strong><small>Target kategori dan staff berada di jalur yang baik.</small></div></Card>:null}
     </div>
 
     <div className="m238m-section-head"><h2>LOB Performance</h2><button className="m238m-link-button" onClick={onGoSales}>Lihat Semua</button></div>

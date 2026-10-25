@@ -27,10 +27,17 @@ export default function ResponsiveDashboardEntry(){
       }
     };
     window.addEventListener("m238:mobile-view-change",onChange);
+    const onActivity=(event:Event)=>{
+      const detail=(event as CustomEvent<{label?:string;title?:string;detail?:string;count?:number;type?:string}>).detail;
+      if(!detail?.label&&!detail?.title)return;
+      void fetch("/api/activity-history",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(detail),keepalive:true}).catch(()=>undefined);
+    };
+    window.addEventListener("m238:data-activity",onActivity);
     if("serviceWorker" in navigator)window.setTimeout(()=>navigator.serviceWorker.register("/m238-sw.js",{scope:"/"}).catch(()=>undefined),1200);
     return()=>{
       media.removeEventListener?.("change",sync);
       window.removeEventListener("m238:mobile-view-change",onChange);
+      window.removeEventListener("m238:data-activity",onActivity);
     };
   },[]);
 
