@@ -20,7 +20,7 @@ test("mobile period picker exposes 2026 and archived 2025",()=>{
 });
 
 test("mobile initial and daily loading use lightweight paths",()=>{
- assert.match(mobile,/const data=await overviewPromise/);
+ assert.match(mobile,/return await overviewPromise/);
  assert.doesNotMatch(mobile,/Promise\.all\(\[overviewPromise,trafficPromise/);
  assert.match(mobile,/\/api\/daily-fast\?date=/);
  assert.doesNotMatch(mobile,/legacyUrl=`\/api\/data\?period=/);
@@ -33,7 +33,5 @@ test("mobile initial and daily loading use lightweight paths",()=>{
  assert.match(fixedDailySummary,/!includesArchive2025&&email&&key/);
  assert.match(fixedDailySummary,/includesArchive2025\?"ARCHIVE":"BASE"/);
  assert.match(mobile,/archiveRev=20251024d/);
- assert.match(overview,/DAILY SUMMARY CACHE/);
- assert.match(overview,/x-m238-cache":"FAST/);
- assert.match(mobile,/typeof data\.trafficTotal!=="number"/);
+ assert.match(mobile,/void swrJson<Traffic>\(trafficUrl,300000/);
 });

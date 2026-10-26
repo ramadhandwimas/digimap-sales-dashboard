@@ -1,10 +1,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getSheetRanges} from "@/lib/google-sheets";
-import {cacheFromValues} from "@/lib/m238-fast-sales";
-import {readCachedSummaryPeriods,type DailySummaryCacheRow} from "@/lib/m238-daily-summary-cache";
 
 const ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
-const MASTER_ID="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk";
 const STORE="M238";
 const DEVICE_LOBS=["iPhone","iPad","Mac","Apple Watch","AirPods"] as const;
 const OVERVIEW_CACHE_TTL=90*1000;
@@ -30,19 +27,6 @@ function sumAmount(rows:unknown[][]){return rows.reduce((a,r)=>a+n(r[8]),0)}
 function sumQty(rows:unknown[][]){return rows.reduce((a,r)=>a+n(r[7]),0)}
 function monthSeries(rows:unknown[][],year:number){return Array.from({length:12},(_,i)=>{const period=`${year}-${String(i+1).padStart(2,"0")}`,rr=rows.filter(r=>iso(r[0]).startsWith(period)),devices=rr.filter(r=>kind(r)==="device"),lobs:Record<string,{amount:number;qty:number}>={};for(const lob of DEVICE_LOBS)lobs[lob]={amount:0,qty:0};lobs["Other Device"]={amount:0,qty:0};for(const r of devices){const lob=deviceLob(r),cur=lobs[lob]||{amount:0,qty:0};lobs[lob]={amount:cur.amount+n(r[8]),qty:cur.qty+n(r[7])}}return{period,amount:sumAmount(rr),qty:sumQty(rr),device:sumAmount(devices),deviceQty:sumQty(devices),lobs}})}
 
-function fastOverview(period:string,summaryRows:DailySummaryCacheRow[],fastValues:unknown[][],config:unknown[][]){
- const rows=fastValues.map(cacheFromValues).filter(row=>row.store===STORE&&row.date.startsWith(period));
- if(!summaryRows.length||!rows.length)return null;
- const label=monthLabel(period).toLowerCase(),targetRow=config.find(r=>s(r[16]).toLowerCase()===label),target={amount:n(targetRow?.[17]),device:n(targetRow?.[18]),accessories:n(targetRow?.[19]),vas:n(targetRow?.[20])};
- const shareById=new Map<string,number>();for(const r of config.slice(27,55)){const id=s(r[8]);if(id)shareById.set(id,n(r[11]))}
- const grouped=new Map<string,typeof rows>();for(const row of rows){if(!row.id)continue;const list=grouped.get(row.id)||[];list.push(row);grouped.set(row.id,list)}
- const staff=[...grouped.entries()].map(([id,list])=>{const amount=list.reduce((a,r)=>a+r.amount,0),accessories=list.reduce((a,r)=>a+r.accessories,0),vas=list.reduce((a,r)=>a+r.vas,0),qty=list.reduce((a,r)=>a+r.qty,0),invoices=list.reduce((a,r)=>a+r.invoices,0),share=Math.max(0,shareById.get(id)||0),staffTarget=target.amount*share,achievement=staffTarget?amount/staffTarget*100:null,status=achievement===null?"Productive":achievement>=100?"Productive":achievement>=80?"Need Push":"Low Activity";return{id,name:list.at(-1)?.name||id,amount,device:Math.max(0,amount-accessories-vas),accessories,vas,qty,invoices,upt:invoices?qty/invoices:0,atv:invoices?amount/invoices:0,target:staffTarget,achievement,gap:staffTarget?Math.max(0,staffTarget-amount):0,status,lob:{iphone:list.reduce((a,r)=>a+r.iphone,0),mac:list.reduce((a,r)=>a+r.mac,0),ipad:list.reduce((a,r)=>a+r.ipad,0),watch:list.reduce((a,r)=>a+r.watch,0),airpods:list.reduce((a,r)=>a+r.airpods,0)}}}).sort((a,b)=>b.amount-a.amount);
- const totals=summaryRows.reduce((a,r)=>({amount:a.amount+r.amount,device:a.device+r.device,accessories:a.accessories+r.accessories,vas:a.vas+r.vas,invoices:a.invoices+r.invoices,qty:a.qty+r.qty,traffic:a.traffic+r.traffic}),{amount:0,device:0,accessories:0,vas:0,invoices:0,qty:0,traffic:0});
- const daily=summaryRows.map(row=>({date:row.date,amount:row.amount})).sort((a,b)=>a.date.localeCompare(b.date)),today=jakartaToday(),current=today.slice(0,7),dim=new Date(Number(period.slice(0,4)),Number(period.slice(5,7)),0).getDate(),elapsed=period<current?dim:period>current?0:Math.min(Number(today.slice(8,10)),dim),pace=dim?elapsed/dim*100:0,achievement=target.amount?totals.amount/target.amount*100:0,gap=Math.max(0,target.amount-totals.amount),projectionFactor=elapsed>0?dim/elapsed:0,status=target.amount?(achievement>=100?"Achieve":achievement>=pace?"On Track":"Need Push"):"Target belum ada";
- const estimate={amount:period<current?totals.amount:period>current?0:totals.amount*projectionFactor,device:period<current?totals.device:period>current?0:totals.device*projectionFactor,accessories:period<current?totals.accessories:period>current?0:totals.accessories*projectionFactor,vas:period<current?totals.vas:period>current?0:totals.vas*projectionFactor},pointDevice=Math.min(target.device?totals.device/target.device*60:0,60),pointAccessories=Math.min(target.accessories?totals.accessories/target.accessories*30:0,30),pointVas=Math.min(target.vas?totals.vas/target.vas*10:0,10),point={total:pointDevice+pointAccessories+pointVas,device:pointDevice,accessories:pointAccessories,vas:pointVas};
- return{period,label:monthLabel(period),target,summary:{...totals,upt:totals.invoices?totals.qty/totals.invoices:0,atv:totals.invoices?totals.amount/totals.invoices:0,achievement,gap,pace,status,estimate,point},staff,daily,trafficTotal:totals.traffic,team:{total:staff.length,productive:staff.filter(x=>x.status==="Productive").length,needPush:staff.filter(x=>x.status!=="Productive").length,totalTransactions:totals.invoices,avgUpt:totals.invoices?totals.qty/totals.invoices:0,avgAtv:totals.invoices?totals.amount/totals.invoices:0},fastSource:"DAILY SUMMARY CACHE + DAILY SALES CACHE"};
-}
-
 export async function GET(req:NextRequest){
  const period=req.nextUrl.searchParams.get("period")||jakartaToday().slice(0,7),from=req.nextUrl.searchParams.get("from")||"",to=req.nextUrl.searchParams.get("to")||"",rangeLabel=req.nextUrl.searchParams.get("label")||"",lite=req.nextUrl.searchParams.get("lite")==="1";
  const rangeMode=validDate(from)&&validDate(to)&&from<=to,cacheKey=[STORE,period,from,to,rangeLabel,lite?"lite":"full"].join("|"),hit=cachedOverview(cacheKey);
@@ -52,14 +36,6 @@ export async function GET(req:NextRequest){
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
  if(!email||!key)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});
  try{
-  if(lite&&!rangeMode&&period.startsWith("2026-"))try{
-   const[cached,[fastValues],[config]]=await Promise.all([
-    readCachedSummaryPeriods([period],{email,key},STORE),
-    getSheetRanges(MASTER_ID,["'DAILY SALES CACHE'!A2:Z5000"],email,key),
-    getSheetRanges(ID,["Config!A1:AZ120"],email,key)
-   ]),quick=fastOverview(period,cached.rowsByPeriod.get(period)||[],fastValues||[],config||[]);
-   if(quick)return NextResponse.json(saveOverview(cacheKey,quick),{headers:{"cache-control":"private, max-age=90, stale-while-revalidate=300","x-m238-cache":"FAST"}})
-  }catch(error){console.warn("M238_OVERVIEW_FAST_FALLBACK",error instanceof Error?error.message:"Fast cache unavailable")}
   const requestedYear=(rangeMode?from:period).slice(0,4),liteRanges=requestedYear==="2025"?["'Data Copas Archive 2025'!A2:S32755","Config!A1:AZ120"]:["'Data Copas'!A2:S50000","Config!A1:AZ120"];
   const fetched=await getSheetRanges(ID,lite?liteRanges:["'Data Copas'!A2:S50000","'Data Copas Archive 2025'!A2:S32755","Config!A1:AZ120"],email,key);
   const rows2026=lite?(requestedYear==="2026"?(fetched[0]||[]):[]):(fetched[0]||[]),rows2025=lite?(requestedYear==="2025"?(fetched[0]||[]):[]):(fetched[1]||[]),config=(lite?fetched[1]:fetched[2])||[];

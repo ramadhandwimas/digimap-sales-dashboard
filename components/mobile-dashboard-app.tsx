@@ -38,7 +38,6 @@ type Staff={
 };
 type Overview={
  period:string;label:string;
- trafficTotal?:number;
  target:{amount:number;device:number;accessories:number;vas:number};
  summary:{amount:number;device:number;accessories:number;vas:number;invoices:number;qty:number;upt:number;atv:number;achievement:number;gap:number;pace:number;status:string;estimate:{amount:number;device:number;accessories:number;vas:number};point:{total:number;device:number;accessories:number;vas:number}};
  staff:Staff[];daily:{date:string;amount:number}[];
@@ -151,13 +150,11 @@ export default function MobileDashboardApp(){
     const hadOverview=!!peekJsonCache<Overview>(overviewUrl);
     if(!hadOverview)setLoading(true);else setRefreshing(true);
     const warning=(e:Error)=>setError(e.message==="OFFLINE"?"Offline. Menampilkan data terakhir.":"Gagal memperbarui data. Menampilkan data terakhir.");
-    const overviewPromise=swrJson<Overview>(overviewUrl,300000,(data)=>{setOverview(data);if(typeof data.trafficTotal==="number")setTraffic({total:data.trafficTotal})},{force,scope:"overview",onRefreshError:warning});
+    const overviewPromise=swrJson<Overview>(overviewUrl,300000,(data)=>setOverview(data),{force,scope:"overview",onRefreshError:warning});
+    // Traffic remains independent and never blocks the main overview.
+    void swrJson<Traffic>(trafficUrl,300000,(value)=>setTraffic(value),{force,scope:"traffic",onRefreshError:warning}).catch(()=>undefined);
     try{
-      const data=await overviewPromise;
-      // The fast overview already carries Traffic. Only use the separate legacy
-      // request when the cache-backed response is unavailable.
-      if(typeof data.trafficTotal!=="number")void swrJson<Traffic>(trafficUrl,300000,(value)=>setTraffic(value),{force,scope:"traffic",onRefreshError:warning}).catch(()=>undefined);
-      return data;
+      return await overviewPromise;
     }finally{setLoading(false);setRefreshing(false)}
   },[overviewUrl,trafficUrl]);
 
