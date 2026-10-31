@@ -10,14 +10,16 @@ const isoDate=(value:unknown)=>{const raw=text(value);if(/^\d{4}-\d{2}-\d{2}/.te
 const vasName=(row:M996Sale)=>{const value=upper(`${row.article} ${row.description} ${row.category} ${row.brand} ${row.vendor}`);if(/QOALA|PROTEKSI|(^|\s)KLA/.test(value))return"QOALA";if(/TELKOMSEL|(^|\s)TSL(\s|$)/.test(value))return"TELKOMSEL";if(/INDOSAT|(^|\s)IDT(\s|$)/.test(value))return"INDOSAT";if(/(^|\s)XL(\s|$)|XXL/.test(value))return"XL";return row.vendor||row.brand||row.category||"VAS LAINNYA"};
 const detailName=(row:M996Sale)=>row.scheme==="DEVICES"?(row.type||row.category||row.description||"DEVICE LAINNYA"):row.scheme==="ACCESSORIES"?(row.category||row.type||row.description||"ACCESSORIES LAINNYA"):row.scheme==="VAS"?vasName(row):(row.type||row.category||row.description||"BELUM TERKLASIFIKASI");
 
+export function m996QuantityOverrides(rows:unknown[][]){let date="",staffId="",article="";const quantities=new Map<string,number>();for(const row of rows){const first=text(row?.[0]),second=text(row?.[1]),parsedDate=isoDate(first);if(parsedDate){date=parsedDate;continue}const staff=first.match(/^(\d{6,10})\s*\/\s*(.+)$/);if(staff){staffId=staff[1];continue}if(first&&second&&!/^TOTAL\s+FOR|^GRAND\s+TOTAL|^PAGE\s*:/i.test(first)&&typeof row?.[0]!=="number"){article=upper(second);continue}if(!date||!staffId||!article||typeof row?.[0]!=="number"||!second)continue;const unitPrice=number(row[0]),amount=number(row[2]),ratio=unitPrice>0?amount/unitPrice:1,rounded=Math.round(ratio),qty=rounded>=1&&rounded<=100&&Math.abs(amount-unitPrice*rounded)<=1?rounded:1,key=`M996|${date}|${second}|${article}|${staffId}`;quantities.set(key,(quantities.get(key)||0)+qty)}return quantities}
+
 export function m996SaleFromValues(row:unknown[]):M996Sale|null{
  const sourceKey=text(row[16]),date=isoDate(row[0]);
  if(!/^M996\|/i.test(sourceKey)||!date)return null;
  return{date,staffId:text(row[1]),staffName:text(row[2])||"Tanpa Nama",invoice:text(row[3]),article:upper(row[4]),description:text(row[5]),type:text(row[6]),qty:number(row[7]),amount:number(row[8]),category:upper(row[9]),brand:upper(row[10]),core:upper(row[11]),scheme:upper(row[12]),vendor:upper(row[13]),week:text(row[14]),sourceKey};
 }
 
-export function compileM996(values:unknown[][],requestedPeriod="",excludedInvoices:Iterable<string>=[]){
- const allRows=values.map(m996SaleFromValues).filter((row):row is M996Sale=>Boolean(row));
+export function compileM996(values:unknown[][],requestedPeriod="",excludedInvoices:Iterable<string>=[],quantityOverrides:ReadonlyMap<string,number>=new Map()){
+ const allRows=values.map(m996SaleFromValues).filter((row):row is M996Sale=>Boolean(row)).map(row=>quantityOverrides.has(row.sourceKey)?{...row,qty:quantityOverrides.get(row.sourceKey)||row.qty}:row);
  const availablePeriods=[...new Set(allRows.map(row=>row.date.slice(0,7)))].sort().reverse();
  const period=/^20\d{2}-\d{2}$/.test(requestedPeriod)?requestedPeriod:(availablePeriods[0]||requestedPeriod);
  const excludedSet=new Set([...excludedInvoices].map(text).filter(Boolean)),periodRows=allRows.filter(row=>!period||row.date.startsWith(period)),excludedRows=periodRows.filter(row=>row.invoice&&excludedSet.has(row.invoice));
