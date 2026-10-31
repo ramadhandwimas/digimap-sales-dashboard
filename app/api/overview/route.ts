@@ -32,13 +32,15 @@ export async function GET(req:NextRequest){
  const rangeMode=validDate(from)&&validDate(to)&&from<=to,cacheKey=[STORE,period,from,to,rangeLabel,lite?"lite":"full"].join("|"),hit=cachedOverview(cacheKey);
  if(hit)return NextResponse.json(hit,{headers:{"cache-control":"private, max-age=60, stale-while-revalidate=120","x-m238-cache":"HIT"}});
 
- if(!/^2026-\d{2}$/.test(period))return NextResponse.json({error:"Period harus format YYYY-MM"},{status:400});
+ if(!/^202[56]-\d{2}$/.test(period))return NextResponse.json({error:"Period harus format YYYY-MM (2025–2026)"},{status:400});
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
  if(!email||!key)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});
  try{
-  const fetched=await getSheetRanges(ID,lite?["'Data Copas'!A2:S50000","Config!A1:AZ120"]:["'Data Copas'!A2:S50000","'Data Copas Archive 2025'!A2:S32755","Config!A1:AZ120"],email,key);
-  const rows2026=fetched[0]||[],rows2025=lite?[]:(fetched[1]||[]),config=(lite?fetched[1]:fetched[2])||[];
-  const periodRows=rangeMode?scoped(rows2026).filter(r=>{const d=iso(r[0]);return d>=from&&d<=to}):scoped(rows2026,period),all2026=lite?[]:scoped(rows2026),all2025=lite?[]:archiveScoped(rows2025);
+  const requestedYear=(rangeMode?from:period).slice(0,4),liteRanges=requestedYear==="2025"?["'Data Copas Archive 2025'!A2:S32755","Config!A1:AZ120"]:["'Data Copas'!A2:S50000","Config!A1:AZ120"];
+  const fetched=await getSheetRanges(ID,lite?liteRanges:["'Data Copas'!A2:S50000","'Data Copas Archive 2025'!A2:S32755","Config!A1:AZ120"],email,key);
+  const rows2026=lite?(requestedYear==="2026"?(fetched[0]||[]):[]):(fetched[0]||[]),rows2025=lite?(requestedYear==="2025"?(fetched[0]||[]):[]):(fetched[1]||[]),config=(lite?fetched[1]:fetched[2])||[];
+  const currentRows=scoped(rows2026),archiveRows=archiveScoped(rows2025),selectedSource=period.startsWith("2025-")?archiveRows:currentRows;
+  const periodRows=rangeMode?[...archiveRows,...currentRows].filter(r=>{const d=iso(r[0]);return d>=from&&d<=to}):selectedSource.filter(r=>iso(r[0]).startsWith(period)),all2026=lite?[]:currentRows,all2025=lite?[]:archiveRows;
   const label=monthLabel(period).toLowerCase(),targetRow=(config||[]).find(r=>s(r[16]).toLowerCase()===label);
   const rangeDates=rangeMode?[...new Set(periodRows.map(r=>iso(r[0])).filter(Boolean))]:[];
   const rangeTarget=rangeDates.reduce((sum,date)=>{const row=(config||[]).find(r=>s(r[22]).toLowerCase()===weekday(date));return sum+n(row?.[23])},0);

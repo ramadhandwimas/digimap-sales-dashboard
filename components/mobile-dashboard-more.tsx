@@ -9,14 +9,17 @@ const DailySalesTools=dynamic(()=>import("@/components/m238-data-actions").then(
 const SohTools=dynamic(()=>import("@/components/m238-data-actions").then(module=>module.SohDataActions));
 const ExchangeInvoiceInput=dynamic(()=>import("@/components/exchange-invoice-input"));
 const DataCopasRepair=dynamic(()=>import("@/components/data-copas-repair"));
-import {Box,ChevronLeft,ChevronRight,CreditCard,LogOut,Mail,MessageCircle,Settings,Type,Users,WalletCards,FileSpreadsheet,Smartphone,WandSparkles,Palette,Check,ReceiptText,Upload,CalendarCheck,Trash2} from "lucide-react";
+const DataHealthCenter=dynamic(()=>import("@/components/data-health-center"));
+const ActivityHistory=dynamic(()=>import("@/components/activity-history"));
+const M996CompileReport=dynamic(()=>import("@/components/m996-compile-report"));
+import {Activity,Box,ChevronLeft,ChevronRight,CreditCard,History,LogOut,Mail,MessageCircle,Settings,Type,Users,WalletCards,FileSpreadsheet,Smartphone,WandSparkles,Palette,Check,ReceiptText,Upload,CalendarCheck,Trash2,Building2} from "lucide-react";
 
 type ThemePreset="classic"|"midnight"|"aurora"|"playful"|"graphite"|"sunset"|"forest"|"mono"|"webhero"|"mecha"|"alliance";
 type MotionPreset="instant"|"minimal"|"smooth"|"dynamic"|"cinematic";
 type MotionStyle="clean"|"ios-spring"|"glass-flow"|"playful-bounce"|"executive"|"stagger"|"blur"|"elastic"|"fade-up"|"zoom-soft"|"slide-flow"|"float";
 type FontPreset="system"|"rounded"|"compact"|"modern"|"editorial"|"tech"|"soft"|"bold"|"mono";
 
-type Screen="menu"|"settings"|"stock-request"|"pricelist"|"device-pricelist"|"copas-repair"|"appearance"|"copas-invoices"|"exchange"|"spw-upload"|"cutoff"|"spw-clear"|"soh-upload"|"soh-clear";
+type Screen="menu"|"settings"|"data-health"|"activity-history"|"m996-compile"|"stock-request"|"pricelist"|"device-pricelist"|"copas-repair"|"appearance"|"copas-invoices"|"exchange"|"spw-upload"|"cutoff"|"spw-clear"|"soh-upload"|"soh-clear";
 
 export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMotion,onMotionStyle,onFont,onAction,onBusyChange,onChanged}:{theme:ThemePreset;motion:MotionPreset;motionStyle:MotionStyle;font:FontPreset;onTheme:(v:ThemePreset)=>void;onMotion:(v:MotionPreset)=>void;onMotionStyle:(v:MotionStyle)=>void;onFont:(v:FontPreset)=>void;onAction:(action:string)=>void;onBusyChange?:(busy:boolean)=>void;onChanged?:()=>void|Promise<void>}){
  const[screen,setScreen]=useState<Screen>("menu"),[busy,setBusy]=useState(false);
@@ -24,8 +27,8 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  const changeBusy=useCallback((value:boolean)=>{setBusy(value);onBusyChange?.(value)},[onBusyChange]);
  useEffect(()=>{window.scrollTo({top:0,behavior:"instant"});headingRef.current?.focus({preventScroll:true})},[screen]);
  const navigate=(next:Screen)=>{if(!busy)setScreen(next)};
- const titles:Record<Screen,string>={menu:"More",settings:"Settings","stock-request":"Stock Request MD",pricelist:"Pricelist Aksesoris","device-pricelist":"Pricelist Device","copas-repair":"Perbaiki Data Copas",appearance:"Tampilan","copas-invoices":"Cek Invoice Exchange/Cancel",exchange:"No Exchange Invoice","spw-upload":"Upload SPW",cutoff:"Cut Off Data","spw-clear":"Clear SPW","soh-upload":"Upload SOH","soh-clear":"Clear SOH"};
- const subheading:Record<Screen,string>={menu:"Menu tambahan M238",settings:"Data master dan pengaturan dashboard","stock-request":"SOH, penjualan dan kebutuhan stok",pricelist:"Data Master / Accessories & VAS","device-pricelist":"Data Master / Apple Device","copas-repair":"Data Master / Perbaikan klasifikasi",appearance:"Tema, font dan animasi","copas-invoices":"Cek transaksi dan rapikan baris kosong",exchange:"Simpan nomor exchange, termasuk transaksi pending","spw-upload":"Penjualan M238 dan M996",cutoff:"Periksa dan simpan transaksi ke Data Copas","spw-clear":"Bersihkan data penjualan aktif","soh-upload":"Perbarui data stok toko","soh-clear":"Bersihkan data SOH aktif"};
+ const titles:Record<Screen,string>={menu:"More",settings:"Settings","data-health":"Cek Masalah Data","activity-history":"Riwayat Aktivitas","m996-compile":"Compile Data M996","stock-request":"Stock Request MD",pricelist:"Pricelist Aksesoris","device-pricelist":"Pricelist Device","copas-repair":"Perbaiki Data Copas",appearance:"Tampilan","copas-invoices":"Cek Invoice Exchange/Cancel",exchange:"No Exchange Invoice","spw-upload":"Upload SPW",cutoff:"Cut Off Data","spw-clear":"Clear SPW","soh-upload":"Upload SOH","soh-clear":"Clear SOH"};
+ const subheading:Record<Screen,string>={menu:"Menu tambahan M238",settings:"Data master dan pengaturan dashboard","data-health":"Cari penyebab data kosong, N/A atau belum update","activity-history":"Upload dan perubahan data terbaru","m996-compile":"Detail penjualan khusus M996, tanpa M238","stock-request":"SOH, penjualan dan kebutuhan stok",pricelist:"Data Master / Accessories & VAS","device-pricelist":"Data Master / Apple Device","copas-repair":"Data Master / Perbaikan klasifikasi",appearance:"Tema, font dan animasi","copas-invoices":"Cek transaksi dan rapikan baris kosong",exchange:"Simpan nomor exchange, termasuk transaksi pending","spw-upload":"Penjualan M238 dan M996",cutoff:"Periksa dan simpan transaksi ke Data Copas","spw-clear":"Bersihkan data penjualan aktif","soh-upload":"Perbarui data stok toko","soh-clear":"Bersihkan data SOH aktif"};
  const pageHeader=(back:Screen)=><header className="m238-settings-heading"><button type="button" disabled={busy} onClick={()=>navigate(back)} aria-label={back==="settings"?"Kembali ke Settings":"Kembali ke More"}><ChevronLeft size={20}/></button><div><h1 ref={headingRef} tabIndex={-1}>{titles[screen]}</h1><p>{subheading[screen]}</p></div></header>;
 
  const themes:{id:ThemePreset;name:string;desc:string}[]=[
@@ -48,6 +51,9 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
 
 
  const items=[
+  {label:"Cek Masalah Data",sub:"Cari data kosong, N/A atau belum update",icon:Activity,action:"data-health"},
+  {label:"Riwayat Aktivitas",sub:"Lihat upload dan perubahan data terbaru",icon:History,action:"activity-history"},
+  {label:"Compile Data M996",sub:"Ringkasan dan detail penjualan khusus M996",icon:Building2,action:"m996-compile"},
   {label:"SOH",sub:"Cek stock on hand",icon:Box,action:"soh"},
   {label:"Stock Request MD",sub:"Compile SOH, sales week & lost ke email",icon:Mail,action:"stock-request"},
   {label:"BNPL",sub:"BNPL & Trade-In",icon:CreditCard,action:"bnpl"},
@@ -58,6 +64,9 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  ] as const;
 
  if(screen==="stock-request")return <div className="m238-settings">{pageHeader("menu")}<StockRequestMd/></div>;
+ if(screen==="data-health")return <div className="m238-settings m238-settings-tool">{pageHeader("menu")}<DataHealthCenter onOpen={action=>navigate(action as Screen)}/></div>;
+ if(screen==="activity-history")return <div className="m238-settings m238-settings-tool">{pageHeader("menu")}<ActivityHistory/></div>;
+ if(screen==="m996-compile")return <div className="m238-settings m238-settings-tool">{pageHeader("menu")}<M996CompileReport/></div>;
 
  if(screen==="pricelist"||screen==="device-pricelist"||screen==="copas-repair"||screen==="copas-invoices")return <div className="m238-settings m238-settings-tool">{pageHeader("settings")}
   {screen==="copas-invoices"?<CopasInvoiceCheck onBusyChange={changeBusy} onChanged={onChanged}/>:screen==="copas-repair"?<DataCopasRepair onBusyChange={changeBusy}/>:<AccessoryPricelistUpload key={screen} kind={screen==="device-pricelist"?"device":"accessory"} onBusyChange={changeBusy}/>}
@@ -103,7 +112,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  return <div className="m238m-more m238m-more-direct">
   <div className="m238-more-heading"><div className="m238m-more-title"><strong>More</strong><span>Menu tambahan M238</span></div><MobileVersionSwitch value="new" compact disabled={busy}/></div>
   <div className="m238m-direct-menu">
-   {items.map(({label,sub,icon:Icon,action})=><button key={action} onClick={()=>action==="settings"?navigate("settings"):action==="stock-request"?navigate("stock-request"):onAction(action)}>
+   {items.map(({label,sub,icon:Icon,action})=><button key={action} onClick={()=>action==="settings"?navigate("settings"):action==="stock-request"?navigate("stock-request"):action==="data-health"?navigate("data-health"):action==="activity-history"?navigate("activity-history"):action==="m996-compile"?navigate("m996-compile"):onAction(action)}>
     <span className="m238m-direct-icon"><Icon size={19}/></span>
     <span className="m238m-direct-copy"><strong>{label}</strong><small>{sub}</small></span>
     <ChevronRight size={18}/>

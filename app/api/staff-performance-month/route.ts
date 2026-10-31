@@ -11,12 +11,13 @@ const accRate=(price:number)=>price<=599000?5000:price<=2000000?10000:price<=400
 export async function GET(req:NextRequest){
  const period=req.nextUrl.searchParams.get("period")||"",from=req.nextUrl.searchParams.get("from")||"",to=req.nextUrl.searchParams.get("to")||"";
  const rangeMode=/^20\d{2}-\d{2}-\d{2}$/.test(from)&&/^20\d{2}-\d{2}-\d{2}$/.test(to)&&from<=to;
- if(!/^2026-\d{2}$/.test(period))return NextResponse.json({error:"Period harus format YYYY-MM"},{status:400});
+ if(!/^202[56]-\d{2}$/.test(period))return NextResponse.json({error:"Period harus format YYYY-MM (2025–2026)"},{status:400});
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
  if(!email||!key)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});
  try{
-  const[dataRows,config]=await getSheetRanges(ID,["'Data Copas'!A2:S50000","Config!A1:AZ120"],email,key);
-  const rows=(dataRows||[]).map(parseSalesRow).filter(r=>(rangeMode?(r.date>=from&&r.date<=to):r.date.startsWith(period))&&r.store===STORE&&isValidSale(r,true)&&r.id);
+  const dataRange=period.startsWith("2025-")?"'Data Copas Archive 2025'!A2:S32755":"'Data Copas'!A2:S50000";
+  const[dataRows,config]=await getSheetRanges(ID,[dataRange,"Config!A1:AZ120"],email,key),hasStore=(dataRows||[]).some(r=>s(r[15]).toUpperCase()===STORE);
+  const rows=(dataRows||[]).map(parseSalesRow).filter(r=>(rangeMode?(r.date>=from&&r.date<=to):r.date.startsWith(period))&&(!hasStore||r.store===STORE)&&isValidSale(r,true)&&r.id);
   const label=monthLabel(period).toLowerCase(),targetRow=(config||[]).find(r=>s(r[16]).toLowerCase()===label),target={amount:n(targetRow?.[17]),device:n(targetRow?.[18]),accessories:n(targetRow?.[19]),vas:n(targetRow?.[20])};
   const configById=new Map<string,{name:string;position:string;share:number}>();
   for(const r of (config||[]).slice(27,55)){if(s(r[7]).toUpperCase()!==STORE||!s(r[8])||/SUPERVISOR|ONLINE/i.test(s(r[10])))continue;configById.set(s(r[8]),{name:s(r[9]),position:s(r[10]),share:n(r[11])})}

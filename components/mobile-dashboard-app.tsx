@@ -3,7 +3,7 @@
 import {useCallback,useEffect,useMemo,useRef,useState,type CSSProperties,type ReactNode} from "react";
 import dynamic from "next/dynamic";
 import {
-  Activity,Box,Briefcase,CalendarDays,ChevronRight,ClipboardCheck,Copy,CreditCard,FileDown,
+  Activity,Bell,Box,Briefcase,CalendarDays,ChevronRight,ClipboardCheck,Copy,CreditCard,FileDown,
   FileSpreadsheet,Ghost,Home,Lightbulb,LogOut,MessageCircle,MoreHorizontal,Moon,
   PackageSearch,RefreshCw,Settings,Share2,Sun,Tag,Target,TrendingUp,Users,WalletCards,X,Cpu,Shield,Zap
 } from "lucide-react";
@@ -70,7 +70,8 @@ const pct=(v:number|null|undefined)=>`${new Intl.NumberFormat("id-ID",{maximumFr
 const today=()=>new Intl.DateTimeFormat("sv-SE",{year:"numeric",month:"2-digit",day:"2-digit",timeZone:"Asia/Jakarta"}).format(new Date());
 const periodNow=()=>today().slice(0,7);
 const monthLabel=(p:string)=>new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(`${p}-01T00:00:00Z`));
-const months=Array.from({length:12},(_,i)=>`2026-${String(i+1).padStart(2,"0")}`);
+const periodYears=[2026,2025] as const;
+const monthsByYear=Object.fromEntries(periodYears.map(year=>[year,Array.from({length:12},(_,i)=>`${year}-${String(i+1).padStart(2,"0")}`)])) as Record<(typeof periodYears)[number],string[]>;
 function initials(name:string){return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase()}
 function shortStaffName(name:string){ return name.trim(); }
 function dailyStaffListName(name:string){ const parts=name.trim().split(/\s+/).filter(Boolean); return parts.length>=3?parts.slice(0,2).join(" "):parts.join(" "); }
@@ -88,6 +89,27 @@ function Progress({value}:{value:number}){return <div className="m238m-progress"
 function Metric({label,value,sub}:{label:string;value:string;sub?:string}){return <Card className="m238m-metric"><span>{label}</span><strong>{value}</strong>{sub?<small>{sub}</small>:null}</Card>}
 function Segmented<T extends string>({value,onChange,items}:{value:T;onChange:(v:T)=>void;items:{value:T;label:string}[]}){return <div className="m238m-segment">{items.map(x=><button key={x.value} onClick={()=>onChange(x.value)} className={value===x.value?"active":""}>{x.label}</button>)}</div>}
 function Skeleton(){return <div className="m238m-stack m238m-fade"><div className="m238m-skeleton hero"/><div className="m238m-grid">{Array.from({length:4},(_,i)=><div key={i} className="m238m-skeleton tile"/>)}</div><div className="m238m-skeleton list"/><div className="m238m-skeleton list"/></div>}
+
+function ClosingNeeds({overview}:{overview:Overview}){
+ const staff=(overview.staff||[]).filter(x=>!/digimap\.co\.id|online/i.test(`${x.name} ${x.position||""}`));
+ const storageKey=`m238-closing-staff:${overview.period}:${today()}`;
+ const[selected,setSelected]=useState<string[]|null>(null);
+ useEffect(()=>{
+  try{const saved=JSON.parse(localStorage.getItem(storageKey)||"null");setSelected(Array.isArray(saved)?saved.map(String):staff.map(x=>String(x.id||x.name)))}catch{setSelected(staff.map(x=>String(x.id||x.name)))}
+ },[storageKey]);
+ useEffect(()=>{if(selected!==null)localStorage.setItem(storageKey,JSON.stringify(selected))},[selected,storageKey]);
+ if(overview.period!==periodNow()||overview.target.amount<=0)return null;
+ const current=today(),end=new Date(Date.UTC(Number(overview.period.slice(0,4)),Number(overview.period.slice(5,7)),0));
+ const now=new Date(`${current}T00:00:00Z`),daysRemaining=Math.max(1,Math.floor((end.getTime()-now.getTime())/86400000)+1);
+ const gap=Math.max(0,overview.summary.gap),dailyNeed=Math.ceil(gap/daysRemaining),activeIds=selected??staff.map(x=>String(x.id||x.name));
+ const perStaff=activeIds.length?Math.ceil(dailyNeed/activeIds.length):0;
+ const toggle=(id:string)=>setSelected(currentIds=>(currentIds??[]).includes(id)?(currentIds??[]).filter(x=>x!==id):[...(currentIds??[]),id]);
+ return <Card className="m238m-closing">
+  <div className="m238m-closing-head"><div><span>Kebutuhan Closing</span><strong>{gap>0?money.format(dailyNeed):"Target tercapai"}</strong><small>{gap>0?`per hari selama ${daysRemaining} hari tersisa`:"Tidak ada gap ke target bulan ini"}</small></div><Target size={20}/></div>
+  {gap>0?<><div className="m238m-closing-stats"><div><span>Proyeksi</span><b>{money.format(overview.summary.estimate.amount)}</b></div><div><span>Per staff aktif</span><b>{activeIds.length?money.format(perStaff):"Pilih staff"}</b></div></div>
+  <details className="m238m-closing-staff"><summary><Users size={16}/> Staff aktif manual <b>{activeIds.length}/{staff.length}</b></summary><div>{staff.map(person=>{const id=String(person.id||person.name);return <label key={id}><input type="checkbox" checked={activeIds.includes(id)} onChange={()=>toggle(id)}/><span>{shortStaffName(person.name)}<small>{person.position||person.status||"Staff"}</small></span></label>})}</div></details></>:null}
+ </Card>
+}
 
 function Sheet({open,onClose,title,children}:{open:boolean;onClose:()=>void;title:string;children:ReactNode}){
   const[startY,setStartY]=useState<number|null>(null),[dragY,setDragY]=useState(0);
@@ -128,11 +150,11 @@ export default function MobileDashboardApp(){
     const hadOverview=!!peekJsonCache<Overview>(overviewUrl);
     if(!hadOverview)setLoading(true);else setRefreshing(true);
     const warning=(e:Error)=>setError(e.message==="OFFLINE"?"Offline. Menampilkan data terakhir.":"Gagal memperbarui data. Menampilkan data terakhir.");
-    const overviewPromise=swrJson<Overview>(overviewUrl,180000,(data)=>setOverview(data),{force,scope:"overview",onRefreshError:warning});
-    const trafficPromise=swrJson<Traffic>(trafficUrl,180000,(data)=>setTraffic(data),{force,scope:"traffic",onRefreshError:warning});
+    const overviewPromise=swrJson<Overview>(overviewUrl,300000,(data)=>setOverview(data),{force,scope:"overview",onRefreshError:warning});
+    // Traffic remains independent and never blocks the main overview.
+    void swrJson<Traffic>(trafficUrl,300000,(value)=>setTraffic(value),{force,scope:"traffic",onRefreshError:warning}).catch(()=>undefined);
     try{
-      const[o]=await Promise.all([overviewPromise,trafficPromise.catch(()=>undefined)]);
-      return o;
+      return await overviewPromise;
     }finally{setLoading(false);setRefreshing(false)}
   },[overviewUrl,trafficUrl]);
 
@@ -178,47 +200,15 @@ export default function MobileDashboardApp(){
   },[]);
 
   const loadDaily=useCallback(async(force=false)=>{
-    const date=today(),period=date.slice(0,7),legacyUrl=`/api/data?period=${period}${force?`&refresh=1&t=${Date.now()}`:""}`,scheduleUrl=`/api/daily?date=${date}`;
-    const[legacy,schedule]=await Promise.all([
-      cachedJson<any>(legacyUrl,force?0:60000,force),
-      cachedJson<any>(scheduleUrl,force?0:60000,force)
-    ]);
-    const legacyRows=(legacy.dailyStaff||[]) as Staff[],scheduleRows=(schedule.staff||[]) as Staff[],legacyById=new Map(legacyRows.map(s=>[String(s.id),s]));
-    const activeIds=new Set(scheduleRows.map(s=>String(s.id)));
-    const rows:Staff[]=[
-      ...scheduleRows.map(meta=>{
-        const actual=legacyById.get(String(meta.id));
-        return actual?{...meta,
-          amount:Number(actual.amount||0),device:Number(actual.device||0),accessories:Number(actual.accessories||0),vas:Number(actual.vas||0),
-          qty:Number(actual.qty||0),invoices:Number(actual.invoices||0),upt:Number(actual.upt||0),atv:Number(actual.atv||0),
-          lob:actual.lob||meta.lob,vasDetail:actual.vasDetail||meta.vasDetail
-        }:meta
-      }),
-      ...legacyRows.filter(s=>!activeIds.has(String(s.id))&&Number(s.amount||0)>0).map(s=>({...s,status:s.status||"EXTRA",share:0,targets:{...(s.targets||{}),amount:0,device:0,accessories:0,vas:0}}))
-    ];
-    const total=rows.reduce((a,s)=>({
-      amount:a.amount+Number(s.amount||0),
-      accessories:a.accessories+Number(s.accessories||0),
-      vas:a.vas+Number(s.vas||0),
-      qty:a.qty+Number(s.qty||0),
-      invoices:a.invoices+Number(s.invoices||0),
-      target:a.target+Number(s.targets?.amount||0),
-      accTarget:a.accTarget+Number(s.targets?.accessories||0),
-      vasTarget:a.vasTarget+Number(s.targets?.vas||0)
-    }),{amount:0,accessories:0,vas:0,qty:0,invoices:0,target:0,accTarget:0,vasTarget:0});
-    setDaily({
-      date:String(legacy.latestDate||date),
-      staff:rows,
-      total:{...total,upt:total.invoices?total.qty/total.invoices:0},
-      fastSource:"legacy-sales+daily-schedule",
-      fastUpdatedAt:String(legacy.generatedAt||new Date().toISOString())
-    });
+    const date=today(),url=`/api/daily-fast?date=${date}${force?"&fresh=1":""}`;
+    const value=await cachedJson<Daily>(url,force?0:60000,force,{scope:"daily"});
+    setDaily(value);
   },[]);
   const loadSummary=useCallback(async(force=false)=>{
-    const mode=periodMode==="week"&&activeRange?"range":"monthly",url=`/api/daily-summary-fast?from=${activeDates.from}&to=${activeDates.to}&mode=${mode}`;
-    const d=await swrJson<DailySummary>(url,180000,(data)=>setSummary(data),{force,scope:"summary",onRefreshError:()=>setError("Gagal memperbarui data. Menampilkan data terakhir.")});
+    const mode=periodMode==="week"&&activeRange?"range":"monthly",archiveRevision=activeDates.from<"2026-01-01"?"&archiveRev=20251024d":"",url=`/api/daily-summary-fast?from=${activeDates.from}&to=${activeDates.to}&mode=${mode}${archiveRevision}`;
+    const d=await swrJson<DailySummary>(url,180000,(data)=>setSummary(data),{force,scope:"summary",timeoutMs:period.startsWith("2025-")?30000:20000,onRefreshError:()=>setError("Gagal memperbarui data. Menampilkan data terakhir.")});
     return d;
-  },[periodMode,activeRange,activeDates]);
+  },[period,periodMode,activeRange,activeDates]);
   const loadWeekly=useCallback(async(force=false,weekOverride="")=>{
     let url="/api/weekly-stable";
     if(weekOverride){
@@ -327,7 +317,8 @@ export default function MobileDashboardApp(){
     return teamAll;
   },[teamAll,teamFilter]);
 
-  const openPeriodSheet=()=>{setDraftPeriod(period);setDraftPeriodMode(periodMode);setDraftWeek(selectedWeek||weekly?.labelB||"");setSheet("period");if(!weekly)void loadWeekly()};
+  const openPeriodSheet=()=>{setDraftPeriod(period);setDraftPeriodMode(periodMode);setDraftWeek(selectedWeek||weekly?.labelB||"");setSheet("period");if(periodMode==="week"&&!weekly)void loadWeekly()};
+  const changeDraftPeriodMode=(mode:"month"|"week")=>{setDraftPeriodMode(mode);if(mode==="week"&&!weekly)void loadWeekly()};
   const applyPeriod=async()=>{
     if(draftPeriodMode==="week"){
       if(!draftWeek)return;
@@ -341,7 +332,7 @@ export default function MobileDashboardApp(){
       }finally{setRefreshing(false)}
       return;
     }
-    setPeriodMode("month");setActiveRange(null);setSelectedWeek("");setPeriod(draftPeriod);setWeeklySummary(null);setFeedback(null);setCx(null);setSheet(null);
+    setPeriodMode("month");setActiveRange(null);setSelectedWeek("");setPeriod(draftPeriod);setSummary(null);setWeeklySummary(null);setFeedback(null);setCx(null);setSheet(null);
   };
   const shareText=`M238 PIM 2 • ${overview?.label||monthLabel(period)}\nSales ${money.format(overview?.summary.amount||0)}\nAchievement ${pct(achievement)}\nUPT ${(overview?.summary.upt||0).toFixed(1)}`;
   const doShare=async(kind:string)=>{if(kind==="wa")window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`,"_blank");else if(kind==="copy")await navigator.clipboard.writeText(shareText);else if(rootRef.current&&kind==="png")await exportReportPng(rootRef.current,`M238-${period}`);else if(rootRef.current&&kind==="pdf")await exportReportPdf(rootRef.current,`M238-${period}`);else if(kind==="xlsx"&&overview)await exportReportXlsx([{name:"Overview",rows:[["Periode",overview.label],["Sales",overview.summary.amount],["Target",overview.target.amount],["Achievement",achievement],["UPT",overview.summary.upt],[],["Staff","Sales","Achievement"],...overview.staff.map(s=>[s.name,s.amount,s.achievement??0])]}],`M238-${period}`);setSheet(null)};
@@ -422,8 +413,8 @@ export default function MobileDashboardApp(){
     </nav>
 
     <Sheet open={sheet==="period"} onClose={()=>setSheet(null)} title="Pilih Periode">
-      <div className="m238m-period-sheet-top"><Segmented value={draftPeriodMode} onChange={setDraftPeriodMode} items={[{value:"month",label:"Month"},{value:"week",label:"Week"}]}/><button className="m238m-primary" disabled={draftPeriodMode==="week"&&!draftWeek} onClick={()=>void applyPeriod()}>Terapkan</button></div>
-      {draftPeriodMode==="month"?<div className="m238m-sheet-list">{months.map(p=><button key={p} onClick={()=>setDraftPeriod(p)} className={draftPeriod===p?"selected":""}><span>{monthLabel(p)}</span>{draftPeriod===p?<strong>✓</strong>:null}</button>)}</div>:<div className="m238m-sheet-list">{(weekly?.availableWeeks||[]).slice().reverse().map(w=><button key={w} onClick={()=>setDraftWeek(w)} className={draftWeek===w?"selected":""}><span>{w}</span>{draftWeek===w?<strong>✓</strong>:null}</button>)}</div>}
+      <div className="m238m-period-sheet-top"><Segmented value={draftPeriodMode} onChange={changeDraftPeriodMode} items={[{value:"month",label:"Month"},{value:"week",label:"Week"}]}/><button className="m238m-primary" disabled={draftPeriodMode==="week"&&!draftWeek} onClick={()=>void applyPeriod()}>Terapkan</button></div>
+      {draftPeriodMode==="month"?<div className="m238m-sheet-list">{periodYears.map(year=><div key={year} className="m238m-period-year-group"><div className="m238m-period-year">{year}</div>{monthsByYear[year].map(p=><button key={p} onClick={()=>setDraftPeriod(p)} className={draftPeriod===p?"selected":""}><span>{monthLabel(p)}</span>{draftPeriod===p?<strong>✓</strong>:null}</button>)}</div>)}</div>:<div className="m238m-sheet-list">{(weekly?.availableWeeks||[]).slice().reverse().map(w=><button key={w} onClick={()=>setDraftWeek(w)} className={draftWeek===w?"selected":""}><span>{w}</span>{draftWeek===w?<strong>✓</strong>:null}</button>)}</div>}
     </Sheet>
 
     <Sheet open={sheet==="share"} onClose={()=>setSheet(null)} title="Share Report">
@@ -456,7 +447,7 @@ export default function MobileDashboardApp(){
 
 
 function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fullLoading,onOpenPromo,onOpenSalesDetail,onGoSales,onGoTeam,onGoReport,onShare}:{mode:HomeMode;setMode:(v:HomeMode)=>void;overview:Overview;traffic:Traffic|null;cvr:number;achievement:number;periodMode:"month"|"week";fullLoading:boolean;onOpenPromo:()=>void;onOpenSalesDetail:()=>void;onGoSales:()=>void;onGoTeam:()=>void;onGoReport:()=>void;onShare:()=>void}){
- const salesRows=overview.daily||[],latestSales=salesRows.at(-1)?.amount||0,prevSales=salesRows.at(-2)?.amount||0,salesDelta=prevSales?((latestSales-prevSales)/prevSales)*100:null;
+ const salesRows=overview.daily||[],latestDataDate=salesRows.at(-1)?.date||"",latestSales=salesRows.at(-1)?.amount||0,prevSales=salesRows.at(-2)?.amount||0,salesDelta=prevSales?((latestSales-prevSales)/prevSales)*100:null;
  const trafficRows=traffic?.daily||[],latestTraffic=trafficRows.at(-1)?.traffic||0,prevTraffic=trafficRows.at(-2)?.traffic||0,trafficDelta=prevTraffic?((latestTraffic-prevTraffic)/prevTraffic)*100:null;
  const insight=salesDelta==null
   ? (achievement>=100?"Target bulan ini sudah tercapai. Pertahankan momentum penjualan.":achievement>=80?"Achievement sudah mendekati target. Fokuskan opportunity yang siap closing.":"Achievement masih perlu didorong. Prioritaskan opportunity dan follow-up yang aktif.")
@@ -467,6 +458,10 @@ function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fu
   {label:"Accessories",actual:overview.summary.accessories,target:overview.target.accessories},
   {label:"VAS",actual:overview.summary.vas,target:overview.target.vas}
  ].filter(x=>x.target>0&&x.actual<x.target).sort((a,b)=>(a.actual/a.target)-(b.actual/b.target));
+ const homeAlerts=overview.period===periodNow()?[
+  ...(latestDataDate&&latestDataDate<today()?[{key:"stale",title:"Data penjualan belum hari ini",detail:`Data terakhir ${salesDateLabel(latestDataDate)}. Perbarui SPW bila transaksi hari ini sudah tersedia.`}]:[]),
+  ...(overview.target.amount<=0?[{key:"target",title:"Target bulan belum tersedia",detail:"Tambahkan target agar kebutuhan closing dan achievement dapat dihitung."}]:overview.summary.estimate.amount<overview.target.amount?[{key:"projection",title:"Proyeksi masih di bawah target",detail:`Estimasi akhir bulan ${money.format(overview.summary.estimate.amount)}.`}]:[])
+ ]:[];
  const staffRows=(overview.staff||[]).filter(x=>!/digimap\.co\.id|online/i.test(`${x.name} ${x.position||""}`));
  const ranked=[...staffRows].sort((a,b)=>b.amount-a.amount);
  const topStaff=ranked[0]||null;
@@ -490,11 +485,13 @@ function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fu
       <Card className="m238m-hero m238m-home-hero"><div className="m238m-hero-title"><span>Total Sales</span><ChevronRight size={18}/></div><strong>{money.format(overview.summary.amount)}</strong><p>{pct(achievement)} dari Target</p><Progress value={achievement}/><div className="m238m-hero-meta"><span>Target <b>{money.format(overview.target.amount)}</b></span><span>{periodMode==="month"?"Point Store":"Periode"} <b>{periodMode==="month"?overview.summary.point.total.toFixed(1):overview.label}</b></span></div></Card>
     </button>
     <div className="m238m-grid m238m-home-kpis"><Metric label="Achievement" value={pct(achievement)} sub={overview.summary.status}/><Metric label="Gap ke Target" value={money.format(overview.summary.gap)} sub={overview.summary.gap>0?"Sisa ke target":"Target tercapai"}/><Metric label="CVR" value={pct(cvr)} sub="Traffic → transaksi"/><Metric label="UPT" value={overview.summary.upt.toFixed(1)} sub="Unit per transaksi"/></div>
-    <div className="m238m-section-head"><h2>Needs Attention</h2><span>{categoryAttention.length+(followStaff?1:0)} item</span></div>
+    <ClosingNeeds overview={overview}/>
+    <div className="m238m-section-head"><h2>Notifikasi Penting</h2><span>{homeAlerts.length+categoryAttention.length+(followStaff?1:0)} item</span></div>
+    {homeAlerts.length?<div className="m238m-home-alerts">{homeAlerts.map(alert=><Card key={alert.key} className="m238m-home-alert"><Bell size={18}/><div><strong>{alert.title}</strong><small>{alert.detail}</small></div></Card>)}</div>:null}
     <div className="m238m-attention-grid">
       {categoryAttention.slice(0,3).map(x=>{const a=x.target?x.actual/x.target*100:0;return <Card key={x.label} className="m238m-attention-card"><span>{x.label}</span><strong>{pct(a)}</strong><small>Belum achieve • gap {money.format(Math.max(0,x.target-x.actual))}</small></Card>})}
       {followStaff?<button className="m238m-click-card" onClick={onGoTeam}><Card className="m238m-attention-card staff"><span>Staff perlu follow-up</span><strong>{shortStaffName(followStaff.name)}</strong><small>Achievement {pct(followStaff.achievement??0)} • cek Team</small></Card></button>:null}
-      {!categoryAttention.length&&!followStaff?<Card className="m238m-attention-ok"><Target size={18}/><div><strong>Tidak ada warning utama</strong><small>Target kategori dan staff berada di jalur yang baik.</small></div></Card>:null}
+      {!homeAlerts.length&&!categoryAttention.length&&!followStaff?<Card className="m238m-attention-ok"><Target size={18}/><div><strong>Tidak ada warning utama</strong><small>Target kategori dan staff berada di jalur yang baik.</small></div></Card>:null}
     </div>
 
     <div className="m238m-section-head"><h2>LOB Performance</h2><button className="m238m-link-button" onClick={onGoSales}>Lihat Semua</button></div>
