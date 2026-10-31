@@ -24,19 +24,20 @@ export function compileM996(values:unknown[][],requestedPeriod=""){
  const invoiceKeys=new Set(rows.map(row=>row.invoice).filter(Boolean));
  const amount=rows.reduce((sum,row)=>sum+row.amount,0),qty=rows.reduce((sum,row)=>sum+row.qty,0),invoices=invoiceKeys.size;
  const staffMap=new Map<string,{id:string;name:string;amount:number;qty:number;invoiceKeys:Set<string>;rows:number}>();
- const schemeMap=new Map<string,{name:string;amount:number;qty:number;rows:number;details:Map<string,{name:string;amount:number;qty:number;rows:number}>}>();
+ const schemeMap=new Map<string,{name:string;amount:number;qty:number;rows:number;details:Map<string,{name:string;amount:number;qty:number;rows:number;items:Map<string,{name:string;article:string;amount:number;qty:number;rows:number}>}>}>();
  const dailyMap=new Map<string,{date:string;amount:number;qty:number;invoiceKeys:Set<string>}>();
  for(const row of rows){
   const staffKey=row.staffId||row.staffName,staff=staffMap.get(staffKey)||{id:row.staffId,name:row.staffName,amount:0,qty:0,invoiceKeys:new Set<string>(),rows:0};
   staff.amount+=row.amount;staff.qty+=row.qty;staff.rows++;if(row.invoice)staff.invoiceKeys.add(row.invoice);staffMap.set(staffKey,staff);
   const schemeName=row.scheme||"BELUM TERKLASIFIKASI",scheme=schemeMap.get(schemeName)||{name:schemeName,amount:0,qty:0,rows:0,details:new Map()};
   scheme.amount+=row.amount;scheme.qty+=row.qty;scheme.rows++;
-  const productName=detailName(row),detail=scheme.details.get(productName)||{name:productName,amount:0,qty:0,rows:0};detail.amount+=row.amount;detail.qty+=row.qty;detail.rows++;scheme.details.set(productName,detail);schemeMap.set(schemeName,scheme);
+  const productName=detailName(row),detail=scheme.details.get(productName)||{name:productName,amount:0,qty:0,rows:0,items:new Map()};detail.amount+=row.amount;detail.qty+=row.qty;detail.rows++;
+  const variantName=row.description||row.type||row.category||row.article||"Tanpa deskripsi",variantKey=`${row.article}|${variantName}`,item=detail.items.get(variantKey)||{name:variantName,article:row.article,amount:0,qty:0,rows:0};item.amount+=row.amount;item.qty+=row.qty;item.rows++;detail.items.set(variantKey,item);scheme.details.set(productName,detail);schemeMap.set(schemeName,scheme);
   const daily=dailyMap.get(row.date)||{date:row.date,amount:0,qty:0,invoiceKeys:new Set<string>()};
   daily.amount+=row.amount;daily.qty+=row.qty;if(row.invoice)daily.invoiceKeys.add(row.invoice);dailyMap.set(row.date,daily);
  }
  const staff=[...staffMap.values()].map(item=>({id:item.id,name:item.name,amount:item.amount,qty:item.qty,invoices:item.invoiceKeys.size,rows:item.rows})).sort((a,b)=>b.amount-a.amount);
- const schemes=[...schemeMap.values()].map(item=>({name:item.name,amount:item.amount,qty:item.qty,rows:item.rows,details:[...item.details.values()].sort((a,b)=>b.qty-a.qty||b.amount-a.amount)})).sort((a,b)=>b.amount-a.amount);
+ const schemes=[...schemeMap.values()].map(item=>({name:item.name,amount:item.amount,qty:item.qty,rows:item.rows,details:[...item.details.values()].map(detail=>({name:detail.name,amount:detail.amount,qty:detail.qty,rows:detail.rows,items:[...detail.items.values()].sort((a,b)=>b.qty-a.qty||b.amount-a.amount||a.name.localeCompare(b.name))})).sort((a,b)=>b.qty-a.qty||b.amount-a.amount)})).sort((a,b)=>b.amount-a.amount);
  const daily=[...dailyMap.values()].map(item=>({date:item.date,amount:item.amount,qty:item.qty,invoices:item.invoiceKeys.size})).sort((a,b)=>a.date.localeCompare(b.date));
  return{store:"M996" as const,period,availablePeriods,source:"SALES DASHBOARD DATA • Source Key M996",summary:{amount,qty,invoices,rows:rows.length,upt:invoices?qty/invoices:0,atv:invoices?amount/invoices:0,dateFrom:daily[0]?.date||"",dateTo:daily.at(-1)?.date||""},staff,schemes,daily,rows};
 }
