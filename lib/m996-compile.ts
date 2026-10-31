@@ -16,11 +16,12 @@ export function m996SaleFromValues(row:unknown[]):M996Sale|null{
  return{date,staffId:text(row[1]),staffName:text(row[2])||"Tanpa Nama",invoice:text(row[3]),article:upper(row[4]),description:text(row[5]),type:text(row[6]),qty:number(row[7]),amount:number(row[8]),category:upper(row[9]),brand:upper(row[10]),core:upper(row[11]),scheme:upper(row[12]),vendor:upper(row[13]),week:text(row[14]),sourceKey};
 }
 
-export function compileM996(values:unknown[][],requestedPeriod=""){
+export function compileM996(values:unknown[][],requestedPeriod="",excludedInvoices:Iterable<string>=[]){
  const allRows=values.map(m996SaleFromValues).filter((row):row is M996Sale=>Boolean(row));
  const availablePeriods=[...new Set(allRows.map(row=>row.date.slice(0,7)))].sort().reverse();
  const period=/^20\d{2}-\d{2}$/.test(requestedPeriod)?requestedPeriod:(availablePeriods[0]||requestedPeriod);
- const rows=allRows.filter(row=>!period||row.date.startsWith(period)).sort((a,b)=>b.date.localeCompare(a.date)||b.invoice.localeCompare(a.invoice)||a.article.localeCompare(b.article));
+ const excludedSet=new Set([...excludedInvoices].map(text).filter(Boolean)),periodRows=allRows.filter(row=>!period||row.date.startsWith(period)),excludedRows=periodRows.filter(row=>row.invoice&&excludedSet.has(row.invoice));
+ const rows=periodRows.filter(row=>!row.invoice||!excludedSet.has(row.invoice)).sort((a,b)=>b.date.localeCompare(a.date)||b.invoice.localeCompare(a.invoice)||a.article.localeCompare(b.article));
  const invoiceKeys=new Set(rows.map(row=>row.invoice).filter(Boolean));
  const amount=rows.reduce((sum,row)=>sum+row.amount,0),qty=rows.reduce((sum,row)=>sum+row.qty,0),invoices=invoiceKeys.size;
  const staffMap=new Map<string,{id:string;name:string;amount:number;qty:number;invoiceKeys:Set<string>;rows:number}>();
@@ -39,5 +40,6 @@ export function compileM996(values:unknown[][],requestedPeriod=""){
  const staff=[...staffMap.values()].map(item=>({id:item.id,name:item.name,amount:item.amount,qty:item.qty,invoices:item.invoiceKeys.size,rows:item.rows})).sort((a,b)=>b.amount-a.amount);
  const schemes=[...schemeMap.values()].map(item=>({name:item.name,amount:item.amount,qty:item.qty,rows:item.rows,details:[...item.details.values()].map(detail=>({name:detail.name,amount:detail.amount,qty:detail.qty,rows:detail.rows,items:[...detail.items.values()].sort((a,b)=>b.qty-a.qty||b.amount-a.amount||a.name.localeCompare(b.name))})).sort((a,b)=>b.qty-a.qty||b.amount-a.amount)})).sort((a,b)=>b.amount-a.amount);
  const daily=[...dailyMap.values()].map(item=>({date:item.date,amount:item.amount,qty:item.qty,invoices:item.invoiceKeys.size})).sort((a,b)=>a.date.localeCompare(b.date));
- return{store:"M996" as const,period,availablePeriods,source:"SALES DASHBOARD DATA • Source Key M996",summary:{amount,qty,invoices,rows:rows.length,upt:invoices?qty/invoices:0,atv:invoices?amount/invoices:0,dateFrom:daily[0]?.date||"",dateTo:daily.at(-1)?.date||""},staff,schemes,daily,rows};
+ const excludedInvoiceCount=new Set(excludedRows.map(row=>row.invoice).filter(Boolean)).size,excludedAmount=excludedRows.reduce((sum,row)=>sum+row.amount,0),excludedQty=excludedRows.reduce((sum,row)=>sum+row.qty,0);
+ return{store:"M996" as const,period,availablePeriods,source:"SALES DASHBOARD DATA • Source Key M996",summary:{amount,qty,invoices,rows:rows.length,upt:invoices?qty/invoices:0,atv:invoices?amount/invoices:0,dateFrom:daily[0]?.date||"",dateTo:daily.at(-1)?.date||""},excluded:{invoices:excludedInvoiceCount,rows:excludedRows.length,amount:excludedAmount,qty:excludedQty},staff,schemes,daily,rows};
 }

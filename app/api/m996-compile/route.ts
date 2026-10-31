@@ -3,6 +3,7 @@ import {getSheetRanges} from "@/lib/google-sheets";
 import {compileM996} from "@/lib/m996-compile";
 
 const MASTER_ID="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk";
+const SOURCE_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 
 export async function GET(req:NextRequest){
  try{
@@ -10,7 +11,8 @@ export async function GET(req:NextRequest){
   if(!email||!key)return NextResponse.json({error:"Koneksi Google Sheets belum dikonfigurasi."},{status:503});
   const period=String(req.nextUrl.searchParams.get("period")||"").trim();
   if(period&&!/^20\d{2}-\d{2}$/.test(period))return NextResponse.json({error:"Periode M996 tidak valid."},{status:400});
-  const[values]=await getSheetRanges(MASTER_ID,["'SALES DASHBOARD DATA'!A2:Q65537"],email,key);
-  return NextResponse.json(compileM996(values||[],period),{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
+  const[[values],[exchangeRows]]=await Promise.all([getSheetRanges(MASTER_ID,["'SALES DASHBOARD DATA'!A2:Q65537"],email,key),getSheetRanges(SOURCE_ID,["'RAW SalesPerson'!Y2:Y5000"],email,key)]);
+  const excludedInvoices=new Set((exchangeRows||[]).map(row=>String(row?.[0]??"").trim()).filter(Boolean));
+  return NextResponse.json(compileM996(values||[],period,excludedInvoices),{headers:{"cache-control":"private, max-age=30, stale-while-revalidate=60"}});
  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Gagal compile data M996."},{status:500})}
 }
