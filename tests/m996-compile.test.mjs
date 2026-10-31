@@ -1,0 +1,23 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import ts from "typescript";
+
+const source=fs.readFileSync(new URL("../lib/m996-compile.ts",import.meta.url),"utf8"),loaded={exports:{}};
+const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+new Function("module","exports",code)(loaded,loaded.exports);
+const{compileM996}=loaded.exports;
+const row=({store="M996",date="2026-10-20",staff="Dimas",id="99601",invoice="INV-1",amount=1000000,qty=1,scheme="DEVICES",article="APP001"}={})=>[date,id,staff,invoice,article,"IPHONE", "IPHONE 18",qty,amount,"IPHONE","APPLE","APPLE",scheme,"","Week 4 Q1","M238",`${store}|${date}|${invoice}|${article}|${id}`];
+
+test("Compile M996 never mixes M238 rows and keeps complete management detail",()=>{
+ const result=compileM996([row(),row({store:"M238",invoice:"M238-1",amount:9000000}),row({invoice:"INV-2",article:"ACC01",amount:500000,qty:2,scheme:"ACCESSORIES"}),row({date:"2026-09-30",invoice:"SEP-1",amount:700000})],"2026-10");
+ assert.equal(result.store,"M996");
+ assert.equal(result.summary.amount,1500000);
+ assert.equal(result.summary.qty,3);
+ assert.equal(result.summary.invoices,2);
+ assert.equal(result.rows.length,2);
+ assert.ok(result.rows.every(item=>item.sourceKey.startsWith("M996|")));
+ assert.deepEqual(result.availablePeriods,["2026-10","2026-09"]);
+ assert.equal(result.staff[0].amount,1500000);
+ assert.deepEqual(result.schemes.map(item=>item.name),["DEVICES","ACCESSORIES"]);
+});
