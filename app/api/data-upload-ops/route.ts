@@ -194,8 +194,15 @@ export async function POST(req:NextRequest){
    const currentAmount=destinationPeriod.reduce((sum,row)=>sum+rowAmount(row),0);
    const projectedCount=currentCount+newRows.length;
    const projectedAmount=currentAmount+newAmount;
-   const differenceAmount=projectedAmount-selectedAmount;
-   const differenceCount=projectedCount-selected.length;
+   // RAW Salesperson is the active upload, while Data Copas is an accumulated
+   // period. They are intentionally different scopes, so the accumulated
+   // projection must not be compared directly with the active RAW total.
+   // A safe cut off only needs every selected RAW occurrence to be accounted
+   // for exactly once: either it already exists or it will be appended.
+   const reconciledCount=skippedCount+newRows.length;
+   const reconciledAmount=skippedAmount+newAmount;
+   const differenceCount=selected.length-reconciledCount;
+   const differenceAmount=selectedAmount-reconciledAmount;
    const occurrenceGroups=new Map<string,{row:unknown[];count:number}>();
    for(const row of selected){
     const keyValue=fingerprint(row),entry=occurrenceGroups.get(keyValue);
@@ -217,7 +224,7 @@ export async function POST(req:NextRequest){
     sourceCount:selected.length,sourceAmount:selectedAmount,currentCount,currentAmount,
     newCount:newRows.length,newAmount,skippedCount,skippedAmount,ignoredCount,
     projectedCount,projectedAmount,differenceCount,differenceAmount,
-    isBalanced:differenceCount===0&&differenceAmount===0,bulkSales,bulkSalesCount:bulkSales.length,planId
+    isBalanced:differenceCount===0&&Math.abs(differenceAmount)<0.5,bulkSales,bulkSalesCount:bulkSales.length,planId
    };
    if(!newRows.length){
     return NextResponse.json({
