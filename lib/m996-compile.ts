@@ -7,6 +7,8 @@ const text=(value:unknown)=>String(value??"").replace(/\u00a0/g," ").replace(/\s
 const upper=(value:unknown)=>text(value).toUpperCase();
 const number=(value:unknown)=>typeof value==="number"&&Number.isFinite(value)?value:Number(String(value??"").replace(/[^0-9.-]/g,""))||0;
 const isoDate=(value:unknown)=>{const raw=text(value);if(/^\d{4}-\d{2}-\d{2}/.test(raw))return raw.slice(0,10);if(/^\d{2}-\d{2}-\d{4}$/.test(raw)){const[day,month,year]=raw.split("-");return`${year}-${month}-${day}`}return""};
+const vasName=(row:M996Sale)=>{const value=upper(`${row.article} ${row.description} ${row.category} ${row.brand} ${row.vendor}`);if(/QOALA|PROTEKSI|(^|\s)KLA/.test(value))return"QOALA";if(/TELKOMSEL|(^|\s)TSL(\s|$)/.test(value))return"TELKOMSEL";if(/INDOSAT|(^|\s)IDT(\s|$)/.test(value))return"INDOSAT";if(/(^|\s)XL(\s|$)|XXL/.test(value))return"XL";return row.vendor||row.brand||row.category||"VAS LAINNYA"};
+const detailName=(row:M996Sale)=>row.scheme==="DEVICES"?(row.type||row.category||row.description||"DEVICE LAINNYA"):row.scheme==="ACCESSORIES"?(row.category||row.type||row.description||"ACCESSORIES LAINNYA"):row.scheme==="VAS"?vasName(row):(row.type||row.category||row.description||"BELUM TERKLASIFIKASI");
 
 export function m996SaleFromValues(row:unknown[]):M996Sale|null{
  const sourceKey=text(row[16]),date=isoDate(row[0]);
@@ -22,18 +24,19 @@ export function compileM996(values:unknown[][],requestedPeriod=""){
  const invoiceKeys=new Set(rows.map(row=>row.invoice).filter(Boolean));
  const amount=rows.reduce((sum,row)=>sum+row.amount,0),qty=rows.reduce((sum,row)=>sum+row.qty,0),invoices=invoiceKeys.size;
  const staffMap=new Map<string,{id:string;name:string;amount:number;qty:number;invoiceKeys:Set<string>;rows:number}>();
- const schemeMap=new Map<string,{name:string;amount:number;qty:number;rows:number}>();
+ const schemeMap=new Map<string,{name:string;amount:number;qty:number;rows:number;details:Map<string,{name:string;amount:number;qty:number;rows:number}>}>();
  const dailyMap=new Map<string,{date:string;amount:number;qty:number;invoiceKeys:Set<string>}>();
  for(const row of rows){
   const staffKey=row.staffId||row.staffName,staff=staffMap.get(staffKey)||{id:row.staffId,name:row.staffName,amount:0,qty:0,invoiceKeys:new Set<string>(),rows:0};
   staff.amount+=row.amount;staff.qty+=row.qty;staff.rows++;if(row.invoice)staff.invoiceKeys.add(row.invoice);staffMap.set(staffKey,staff);
-  const schemeName=row.scheme||"BELUM TERKLASIFIKASI",scheme=schemeMap.get(schemeName)||{name:schemeName,amount:0,qty:0,rows:0};
-  scheme.amount+=row.amount;scheme.qty+=row.qty;scheme.rows++;schemeMap.set(schemeName,scheme);
+  const schemeName=row.scheme||"BELUM TERKLASIFIKASI",scheme=schemeMap.get(schemeName)||{name:schemeName,amount:0,qty:0,rows:0,details:new Map()};
+  scheme.amount+=row.amount;scheme.qty+=row.qty;scheme.rows++;
+  const productName=detailName(row),detail=scheme.details.get(productName)||{name:productName,amount:0,qty:0,rows:0};detail.amount+=row.amount;detail.qty+=row.qty;detail.rows++;scheme.details.set(productName,detail);schemeMap.set(schemeName,scheme);
   const daily=dailyMap.get(row.date)||{date:row.date,amount:0,qty:0,invoiceKeys:new Set<string>()};
   daily.amount+=row.amount;daily.qty+=row.qty;if(row.invoice)daily.invoiceKeys.add(row.invoice);dailyMap.set(row.date,daily);
  }
  const staff=[...staffMap.values()].map(item=>({id:item.id,name:item.name,amount:item.amount,qty:item.qty,invoices:item.invoiceKeys.size,rows:item.rows})).sort((a,b)=>b.amount-a.amount);
- const schemes=[...schemeMap.values()].sort((a,b)=>b.amount-a.amount);
+ const schemes=[...schemeMap.values()].map(item=>({name:item.name,amount:item.amount,qty:item.qty,rows:item.rows,details:[...item.details.values()].sort((a,b)=>b.qty-a.qty||b.amount-a.amount)})).sort((a,b)=>b.amount-a.amount);
  const daily=[...dailyMap.values()].map(item=>({date:item.date,amount:item.amount,qty:item.qty,invoices:item.invoiceKeys.size})).sort((a,b)=>a.date.localeCompare(b.date));
  return{store:"M996" as const,period,availablePeriods,source:"SALES DASHBOARD DATA • Source Key M996",summary:{amount,qty,invoices,rows:rows.length,upt:invoices?qty/invoices:0,atv:invoices?amount/invoices:0,dateFrom:daily[0]?.date||"",dateTo:daily.at(-1)?.date||""},staff,schemes,daily,rows};
 }
