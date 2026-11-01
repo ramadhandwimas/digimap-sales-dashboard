@@ -604,20 +604,24 @@ function HomeSalesDetail({overview,traffic,summary}:{overview:Overview;traffic:T
 }
 
 function DailyCategorySheet({date,kind,open,onClose}:{date:string;kind:"device"|"accessories"|"vas"|null;open:boolean;onClose:()=>void}){
- const[data,setData]=useState<any>(null),[busy,setBusy]=useState(false);
+ const[data,setData]=useState<any>(null),[busy,setBusy]=useState(false),[vasTab,setVasTab]=useState<"qoala"|"telkomsel"|"xl"|"indosat">("qoala");
  useEffect(()=>{
   if(!open||!kind||!date)return;
   let alive=true;setBusy(true);setData(null);
   cachedJson<any>(`/api/daily-staff-detail?date=${date}&detail=1`,30000).then(d=>{if(alive)setData(d.detail||null)}).catch(()=>alive&&setData(null)).finally(()=>alive&&setBusy(false));
   return()=>{alive=false};
  },[open,kind,date]);
+ useEffect(()=>{if(open&&kind==="vas")setVasTab("qoala")},[open,kind,date]);
  const title=kind==="device"?"Device Terjual":kind==="accessories"?"Accessories Terjual":"VAS Terjual";
- const products=(data?.products||[]) as any[],items=kind==="vas"?(data?.vasItems||[]):products.filter((p:any)=>p.kind===kind);
+ const products=(data?.products||[]) as any[],vasItems=(data?.vasItems||[]) as any[],items=kind==="vas"?vasItems.filter((item:any)=>item.provider===vasTab):products.filter((p:any)=>p.kind===kind);
+ const vasTabs=[{value:"qoala",label:"Qoala"},{value:"telkomsel",label:"Telkomsel"},{value:"xl",label:"XL"},{value:"indosat",label:"Indosat"}] as const;
+ const selectedVas=vasTabs.find(tab=>tab.value===vasTab)!,selectedVasValue=items.reduce((sum:number,item:any)=>sum+Number(item.value||0),0),selectedVasQty=items.reduce((sum:number,item:any)=>sum+Number(item.qty||0),0);
  return <Sheet open={open} onClose={onClose} title={`${title} • ${date}`}>
   {busy?<Skeleton/>:data?<div className="m238m-stack">
-   <Card className="m238m-detail-sales"><span>{title}</span><strong>{kind==="device"?money.format(Number(data.device||0)):kind==="accessories"?money.format(Number(data.accessories||0)):money.format(Number(data.vas||0))}</strong><small>{salesDateLabel(date)}</small></Card>
+   {kind==="vas"?<Segmented value={vasTab} onChange={setVasTab} items={vasTabs.map(tab=>({...tab}))}/>:null}
+   <Card className="m238m-detail-sales"><span>{kind==="vas"?`${selectedVas.label} Terjual`:title}</span><strong>{kind==="device"?money.format(Number(data.device||0)):kind==="accessories"?money.format(Number(data.accessories||0)):money.format(selectedVasValue)}</strong><small>{kind==="vas"?`${num.format(selectedVasQty)} qty • ${salesDateLabel(date)}`:salesDateLabel(date)}</small></Card>
    <div className="m238m-list">
-    {kind==="vas"?(items.length?items.map((v:any,i:number)=><Card key={v.provider+"-"+v.name+"-"+i} className="m238m-product-detail-row"><div><strong>{v.name}</strong><span>{v.provider==="qoala"?"Qoala":"Provider"} • {num.format(Number(v.qty||0))} qty</span></div><b>{money.format(Number(v.value||0))}</b></Card>):<Card className="m238m-empty">Tidak ada VAS yang terjual.</Card>):(items.length?items.map((p:any,i:number)=><Card key={(p.article||p.name)+"-"+i} className="m238m-product-detail-row"><div><strong>{p.name}</strong><span>{kind==="device"?<>{p.focus?<b className="m238m-focus-badge">Focus</b>:null}{p.lob?<> {p.lob}</>:null}</>:<>{p.supplier?<b className="m238m-focus-badge">{p.supplier}</b>:null}{p.brandName?` ${p.brandName}`:""}{p.article?` • ${p.article}`:""}</>}</span></div><div><b>{num.format(Number(p.qty||0))} {kind==="device"?"unit":"qty"}</b><small>{money.format(Number(p.value||0))}</small></div></Card>):<Card className="m238m-empty">Tidak ada {kind==="device"?"device":"accessories"} yang terjual.</Card>)}
+    {kind==="vas"?(items.length?items.map((v:any,i:number)=><Card key={v.provider+"-"+v.name+"-"+i} className="m238m-product-detail-row"><div><strong>{v.name}</strong><span>{selectedVas.label} • {num.format(Number(v.qty||0))} qty</span></div><b>{money.format(Number(v.value||0))}</b></Card>):<Card className="m238m-empty">Belum ada penjualan {selectedVas.label} pada tanggal ini.</Card>):(items.length?items.map((p:any,i:number)=><Card key={(p.article||p.name)+"-"+i} className="m238m-product-detail-row"><div><strong>{p.name}</strong><span>{kind==="device"?<>{p.focus?<b className="m238m-focus-badge">Focus</b>:null}{p.lob?<> {p.lob}</>:null}</>:<>{p.supplier?<b className="m238m-focus-badge">{p.supplier}</b>:null}{p.brandName?` ${p.brandName}`:""}{p.article?` • ${p.article}`:""}</>}</span></div><div><b>{num.format(Number(p.qty||0))} {kind==="device"?"unit":"qty"}</b><small>{money.format(Number(p.value||0))}</small></div></Card>):<Card className="m238m-empty">Tidak ada {kind==="device"?"device":"accessories"} yang terjual.</Card>)}
    </div>
   </div>:<Card className="m238m-empty">Detail penjualan belum tersedia.</Card>}
  </Sheet>
