@@ -15,6 +15,9 @@ export type CopasRepairCandidate = {
   description: string;
   date: string;
   changes: CopasRepairChange[];
+  suggested?: boolean;
+  suggestionReason?: string;
+  referenceArticle?: string;
 };
 
 export type CopasRepairIssue = {
@@ -35,6 +38,7 @@ export type CopasRepairPlan = {
   changedCells: number;
   naRows: number;
   correctedRows: number;
+  recommendationRows: number;
   unresolvedNARows: number;
   candidates: CopasRepairCandidate[];
   issues: CopasRepairIssue[];
@@ -58,6 +62,14 @@ const isXlSupplier = (input:unknown) => ["XL","XXL","XLAPPLE","XXLAPPLE"].includ
 const supplierKey = (input:unknown) => isXlSupplier(input)?"XXL":key(input);
 
 type DesiredField = {column:CopasRepairColumn;field:string;value:string};
+type HistoryReference={article:string;category:string;brand:string;core:string;scheme:string;vendor:string};
+const columnIndex=(column:CopasRepairColumn)=>({G:6,J:9,K:10,L:11,M:12,N:13})[column];
+
+function articleFamily(input:unknown){
+  const article=key(input).replace(/\s+/g,"");
+  const prefix=article.split(/[-_/]/)[0].replace(/[^A-Z0-9]/g,"");
+  return prefix.length>=4?prefix:"";
+}
 
 function classificationSignature(row:unknown[]){
   return [row[0],row[3],row[4],row[5],row[6]].map(key).join("|");
@@ -66,6 +78,7 @@ function classificationSignature(row:unknown[]){
 export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[][], scope:CopasRepairScope="all"): CopasRepairPlan {
   const articleRows = new Map<string, unknown[][]>();
   const supplierRows = new Map<string, Set<string>>();
+  const historicalFamilies = new Map<string,HistoryReference[]>();
 
   for (const row of masterRows.slice(1)) {
     const article = key(row[1]);
@@ -93,6 +106,26 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     }
   }
 
+  for(const row of copasRows){
+    const family=articleFamily(row?.[4]),article=value(row?.[4]),category=value(row?.[9]),brand=value(row?.[10]),core=value(row?.[11]),scheme=key(row?.[12]),vendor=value(row?.[13]);
+    if(!family||!article||![category,brand,core,scheme].every(field=>field&&!isNA(field)))continue;
+    if(scheme!=="ACCESSORIES"&&scheme!=="VAS")continue;
+    if(scheme==="ACCESSORIES"&&key(brand)==="APPLE")continue;
+    const refs=historicalFamilies.get(family)??[];refs.push({article,category,brand,core,scheme,vendor:isNA(vendor)?"":vendor});historicalFamilies.set(family,refs);
+  }
+
+  const historySuggestion=(article:unknown):HistoryReference|null=>{
+    const family=articleFamily(article),refs=family?(historicalFamilies.get(family)??[]):[];
+    if(!refs.length)return null;
+    const signatures=new Set(refs.map(ref=>[ref.category,ref.brand,ref.core,ref.scheme].map(key).join("|")));
+    if(signatures.size!==1)return null;
+    const vendors=[...new Set(refs.map(ref=>value(ref.vendor)).filter(vendor=>vendor&&!isNA(vendor)))];
+    if(vendors.length>1)return null;
+    const reference=refs[0],masterVendors=[...(supplierRows.get(supplierKey(reference.brand))??[])];
+    if(masterVendors.length>1)return null;
+    return{...reference,vendor:masterVendors[0]??vendors[0]??""};
+  };
+
   const candidates: CopasRepairCandidate[] = [];
   const issues: CopasRepairIssue[] = [];
   let checkedRows = 0;
@@ -102,13 +135,16 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
   let typeRows = 0;
   let rowsWithBlankType = 0;
   let changedCells = 0;
+  let recommendationRows = 0;
 
   for (let index = 0; index < copasRows.length; index += 1) {
     const current = Array.from({length:17}, (_, column) => copasRows[index]?.[column] ?? "");
     const article = key(current[4]);
     if (!article) continue;
     const matches = articleRows.get(article)??[];
+    const suggestion=!matches.length?historySuggestion(current[4]):null;
     const knownGroups=matches.map(row=>key(row[5])).filter(group=>["DEVICES","ACCESSORIES","VAS"].includes(group));
+    if(suggestion)knownGroups.push(suggestion.scheme);
     const groups=knownGroups.length?knownGroups:[key(current[12])];
     if(scope==="device"&&!groups.includes("DEVICES"))continue;
     if(scope==="accessory-vas"&&!groups.some(group=>group==="ACCESSORIES"||group==="VAS"))continue;
@@ -121,7 +157,21 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
 
     const issueBase={row:index+2,article:value(current[4]),description:value(current[5])};
     if (!matches.length) {
-      if (hasNA||missingDeviceType) issues.push({...issueBase,reason:"missing-master",detail:"SAP Article belum ada di Master."});
+      if(!suggestion){if (hasNA||missingDeviceType) issues.push({...issueBase,reason:"missing-master",detail:"SAP Article belum ada di Master dan belum ada pola artikel lama yang konsisten."});continue}
+      const desired = new Map<number, DesiredField>([
+        [6,{column:"G",field:"Type",value:""}],
+        [9,{column:"J",field:"Product Category",value:suggestion.category}],
+        [10,{column:"K",field:"Brand Name",value:suggestion.brand}],
+        [11,{column:"L",field:"Core Product",value:suggestion.core}],
+        [12,{column:"M",field:"Product Scheme",value:suggestion.scheme}],
+        [13,{column:"N",field:"Vendor",value:suggestion.vendor}],
+      ]);
+      const repairColumns=naColumns.filter(column=>column!==13||Boolean(suggestion.vendor));
+      if(suggestion.vendor&&!value(current[13])&&!repairColumns.includes(13))repairColumns.push(13);
+      const missing=repairColumns.map(column=>desired.get(column)).filter((field):field is DesiredField=>Boolean(field&&field.column!=="G"&&(!field.value||isNA(field.value))));
+      if(missing.length){issues.push({...issueBase,reason:"incomplete-master",detail:`Pola artikel lama belum memiliki ${missing.map(field=>field.field).join(", ")}.`});continue}
+      const changes=repairColumns.map(column=>desired.get(column)).filter((field):field is DesiredField=>Boolean(field&&!same(current[columnIndex(field.column)],field.value))).map(field=>({column:field.column,field:field.field,from:value(current[columnIndex(field.column)]),to:field.value}));
+      if(changes.length){changedCells+=changes.length;if(hasNA)naRepairRows+=1;if(changes.some(change=>change.column==="N"&&change.to))vendorRows+=1;recommendationRows+=1;candidates.push({...issueBase,date:value(current[0]),changes,suggested:true,suggestionReason:`Rekomendasi dari keluarga artikel ${articleFamily(current[4])} yang sudah pernah diklasifikasikan.`,referenceArticle:suggestion.article})}
       continue;
     }
     if (new Set(matches.map(classificationSignature)).size > 1) {
@@ -196,6 +246,7 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     changedCells,
     naRows:candidates.length,
     correctedRows:0,
+    recommendationRows,
     unresolvedNARows:issues.length,
     candidates,
     issues,

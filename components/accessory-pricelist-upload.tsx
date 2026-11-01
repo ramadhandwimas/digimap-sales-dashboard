@@ -40,7 +40,7 @@ export default function AccessoryPricelistUpload({kind="accessory",onBusyChange}
     throw new Error(payload.error||"Upload gagal. Coba cek pricelist ulang.");
    }
    setResult(payload);setNeedsRecheck(false);
-   if(mode==="import"&&Number(payload.imported)>0){const last={fileName:file.name,timestamp:new Date().toISOString(),count:Number(payload.imported)};try{localStorage.setItem(`m238-pricelist-import-${kind}`,JSON.stringify(last));window.dispatchEvent(new Event(importEvent))}catch{}}
+   if(mode==="import"&&Number(payload.imported)>0){const last={fileName:file.name,timestamp:new Date().toISOString(),count:Number(payload.imported)};try{localStorage.setItem(`m238-pricelist-import-${kind}`,JSON.stringify(last));window.dispatchEvent(new Event(importEvent));window.dispatchEvent(new CustomEvent("m238:data-activity",{detail:{label:device?"Upload Pricelist Device":"Upload Pricelist Accessories & VAS",detail:`${file.name} · ${payload.imported} produk`,count:Number(payload.imported),type:device?"PRICELIST_DEVICE":"PRICELIST_ACCESSORY"}}))}catch{}}
   }catch(e){setNeedsRecheck(true);setError(e instanceof Error?e.message:"Upload gagal.")}
   finally{active.current=false;setBusy(null);onBusyChange?.(false)}
  }

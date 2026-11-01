@@ -102,10 +102,10 @@ export async function POST(req:NextRequest){
    if(body.dryRun!==true){await acquireCopasLock({email,key});copasLocked=true}
    const[master,copas]=await getSheetRangesFresh(DASHBOARD_ID,["'Master'!A1:L100000",`'${COPAS_SHEET}'!A2:Q50000`],email,key);
    const plan=planDataCopasRepair(master||[],copas||[],scope),planId=repairPlanId(plan.candidates,scope),dryRun=body.dryRun===true;
-   const summary={scope,checkedRows:plan.checkedRows,rowsWithNA:plan.rowsWithNA,naRepairRows:plan.naRepairRows,vendorRows:plan.vendorRows,typeRows:plan.typeRows,rowsWithBlankType:plan.rowsWithBlankType,repairRows:plan.candidates.length,changedCells:plan.changedCells,unresolvedNARows:plan.unresolvedNARows,repairItems:plan.candidates.slice(0,300),repairItemsTotal:plan.candidates.length,issues:plan.issues,planId};
+   const summary={scope,checkedRows:plan.checkedRows,rowsWithNA:plan.rowsWithNA,naRepairRows:plan.naRepairRows,vendorRows:plan.vendorRows,typeRows:plan.typeRows,rowsWithBlankType:plan.rowsWithBlankType,recommendationRows:plan.recommendationRows,repairRows:plan.candidates.length,changedCells:plan.changedCells,unresolvedNARows:plan.unresolvedNARows,repairItems:plan.candidates.slice(0,300),repairItemsTotal:plan.candidates.length,issues:plan.issues,planId};
    if(dryRun||!plan.candidates.length){
     const message=plan.candidates.length
-     ?`Ditemukan ${plan.candidates.length} baris yang aman diperbaiki: ${plan.typeRows} baris Type/model, ${plan.vendorRows} baris Vendor, dan klasifikasi kosong/N/A akan disesuaikan.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris perlu diperiksa manual.`:""}`
+     ?`Ditemukan ${plan.candidates.length} baris yang aman diperbaiki: ${plan.typeRows} baris Type/model, ${plan.vendorRows} baris Vendor, dan ${plan.recommendationRows} rekomendasi dari pola artikel lama.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris perlu diperiksa manual.`:""}`
      :plan.unresolvedNARows?`Belum ada data yang aman diperbaiki. ${plan.unresolvedNARows} baris N/A perlu diperiksa manual.`:"Data Copas sudah sesuai dengan Master terbaru.";
     return NextResponse.json({ok:true,dryRun,...summary,message},{headers:{"cache-control":"no-store"}});
    }
@@ -124,7 +124,7 @@ export async function POST(req:NextRequest){
     const periods=[...new Set(plan.candidates.map(row=>isoDate(row.date).slice(0,7)).filter(period=>/^20\d{2}-\d{2}$/.test(period)))];
     if(periods.length)await refreshDailySummaryPeriods(periods,{email,key});
    }catch(error){cacheWarning=error instanceof Error?error.message:"Cache ringkasan gagal diperbarui";console.warn("M238_PERF",{op:"repair-copas-summary-cache",error:cacheWarning})}
-   return NextResponse.json({ok:true,dryRun:false,...summary,writeBatches:writes.length,dailySummaryCache:{ok:!cacheWarning,warning:cacheWarning||null},message:`Data Copas berhasil diperbaiki: ${plan.candidates.length} baris dan ${plan.changedCells} sel klasifikasi/Vendor disesuaikan dengan Master.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris tetap masuk daftar pemeriksaan manual.`:""}`},{headers:{"cache-control":"no-store"}});
+   return NextResponse.json({ok:true,dryRun:false,...summary,writeBatches:writes.length,dailySummaryCache:{ok:!cacheWarning,warning:cacheWarning||null},message:`Data Copas berhasil diperbaiki: ${plan.candidates.length} baris dan ${plan.changedCells} sel klasifikasi/Vendor disesuaikan.${plan.recommendationRows?` ${plan.recommendationRows} baris memakai rekomendasi pola artikel lama yang konsisten.`:""}${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris tetap masuk daftar pemeriksaan manual.`:""}`},{headers:{"cache-control":"no-store"}});
   }
   if(action==="cutoff"){
    const mode=body.mode==="month"?"month":"date",value=text(body.value);
@@ -194,8 +194,15 @@ export async function POST(req:NextRequest){
    const currentAmount=destinationPeriod.reduce((sum,row)=>sum+rowAmount(row),0);
    const projectedCount=currentCount+newRows.length;
    const projectedAmount=currentAmount+newAmount;
-   const differenceAmount=projectedAmount-selectedAmount;
-   const differenceCount=projectedCount-selected.length;
+   // RAW Salesperson is the active upload, while Data Copas is an accumulated
+   // period. They are intentionally different scopes, so the accumulated
+   // projection must not be compared directly with the active RAW total.
+   // A safe cut off only needs every selected RAW occurrence to be accounted
+   // for exactly once: either it already exists or it will be appended.
+   const reconciledCount=skippedCount+newRows.length;
+   const reconciledAmount=skippedAmount+newAmount;
+   const differenceCount=selected.length-reconciledCount;
+   const differenceAmount=selectedAmount-reconciledAmount;
    const occurrenceGroups=new Map<string,{row:unknown[];count:number}>();
    for(const row of selected){
     const keyValue=fingerprint(row),entry=occurrenceGroups.get(keyValue);
@@ -217,7 +224,7 @@ export async function POST(req:NextRequest){
     sourceCount:selected.length,sourceAmount:selectedAmount,currentCount,currentAmount,
     newCount:newRows.length,newAmount,skippedCount,skippedAmount,ignoredCount,
     projectedCount,projectedAmount,differenceCount,differenceAmount,
-    isBalanced:differenceCount===0&&differenceAmount===0,bulkSales,bulkSalesCount:bulkSales.length,planId
+    isBalanced:differenceCount===0&&Math.abs(differenceAmount)<0.5,bulkSales,bulkSalesCount:bulkSales.length,planId
    };
    if(!newRows.length){
     return NextResponse.json({

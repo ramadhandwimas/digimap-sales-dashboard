@@ -73,6 +73,25 @@ test("Cut Off preview is incremental-only",async()=>{
  }finally{route.restore()}
 });
 
+test("Cut Off reconciles the active RAW upload independently from accumulated Data Copas",async()=>{
+ const existing=sale({invoice:"INV-1"});
+ const fresh=sale({invoice:"INV-2",article:"APP002",amount:2000000});
+ const historical=sale({date:"01-09-2026",invoice:"OLD-1",article:"OLD001",amount:9000000});
+ const samePeriodHistory=sale({invoice:"OLD-2",article:"OLD002",amount:7000000});
+ const state={source:[existing,fresh],destination:[historical,samePeriodHistory,existing],appended:[]},route=loadRoute(state);
+ try{
+  const res=await cutoff(route.POST);
+  assert.equal(res.body.sourceCount,2);
+  assert.equal(res.body.skippedCount,1);
+  assert.equal(res.body.newCount,1);
+  assert.equal(res.body.currentCount,2);
+  assert.equal(res.body.projectedCount,3);
+  assert.equal(res.body.differenceCount,0);
+  assert.equal(res.body.differenceAmount,0);
+  assert.equal(res.body.isBalanced,true);
+ }finally{route.restore()}
+});
+
 test("Cut Off re-reads latest Data Copas state on every preview",async()=>{
  const row=sale(),state={source:[row],destination:[],appended:[]},route=loadRoute(state);
  try{

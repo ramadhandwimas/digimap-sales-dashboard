@@ -213,3 +213,27 @@ test("unavailable Vendor is preserved silently while other classifications can b
   assert.equal(updated.vendorRows,1);assert.ok(updated.candidates[0].changes.some(c=>c.column==="N"&&c.to==="NEW VENDOR PT"));
  }
 });
+
+test("recommends a missing Kora pricelist article from a consistent historical article family",()=>{
+ const old=copas("KOATGF-IP17PM",{5:"TEMPERED GLASS 2.5D FOR IP17 PRO MAX",6:"",9:"SCREEN PROTEKTOR",10:"KORA",11:"APPLE",12:"ACCESSORIES",13:"KORA VENDOR PT"});
+ const current=copas("KOATGF-IP18PM",{5:"TEMPERED GLASS 2.5D FOR IP18 PRO MAX",6:"N/A",9:"N/A",10:"N/A",11:"N/A",12:"N/A",13:"N/A"});
+ const plan=planDataCopasRepair(master,[old,current]);
+ assert.equal(plan.recommendationRows,1);assert.equal(plan.unresolvedNARows,0);assert.equal(plan.candidates.length,1);
+ assert.equal(plan.candidates[0].suggested,true);assert.equal(plan.candidates[0].referenceArticle,"KOATGF-IP17PM");
+ assert.deepEqual(plan.candidates[0].changes,[
+  {column:"G",field:"Type",from:"N/A",to:""},
+  {column:"J",field:"Product Category",from:"N/A",to:"SCREEN PROTEKTOR"},
+  {column:"K",field:"Brand Name",from:"N/A",to:"KORA"},
+  {column:"L",field:"Core Product",from:"N/A",to:"APPLE"},
+  {column:"M",field:"Product Scheme",from:"N/A",to:"ACCESSORIES"},
+  {column:"N",field:"Vendor",from:"N/A",to:"KORA VENDOR PT"},
+ ]);
+});
+
+test("does not recommend when the same article family has conflicting historical classifications",()=>{
+ const screen=copas("KOATGF-IP17PM",{9:"SCREEN PROTEKTOR",10:"KORA",11:"APPLE",12:"ACCESSORIES",13:"KORA VENDOR PT"});
+ const caseRow=copas("KOATGF-IP16",{9:"CASE",10:"KORA",11:"APPLE",12:"ACCESSORIES",13:"KORA VENDOR PT"});
+ const current=copas("KOATGF-IP18PM");
+ const plan=planDataCopasRepair(master,[screen,caseRow,current]);
+ assert.equal(plan.recommendationRows,0);assert.equal(plan.candidates.length,0);assert.equal(plan.issues.at(-1).reason,"missing-master");
+});

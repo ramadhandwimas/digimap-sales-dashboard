@@ -22,12 +22,14 @@ export default function CopasInvoiceCheck({onBusyChange,onChanged}:{onBusyChange
     const response=await fetch("/api/copas-invoices",{method:"POST",headers:{"content-type":"application/json"},cache:"no-store",body:JSON.stringify({action:"compact"})});
     const data=await response.json();if(!response.ok)throw new Error(data.error||"Baris kosong gagal dirapikan.");
     setResult(null);setSelected([]);setNotice({error:false,text:data.message});
+    if(Number(data.compactedRows)>0)window.dispatchEvent?.(new CustomEvent("m238:data-activity",{detail:{label:"Rapikan Data Copas",detail:`${data.compactedRows} baris kosong dirapikan`,count:Number(data.compactedRows),type:"COPAS_COMPACT"}}));
     try{setResult(await fetchCheck())}catch{setNotice({error:false,text:`${data.message} Klik Cek Ulang untuk melihat status terbaru.`})}
    }else{
     const response=await fetch("/api/copas-invoices",{method:"POST",headers:{"content-type":"application/json"},cache:"no-store",body:JSON.stringify({action:"delete",planId:result?.planId,selectedIds:selected,reason})});
     const data=await response.json();
     if(!response.ok){if(response.status===409){setResult(null);setSelected([])}throw new Error(data.error||"Penghapusan gagal.")}
     setResult(null);setSelected([]);setNotice({error:false,text:`${data.message}${data.warning?` ${data.warning}`:""}`});
+    window.dispatchEvent?.(new CustomEvent("m238:data-activity",{detail:{label:`Hapus Invoice ${reason}`,detail:`${data.deletedRows||chosen.length} baris transaksi`,count:Number(data.deletedRows||chosen.length),type:"INVOICE_DELETE"}}));
     try{setResult(await fetchCheck());await onChanged?.()}catch{setNotice({error:false,text:`${data.message} Klik Cek Ulang untuk melihat status terbaru.`})}
    }
   }catch(error){setNotice({error:true,text:error instanceof Error?error.message:"Pemeriksaan invoice gagal."})}

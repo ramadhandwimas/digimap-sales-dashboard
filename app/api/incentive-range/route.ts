@@ -20,7 +20,8 @@ export async function GET(req:NextRequest){
  try{
   const now=today(),from=req.nextUrl.searchParams.get("from")||`${now.slice(0,7)}-01`,to=req.nextUrl.searchParams.get("to")||now;
   if(!/^20\d{2}-\d{2}-\d{2}$/.test(from)||!/^20\d{2}-\d{2}-\d{2}$/.test(to)||from>to)return NextResponse.json({error:"Range tanggal tidak valid"},{status:400});
-  const[dataRows,config]=await getSheetRanges(ID,["'Data Copas'!A2:S50000","Config!A1:AZ120"],email,key);
+  const dataRange=from.startsWith("2025-")?"'Data Copas Archive 2025'!A2:S32755":"'Data Copas'!A2:S50000";
+  const[dataRows,config]=await getSheetRanges(ID,[dataRange,"Config!A1:AZ120"],email,key);
   const roster=config.slice(27,55).filter(r=>s(r[7])===STORE&&s(r[8])&&s(r[9])&&!/SUPERVISOR|ONLINE/i.test(s(r[10]))).map(r=>({id:s(r[8]),name:s(r[9])}));
   const byId=new Map<string,StaffCalc>(roster.map(r=>[r.id,{...r,incentive:{mac:0,iphone:0,ipad:0,watch:0,accessories:0,qoala:0,total:0},qty:{mac:0,iphone:0,ipad:0,watch:0,accessories:0,qoala:0},activeDates:new Set<string>(),rates:{accessories:{},qoala:{}}}]));
   const addRate=(map:RateMap,rate:number,qty:number)=>{const k=String(rate);map[k]=(map[k]||0)+qty};

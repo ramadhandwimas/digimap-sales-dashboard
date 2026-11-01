@@ -14,7 +14,7 @@ const norm=(v:unknown)=>s(v).toUpperCase();
 const qtyValue=(v:unknown):number|null=>{if(typeof v==="number")return Number.isFinite(v)&&v>=0?v:null;const t=s(v).replace(/,/g,"");if(!t)return null;const x=Number(t);return Number.isFinite(x)&&x>=0?x:null};
 
 type ParsedRow={brand:string;article:string;description:string;serial:string;totalStock:number|null;sourceNo:string};
-type Staff={id:string;name:string;position:string};
+type Staff={id:string;name:string;position:string;status?:string};
 type BatchWork={uploadID:string;stockDate:string;period:string;uploadedAt:string;totalArticles:number;totalStock:number;stockers:Set<string>};
 type FinalRow={stocker:string;brand:string;article:string;description:string;serial:string;totalStock:number;sourceNo:string};
 
@@ -23,6 +23,30 @@ async function stokanStaff(email:string,key:string){
  const out=new Map<string,Staff>();
  for(const r of rows){const store=norm(r[0]),id=s(r[1]),name=s(r[2]),position=s(r[3]);if(store!=="M238"||!name||!isStokanPosition(position))continue;const k=id||name.toUpperCase();if(!out.has(k))out.set(k,{id,name,position})}
  return Array.from(out.values());
+}
+const MONTHS:Record<string,number>={JANUARI:1,FEBRUARI:2,MARET:3,APRIL:4,MEI:5,JUNI:6,JULI:7,AGUSTUS:8,SEPTEMBER:9,OKTOBER:10,NOVEMBER:11,DESEMBER:12};
+const unavailable=(status:string)=>/OFF|CUTI|TRAINING|MEETING|\bRO\b|SAKIT|SICK|LEAVE/i.test(status);
+const numberValue=(v:unknown)=>typeof v==="number"?v:Number(String(v??"").replace(/[^0-9.-]/g,""))||0;
+function monthFromRow(row:unknown[]){for(const cell of row.slice(0,3)){const month=MONTHS[norm(cell)];if(month)return month}return 0}
+function pad2(v:number){return String(v).padStart(2,"0")}
+function scheduleBlockMatches(date:string,month:number,days:number[]){const[y,m,d]=date.split("-").map(Number);if(!month||!days.includes(d))return-1;const wrap=days.findIndex((v,i)=>i<days.length-1&&v>days[i+1]);for(let i=0;i<days.length;i++){if(days[i]!==d)continue;let cellMonth=month;if(wrap>=0&&i<=wrap)cellMonth=month===1?12:month-1;let cellYear=y;if(month===1&&cellMonth===12)cellYear=y-1;if(cellMonth===m&&`${cellYear}-${pad2(cellMonth)}-${pad2(d)}`===date)return i}return-1}
+function carryStatus(row:unknown[],dayIndex:number){const current=norm(row[3+dayIndex]);if(current)return current;for(let i=dayIndex-1;i>=0;i--){const previous=norm(row[3+i]);if(!previous)continue;if(/TRAINING|MEETING|CUTI|SAKIT|SICK|LEAVE|\bRO\b/.test(previous))return previous;break}return"IN"}
+async function scheduleSelection(date:string,eligible:Staff[],email:string,key:string){
+ const [weekly,uploaded,snapshots]=await getSheetRanges(MASTER_ID,["'Schedule weekly'!A1:Q600","'Dashboard Uploaded Schedule'!A2:F10000","'Dashboard Schedule Snapshot'!A2:F5000"],email,key);
+ let scheduled:{id:string;name:string;status:string}[]=[],source="";
+ const normalized=uploaded.filter(row=>s(row[0]).slice(0,10)===date);
+ const fallbackSnapshot=snapshots.filter(row=>s(row[0]).slice(0,10)===date);
+ const exact=normalized.length?normalized:fallbackSnapshot;
+ if(exact.length){scheduled=exact.map(row=>({id:s(row[1]),name:s(row[2]),status:norm(row[5])||"IN"})).filter(person=>person.id||person.name);source=normalized.length?"Dashboard Uploaded Schedule":"Dashboard Schedule Snapshot"}
+ if(!scheduled.length){
+  const nameToId=new Map<string,string>();for(const row of weekly){const id=s(row[0]),name=s(row[1]);if(/^\d{6,10}$/.test(id)&&name)nameToId.set(norm(name),id)}
+  for(let r=0;r<weekly.length-2;r++){const month=monthFromRow(weekly[r]);if(!month)continue;const days=weekly[r].slice(3,10).map(numberValue).filter(v=>v>0&&v<=31);if(days.length!==7)continue;const dayIndex=scheduleBlockMatches(date,month,days);if(dayIndex<0)continue;let header=r+1;if(norm(weekly[header]?.[1])!=="NAME"&&norm(weekly[header]?.[0])!=="NIK"){header=r+2;if(norm(weekly[header]?.[1])!=="NAME"&&norm(weekly[header]?.[0])!=="NIK")continue}for(let i=header+1;i<Math.min(weekly.length,header+24);i++){const row=weekly[i],first=norm(row?.[0]),name=s(row?.[1]);if(!name)continue;if(/^D0\d{2}|FULL|OFF|CUTI/.test(first)||/^D0\d{2}|FULL|OFF|CUTI/.test(norm(name)))break;const id=/^\d{6,10}$/.test(s(row?.[0]))?s(row?.[0]):nameToId.get(norm(name))||"";scheduled.push({id,name,status:carryStatus(row,dayIndex)})}if(scheduled.length){source="Schedule weekly";break}}
+ }
+ if(!scheduled.length)return{staff:eligible,selectedStaff:eligible.map(person=>person.name),scheduleApplied:false,scheduleSource:"Schedule belum tersedia"};
+ const byId=new Map(scheduled.filter(person=>person.id).map(person=>[person.id,person])),byName=new Map(scheduled.map(person=>[norm(person.name),person]));
+ const staff=eligible.map(person=>({...person,status:(byId.get(person.id)||byName.get(norm(person.name)))?.status||"Tidak terjadwal"}));
+ const selectedStaff=staff.filter(person=>person.status!=="Tidak terjadwal"&&!unavailable(person.status||"")).map(person=>person.name);
+ return{staff,selectedStaff,scheduleApplied:true,scheduleSource:source};
 }
 function splitArticle(v:unknown){const raw=s(v),i=raw.indexOf("/");if(i<0)return{article:safe(raw,140),description:""};return{article:safe(raw.slice(0,i),140),description:safe(raw.slice(i+1),260)}}
 function findDescriptionColumn(raw:unknown[][]){const names=new Set(["DESCRIPTION","DESKRIPSI","PRODUCT DESCRIPTION","ARTICLE DESCRIPTION","NAMA AKSESORIS","NAMA ACCESSORIES"]);for(let r=0;r<Math.min(raw.length,30);r++){const row=raw[r]||[];for(let c=0;c<row.length;c++)if(names.has(norm(row[c])))return c}return -1}
@@ -53,7 +77,7 @@ export async function GET(req:NextRequest){
 export async function POST(req:NextRequest){
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});
  try{const contentType=req.headers.get("content-type")||"";
-  if(contentType.includes("multipart/form-data")){const form=await req.formData(),file=form.get("file");if(!(file instanceof File))return NextResponse.json({error:"File stokan tidak ditemukan"},{status:400});const parsed=await parseWorkbook(file),staff=await stokanStaff(email,key);if(!staff.length)return NextResponse.json({error:"Tidak ada staff SA, ST, atau MT yang tersedia untuk periode ini."},{status:422});const min=Math.floor(parsed.rows.length/staff.length),max=Math.ceil(parsed.rows.length/staff.length);return NextResponse.json({ok:true,fileName:file.name,sheet:parsed.sheet,descriptionSource:parsed.descriptionSource,rows:parsed.rows,totalArticles:parsed.rows.length,totalStock:parsed.rows.reduce((a,r)=>a+(r.totalStock??0),0),staff,distribution:{min,max},samples:parsed.rows.slice(0,10),valid:parsed.rows.every(r=>!!r.article&&r.totalStock!==null)})}
+  if(contentType.includes("multipart/form-data")){const form=await req.formData(),file=form.get("file"),requestedDate=s(form.get("stockDate")),stockDate=/^20\d{2}-\d{2}-\d{2}$/.test(requestedDate)?requestedDate:currentStokanContext().stockDate;if(!(file instanceof File))return NextResponse.json({error:"File stokan tidak ditemukan"},{status:400});const parsed=await parseWorkbook(file),eligible=await stokanStaff(email,key);if(!eligible.length)return NextResponse.json({error:"Tidak ada staff SA, ST, atau MT yang tersedia untuk periode ini."},{status:422});const schedule=await scheduleSelection(stockDate,eligible,email,key),staff=schedule.staff,min=Math.floor(parsed.rows.length/Math.max(1,schedule.selectedStaff.length)),max=Math.ceil(parsed.rows.length/Math.max(1,schedule.selectedStaff.length));return NextResponse.json({ok:true,fileName:file.name,sheet:parsed.sheet,descriptionSource:parsed.descriptionSource,rows:parsed.rows,totalArticles:parsed.rows.length,totalStock:parsed.rows.reduce((a,r)=>a+(r.totalStock??0),0),staff,selectedStaff:schedule.selectedStaff,scheduleApplied:schedule.scheduleApplied,scheduleSource:schedule.scheduleSource,stockDate,distribution:{min,max},samples:parsed.rows.slice(0,10),valid:parsed.rows.every(r=>!!r.article&&r.totalStock!==null)})}
   const body=await req.json(),action=s(body.action);
   if(action==="clear"){const uploadID=s(body.uploadID);const {body:raw}=await ensureNormalizedSchema(email,key);if(uploadID){const indexes:number[]=[];for(let i=0;i<raw.length;i++)if(s(raw[i]?.[12])===uploadID)indexes.push(i+2);if(indexes.length){const start=Math.min(...indexes),end=Math.max(...indexes);await clearAndWrite(MASTER_ID,`'${TAB}'!A${start}:N${end}`,`'${TAB}'!A1`,[HEADERS],email,key,"RAW")}}else await clearAndWrite(MASTER_ID,`'${TAB}'!A2:N20000`,`'${TAB}'!A1`,[HEADERS],email,key,"RAW");return NextResponse.json({ok:true,message:"Stokan berhasil dikosongkan. Silakan upload file week berikutnya."})}
   if(action==="reassign"){

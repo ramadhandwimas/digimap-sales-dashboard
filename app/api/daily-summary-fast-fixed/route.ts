@@ -12,17 +12,24 @@ export async function GET(req:NextRequest){
  const started=Date.now();
  const force=req.nextUrl.searchParams.get("refresh")==="1";
  const requestedFrom=req.nextUrl.searchParams.get("from")||"",requestedTo=req.nextUrl.searchParams.get("to")||"",mode=req.nextUrl.searchParams.get("mode")||"range";
+ const includesArchive2025=requestedFrom<"2026-01-01";
  const cacheKey=`summary:${requestedFrom}:${requestedTo}:${mode}`;
  const hit=responseCache.get(cacheKey);
  if(!force&&hit&&Date.now()-hit.at<TTL)return NextResponse.json(hit.data,{headers:outHeaders("HIT",started)});
 
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
- const sourcePromise=email&&key?getCachedSalesSource(email,key,force).catch(()=>null):Promise.resolve(null);
+ // The shared fast source only contains the active Data Copas sheet (2026).
+ // Historical ranges are already assembled by originalGET from Archive 2025;
+ // never replace those totals with the active-sheet cache.
+ const sourcePromise=!includesArchive2025&&email&&key?getCachedSalesSource(email,key,force).catch(()=>null):Promise.resolve(null);
  const [original,source]=await Promise.all([originalGET(req),sourcePromise]);
  if(!original.ok)return original;
  const data:any=await original.json();
  const from=requestedFrom||data.from,to=requestedTo||data.to;
- if(!source||!from||!to)return NextResponse.json(data,{headers:outHeaders("BASE",started)});
+ if(!source||!from||!to){
+  responseCache.set(cacheKey,{at:Date.now(),data});
+  return NextResponse.json(data,{headers:outHeaders(includesArchive2025?"ARCHIVE":"BASE",started)});
+ }
  try{
   const rows=source.dataCopas.filter(r=>r.date>=from&&r.date<=to);
   const existingByDate=new Map((data.dailyRows||[]).map((r:any)=>[r.date,r]));

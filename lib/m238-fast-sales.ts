@@ -25,12 +25,12 @@ export function parseSpwToNormalized(rows:unknown[][],classification:Map<string,
   let c=classification.get(article);if(!c)c=conservativeFallback(article,description);
   let j=i+1,consumed=0;
   while(j<rows.length&&typeof rows[j]?.[0]==="number"&&text(rows[j]?.[1])){
-   const tx=rows[j]||[],invoice=text(tx[1]),amount=num(tx[2]);sourceItems++;consumed++;j++;
+   const tx=rows[j]||[],invoice=text(tx[1]),amount=num(tx[2]),unitPrice=num(tx[0]),ratio=unitPrice>0?amount/unitPrice:1,rounded=Math.round(ratio),qty=rounded>=1&&rounded<=100&&Math.abs(amount-unitPrice*rounded)<=1?rounded:1;sourceItems++;consumed++;j++;
    if(!invoice||amount===0)continue;
    if(!c){unknownClassification++;unclassified.push({article,description,amount,id})}
    const key=`${store}|${date}|${invoice}|${article}|${id}`;const existing=out.get(key);
-   if(existing){existing.qty+=1;existing.amount+=amount;duplicateSkipped++;continue}
-   out.set(key,{date,id,name,invoice,article,description,type:c?.type||"",qty:1,amount,category:c?.category||"",brand:c?.brand||"",core:c?.core||"",scheme:c?.scheme||"",vendor:c?.vendor||"",week:c?.week||"",store,key});
+   if(existing){existing.qty+=qty;existing.amount+=amount;duplicateSkipped++;continue}
+   out.set(key,{date,id,name,invoice,article,description,type:c?.type||"",qty,amount,category:c?.category||"",brand:c?.brand||"",core:c?.core||"",scheme:c?.scheme||"",vendor:c?.vendor||"",week:c?.week||"",store,key});
   }
   if(consumed)i=j-1;
  }

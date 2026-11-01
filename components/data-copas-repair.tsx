@@ -5,7 +5,7 @@ import {AlertTriangle,ArrowRight,CircleCheck,ListChecks,LoaderCircle,WandSparkle
 type Scope="all"|"device"|"accessory-vas";
 type Notice={kind:"success"|"error";text:string}|null;
 type RepairChange={column:string;field:string;from:string;to:string};
-type RepairItem={row:number;article:string;description:string;changes:RepairChange[]};
+type RepairItem={row:number;article:string;description:string;changes:RepairChange[];suggested?:boolean;suggestionReason?:string;referenceArticle?:string};
 type RepairIssue={row:number;article:string;description:string;detail:string};
 type Preview={
  scope?:Scope;
@@ -14,6 +14,7 @@ type Preview={
  naRepairRows:number;
  vendorRows:number;
  typeRows?:number;
+ recommendationRows?:number;
  rowsWithBlankType?:number;
  repairRows:number;
  changedCells:number;
@@ -58,7 +59,7 @@ export default function DataCopasRepair({onBusyChange,scope="all"}:{onBusyChange
    if(!response.ok)throw new Error(result.error||"Perbaikan Data Copas gagal");
    setNotice({kind:"success",text:result.message||"Data Copas berhasil diperbaiki."});
    setPreview(null);
-   window.dispatchEvent(new CustomEvent("m238:data-activity",{detail:{label:"Perbaiki Data Copas",timestamp:new Date().toISOString(),detail:`${result.repairRows??0} baris • ${result.changedCells??0} sel`}}));
+   window.dispatchEvent?.(new CustomEvent("m238:data-activity",{detail:{label:"Perbaiki Data Copas",timestamp:new Date().toISOString(),detail:`${result.repairRows??0} baris • ${result.changedCells??0} sel`}}));
   }catch(error){setNotice({kind:"error",text:error instanceof Error?error.message:"Perbaikan Data Copas gagal"})}
   finally{active.current=false;setBusy(null);onBusyChange?.(false)}
  };
@@ -73,6 +74,7 @@ export default function DataCopasRepair({onBusyChange,scope="all"}:{onBusyChange
     <Summary value={preview.repairRows} label="Siap diperbaiki" tone="blue"/>
     {scope!=="accessory-vas"?<Summary value={preview.typeRows||0} label="Type/model diisi" tone={preview.typeRows?"blue":"slate"}/>:null}
     {scope!=="device"?<Summary value={preview.vendorRows} label="Vendor di-update" tone={preview.vendorRows?"blue":"slate"}/>:null}
+    <Summary value={preview.recommendationRows||0} label="Rekomendasi pola lama" tone={preview.recommendationRows?"blue":"slate"}/>
     <Summary value={preview.unresolvedNARows} label="Perlu diperiksa" tone={preview.unresolvedNARows?"amber":"slate"}/>
    </div>
    <p className="text-xs text-slate-500">Diperiksa {preview.checkedRows} baris · {scopeLabel}. Ditemukan {preview.rowsWithNA} baris N/A{scope!=="accessory-vas"?` dan ${preview.rowsWithBlankType||0} baris Type kosong`:""}. Periksa daftar perubahan sebelum menyimpan.</p>
@@ -81,8 +83,9 @@ export default function DataCopasRepair({onBusyChange,scope="all"}:{onBusyChange
     <summary className="cursor-pointer text-sm font-black text-blue-800 dark:text-blue-200">Daftar yang akan diperbaiki ({preview.repairItemsTotal})</summary>
     {preview.repairItemsTotal>preview.repairItems.length?<p className="mt-2 text-xs text-blue-700">Menampilkan {preview.repairItems.length} baris pertama dari {preview.repairItemsTotal}. Semua baris tetap mengikuti daftar pemeriksaan saat disimpan.</p>:null}
     <div className="mt-3 max-h-96 space-y-2 overflow-y-auto pr-1">{preview.repairItems.map(item=><article key={`${item.row}-${item.article}`} className="rounded-xl border bg-white p-3 text-xs dark:bg-slate-950">
-     <div className="font-black">Baris {item.row} · {item.article}</div>
+     <div className="flex flex-wrap items-center gap-2"><div className="font-black">Baris {item.row} · {item.article}</div>{item.suggested?<span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black text-violet-700">REKOMENDASI</span>:null}</div>
      <div className="mt-1 text-slate-500">{item.description||"Tanpa deskripsi"}</div>
+     {item.suggested?<div className="mt-2 rounded-lg bg-violet-50 px-2 py-1.5 font-semibold text-violet-700 dark:bg-violet-950/30 dark:text-violet-200">{item.suggestionReason}{item.referenceArticle?` Referensi: ${item.referenceArticle}.`:""}</div>:null}
      <div className="mt-2 space-y-1">{item.changes.map(change=><div key={change.column} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-lg bg-slate-50 px-2 py-1.5 dark:bg-slate-900">
       <span><b>{change.column} · {change.field}</b><br/><span className="text-rose-600">{change.from||"Kosong"}</span></span><ArrowRight className="size-3.5 text-slate-400"/><span className="font-bold text-emerald-700 break-words">{change.to||"Kosong (tidak digunakan)"}</span>
      </div>)}</div>
