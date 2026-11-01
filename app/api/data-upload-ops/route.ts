@@ -1,3 +1,5 @@
+import {readExchangeHistory} from "@/lib/exchange-archive-store";
+import {archiveExclusions} from "@/lib/exchange-archive";
 import {excludeRemovedInvoices,planRawExchangeEntry} from "@/lib/copas-invoices";
 import {acquireCopasLock,releaseCopasLock,readRemovedInvoiceFingerprints,saveRawExchangeInvoice,CopasInvoiceError} from "@/lib/copas-invoice-store";
 import {NextRequest,NextResponse} from "next/server";
@@ -150,6 +152,8 @@ export async function POST(req:NextRequest){
     if(!validCutoffRow(row)){ignoredCount++;continue}
     selected.push(row);
    }
+   const {history}=await readExchangeHistory({email,key}),excluded=archiveExclusions(history);
+   selected=selected.filter(row=>!excluded(isoDate(row[0]),text(row[3])));
    const removed=excludeRemovedInvoices(selected,await readRemovedInvoiceFingerprints({email,key}));
    selected=removed.rows;
    if(!selected.length){

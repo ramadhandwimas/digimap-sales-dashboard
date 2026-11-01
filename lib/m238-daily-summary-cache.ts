@@ -1,3 +1,5 @@
+import {readExchangeHistory} from "./exchange-archive-store";
+import {archiveExclusions} from "./exchange-archive";
 import {
   batchClearRanges,
   batchWriteRanges,
@@ -727,7 +729,8 @@ export async function buildSummaryFromFastSales(
   source: DailySummaryCacheRow["source"],
 ) {
   const joins = await readJoins(credentials);
-  return aggregateRows(sales, joins.targets, joins.traffic, source);
+  const {history}=await readExchangeHistory(credentials),excluded=archiveExclusions(history);
+  return aggregateRows(sales.filter(row=>!excluded(row.date,row.invoice)), joins.targets, joins.traffic, source);
 }
 
 export async function buildSummaryFromRawValues(
@@ -958,8 +961,9 @@ async function rebuildPeriods(
   const joins = await readJoins(credentials);
   timing.trafficJoin = Date.now() - joinStarted;
   const aggregateStarted = Date.now();
+  const {history}=await readExchangeHistory(credentials),excluded=archiveExclusions(history);
   const rows = aggregateRows(
-    sales,
+    sales.filter(row=>!excluded(row.date,row.invoice)),
     joins.targets,
     joins.traffic,
     "CACHE_REFRESH",

@@ -5,6 +5,7 @@ import {createRequire} from 'node:module';
 import ts from 'typescript';
 const nativeRequire=createRequire(import.meta.url);
 function load(path,mocks={}){
+ mocks={"@/lib/exchange-archive-store":{readExchangeHistory:async()=>({history:[]})},"@/lib/exchange-archive":{archiveExclusions:()=>()=>false},...mocks};
  const code=ts.transpileModule(fs.readFileSync(new URL(`../${path}`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
  const module={exports:{}};new Function('require','module','exports',code)(id=>mocks[id]??nativeRequire(id),module,module.exports);return module.exports;
 }

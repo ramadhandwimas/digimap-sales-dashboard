@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import {createRequire} from 'node:module';
 import ts from 'typescript';
 const require=createRequire(import.meta.url);
-function load(path,mocks={}){const code=ts.transpileModule(fs.readFileSync(new URL(`../${path}`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const loaded={exports:{}};new Function('require','module','exports',code)(id=>mocks[id]??require(id),loaded,loaded.exports);return loaded.exports}
+function load(path,mocks={}){
+ mocks={"@/lib/exchange-archive-store":{readExchangeHistory:async()=>({history:[]})},"@/lib/exchange-archive":{archiveExclusions:()=>()=>false},...mocks};const code=ts.transpileModule(fs.readFileSync(new URL(`../${path}`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const loaded={exports:{}};new Function('require','module','exports',code)(id=>mocks[id]??require(id),loaded,loaded.exports);return loaded.exports}
 const model=load('lib/copas-invoices.ts');
 const row=(invoice='10005011',article='APP001')=>['18-10-2026','123','Staff',invoice,article,'iPhone','iPhone',1,20000000,'IPHONE','APPLE','APPLE','DEVICES','','Week 4 Q1','M238','Digimap','FORMULA R','FORMULA S'];
 const credentials={email:'test@example.com',key:'test'};

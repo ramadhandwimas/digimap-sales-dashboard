@@ -1,3 +1,5 @@
+import {readExchangeHistory} from "@/lib/exchange-archive-store";
+import {archiveExclusions} from "@/lib/exchange-archive";
 import {NextRequest,NextResponse} from "next/server";
 import {ensureSheets,getGoogleSheetRequestCount,getSheetRanges,getSheetRangesFresh} from "@/lib/google-sheets";
 import {combineSpw,isSpwStore,spwSheet} from "@/lib/spw-stores";
@@ -41,6 +43,8 @@ export async function POST(req:NextRequest){
    classMap=mergeMasterClassifications(classMap,master);classificationRefreshed=true;
    parsed=parseSpwToNormalized(report.rows,classMap,store);
    const combined=combineSpw(snapshots,classMap);
+   const {history}=await readExchangeHistory({email,key}),excluded=archiveExclusions(history);
+   combined.rows=combined.rows.filter(row=>!excluded(row.date,row.invoice));
    timing.read=Date.now()-t;if(!parsed.rows.length)throw new Error("Tidak ada sales row valid yang dapat diproses dari SPW.");
 
    t=Date.now();let validation=combined.unknownClassification?"PENDING_CLASSIFICATION":"PENDING_AUDIT";if(sourceRaw.length&&!snapshots.M996.length){const uploadDates=new Set(parsed.rows.map(r=>r.date)),legacy=sourceRaw.map(rawToFast).filter(r=>uploadDates.has(r.date)&&r.id&&r.amount!==0&&!/VOUCHER/i.test(`${r.scheme} ${r.description}`));if(legacy.length){const fastTotal=parsed.rows.reduce((a,r)=>a+r.amount,0),legacyTotal=legacy.reduce((a,r)=>a+r.amount,0);validation=Math.abs(fastTotal-legacyTotal)<=1&&signature(aggregateDaily(parsed.rows,"MATCH"))===signature(aggregateDaily(legacy,"MATCH"))?"MATCH":"MISMATCH"}}

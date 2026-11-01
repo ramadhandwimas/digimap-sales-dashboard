@@ -1,3 +1,5 @@
+import {readExchangeHistory} from "./exchange-archive-store";
+import {archiveExclusions} from "./exchange-archive";
 import {getSheetRanges} from "@/lib/google-sheets";
 import {isValidSale,parseSalesRow,type SalesRow} from "@/lib/m238-sales-sanitize";
 
@@ -12,11 +14,12 @@ export async function getCachedSalesSource(email:string,key:string,force=false){
  if(!force&&cache&&now-cache.at<TTL)return cache;
  if(!force&&pending)return pending;
  pending=(async()=>{
+   const {history}=await readExchangeHistory({email,key}),excluded=archiveExclusions(history);
    const[dataCopasRaw,rawSalesRaw]=await getSheetRanges(SOURCE_ID,["'Data Copas'!A2:S50000","'RAW SalesPerson'!AB2:AR65536"],email,key);
    const next:CachedSource={
      at:Date.now(),
-     dataCopas:(dataCopasRaw||[]).map(parseSalesRow).filter(r=>isValidSale(r)),
-     rawSales:(rawSalesRaw||[]).map(parseSalesRow).filter(r=>isValidSale(r,false))
+     dataCopas:(dataCopasRaw||[]).map(parseSalesRow).filter(r=>isValidSale(r)&&!excluded(r.date,r.invoice)),
+     rawSales:(rawSalesRaw||[]).map(parseSalesRow).filter(r=>isValidSale(r,false)&&!excluded(r.date,r.invoice))
    };
    cache=next;
    return next;

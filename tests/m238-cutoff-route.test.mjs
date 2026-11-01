@@ -29,6 +29,8 @@ function loadRoute(state){
  const summary={buildSummaryFromRawValues:async()=>[],refreshDailySummaryPeriods:async()=>{},upsertDailySummaryRows:async()=>{}};
  const repair={buildDataCopasRepairWrites:()=>[],planDataCopasRepair:()=>({checkedRows:0,rowsWithNA:0,naRepairRows:0,vendorRows:0,candidates:state.repairCandidates||[],changedCells:0,unresolvedNARows:0,issues:[]})};
  const customRequire=(id)=>{
+  if(id==="@/lib/exchange-archive-store")return {readExchangeHistory:async()=>({history:state.exchangeHistory||[]})};
+  if(id==="@/lib/exchange-archive")return {archiveExclusions:history=>(date,invoice)=>history.some(r=>r[0]===date.slice(0,7)&&r[1]===invoice)};
   if(id==="@/lib/copas-invoices")return copasLoaded.exports;
   if(id==="@/lib/copas-invoice-store")return{readRemovedInvoiceFingerprints:async()=>state.removed||[],acquireCopasLock:async()=>"lock",releaseCopasLock:async()=>{state.released=true}};
   if(id==="next/server")return next;

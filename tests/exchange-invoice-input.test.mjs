@@ -26,10 +26,10 @@ for(const [name,Component] of [['Daily Sales modal',Desktop],['Data Upload page'
    if(name==='Daily Sales modal'){await act(async()=>button(view,'Kelola Data').props.onClick());await act(async()=>button(view,'No Exchange Invoice').props.onClick())}
    assert.equal(button(view,'Cari Invoice'),undefined);
    const form=view.root.findByProps({'aria-label':'Input nomor invoice exchange'});assert.equal(form.findAllByType('input').length,1);
-   await act(async()=>form.findByType('input').props.onChange({target:{value:'100051953'}}));
+   await act(async()=>form.findByProps({type:'text'}).props.onChange({target:{value:'100051953'}}));
    await act(async()=>{form.props.onSubmit({preventDefault(){}});await tick()});
    assert.deepEqual(calls,[{url:'/api/data-upload-ops',method:'POST',body:{action:'exchange',noExchange:'100051953'}}]);
-   assert.equal(view.root.findByProps({'aria-label':'Input nomor invoice exchange'}).findByType('input').props.value,'');
+   assert.equal(view.root.findByProps({'aria-label':'Input nomor invoice exchange'}).findByProps({type:'text'}).props.value,'');
    assert.ok(text(view.toJSON()).includes('Nomor berhasil disimpan.'));
   }finally{if(view)await act(async()=>view.unmount());globalThis.fetch=originalFetch;globalThis.document=originalDocument;globalThis.window=originalWindow}
  });
@@ -41,11 +41,11 @@ test('failed save keeps the pending invoice and double tapping submits only once
  try{
   await act(async()=>{view=create(React.createElement(Input,{onBusyChange:value=>busy.push(value)}))});
   assert.equal(button(view,'Simpan No Exchange').props.disabled,true);
-  await act(async()=>view.root.findByType('input').props.onChange({target:{value:'00100051953'}}));
+  await act(async()=>view.root.findByProps({type:'text'}).props.onChange({target:{value:'00100051953'}}));
   await act(async()=>{view.root.findByType('form').props.onSubmit({preventDefault(){}});view.root.findByType('form').props.onSubmit({preventDefault(){}});await tick()});
-  assert.equal(calls,1);assert.equal(view.root.findByType('input').props.disabled,true);
+  assert.equal(calls,1);assert.equal(view.root.findByProps({type:'text'}).props.disabled,true);
   await act(async()=>{finish({ok:false,json:async()=>({error:'Koneksi gagal.'})});await tick()});
-  assert.equal(view.root.findByType('input').props.value,'00100051953');assert.equal(button(view,'Simpan No Exchange').props.disabled,false);assert.deepEqual(busy,[true,false]);
+  assert.equal(view.root.findByProps({type:'text'}).props.value,'00100051953');assert.equal(button(view,'Simpan No Exchange').props.disabled,false);assert.deepEqual(busy,[true,false]);
   assert.ok(text(view.toJSON()).includes('Koneksi gagal.'));
  }finally{if(view)await act(async()=>view.unmount());globalThis.fetch=originalFetch}
 });
