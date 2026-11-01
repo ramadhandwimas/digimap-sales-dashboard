@@ -28,3 +28,13 @@ test('archive and Y clear are sent as one non-retrying atomic batch',async()=>{
  assert.equal(requests[0].updateCells.rows[0].values[1].userEnteredValue.stringValue,'100000149');
  for(const r of requests.slice(1)){assert.equal(r.updateCells.range.startColumnIndex,24);assert.equal(r.updateCells.range.endColumnIndex,25);assert.equal(r.updateCells.fields,'userEnteredValue');assert.deepEqual(r.updateCells.rows,[])}
 });
+test('compile shows complete monthly history after archived invoices have been cleared from Y',()=>{
+ const p=model.planExchangeArchive('2026-10',[['100052025']],[],[['2026-10','100051953'],['2026-10','100052009'],['2026-09','100050001']]);
+ assert.deepEqual(p.invoices,['100051953','100052009']);assert.equal(p.alreadyArchived,2);assert.deepEqual(p.pending,['100052025']);
+});
+test('confirmed October numbers missing from sales can be archived; proven November numbers stay in Y',()=>{
+ const y=[['100052025'],['100051954'],['100052531'],['100052577']],evidence=[sale('2026-11-01','100052531'),sale('2026-11-01','100052577')];
+ const p=model.planExchangeArchive('2026-10',y,evidence,[['2026-10','100051953']],true);
+ assert.deepEqual(p.newInvoices,['100051954','100052025']);assert.deepEqual(p.clearRows,[2,3]);assert.deepEqual(p.kept,['100052531','100052577']);
+ assert.notEqual(p.planId,model.planExchangeArchive('2026-10',y,evidence,[['2026-10','100051953']],false).planId);
+});

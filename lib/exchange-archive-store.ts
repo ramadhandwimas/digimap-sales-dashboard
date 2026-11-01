@@ -13,14 +13,15 @@ export async function readExchangeHistory(c:CopasCredentials){
  if(!EXCHANGE_HEADERS.every((v,i)=>values?.[0]?.[i]===v))throw new CopasInvoiceError("Struktur arsip exchange berubah. Proses dihentikan.",409);
  return{sheets,archive,history:(values||[]).slice(1)};
 }
-export async function readExchangeArchivePlan(c:CopasCredentials,period:string){
+export async function readExchangeArchivePlan(c:CopasCredentials,period:string,includeUnmatched=false){
  const state=await readExchangeHistory(c),raw=state.sheets.find(s=>s.title.toUpperCase().replace(/\s/g,"")==="RAWSALESPERSON");
  if(!raw||raw.gridProperties.columnCount<25)throw new Error("Kolom Y tidak tersedia.");
- const title=raw.title.replace(/'/g,"''"),ranges=[`'${title}'!Y2:Y${raw.gridProperties.rowCount}`,"'Data Copas'!A2:Q50000",`'${title}'!AB2:AR${raw.gridProperties.rowCount}`],log=state.sheets.find(s=>s.title==="Data Copas Exchange Log");
+ const copasSheet=state.sheets.find(s=>s.title==="Data Copas");if(!copasSheet)throw new Error("Data Copas tidak tersedia.");
+ const title=raw.title.replace(/'/g,"''"),ranges=[`'${title}'!Y2:Y${raw.gridProperties.rowCount}`,`'Data Copas'!A2:Q${copasSheet.gridProperties.rowCount}`,`'${title}'!AB2:AR${raw.gridProperties.rowCount}`],log=state.sheets.find(s=>s.title==="Data Copas Exchange Log");
  if(log)ranges.push(`'${log.title}'!A2:W${log.gridProperties.rowCount}`);
  const [[column,copas,helper,removed],[normalized]]=await Promise.all([getSheetRangesFresh(COPAS_ID,ranges,c.email,c.key),getSheetRangesFresh(MASTER,["'SALES DASHBOARD DATA'!A2:Q65537"],c.email,c.key)]);
  const evidence=[...(copas||[]),...(helper||[]),...(normalized||[]),...(removed||[]).map(r=>r.slice(6,23))];
- return{...state,raw,column:column||[],plan:planExchangeArchive(period,column||[],evidence,state.history)};
+ return{...state,raw,column:column||[],plan:planExchangeArchive(period,column||[],evidence,state.history,includeUnmatched)};
 }
 const cells=(values:unknown[])=>({values:values.map(v=>({userEnteredValue:{stringValue:String(v??"")}}))});
 export async function applyExchangeArchive(c:CopasCredentials,state:Awaited<ReturnType<typeof readExchangeArchivePlan>>,actor:string){

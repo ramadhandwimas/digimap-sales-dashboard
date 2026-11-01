@@ -15,11 +15,11 @@ export async function POST(req:NextRequest){
   const period=String(body.period||""),current=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Jakarta",year:"numeric",month:"2-digit"}).format(new Date());
   if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(period)||period>=current)return json({error:"Pilih bulan yang sudah selesai."},400);
   await acquireCopasLock(c);locked=true;
-  const state=await readExchangeArchivePlan(c,period);
+  const state=await readExchangeArchivePlan(c,period,body.includeUnmatched===true);
   if(body.action==="check")return json(state.plan);
   if(body.planId!==state.plan.planId)return json({error:"Daftar exchange berubah. Cek ulang sebelum mengarsipkan."},409);
   await applyExchangeArchive(c,state,`${session.nik} · ${session.name}`);clearCachedSalesSource();
-  return json({ok:true,...state.plan,message:`${state.plan.invoices.length} invoice tersimpan di arsip ${period}. ${state.plan.clearRows.length} sel kolom Y dikosongkan. ${state.plan.pending.length} nomor belum ditemukan tetap disimpan di Y.`});
+  return json({ok:true,...state.plan,message:`${state.plan.invoices.length} invoice tersimpan di arsip ${period}. ${state.plan.clearRows.length} sel kolom Y dikosongkan. ${state.plan.includeUnmatched?"Nomor yang belum ditemukan diarsipkan berdasarkan konfirmasi bulan pengguna.":`${state.plan.pending.length} nomor belum ditemukan tetap disimpan di Y.`}`});
  }catch(e){if(e instanceof CopasInvoiceError)safe=e.safeToUnlock;return json({error:e instanceof Error?e.message:"Arsip gagal."},e instanceof CopasInvoiceError?e.status:500)}
  finally{if(locked&&safe)await releaseCopasLock(c).catch(e=>console.error("Exchange archive unlock",e))}
 }
