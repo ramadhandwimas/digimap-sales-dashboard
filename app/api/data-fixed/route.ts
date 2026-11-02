@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {GET as originalGET} from "@/app/api/data/route";
-import {aggregateSales,vasKey,saleKind} from "@/lib/m238-sales-sanitize";
+import {aggregateSales,vasKey,saleKind,salesRowsForPeriod} from "@/lib/m238-sales-sanitize";
 import {getCachedSalesSource} from "@/lib/m238-sales-source-cache";
 
 const TTL=120_000;
@@ -24,7 +24,8 @@ export async function GET(req:NextRequest){
  if(!source)return NextResponse.json({error:"Data exchange belum dapat diverifikasi. Muat ulang dashboard."},{status:503,headers:{"cache-control":"no-store"}});
  const period=requestedPeriod||data.period;
  try{
-  const monthRows=source.dataCopas.filter(r=>r.date.startsWith(period));
+  const rowsFor=(selectedPeriod:string)=>salesRowsForPeriod(source.dataCopas,source.rawSales,source.activeDates,selectedPeriod);
+  const monthRows=rowsFor(period);
   const latestDate=data.latestDate||monthRows.map(r=>r.date).sort().at(-1)||`${period}-01`;
   const todayRowsRaw=source.rawSales.filter(r=>r.date===latestDate);
   const todayRows=todayRowsRaw.length?todayRowsRaw:monthRows.filter(r=>r.date===latestDate);
@@ -39,10 +40,10 @@ export async function GET(req:NextRequest){
   const point=Math.min(target.device?total.device/target.device*60:0,60)+Math.min(target.accessories?total.accessories/target.accessories*30:0,30)+Math.min(target.vas?total.vas/target.vas*10:0,10);
   data.summary={...data.summary,amount:total.amount,device:total.device,accessories:total.accessories,vas:total.vas,invoices:total.invoices,qty:total.qty,upt:total.upt,atv:total.atv,estimate:total.amount/lastDay*dim,point,timegone:lastDay/dim*100};
   if(data.annual){
-   data.annual.thisYear=(data.annual.thisYear||[]).map((m:any)=>({...m,amount:source.dataCopas.filter(r=>r.date.startsWith(m.period)).reduce((sum,r)=>sum+r.amount,0)}));
+   data.annual.thisYear=(data.annual.thisYear||[]).map((m:any)=>({...m,amount:rowsFor(m.period).reduce((sum,r)=>sum+r.amount,0)}));
    data.annual.thisYearTotal=data.annual.thisYear.reduce((sum:number,m:any)=>sum+m.amount,0);
    const prevDate=new Date(`${period}-01T00:00:00Z`);prevDate.setUTCMonth(prevDate.getUTCMonth()-1);const prev=prevDate.toISOString().slice(0,7),day=Math.max(1,...monthRows.map(r=>Number(r.date.slice(8,10))));
-   const through=(p:string)=>source.dataCopas.filter(r=>r.date.startsWith(p)&&Number(r.date.slice(8,10))<=day).reduce((sum,r)=>sum+r.amount,0),current=through(period),previous=through(prev);
+   const through=(p:string)=>rowsFor(p).filter(r=>Number(r.date.slice(8,10))<=day).reduce((sum,r)=>sum+r.amount,0),current=through(period),previous=through(prev);
    data.annual.mtm={current,previous,growth:previous?(current-previous)/previous*100:0};
   }
   data.generatedAt=new Date().toISOString();data.mode="live";
