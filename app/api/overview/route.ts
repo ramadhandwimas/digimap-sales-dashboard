@@ -1,5 +1,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getSheetRanges} from "@/lib/google-sheets";
+import {getCachedSalesSource} from "@/lib/m238-sales-source-cache";
+import {salesRowsForPeriod,type SalesRow} from "@/lib/m238-sales-sanitize";
 
 const ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const STORE="M238";
@@ -26,19 +28,21 @@ function sumByKind(rows:unknown[][],k:string){return rows.filter(r=>kind(r)===k)
 function sumAmount(rows:unknown[][]){return rows.reduce((a,r)=>a+n(r[8]),0)}
 function sumQty(rows:unknown[][]){return rows.reduce((a,r)=>a+n(r[7]),0)}
 function monthSeries(rows:unknown[][],year:number){return Array.from({length:12},(_,i)=>{const period=`${year}-${String(i+1).padStart(2,"0")}`,rr=rows.filter(r=>iso(r[0]).startsWith(period)),devices=rr.filter(r=>kind(r)==="device"),lobs:Record<string,{amount:number;qty:number}>={};for(const lob of DEVICE_LOBS)lobs[lob]={amount:0,qty:0};lobs["Other Device"]={amount:0,qty:0};for(const r of devices){const lob=deviceLob(r),cur=lobs[lob]||{amount:0,qty:0};lobs[lob]={amount:cur.amount+n(r[8]),qty:cur.qty+n(r[7])}}return{period,amount:sumAmount(rr),qty:sumQty(rr),device:sumAmount(devices),deviceQty:sumQty(devices),lobs}})}
+function rawRow(r:SalesRow):unknown[]{return[r.date,r.id,r.name,r.invoice,r.article,r.description,r.type,r.qty,r.amount,r.category,r.brand,r.core,r.scheme,r.vendor,"",r.store,r.key||""]}
 
 export async function GET(req:NextRequest){
- const period=req.nextUrl.searchParams.get("period")||jakartaToday().slice(0,7),from=req.nextUrl.searchParams.get("from")||"",to=req.nextUrl.searchParams.get("to")||"",rangeLabel=req.nextUrl.searchParams.get("label")||"",lite=req.nextUrl.searchParams.get("lite")==="1";
- const rangeMode=validDate(from)&&validDate(to)&&from<=to,cacheKey=[STORE,period,from,to,rangeLabel,lite?"lite":"full"].join("|"),hit=cachedOverview(cacheKey);
+ const period=req.nextUrl.searchParams.get("period")||jakartaToday().slice(0,7),from=req.nextUrl.searchParams.get("from")||"",to=req.nextUrl.searchParams.get("to")||"",rangeLabel=req.nextUrl.searchParams.get("label")||"",lite=req.nextUrl.searchParams.get("lite")==="1",force=req.nextUrl.searchParams.get("refresh")==="1";
+ const rangeMode=validDate(from)&&validDate(to)&&from<=to,cacheKey=[STORE,period,from,to,rangeLabel,lite?"lite":"full"].join("|"),hit=force?undefined:cachedOverview(cacheKey);
  if(hit)return NextResponse.json(hit,{headers:{"cache-control":"private, max-age=60, stale-while-revalidate=120","x-m238-cache":"HIT"}});
 
  if(!/^202[56]-\d{2}$/.test(period))return NextResponse.json({error:"Period harus format YYYY-MM (2025–2026)"},{status:400});
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
  if(!email||!key)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});
  try{
-  const requestedYear=(rangeMode?from:period).slice(0,4),liteRanges=requestedYear==="2025"?["'Data Copas Archive 2025'!A2:S32755","Config!A1:AZ120"]:["'Data Copas'!A2:S50000","Config!A1:AZ120"];
-  const fetched=await getSheetRanges(ID,lite?liteRanges:["'Data Copas'!A2:S50000","'Data Copas Archive 2025'!A2:S32755","Config!A1:AZ120"],email,key);
-  const rows2026=lite?(requestedYear==="2026"?(fetched[0]||[]):[]):(fetched[0]||[]),rows2025=lite?(requestedYear==="2025"?(fetched[0]||[]):[]):(fetched[1]||[]),config=(lite?fetched[1]:fetched[2])||[];
+  const requestedYear=(rangeMode?from:period).slice(0,4),sheetRanges=lite&&requestedYear==="2026"?["Config!A1:AZ120"]:["'Data Copas Archive 2025'!A2:S32755","Config!A1:AZ120"];
+  const [fetched,source]=await Promise.all([getSheetRanges(ID,sheetRanges,email,key),getCachedSalesSource(email,key,force)]);
+  const rows2025=lite&&requestedYear==="2026"?[]:(fetched[0]||[]),config=(lite&&requestedYear==="2026"?fetched[0]:fetched[1])||[];
+  const rows2026=Array.from({length:12},(_,i)=>salesRowsForPeriod(source.dataCopas,source.rawSales,source.activeDates,`2026-${String(i+1).padStart(2,"0")}`)).flat().map(rawRow);
   const currentRows=scoped(rows2026),archiveRows=archiveScoped(rows2025),selectedSource=period.startsWith("2025-")?archiveRows:currentRows;
   const periodRows=rangeMode?[...archiveRows,...currentRows].filter(r=>{const d=iso(r[0]);return d>=from&&d<=to}):selectedSource.filter(r=>iso(r[0]).startsWith(period)),all2026=lite?[]:currentRows,all2025=lite?[]:archiveRows;
   const label=monthLabel(period).toLowerCase(),targetRow=(config||[]).find(r=>s(r[16]).toLowerCase()===label);

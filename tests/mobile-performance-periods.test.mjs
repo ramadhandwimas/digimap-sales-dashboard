@@ -35,3 +35,10 @@ test("mobile initial and daily loading use lightweight paths",()=>{
  assert.match(mobile,/archiveRev=20251024d/);
  assert.match(mobile,/void swrJson<Traffic>\(trafficUrl,300000/);
 });
+
+test("mobile overview uses clean active sales and refresh bypasses the overview cache",()=>{
+ assert.match(overview,/getCachedSalesSource/);
+ assert.match(overview,/salesRowsForPeriod/);
+ assert.match(overview,/hit=force\?undefined:cachedOverview\(cacheKey\)/);
+ assert.doesNotMatch(overview,/\["'Data Copas'!A2:S50000","'Data Copas Archive 2025'/);
+});
