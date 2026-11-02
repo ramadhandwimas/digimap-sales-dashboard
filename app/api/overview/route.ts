@@ -1,7 +1,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getSheetRanges} from "@/lib/google-sheets";
 import {getCachedSalesSource} from "@/lib/m238-sales-source-cache";
-import {salesRowsForPeriod,type SalesRow} from "@/lib/m238-sales-sanitize";
+import {type SalesRow} from "@/lib/m238-sales-sanitize";
 
 const ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const STORE="M238";
@@ -42,7 +42,7 @@ export async function GET(req:NextRequest){
   const requestedYear=(rangeMode?from:period).slice(0,4),sheetRanges=lite&&requestedYear==="2026"?["Config!A1:AZ120"]:["'Data Copas Archive 2025'!A2:S32755","Config!A1:AZ120"];
   const [fetched,source]=await Promise.all([getSheetRanges(ID,sheetRanges,email,key),getCachedSalesSource(email,key,force)]);
   const rows2025=lite&&requestedYear==="2026"?[]:(fetched[0]||[]),config=(lite&&requestedYear==="2026"?fetched[0]:fetched[1])||[];
-  const rows2026=Array.from({length:12},(_,i)=>salesRowsForPeriod(source.dataCopas,source.rawSales,source.activeDates,`2026-${String(i+1).padStart(2,"0")}`)).flat().map(rawRow);
+  const rows2026=source.dataCopas.filter(row=>row.date.startsWith("2026-")).map(rawRow);
   const currentRows=scoped(rows2026),archiveRows=archiveScoped(rows2025),selectedSource=period.startsWith("2025-")?archiveRows:currentRows;
   const periodRows=rangeMode?[...archiveRows,...currentRows].filter(r=>{const d=iso(r[0]);return d>=from&&d<=to}):selectedSource.filter(r=>iso(r[0]).startsWith(period)),all2026=lite?[]:currentRows,all2025=lite?[]:archiveRows;
   const label=monthLabel(period).toLowerCase(),targetRow=(config||[]).find(r=>s(r[16]).toLowerCase()===label);

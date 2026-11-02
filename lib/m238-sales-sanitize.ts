@@ -7,13 +7,6 @@ export function isoDate(v:unknown){const x=s(v);if(/^\d{2}-\d{2}-\d{4}$/.test(x)
 export function parseSalesRow(r:unknown[]):SalesRow{return{date:isoDate(r[0]),id:s(r[1]),name:s(r[2]),invoice:s(r[3]),article:s(r[4]),description:s(r[5]),type:s(r[6]),qty:n(r[7]),amount:n(r[8]),category:up(r[9]),brand:up(r[10]),core:up(r[11]),scheme:up(r[12]),vendor:up(r[13]),store:up(r[15]),key:/^M\d+\|/.test(s(r[16]))?s(r[16]):undefined}}
 export function isVoucher(r:SalesRow){const text=up(`${r.scheme} ${r.article} ${r.description} ${r.type} ${r.category} ${r.brand} ${r.core} ${r.vendor}`);return /\bVOUCHER\b|E-?VOUCHER|GIFT\s*CARD/.test(text)}
 export function isValidSale(r:SalesRow,requireStore=true){return!!(r.date&&r.id)&&(!requireStore||!r.store||r.store==="M238")&&!isVoucher(r)}
-export function salesRowsForPeriod(dataCopas:SalesRow[],rawSales:SalesRow[],activeDates:string[],period:string){
- const active=new Set(activeDates.filter(date=>date.startsWith(period)));
- return[
-  ...dataCopas.filter(row=>row.date.startsWith(period)&&!active.has(row.date)),
-  ...rawSales.filter(row=>row.date.startsWith(period))
- ];
-}
 export function saleKind(r:SalesRow){const text=up(`${r.category} ${r.type} ${r.description}`);if(/HALO\s*IPHONE|HALOIPHONE|\bHALO\b/.test(text))return"vas";if(r.scheme==="VAS")return"vas";if(r.scheme==="ACCESSORIES")return"accessories";if(r.scheme==="DEVICES")return"device";if(/IPHONE|IPAD|MAC|APPLE WATCH|AIRPODS/.test(text))return"device";return"other"}
 export function productKey(r:SalesRow){const text=up(`${r.category} ${r.type} ${r.description}`);if(r.brand==="APPLE"&&text.includes("AIRPODS"))return"airpods";if(saleKind(r)!=="device"||r.brand!=="APPLE")return"other";if(r.category==="IPHONE"||text.includes("IPHONE"))return"iphone";if(r.category==="MAC"||r.category==="MACBOOK"||text.includes("MACBOOK"))return"mac";if(r.category==="IPAD"||text.includes("IPAD"))return"ipad";if(r.category==="APPLE WATCH"||r.category==="WATCH"||text.includes("APPLE WATCH"))return"watch";return"other"}
 export function vasKey(r:SalesRow){const text=up(`${r.article} ${r.brand} ${r.vendor} ${r.type} ${r.category} ${r.description}`);if(text.includes("QOALA")||text.includes("KLA"))return"qoala";if(text.includes("TELKOMSEL")||text.includes("TSL")||text.includes("HALO IPHONE")||text.includes("HALOIPHONE")||/\bHALO\b/.test(text))return"telkomsel";if(text.includes("INDOSAT")||text.includes("IDT"))return"indosat";if(/(^|\s)XL(\s|$)|XXL/.test(text))return"xl";return""}
