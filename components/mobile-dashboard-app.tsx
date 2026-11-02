@@ -150,7 +150,7 @@ export default function MobileDashboardApp(){
     const hadOverview=!!peekJsonCache<Overview>(overviewUrl);
     if(!hadOverview)setLoading(true);else setRefreshing(true);
     const warning=(e:Error)=>setError(e.message==="OFFLINE"?"Offline. Menampilkan data terakhir.":"Gagal memperbarui data. Menampilkan data terakhir.");
-    const overviewPromise=swrJson<Overview>(overviewUrl,300000,(data)=>setOverview(data),{force,scope:"overview",onRefreshError:warning});
+    const overviewPromise=swrJson<Overview>(force?`${overviewUrl}&refresh=1`:overviewUrl,300000,(data)=>setOverview(data),{force,scope:"overview",onRefreshError:warning});
     // Traffic remains independent and never blocks the main overview.
     void swrJson<Traffic>(trafficUrl,300000,(value)=>setTraffic(value),{force,scope:"traffic",onRefreshError:warning}).catch(()=>undefined);
     try{
@@ -206,7 +206,7 @@ export default function MobileDashboardApp(){
   },[]);
   const loadSummary=useCallback(async(force=false)=>{
     const mode=periodMode==="week"&&activeRange?"range":"monthly",archiveRevision=activeDates.from<"2026-01-01"?"&archiveRev=20251024d":"",url=`/api/daily-summary-fast?from=${activeDates.from}&to=${activeDates.to}&mode=${mode}${archiveRevision}`;
-    const d=await swrJson<DailySummary>(url,180000,(data)=>setSummary(data),{force,scope:"summary",timeoutMs:period.startsWith("2025-")?30000:20000,onRefreshError:()=>setError("Gagal memperbarui data. Menampilkan data terakhir.")});
+    const d=await swrJson<DailySummary>(force?`${url}&refresh=1`:url,180000,(data)=>setSummary(data),{force,scope:"summary",timeoutMs:period.startsWith("2025-")?30000:20000,onRefreshError:()=>setError("Gagal memperbarui data. Menampilkan data terakhir.")});
     return d;
   },[period,periodMode,activeRange,activeDates]);
   const loadWeekly=useCallback(async(force=false,weekOverride="")=>{

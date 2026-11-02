@@ -21,10 +21,10 @@ export async function GET(req:NextRequest){
  const [original,source]=await Promise.all([originalGET(req),sourcePromise]);
  if(!original.ok)return original;
  const data:any=await original.json();
- if(!source)return NextResponse.json(data,{headers:outHeaders("BASE",started)});
+ if(!source)return NextResponse.json({error:"Data exchange belum dapat diverifikasi. Muat ulang dashboard."},{status:503,headers:{"cache-control":"no-store"}});
  const date=requestedDate||data.date;
  try{
-  const rows=source.dataCopas.filter(r=>r.date===date);
+  const rows=(source.activeDates.includes(date)?source.rawSales:source.dataCopas).filter(r=>r.date===date);
   const byId=new Map<string,ReturnType<typeof aggregateSales>>();
   for(const id of new Set(rows.map(r=>r.id).filter(Boolean)))byId.set(id,aggregateSales(rows.filter(r=>r.id===id)));
   data.staff=(data.staff||[]).map((st:any)=>{

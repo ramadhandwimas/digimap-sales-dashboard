@@ -72,7 +72,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
   {screen==="copas-invoices"?<CopasInvoiceCheck onBusyChange={changeBusy} onChanged={onChanged}/>:screen==="copas-repair"?<DataCopasRepair onBusyChange={changeBusy}/>:<AccessoryPricelistUpload key={screen} kind={screen==="device-pricelist"?"device":"accessory"} onBusyChange={changeBusy}/>}
  </div>;
 
- if(screen==="exchange")return <div className="m238-settings m238-settings-tool">{pageHeader("settings")}<section className="m238-settings-form"><ExchangeInvoiceInput onBusyChange={changeBusy}/></section></div>;
+ if(screen==="exchange")return <div className="m238-settings m238-settings-tool">{pageHeader("settings")}<section className="m238-settings-form"><ExchangeInvoiceInput onBusyChange={changeBusy} onSaved={()=>void onChanged?.()}/></section></div>;
  if(screen==="spw-upload"||screen==="cutoff"||screen==="spw-clear")return <div className="m238-settings m238-settings-tool">{pageHeader("settings")}<DailySalesTools key={screen} tool={screen} onBusyChange={changeBusy} onChanged={onChanged||(()=>{})}/></div>;
  if(screen==="soh-upload"||screen==="soh-clear")return <div className="m238-settings m238-settings-tool">{pageHeader("settings")}<SohTools key={screen} tool={screen} onBusyChange={changeBusy} onChanged={onChanged||(()=>{})}/></div>;
 

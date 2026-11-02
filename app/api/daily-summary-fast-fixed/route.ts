@@ -26,6 +26,7 @@ export async function GET(req:NextRequest){
  if(!original.ok)return original;
  const data:any=await original.json();
  const from=requestedFrom||data.from,to=requestedTo||data.to;
+ if(!includesArchive2025&&email&&key&&!source)return NextResponse.json({error:"Data exchange belum dapat diverifikasi. Muat ulang dashboard."},{status:503,headers:{"cache-control":"no-store"}});
  if(!source||!from||!to){
   responseCache.set(cacheKey,{at:Date.now(),data});
   return NextResponse.json(data,{headers:outHeaders(includesArchive2025?"ARCHIVE":"BASE",started)});

@@ -1,5 +1,5 @@
-import {readExchangeHistory} from "./exchange-archive-store";
-import {archiveExclusions} from "./exchange-archive";
+import {readExchangeState} from "./exchange-detail-store";
+import {adjustExchangeSales} from "./exchange-detail";
 import {
   batchClearRanges,
   batchWriteRanges,
@@ -727,10 +727,11 @@ export async function buildSummaryFromFastSales(
   sales: FastSalesRow[],
   credentials: Credentials,
   source: DailySummaryCacheRow["source"],
+  applyExchanges=true,
 ) {
   const joins = await readJoins(credentials);
-  const {history}=await readExchangeHistory(credentials),excluded=archiveExclusions(history);
-  return aggregateRows(sales.filter(row=>!excluded(row.date,row.invoice)), joins.targets, joins.traffic, source);
+  const adjusted=applyExchanges?adjustExchangeSales(sales,await readExchangeState(credentials)):sales;
+  return aggregateRows(adjusted, joins.targets, joins.traffic, source);
 }
 
 export async function buildSummaryFromRawValues(
@@ -961,9 +962,9 @@ async function rebuildPeriods(
   const joins = await readJoins(credentials);
   timing.trafficJoin = Date.now() - joinStarted;
   const aggregateStarted = Date.now();
-  const {history}=await readExchangeHistory(credentials),excluded=archiveExclusions(history);
+  const exchange=await readExchangeState(credentials);
   const rows = aggregateRows(
-    sales.filter(row=>!excluded(row.date,row.invoice)),
+    adjustExchangeSales(sales,exchange),
     joins.targets,
     joins.traffic,
     "CACHE_REFRESH",

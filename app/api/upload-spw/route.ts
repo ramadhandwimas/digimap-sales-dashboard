@@ -1,5 +1,5 @@
-import {readExchangeHistory} from "@/lib/exchange-archive-store";
-import {archiveExclusions} from "@/lib/exchange-archive";
+import {readExchangeState} from "@/lib/exchange-detail-store";
+import {adjustExchangeSales,assertExchangePosSafety} from "@/lib/exchange-detail";
 import {NextRequest,NextResponse} from "next/server";
 import {ensureSheets,getGoogleSheetRequestCount,getSheetRanges,getSheetRangesFresh} from "@/lib/google-sheets";
 import {combineSpw,isSpwStore,spwSheet} from "@/lib/spw-stores";
@@ -43,20 +43,20 @@ export async function POST(req:NextRequest){
    classMap=mergeMasterClassifications(classMap,master);classificationRefreshed=true;
    parsed=parseSpwToNormalized(report.rows,classMap,store);
    const combined=combineSpw(snapshots,classMap);
-   const {history}=await readExchangeHistory({email,key}),excluded=archiveExclusions(history);
-   combined.rows=combined.rows.filter(row=>!excluded(row.date,row.invoice));
+   const exchangeState=await readExchangeState({email,key});assertExchangePosSafety(combined.rows,exchangeState);
+   const netRows=adjustExchangeSales(combined.rows,exchangeState);
    timing.read=Date.now()-t;if(!parsed.rows.length)throw new Error("Tidak ada sales row valid yang dapat diproses dari SPW.");
 
    t=Date.now();let validation=combined.unknownClassification?"PENDING_CLASSIFICATION":"PENDING_AUDIT";if(sourceRaw.length&&!snapshots.M996.length){const uploadDates=new Set(parsed.rows.map(r=>r.date)),legacy=sourceRaw.map(rawToFast).filter(r=>uploadDates.has(r.date)&&r.id&&r.amount!==0&&!/VOUCHER/i.test(`${r.scheme} ${r.description}`));if(legacy.length){const fastTotal=parsed.rows.reduce((a,r)=>a+r.amount,0),legacyTotal=legacy.reduce((a,r)=>a+r.amount,0);validation=Math.abs(fastTotal-legacyTotal)<=1&&signature(aggregateDaily(parsed.rows,"MATCH"))===signature(aggregateDaily(legacy,"MATCH"))?"MATCH":"MISMATCH"}}
-   const cache=aggregateDaily(combined.rows,validation),debug={deviceRows:parsed.rows.filter(r=>rowClass(r)==="DEVICE").length,accRows:parsed.rows.filter(r=>rowClass(r)==="ACC").length,vasRows:parsed.rows.filter(r=>rowClass(r)==="VAS").length,unclassifiedRows:parsed.rows.filter(r=>rowClass(r)==="UNCLASSIFIED").length};timing.cache=Date.now()-t;if(parsed.unclassified.length)console.warn("M238 fast sales UNCLASSIFIED",parsed.unclassified.slice(0,20));
+   const cache=aggregateDaily(netRows,validation),debug={deviceRows:parsed.rows.filter(r=>rowClass(r)==="DEVICE").length,accRows:parsed.rows.filter(r=>rowClass(r)==="ACC").length,vasRows:parsed.rows.filter(r=>rowClass(r)==="VAS").length,unclassifiedRows:parsed.rows.filter(r=>rowClass(r)==="UNCLASSIFIED").length};timing.cache=Date.now()-t;if(parsed.unclassified.length)console.warn("M238 fast sales UNCLASSIFIED",parsed.unclassified.slice(0,20));
 
    const replacements=[{title:spwSheet("M238"),startRow:1,width:3,values:snapshots.M238},{title:spwSheet("M996"),startRow:1,width:3,values:snapshots.M996},{title:"SPW",startRow:0,width:3,values:combined.raw},{title:NORMALIZED,startRow:1,width:17,values:combined.rows.map(normalizedValues)},{title:CACHE,startRow:1,width:26,values:cache.map(cacheValues)}];
    if(classificationRefreshed)replacements.push({title:CLASS_CACHE,startRow:1,width:9,values:classificationValues(classMap)});
    t=Date.now();await replaceSpwRanges(credentials,replacements);timing.write=Date.now()-t;
-   let summaryWarning="";t=Date.now();try{const summary=await buildSummaryFromFastSales(combined.rows,{email,key},"SPW");await upsertDailySummaryRows(summary,{email,key},true)}catch(error){summaryWarning=error instanceof Error?error.message:"Daily Summary cache gagal diperbarui";console.warn("M238_PERF",{op:"upload-spw-summary-cache",error:summaryWarning})}timing.summary=Date.now()-t;
+   let summaryWarning="";t=Date.now();try{const summary=await buildSummaryFromFastSales(netRows,{email,key},"SPW",false);await upsertDailySummaryRows(summary,{email,key},true)}catch(error){summaryWarning=error instanceof Error?error.message:"Daily Summary cache gagal diperbarui";console.warn("M238_PERF",{op:"upload-spw-summary-cache",error:summaryWarning})}timing.summary=Date.now()-t;
    timing.total=Date.now()-started;const apiRequests=getGoogleSheetRequestCount()-apiStart;console.info("M238_PERF",{op:"upload-spw",timing,apiRequests,rows:report.rows.length,processed:parsed.rows.length,validation});
    const warning=validation==="MISMATCH"?"Fast processing mismatch detected":validation==="PENDING_CLASSIFICATION"?`${combined.unknownClassification} article belum memiliki mapping classification existing`:null;
-   return NextResponse.json({ok:true,store,sources:combined.sources,combinedRows:combined.rows.length,combinedAmount:combined.rows.reduce((sum,row)=>sum+row.amount,0),fast:{ok:true,validation,warning},dailySummaryCache:{ok:!summaryWarning,warning:summaryWarning||null},rows:report.rows.length,processedRows:parsed.rows.length,newRows:parsed.rows.length,updatedRows:0,duplicateSkipped:parsed.duplicateSkipped,processingMs:timing.total,masterSales,debug,performance:{...timing,apiRequests},message:"SPW berhasil diupload dan Daily Sales sudah diperbarui."},{headers:{"cache-control":"no-store"}})
+   return NextResponse.json({ok:true,store,sources:combined.sources,combinedRows:combined.rows.length,combinedAmount:netRows.reduce((sum,row)=>sum+row.amount,0),fast:{ok:true,validation,warning},dailySummaryCache:{ok:!summaryWarning,warning:summaryWarning||null},rows:report.rows.length,processedRows:parsed.rows.length,newRows:parsed.rows.length,updatedRows:0,duplicateSkipped:parsed.duplicateSkipped,processingMs:timing.total,masterSales,debug,performance:{...timing,apiRequests},message:"SPW berhasil diupload dan Daily Sales sudah diperbarui."},{headers:{"cache-control":"no-store"}})
   }catch(fastError){
    if(fastError instanceof SpwWriteError&&!fastError.safeToUnlock)locked=false;
    const message=friendly(fastError);return NextResponse.json({error:message,ok:false,rows:reportRows},{status:fastError instanceof SpwWriteError?fastError.status:500});

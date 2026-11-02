@@ -1,3 +1,4 @@
+import {GROSS_SHEET} from "@/lib/exchange-detail";
 import {readExchangeHistory} from "@/lib/exchange-archive-store";
 import {archiveExclusions} from "@/lib/exchange-archive";
 import {excludeRemovedInvoices,planRawExchangeEntry} from "@/lib/copas-invoices";
@@ -133,7 +134,7 @@ export async function POST(req:NextRequest){
    if(mode==="date"&&!/^\d{4}-\d{2}-\d{2}$/.test(value))return NextResponse.json({error:"Tanggal cut off tidak valid"},{status:400});
    if(mode==="month"&&!/^\d{4}-\d{2}$/.test(value))return NextResponse.json({error:"Periode cut off tidak valid"},{status:400});
    if(body.dryRun!==true){await acquireCopasLock({email,key});copasLocked=true}
-   const[source,destination,master]=await getSheetRangesFresh(DASHBOARD_ID,[`'${RAW_SHEET}'!AB2:AR50000`,`'${COPAS_SHEET}'!A2:Q50000`,"'Master'!A1:L100000"],email,key);
+   const[source,destination,master]=await getSheetRangesFresh(DASHBOARD_ID,[`'${GROSS_SHEET}'!A2:Q65536`,`'${COPAS_SHEET}'!A2:Q50000`,"'Master'!A1:L100000"],email,key);
    const cleanedSource=(source||[]).map(cleanRow);
    // Apply the same Master mapping to newly cut-off rows. This does not edit
    // RAW, and older Data Copas rows still use the reviewable repair flow.

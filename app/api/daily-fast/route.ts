@@ -1,3 +1,4 @@
+import {readExchangeState} from "@/lib/exchange-detail-store";
 import {NextRequest,NextResponse} from "next/server";
 import {getSheetRanges} from "@/lib/google-sheets";
 import {cacheFromValues} from "@/lib/m238-fast-sales";
@@ -29,7 +30,8 @@ export async function GET(req:NextRequest){
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
  if(!email||!key)return NextResponse.json({error:"Koneksi Google Sheets belum tersedia"},{status:503});
  const date=req.nextUrl.searchParams.get("date")||today(),fresh=req.nextUrl.searchParams.get("fresh")==="1";
- if(fresh){const live=await fixedDailyGET(req),json=await live.json();const staff=await filterFallbackToSchedule(json.staff,date,email,key);return NextResponse.json({...json,staff,fastSource:"fixed-refresh-schedule",validationStatus:"LIVE_REFRESH",dataSource:"daily-fixed",warning:null,scheduleSource:"MASTER DATA M238 → Schedule weekly",fastUpdatedAt:new Date().toISOString()},{status:live.status,headers:{"cache-control":"no-store"}})}
+ const exchange=await readExchangeState({email,key}),exchangeDate=exchange.details.some(r=>r[3]==="CONFIRMED"&&r[5]===date)||exchange.legacy.length>0;
+ if(fresh||exchangeDate){const liveUrl=req.nextUrl.clone();liveUrl.searchParams.set("refresh","1");const live=await fixedDailyGET(new NextRequest(liveUrl)),json=await live.json();const staff=await filterFallbackToSchedule(json.staff,date,email,key);return NextResponse.json({...json,staff,fastSource:"fixed-refresh-schedule",validationStatus:"LIVE_REFRESH",dataSource:"daily-fixed",warning:null,scheduleSource:"MASTER DATA M238 → Schedule weekly",fastUpdatedAt:new Date().toISOString()},{status:live.status,headers:{"cache-control":"no-store"}})}
  try{
   const[cacheRaw,config]=await Promise.all([getSheetRanges(MASTER_ID,[`'${CACHE}'!A2:Z20000`],email,key).then(x=>x[0]||[]),getSheetRanges(SOURCE_ID,["Config!A1:AZ120"],email,key).then(x=>x[0]||[])]),cleared=cacheRaw.some(r=>up(r[25])==="CLEARED"),fast=cacheRaw.map(cacheFromValues).filter(r=>r.date===date&&r.store===STORE);
   if(!fast.length&&!cleared){const fallback=await fixedDailyGET(req),json=await fallback.json(),staff=await filterFallbackToSchedule(json.staff,date,email,key);return NextResponse.json({...json,staff,fastSource:"fixed-fallback-schedule",validationStatus:"NO_CACHE",dataSource:"daily-fixed",scheduleSource:"MASTER DATA M238 → Schedule weekly",warning:"Daily Sales cache belum tersedia; menggunakan live fallback dengan roster Schedule weekly."},{status:fallback.status,headers:{"cache-control":"no-store"}})}

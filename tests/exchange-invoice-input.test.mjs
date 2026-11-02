@@ -7,7 +7,7 @@ import {act,create} from 'react-test-renderer';
 import ts from 'typescript';
 const require=createRequire(import.meta.url);
 function load(path,mocks={}){const code=ts.transpileModule(fs.readFileSync(new URL(`../${path}`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;const loaded={exports:{}};new Function('require','module','exports',code)(id=>mocks[id]??require(id),loaded,loaded.exports);return loaded.exports}
-const shared=load('components/exchange-invoice-input.tsx'),Input=shared.default;
+const shared=load('components/exchange-invoice-input.tsx',{'./exchange-detail-input':()=>null}),Input=shared.default;
 const stub={default:()=>null};
 const mocks={'@/components/exchange-invoice-input':shared,'@/components/spw-store-select':{SpwStoreSelect:()=>null},'@/components/copas-invoice-check':stub,'react-dom':{createPortal:children=>children}};
 const Desktop=load('components/m238-data-actions.tsx',mocks).DailySalesDataActions;
@@ -27,6 +27,8 @@ for(const [name,Component] of [['Daily Sales modal',Desktop],['Data Upload page'
    assert.equal(button(view,'Cari Invoice'),undefined);
    const form=view.root.findByProps({'aria-label':'Input nomor invoice exchange'});assert.equal(form.findAllByType('input').length,1);
    await act(async()=>form.findByProps({type:'text'}).props.onChange({target:{value:'100051953'}}));
+   await act(async()=>form.props.onSubmit({preventDefault(){}}));
+   assert.equal(calls.length,0);
    await act(async()=>{form.props.onSubmit({preventDefault(){}});await tick()});
    assert.deepEqual(calls,[{url:'/api/data-upload-ops',method:'POST',body:{action:'exchange',noExchange:'100051953'}}]);
    assert.equal(view.root.findByProps({'aria-label':'Input nomor invoice exchange'}).findByProps({type:'text'}).props.value,'');
@@ -42,6 +44,8 @@ test('failed save keeps the pending invoice and double tapping submits only once
   await act(async()=>{view=create(React.createElement(Input,{onBusyChange:value=>busy.push(value)}))});
   assert.equal(button(view,'Simpan No Exchange').props.disabled,true);
   await act(async()=>view.root.findByProps({type:'text'}).props.onChange({target:{value:'00100051953'}}));
+  await act(async()=>view.root.findByType('form').props.onSubmit({preventDefault(){}}));
+  assert.equal(calls,0);
   await act(async()=>{view.root.findByType('form').props.onSubmit({preventDefault(){}});view.root.findByType('form').props.onSubmit({preventDefault(){}});await tick()});
   assert.equal(calls,1);assert.equal(view.root.findByProps({type:'text'}).props.disabled,true);
   await act(async()=>{finish({ok:false,json:async()=>({error:'Koneksi gagal.'})});await tick()});
