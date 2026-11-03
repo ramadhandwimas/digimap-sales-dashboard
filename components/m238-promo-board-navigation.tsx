@@ -18,7 +18,7 @@ function makeDesktopButton(base?:HTMLButtonElement|null){
 function injectDesktop(){
   if(window.matchMedia("(max-width: 768px)").matches)return;
   const nav=document.querySelector("aside nav");
-  if(!nav||nav.querySelector("[data-m238-promo-board-menu]"))return;
+  if(!nav||nav.querySelector("[data-m238-promo-board-menu]")||Array.from(nav.querySelectorAll<HTMLButtonElement>("button")).some(b=>label(b)==="Promo Board"))return;
   const adminHeader=Array.from(nav.querySelectorAll<HTMLButtonElement>("button")).find(b=>label(b)==="Administrasi");
   const adminGroup=adminHeader?.closest("div.rounded-xl")||nav.querySelector("[data-administration-group]");
   if(!adminGroup)return;

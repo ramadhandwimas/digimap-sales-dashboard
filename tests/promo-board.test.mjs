@@ -234,6 +234,13 @@ test("mobile Promo Board explains incomplete and unread SOH without hiding conte
   assert.match(panel,/padding-bottom:calc\(120px \+ env\(safe-area-inset-bottom\)\)/);
 });
 
+test("desktop sidebar keeps Promo Board as a native administration menu",()=>{
+ const dashboard=fs.readFileSync(new URL("../components/dashboard-v3.tsx",import.meta.url),"utf8");
+ const fallback=fs.readFileSync(new URL("../components/m238-promo-board-navigation.tsx",import.meta.url),"utf8");
+ assert.match(dashboard,/key: "promo-board"[\s\S]*label: "Promo Board"[\s\S]*href: "\/promo-board"/);
+ assert.match(fallback,/some\(b=>label\(b\)===\"Promo Board\"\)/);
+});
+
 test("missing required header fails closed",()=>{
   assert.throws(()=>parser.parsePromoWorkbook(workbook([{sap:"NOHEADER",normal:1,promo:1}],{header:false}),"bad.xlsx"),/Header/);
 });
