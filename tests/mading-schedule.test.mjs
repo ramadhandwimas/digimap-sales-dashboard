@@ -19,3 +19,12 @@ test("Mading schedule shows morning and afternoon O2O PIC with backup per shift"
  assert.deepEqual(x.o2oShifts.siang.map(p=>p.name),["Andhea Fitri"]);
  assert.deepEqual(x.o2o.map(p=>p.name),["Sekar Ayu Pramuditha","Andhea Fitri"]);
 });
+
+test("O2O selects exactly one PIC per shift in cashier, Andhea, Bagas priority",()=>{
+ const staff=[{id:"1",name:"Bagas Tegar Saputra",position:"SA",status:"D047"},{id:"2",name:"Andhea Fitri",position:"SA",status:"D047"},{id:"3",name:"Sekar",position:"Cashier",status:"D047"},{id:"4",name:"Yunita",position:"Cashier",status:"D047"}];
+ const selected=rows=>groupMadingSchedule("2026-11-04","Schedule weekly",rows).o2oShifts.pagi.map(p=>p.name);
+ assert.deepEqual(selected(staff),["Sekar"]);
+ assert.deepEqual(selected(staff.map(p=>/Cashier/.test(p.position)?{...p,status:"OFF"}:p)),["Andhea Fitri"]);
+ assert.deepEqual(selected(staff.map(p=>p.id!=="1"?{...p,status:"OFF"}:p)),["Bagas Tegar Saputra"]);
+ assert.deepEqual(selected(staff.map(p=>({...p,status:"OFF"}))),[]);
+});

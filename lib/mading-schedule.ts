@@ -18,7 +18,7 @@ export function groupMadingSchedule(date:string,source:string,staff:MadingSchedu
   result.other.push(person);
  }
  const active=staff.filter(person=>!unavailable(up(person.status)));
- const choose=(inShift:(status:string)=>boolean)=>{const rows=active.filter(person=>inShift(up(person.status))),cashiers=rows.filter(person=>/CASHIER|KASIR/.test(up(person.position)));return cashiers.length?cashiers:rows.filter(person=>/^(BAGAS|ANDHEA)\b/.test(up(person.name)))};
+ const choose=(inShift:(status:string)=>boolean)=>{const rows=active.filter(person=>inShift(up(person.status)));const pic=rows.find(person=>/CASHIER|KASIR/.test(up(person.position)))||rows.find(person=>/^ANDHEA\b/.test(up(person.name)))||rows.find(person=>/^BAGAS\b/.test(up(person.name)));return pic?[pic]:[]};
  result.o2oShifts.pagi=choose(pagi);
  result.o2oShifts.siang=choose(status=>middle(status)||siang(status));
  result.o2o=[...result.o2oShifts.pagi,...result.o2oShifts.siang];
