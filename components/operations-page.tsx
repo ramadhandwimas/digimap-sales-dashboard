@@ -7,7 +7,7 @@ import {
   exportReportXlsx,
   type ExportSheet,
 } from "@/lib/dashboard-export";
-import { exportWeeklyPresentation } from "@/lib/weekly-presentation";
+import { exportWeeklyPresentation } from "@/lib/weekly-presentation-client";
 const money = new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
