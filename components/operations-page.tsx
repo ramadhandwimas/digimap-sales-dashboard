@@ -7,6 +7,7 @@ import {
   exportReportXlsx,
   type ExportSheet,
 } from "@/lib/dashboard-export";
+import { exportWeeklyPresentation } from "@/lib/weekly-presentation";
 const money = new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
@@ -495,6 +496,10 @@ function Weekly() {
         <ExportMenu
           onXls={downloadXls}
           onPdf={() => exportReportPdf(reportElement(), exportName)}
+          onPpt={() => {
+            if (!data) throw new Error("Data weekly masih dimuat.");
+            return exportWeeklyPresentation(data, exportName);
+          }}
           onPicture={() => exportReportPng(reportElement(), exportName)}
         />
       </div>

@@ -1,11 +1,11 @@
 "use client";
 import {useState,type RefObject} from "react";
-import {ChevronDown,Download,FileImage,FileSpreadsheet,FileText,LoaderCircle,Share2} from "lucide-react";
+import {ChevronDown,Download,FileImage,FileSpreadsheet,FileText,LoaderCircle,Presentation,Share2} from "lucide-react";
 
-export function ExportMenu({onXls,onPdf,onPicture}:{onXls:()=>Promise<void>;onPdf:()=>Promise<void>;onPicture:()=>Promise<void>}){
+export function ExportMenu({onXls,onPdf,onPicture,onPpt}:{onXls:()=>Promise<void>;onPdf:()=>Promise<void>;onPicture:()=>Promise<void>;onPpt?:()=>Promise<void>}){
  const[open,setOpen]=useState(false),[busy,setBusy]=useState("");
  const run=async(label:string,fn:()=>Promise<void>)=>{setBusy(label);setOpen(false);try{await fn()}catch(e){alert(e instanceof Error?e.message:"File gagal dibuat") }finally{setBusy("")}};
- const items=[{label:"XLS",icon:FileSpreadsheet,fn:onXls},{label:"PDF",icon:FileText,fn:onPdf},{label:"Picture Screenshot",icon:FileImage,fn:onPicture}];
+ const items=[{label:"XLS",icon:FileSpreadsheet,fn:onXls},{label:"PDF",icon:FileText,fn:onPdf},...(onPpt?[{label:"PowerPoint",icon:Presentation,fn:onPpt}]:[]),{label:"Picture Screenshot",icon:FileImage,fn:onPicture}];
  return <div className="export-hide relative z-30"><button type="button" disabled={!!busy} onClick={()=>setOpen(v=>!v)} className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white">{busy?<LoaderCircle className="size-4 animate-spin"/>:<Download className="size-4"/>}{busy?`Membuat ${busy}...`:"Unduh"}{!busy&&<ChevronDown className="size-4"/>}</button>{open&&<div className="absolute right-0 mt-2 w-56 rounded-xl border bg-white p-1.5 shadow-xl dark:bg-slate-950">{items.map(x=>{const I=x.icon;return <button key={x.label} onClick={()=>void run(x.label,x.fn)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-bold"><I className="size-4 text-blue-600"/>{x.label}</button>})}</div>}</div>
 }
 
