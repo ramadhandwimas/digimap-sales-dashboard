@@ -6,7 +6,7 @@ import {createRequire} from "node:module";
 
 const require=createRequire(import.meta.url);
 function load(path){const module={exports:{}},code=ts.transpileModule(fs.readFileSync(new URL(`../${path}`,import.meta.url),"utf8"),{compilerOptions:{esModuleInterop:true,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;new Function("require","module","exports",code)(require,module,module.exports);return module.exports}
-const {weeklyPresentationModel,presentationTypeRows,buildWeeklyPresentation}=load("lib/weekly-presentation.ts");
+const {weeklyPresentationModel,presentationTypeRows,buildWeeklyPresentation,weeklyPresentationBytes}=load("lib/weekly-presentation.ts");
 const agg=(qty,amount)=>({qty,amount});
 const data={labelA:"Week 5 Q1",labelB:"Week 6 Q1",periodA:{start:"2026-10-25",end:"2026-10-31"},periodB:{start:"2026-11-01",end:"2026-11-07"},a:{scheme:{DEVICES:agg(10,1000),ACCESSORIES:agg(5,500),VAS:agg(2,200)},vas:{},lob:{IPHONE:{A:agg(5,500)},MAC:{A:agg(2,200)},IPAD:{A:agg(1,100)},"APPLE WATCH":{A:agg(1,100)},AIRPODS:{A:agg(1,100)}}},b:{scheme:{DEVICES:agg(12,1300),ACCESSORIES:agg(4,400),VAS:agg(3,300)},vas:{},lob:{IPHONE:{A:agg(7,700)},MAC:{A:agg(1,100)},IPAD:{A:agg(1,100)},"APPLE WATCH":{A:agg(1,100)},AIRPODS:{A:agg(2,300)}}}};
 
@@ -25,6 +25,7 @@ test("complete weekly deck preserves all model rows, paginates tables, and inclu
  assert.ok(slides.filter(s=>s.includes("iPhone / Detail Model")).length>=3);
  for(let i=0;i<19;i++)assert.ok(xml.includes(`iPhone model ${i}`));
  assert.ok(xml.includes("Belum tersedia"));assert.ok(xml.includes("Dwimas Ramadhan"));assert.ok(Object.keys(zip.files).some(p=>/^ppt\/charts\/chart\d+\.xml$/.test(p)));
+ const compressed=await weeklyPresentationBytes(example);assert.ok(compressed.byteLength<1000000,"Complete sample deck must remain small enough for mobile download");await JSZip.loadAsync(compressed);
  if(process.env.PPT_REVIEW_PATH)await deck.writeFile({fileName:process.env.PPT_REVIEW_PATH,compression:true});
 });
 
