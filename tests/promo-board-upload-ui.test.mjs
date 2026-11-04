@@ -77,3 +77,12 @@ test('device prices finish loading before a slow stock response and accessories 
   await act(async()=>{finishStock();await tick()});
  }finally{if(view)await act(async()=>view.unmount());globalThis.fetch=originalFetch}
 });
+
+test('compact Qoala layout is shipped from the global promo stylesheet',()=>{
+ const css=fs.readFileSync(new URL('../app/promo-board-refined.css',import.meta.url),'utf8');
+ const page=fs.readFileSync(new URL('../app/promo-board/page.tsx',import.meta.url),'utf8');
+ for(const selector of ['.pb-page .pb-package','.pb-page .pb-breakdown>div','.pb-page .pb-quote-total>strong','.pb-page .pb-installments']){
+  assert.ok(css.includes(selector),`missing ${selector}`);
+ }
+ assert.ok(!page.includes('promo-board-soft.module.css'));
+});

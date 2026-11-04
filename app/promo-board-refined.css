@@ -41,3 +41,35 @@
 .pb-page button:focus-visible,.pb-page select:focus-visible{outline:2px solid #3a72e4;outline-offset:2px}
 
 .pb-upload-sheet{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+
+/* Compact device quote. Keep these rules global so Safari route/CSS caching
+   cannot leave the new quote markup without its layout. */
+.pb-page{--pb-text:#10172b;--pb-muted:#738096;--pb-blue:#0759f9}
+.pb-page .pb-toolbar{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.pb-page .pb-product-ticket{box-shadow:none}
+.pb-page .pb-product-ticket h2{font-size:clamp(22px,5.7vw,30px);line-height:1.2}
+.pb-page .pb-product-ticket button{box-shadow:none}
+.pb-page .pb-selected{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--pb-line);border-radius:14px;font-size:13px}
+.pb-page .pb-selected>b{min-width:0;overflow-wrap:anywhere}
+.pb-page .pb-selected>span{flex-shrink:0;border-radius:20px;padding:4px 9px;font-size:11px;font-weight:800}
+.pb-page .pb-package{display:grid;grid-template-columns:1fr 1.2fr;gap:4px;padding:4px;border:1px solid var(--pb-line);border-radius:14px;background:#e8edf5}
+.pb-page .pb-package button{min-height:42px;border:0;border-radius:11px;padding:6px;font-size:12px;font-weight:750;color:#536078;background:transparent}
+.pb-page .pb-package button[aria-pressed=true]{background:var(--pb-blue);color:#fff}
+.pb-page .pb-breakdown{padding:14px 0 12px;border-bottom:1px solid var(--pb-line);font-size:12px}
+.pb-page .pb-breakdown>div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:5px 0}
+.pb-page .pb-breakdown span{color:#536078}
+.pb-page .pb-breakdown b{flex-shrink:0;font-weight:750}
+.pb-page .pb-breakdown>p{margin-top:6px;color:var(--pb-muted);font-size:10px}
+.pb-page .pb-quote-total{padding:14px 0}
+.pb-page .pb-quote-total>p{color:var(--pb-muted);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.pb-page .pb-quote-total>strong{display:block;margin-top:3px;font-size:clamp(29px,7.8vw,40px);line-height:1.15;letter-spacing:-.035em;font-weight:900;color:var(--pb-blue);overflow-wrap:anywhere}
+.pb-page .pb-installments{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;padding:12px;background:#eff4fe;border-radius:15px}
+.pb-page .pb-installments>div{min-width:0}
+.pb-page .pb-installments>div+div{border-left:1px solid #d8e2f5;padding-left:12px}
+.pb-page .pb-installments p{font-size:9px;color:var(--pb-muted);font-weight:800;text-transform:uppercase}
+.pb-page .pb-installments b{display:block;margin-top:4px;font-size:clamp(13px,3.6vw,18px);font-weight:850;white-space:nowrap}
+.pb-page .pb-installments small{font-size:10px;font-weight:600;color:var(--pb-muted)}
+.pb-page .pb-quote-note{margin-top:9px;font-size:10px;line-height:1.5;color:var(--pb-muted)}
+.pb-page .pb-filters{box-shadow:none}
+.pb-page [role=dialog]{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+@media(max-width:380px){.pb-page .pb-installments{gap:7px;padding:10px}.pb-page .pb-installments>div+div{padding-left:7px}.pb-page .pb-installments b{font-size:12px}.pb-page .pb-installments small{font-size:9px}}
