@@ -1,255 +1,37 @@
-.root {
-  --pb-bg: #f5f7fb;
-  --pb-surface: rgba(255, 255, 255, 0.96);
-  --pb-surface-muted: #f2f5fa;
-  --pb-border: #e5eaf2;
-  --pb-text: #182033;
-  --pb-muted: #8b96aa;
-  --pb-blue: #3567ee;
-  --pb-blue-soft: #edf3ff;
-  --pb-shadow: 0 12px 32px rgba(37, 51, 84, 0.07);
-  --pb-shadow-soft: 0 5px 18px rgba(37, 51, 84, 0.05);
+.root { --pb-bg:#f5f7fb; --pb-text:#10172b; --pb-muted:#738096; --pb-line:#e1e7f0; --pb-blue:#0759f9; }
+.root :global(main) { background:var(--pb-bg); color:var(--pb-text); }
+.root :global(main > div) { max-width:1000px; }
+.root :global(.pb-toolbar) { background:#f5f7fb!important; backdrop-filter:none!important; -webkit-backdrop-filter:none!important; }
+.root :global(.pb-toolbar .pb-tabs button[aria-pressed="true"]) { background:var(--pb-blue); color:#fff; box-shadow:none; }
+.root :global(.pb-product-ticket) { box-shadow:none; border-color:var(--pb-line); }
+.root :global(.pb-product-ticket h2) { font-size:clamp(22px,5.7vw,30px); line-height:1.2; }
+.root :global(.pb-product-ticket button) { box-shadow:none; transition:background-color .12s; }
+.root :global(.pb-selected) { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border:1px solid var(--pb-line); border-radius:14px; font-size:13px; }
+.root :global(.pb-selected > span) { flex-shrink:0; border-radius:20px; padding:4px 9px; font-size:11px; font-weight:800; }
+.root :global(.pb-package) { display:grid; grid-template-columns:1fr 1.2fr; gap:4px; padding:4px; border:1px solid var(--pb-line); border-radius:14px; background:#f3f6fb; }
+.root :global(.pb-package button) { min-height:42px; border-radius:11px; padding:6px; font-size:12px; font-weight:750; color:#536078; }
+.root :global(.pb-package button[aria-pressed="true"]) { background:var(--pb-blue); color:white; }
+.root :global(.pb-breakdown) { padding:14px 0 12px; border-bottom:1px solid var(--pb-line); font-size:12px; }
+.root :global(.pb-breakdown > div) { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin:5px 0; }
+.root :global(.pb-breakdown span) { color:#536078; }
+.root :global(.pb-breakdown b) { flex-shrink:0; font-weight:750; }
+.root :global(.pb-breakdown > p) { margin-top:6px; color:var(--pb-muted); font-size:10px; }
+.root :global(.pb-quote-total) { padding:14px 0; }
+.root :global(.pb-quote-total > p) { color:var(--pb-muted); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+.root :global(.pb-quote-total > strong) { display:block; margin-top:3px; font-size:clamp(29px,7.8vw,40px); line-height:1.15; letter-spacing:-.035em; font-weight:900; color:var(--pb-blue); overflow-wrap:anywhere; }
+.root :global(.pb-installments) { display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:12px; background:#eff4fe; border-radius:15px; }
+.root :global(.pb-installments > div + div) { border-left:1px solid #d8e2f5; padding-left:12px; }
+.root :global(.pb-installments p) { font-size:9px; color:var(--pb-muted); font-weight:800; text-transform:uppercase; }
+.root :global(.pb-installments b) { display:block; margin-top:4px; font-size:clamp(13px,3.6vw,18px); font-weight:850; white-space:nowrap; }
+.root :global(.pb-installments small) { font-size:10px; font-weight:600; color:var(--pb-muted); }
+.root :global(.pb-quote-note) { margin-top:9px; font-size:10px; line-height:1.5; color:var(--pb-muted); }
+.root :global(.pb-filters) { box-shadow:none; }
+.root :global(.pb-filters input) { height:40px; }
+.root :global([role="dialog"]) { -webkit-backdrop-filter:none!important; backdrop-filter:none!important; }
+@media (max-width:380px) {
+ .root :global(.pb-installments) { gap:7px; padding:10px; }
+ .root :global(.pb-installments > div + div) { padding-left:7px; }
+ .root :global(.pb-installments b) { font-size:12px; }
+ .root :global(.pb-installments small) { font-size:9px; }
 }
-
-.root :global(main) {
-  background:
-    radial-gradient(circle at 15% -10%, rgba(75, 116, 255, 0.08), transparent 34%),
-    var(--pb-bg) !important;
-  color: var(--pb-text) !important;
-}
-
-.root :global(main > div) {
-  max-width: 1120px !important;
-}
-
-.root :global(.sticky) {
-  background: rgba(245, 247, 251, 0.88) !important;
-  border-color: rgba(220, 226, 238, 0.72) !important;
-  backdrop-filter: blur(22px) saturate(140%) !important;
-}
-
-.root :global(section) {
-  border-color: var(--pb-border) !important;
-}
-
-.root :global(section.rounded-3xl),
-.root :global(section.rounded-\[28px\]) {
-  background: var(--pb-surface) !important;
-  box-shadow: var(--pb-shadow-soft) !important;
-}
-
-.root :global(input) {
-  background: #f8faff !important;
-  border-color: #e3e8f1 !important;
-  color: var(--pb-text) !important;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.55) !important;
-}
-
-.root :global(input::placeholder) {
-  color: #a4adbd !important;
-}
-
-.root :global(button) {
-  transition: transform .16s ease, box-shadow .16s ease, background-color .16s ease, border-color .16s ease !important;
-}
-
-.root :global(button:active) {
-  transform: scale(.985);
-}
-
-.root :global(.bg-blue-600) {
-  background: linear-gradient(135deg, #3f73f1, #2f5ee6) !important;
-  box-shadow: 0 8px 18px rgba(53, 103, 238, 0.20) !important;
-}
-
-.root :global(.bg-slate-950) {
-  background: #182033 !important;
-}
-
-.root :global(.bg-slate-100) {
-  background: #f1f4f8 !important;
-}
-
-.root :global(.bg-slate-50) {
-  background: #f7f9fc !important;
-}
-
-.root :global(.text-slate-400) {
-  color: #9aa4b5 !important;
-}
-
-.root :global(.text-slate-500),
-.root :global(.text-slate-600) {
-  color: #778399 !important;
-}
-
-.root :global(.border-slate-200),
-.root :global(.border) {
-  border-color: var(--pb-border) !important;
-}
-
-.root :global(.rounded-3xl),
-.root :global(.rounded-\[28px\]) {
-  border-radius: 26px !important;
-}
-
-.root :global(.rounded-2xl) {
-  border-radius: 18px !important;
-}
-
-.root :global(.rounded-xl) {
-  border-radius: 14px !important;
-}
-
-.root :global(.shadow-sm) {
-  box-shadow: var(--pb-shadow-soft) !important;
-}
-
-/* Header: soft banking-app style */
-.root :global(main > div > .sticky > div) {
-  min-height: 58px;
-}
-
-.root :global(main > div > .sticky a) {
-  color: #6f7b91 !important;
-  font-weight: 750 !important;
-}
-
-.root :global(main > div > .sticky button) {
-  border-radius: 18px !important;
-  padding-inline: 16px !important;
-}
-
-/* View segmented control */
-.root :global(main > div > .mt-4.flex.rounded-2xl) {
-  background: rgba(232, 237, 246, .78) !important;
-  padding: 5px !important;
-  border: 1px solid rgba(224, 230, 241, .92);
-}
-
-.root :global(main > div > .mt-4.flex.rounded-2xl > button) {
-  min-height: 43px !important;
-  border-radius: 14px !important;
-}
-
-.root :global(main > div > .mt-4.flex.rounded-2xl > button.bg-white) {
-  box-shadow: 0 5px 14px rgba(31, 42, 71, 0.08) !important;
-}
-
-/* LOB pills */
-.root :global(section .overflow-x-auto) {
-  scrollbar-width: none;
-}
-
-.root :global(section .overflow-x-auto::-webkit-scrollbar) {
-  display: none;
-}
-
-.root :global(section button.min-h-12),
-.root :global(section button.min-h-11) {
-  border-radius: 18px !important;
-  font-weight: 750 !important;
-}
-
-/* Search/filter card */
-.root :global(section.rounded-3xl.border.bg-white.p-3) {
-  padding: 14px !important;
-  border: 1px solid rgba(226, 232, 242, .95) !important;
-  box-shadow: var(--pb-shadow-soft) !important;
-}
-
-.root :global(section.rounded-3xl.border.bg-white.p-3 input) {
-  height: 52px !important;
-  border-radius: 17px !important;
-}
-
-/* Product card */
-.root :global(section.mt-4.rounded-\[28px\]) {
-  padding: 18px !important;
-  border: 1px solid rgba(226, 232, 242, .96) !important;
-  box-shadow: var(--pb-shadow) !important;
-}
-
-.root :global(section.mt-4.rounded-\[28px\] h2) {
-  letter-spacing: -0.035em !important;
-  color: #151d30 !important;
-}
-
-.root :global(section.mt-4.rounded-\[28px\] .bg-blue-50\/70) {
-  background: linear-gradient(135deg, #f2f6ff, #edf3ff) !important;
-  border-color: #dae5ff !important;
-}
-
-/* Price area */
-.root :global(section.mt-4.rounded-\[28px\] .rounded-3xl.border.border-slate-200) {
-  background: linear-gradient(180deg, #fbfcff, #f6f8fc) !important;
-  border-color: #e4e9f2 !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.85) !important;
-}
-
-.root :global(section.mt-4.rounded-\[28px\] .text-blue-600) {
-  color: var(--pb-blue) !important;
-}
-
-.root :global(section.mt-4.rounded-\[28px\] .text-emerald-600) {
-  color: #2b9c6a !important;
-}
-
-/* Status badges */
-.root :global(.bg-emerald-50),
-.root :global(.bg-amber-50),
-.root :global(.bg-rose-50),
-.root :global(.bg-violet-50),
-.root :global(.bg-blue-50) {
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.45);
-}
-
-/* Detail CTA */
-.root :global(section.mt-4.rounded-\[28px\] > button:last-child) {
-  min-height: 54px !important;
-  border-radius: 18px !important;
-  box-shadow: 0 9px 20px rgba(24, 32, 51, 0.12) !important;
-}
-
-/* Modal/detail sheet */
-.root :global([role="dialog"]) {
-  z-index: 2147483000 !important;
-  overflow: hidden !important;
-  overscroll-behavior: none;
-  background: rgba(15, 23, 42, .34) !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
-
-.root :global([role="dialog"] > div) {
-  max-height: calc(100dvh - max(12px, env(safe-area-inset-top))) !important;
-  overflow-y: auto !important;
-  overscroll-behavior-y: contain;
-  touch-action: pan-y;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
-  border: 1px solid rgba(229, 234, 242, .9) !important;
-  box-shadow: 0 24px 60px rgba(18, 27, 48, .18) !important;
-  transform: translateZ(0);
-}
-
-@media (max-width: 640px) {
-  .root :global(main > div) {
-    padding-left: 14px !important;
-    padding-right: 14px !important;
-  }
-
-  .root :global(section.mt-4.rounded-\[28px\]) {
-    padding: 16px !important;
-  }
-
-  .root :global(section.mt-4.rounded-\[28px\] .text-\[26px\]) {
-    font-size: 28px !important;
-    line-height: 1.08 !important;
-  }
-
-  .root :global([role="dialog"] > div) {
-    width: 100% !important;
-    max-height: calc(100dvh - max(8px, env(safe-area-inset-top))) !important;
-  }
-}
+@media (prefers-reduced-motion:reduce) { .root :global(button) { transition:none!important; } }

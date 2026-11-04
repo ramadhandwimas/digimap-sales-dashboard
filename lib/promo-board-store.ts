@@ -1,5 +1,6 @@
 import {randomUUID} from "node:crypto";
-import {appendSheetValues,ensureSheets,getSheetRangesFresh} from "@/lib/google-sheets";
+import {appendSheetValues,ensureSheets,getSheetRanges,getSheetRangesFresh} from "@/lib/google-sheets";
+import {promoSnapshotRanges} from "@/lib/promo-snapshot-ranges";
 import {refreshPromoStatus,type PromoParseResult,type PromoProduct} from "@/lib/promo-board-parser";
 import {MASTER_ID} from "@/lib/accessory-pricelist-store";
 
@@ -58,14 +59,19 @@ export async function savePromoSnapshot(credentials:Credentials,result:PromoPars
   return{id,uploadedAt};
 }
 
-export async function readPromoSnapshots(credentials:Credentials,limit=6):Promise<StoredPromoSnapshot[]>{
-  await ensurePromoSheets(credentials);
-  const [metaRows,productRows]=await getSheetRangesFresh(MASTER_ID,[`'${META_SHEET}'!A2:G`,`'${PRODUCT_SHEET}'!A2:S`],credentials.email,credentials.key);
+export async function readPromoSnapshots(credentials:Credentials,limit=6,options:{fresh?:boolean}={}):Promise<StoredPromoSnapshot[]>{
+  const read=options.fresh===false?getSheetRanges:getSheetRangesFresh;
+  const [metaRows]=await read(MASTER_ID,[`'${META_SHEET}'!A2:G2000`],credentials.email,credentials.key);
   const metas=(metaRows??[]).filter(row=>text(row[0])).map(row=>({
     id:text(row[0]),fileName:text(row[1]),priceListDate:text(row[2])||null,uploadedAt:text(row[3]),totalRows:number(row[4]),totalSku:number(row[5]),
     warnings:(()=>{try{return JSON.parse(text(row[6])||"[]") as string[]}catch{return[]}})(),
   })).sort((a,b)=>b.uploadedAt.localeCompare(a.uploadedAt)).slice(0,Math.max(1,limit));
+  if(!metas.length)return[];
   const wanted=new Set(metas.map(meta=>meta.id));
+  const [idRows]=await read(MASTER_ID,[`'${PRODUCT_SHEET}'!A2:A100000`],credentials.email,credentials.key);
+  const ranges=promoSnapshotRanges(idRows??[],wanted,PRODUCT_SHEET,"S");
+  if(!ranges.length)throw new Error("Data pricelist belum lengkap. Muat ulang untuk mencoba lagi.");
+  const productRows=(await read(MASTER_ID,ranges,credentials.email,credentials.key)).flat();
   const byId=new Map<string,PromoProduct[]>();
   for(const row of productRows??[]){
     const id=text(row[0]);

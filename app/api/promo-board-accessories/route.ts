@@ -4,6 +4,7 @@ import {compareAccessoryPriceLists,parseAccessoryPriceWorkbook,sameAccessoryPric
 import {readAccessorySnapshots,saveAccessorySnapshot} from "@/lib/promo-board-accessory-store";
 import {MASTER_ID} from "@/lib/accessory-pricelist-store";
 import {validateAccessoryProducts} from "@/lib/accessory-master-validation";
+import {firstPartyAccessoryLob} from "@/lib/promo-board-catalog";
 
 export const runtime="nodejs";export const maxDuration=60;const MAX_BYTES=8*1024*1024;
 const json=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"cache-control":"no-store"}});
@@ -13,7 +14,7 @@ async function validated<T extends {products:import("@/lib/promo-board-accessory
 
 export async function GET(request:NextRequest){
  if(!authorized(request))return json({error:"Sesi login berakhir. Silakan login kembali."},401);const credentials=auth();if(!credentials)return json({error:"Koneksi Google Sheets belum dikonfigurasi."},503);
- try{const snapshots=await readAccessorySnapshots(credentials,6),active=snapshots[0]??null,previous=snapshots[1]??null;const history=snapshots.slice(1).map(s=>({id:s.id,uploadedAt:s.uploadedAt,fileName:s.fileName,priceListDate:s.priceListDate,totalRows:s.totalRows,totalSku:s.totalSku,totalBrand:s.totalBrand,totalCategory:s.totalCategory,warnings:s.warnings}));return json({ok:true,active,history,comparison:compareAccessoryPriceLists(previous,active),audit:null})}catch(e){console.error("Accessory Promo Board read failed",e);return json({error:e instanceof Error?e.message:"Pricelist ACC gagal dibaca."},500)}
+ try{const compact=request.nextUrl?.searchParams?.get("view")==="first-party",snapshots=await readAccessorySnapshots(credentials,compact?1:6),active=snapshots[0]??null,previous=snapshots[1]??null;if(compact)return json({ok:true,active:active?{id:active.id,priceListDate:active.priceListDate,products:active.products.filter(p=>firstPartyAccessoryLob(p))}:null});const history=snapshots.slice(1).map(s=>({id:s.id,uploadedAt:s.uploadedAt,fileName:s.fileName,priceListDate:s.priceListDate,totalRows:s.totalRows,totalSku:s.totalSku,totalBrand:s.totalBrand,totalCategory:s.totalCategory,warnings:s.warnings}));return json({ok:true,active,history,comparison:compareAccessoryPriceLists(previous,active),audit:null})}catch(e){console.error("Accessory Promo Board read failed",e);return json({error:e instanceof Error?e.message:"Pricelist ACC gagal dibaca."},500)}
 }
 export async function POST(request:NextRequest){
  if(!authorized(request))return json({error:"Sesi login berakhir. Silakan login kembali."},401);const origin=request.headers.get("origin");if(origin&&origin!==request.nextUrl.origin)return json({error:"Asal permintaan tidak valid."},403);if(Number(request.headers.get("content-length"))>MAX_BYTES+65536)return json({error:"Ukuran file maksimal 8 MB."},413);

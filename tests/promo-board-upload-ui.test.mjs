@@ -9,6 +9,11 @@ const require=createRequire(import.meta.url);
 const source=fs.readFileSync(new URL('../components/promo-board-v9.tsx',import.meta.url),'utf8');
 const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,module={exports:{}};
 const mocks={'@/lib/promo-board-insights':{activePromoPrice:p=>p.promotionPrice},'@/lib/promo-board-catalog':{buildPromoCatalog:()=>[],mergeFirstPartyAccessoryProducts:products=>products},'@/components/promo-board-promo-list':{default:()=>null},'@/components/promo-board-accessories':{default:()=>null}};
+const cacheModule={exports:{}};new Function('module','exports',ts.transpileModule(fs.readFileSync(new URL('../lib/promo-board-client.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(cacheModule,cacheModule.exports);
+mocks['@/lib/promo-board-client']=cacheModule.exports;
+mocks['@/components/qoala-bundle-quote']={default:()=>null};
+mocks['next/dynamic']={default:()=>()=>null};
+test.beforeEach(()=>cacheModule.exports.clearPromoCache());
 new Function('require','module','exports',code)(id=>mocks[id]?{__esModule:true,...mocks[id]}:require(id),module,module.exports);const Board=module.exports.default;
 const text=node=>typeof node==='string'?node:Array.isArray(node)?node.map(text).join(''):node?.children?text(node.children):'';
 const button=(view,label)=>view.root.findAllByType('button').find(node=>text(node).includes(label));
@@ -57,5 +62,18 @@ test('failed preview retains its selected file for retry and explains a non-JSON
   await act(async()=>{view.root.findByProps({'aria-label':'Pilih file pricelist Device'}).props.onChange({target:{files:[new File(['x'],'retry.xlsx')]}});await tick()});
   assert.ok(text(view.toJSON()).includes('File terlalu besar. Maksimal 8 MB.'));assert.ok(text(view.toJSON()).includes('retry.xlsx'));
   await act(async()=>{button(view,'Coba periksa lagi').props.onClick();await tick()});assert.equal(posts,2);
+ }finally{if(view)await act(async()=>view.unmount());globalThis.fetch=originalFetch}
+});
+
+test('device prices finish loading before a slow stock response and accessories are deferred',async()=>{
+ const originalFetch=globalThis.fetch,calls=[];let view,finishStock;
+ globalThis.fetch=async(url)=>{calls.push(url);if(url==='/api/promo-board-soh'){await new Promise(resolve=>{finishStock=resolve});return response({rows:[]})}return response({active:preview})};
+ try{
+  await act(async()=>{view=create(React.createElement(Board));await tick()});
+  assert.ok(!text(view.toJSON()).includes('Memuat pricelist...'));
+  assert.ok(calls.includes('/api/promo-board?view=catalog'));
+  assert.ok(!calls.some(url=>url.includes('accessories')));
+  assert.ok(!calls.includes('/api/promo-board'));
+  await act(async()=>{finishStock();await tick()});
  }finally{if(view)await act(async()=>view.unmount());globalThis.fetch=originalFetch}
 });

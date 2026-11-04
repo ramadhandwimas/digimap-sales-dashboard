@@ -333,7 +333,7 @@ export function parsePromoSku(product:PromoProduct):PromoSkuMeta{
   return{lob,model,generation,chip,size,capacity,connectivity,ram,configuration,color};
 }
 
-function firstPartyAccessoryLob(product:AccessoryPriceProduct){
+export function firstPartyAccessoryLob(product:AccessoryPriceProduct){
   if(upper(product.brand)!=="APPLE")return"";
   const text=upper(`${product.sapDescription} ${product.category}`);
   if(/AIRPODS/.test(text)&&/EARPHONE|HEADPHONE/.test(upper(product.category)))return"AirPods";
@@ -396,10 +396,12 @@ function stockMap(sohRows:SohRow[]){
 
 export function buildPromoCatalog(products:PromoProduct[],sohRows:SohRow[]):PromoCatalogItem[]{
   const stock=stockMap(sohRows);
+  const metadata=new Map<PromoProduct,PromoSkuMeta>();
   const groups=new Map<string,{meta:PromoSkuMeta;group:PromoProductGroup}>();
 
   for(const product of products){
     const meta=parsePromoSku(product);
+    metadata.set(product,meta);
     const key=[
       meta.lob,meta.model,meta.size,meta.capacity,meta.connectivity,meta.ram,meta.configuration,
       product.normalPrice,product.promotionPrice,
@@ -412,7 +414,7 @@ export function buildPromoCatalog(products:PromoProduct[],sohRows:SohRow[]):Prom
 
   return[...groups.values()].map(({meta,group})=>{
     const stockVariants:PromoStockVariant[]=group.variants.map(product=>{
-      const skuMeta=parsePromoSku(product);
+      const skuMeta=metadata.get(product)!;
       const row=stock.get(promoStockKey(product.sapArticle));
       const soh=row?Math.max(0,Number(row.qty||0)):null;
       return{product,soh,status:stockStatus(soh),description:row?.description||"",color:skuMeta.color,meta:skuMeta};

@@ -1,6 +1,7 @@
 import {randomUUID} from "node:crypto";
 import {appendSheetValues,ensureSheets,getSheetRanges,getSheetRangesFresh} from "@/lib/google-sheets";
 import {MASTER_ID} from "@/lib/accessory-pricelist-store";
+import {promoSnapshotRanges} from "@/lib/promo-snapshot-ranges";
 import type {AccessoryParseResult,AccessoryPriceProduct} from "@/lib/promo-board-accessory";
 
 const META_SHEET="Promo ACC Price Lists";
@@ -50,8 +51,11 @@ export async function readAccessorySnapshots(credentials:Credentials,limit=6):Pr
   })).sort((a,b)=>b.uploadedAt.localeCompare(a.uploadedAt)).slice(0,Math.max(1,limit));
   if(!metas.length)return[];
 
-  const[productRows]=await getSheetRanges(MASTER_ID,[`'${PRODUCT_SHEET}'!A2:M20000`],credentials.email,credentials.key);
   const wanted=new Set(metas.map(m=>m.id)),byId=new Map<string,AccessoryPriceProduct[]>();
+  const[ids]=await getSheetRanges(MASTER_ID,[`'${PRODUCT_SHEET}'!A2:A100000`],credentials.email,credentials.key);
+  const ranges=promoSnapshotRanges(ids??[],wanted,PRODUCT_SHEET,"M");
+  if(!ranges.length)throw new Error("Data pricelist ACC belum lengkap. Muat ulang untuk mencoba lagi.");
+  const productRows=(await getSheetRanges(MASTER_ID,ranges,credentials.email,credentials.key)).flat();
   for(const r of productRows??[]){
     const id=text(r[0]);if(!wanted.has(id))continue;
     const list=byId.get(id)??[];list.push(rowProduct(r));byId.set(id,list);

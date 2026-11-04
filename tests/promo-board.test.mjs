@@ -310,6 +310,7 @@ test("activation with a blocking conflict is rejected without writing",async()=>
 test("product rows written without metadata never become a visible active snapshot",async()=>{
   const calls=[];
   const store=load("lib/promo-board-store.ts",{
+    "@/lib/promo-snapshot-ranges":load("lib/promo-snapshot-ranges.ts"),
     "@/lib/google-sheets":{ensureSheets:async()=>{},getSheetRangesFresh:async()=>[[],[]],appendSheetValues:async(_id,range)=>{calls.push(range);if(range.includes("Promo Price Lists"))throw new Error("metadata failed")}},
     "@/lib/promo-board-parser":parser,
     "@/lib/accessory-pricelist-store":{MASTER_ID:"master"},

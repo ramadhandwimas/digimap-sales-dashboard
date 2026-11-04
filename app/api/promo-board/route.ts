@@ -34,9 +34,11 @@ export async function GET(request:NextRequest){
   const auth=credentials();
   if(!auth)return json({error:"Koneksi Google Sheets belum dikonfigurasi."},503);
   try{
-    const snapshots=await readPromoSnapshots(auth,6);
+    const compact=request.nextUrl?.searchParams?.get("view")==="catalog";
+    const snapshots=await readPromoSnapshots(auth,compact?1:6,{fresh:!compact});
     const rawActive=snapshots[0]??null,previous=snapshots[1]??null;
     const active=displaySnapshot(rawActive);
+    if(compact)return json({ok:true,active});
     const history=snapshots.slice(1).map(snapshot=>({id:snapshot.id,uploadedAt:snapshot.uploadedAt,fileName:snapshot.fileName,priceListDate:snapshot.priceListDate,totalRows:snapshot.totalRows,totalSku:snapshot.totalSku,warnings:snapshot.warnings}));
     return json({ok:true,active,history,comparison:comparePromoPriceLists(previous,rawActive)});
   }catch(error){
