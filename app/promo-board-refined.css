@@ -49,6 +49,13 @@
 .pb-page .pb-product-ticket{box-shadow:none}
 .pb-page .pb-product-ticket h2{font-size:clamp(22px,5.7vw,30px);line-height:1.2}
 .pb-page .pb-product-ticket button{box-shadow:none}
+.pb-page .pb-stock-total{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border-radius:16px;background:#f1f6ff}
+.pb-page .pb-stock-total>div:first-child{min-width:0}
+.pb-page .pb-stock-total p{font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.08em;color:#0759f9}
+.pb-page .pb-stock-total small{display:block;margin-top:2px;overflow-wrap:anywhere;font-size:10px;font-weight:650;color:var(--pb-muted)}
+.pb-page .pb-stock-total>div:last-child{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.pb-page .pb-stock-total strong{font-size:25px;line-height:1;font-weight:900;color:var(--pb-text)}
+.pb-page .pb-stock-total span{border-radius:20px;padding:4px 8px;font-size:10px;font-weight:800}
 .pb-page .pb-selected{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--pb-line);border-radius:14px;font-size:13px}
 .pb-page .pb-selected>b{min-width:0;overflow-wrap:anywhere}
 .pb-page .pb-selected>span{flex-shrink:0;border-radius:20px;padding:4px 9px;font-size:11px;font-weight:800}

@@ -81,8 +81,10 @@ test('device prices finish loading before a slow stock response and accessories 
 test('compact Qoala layout is shipped from the global promo stylesheet',()=>{
  const css=fs.readFileSync(new URL('../app/promo-board-refined.css',import.meta.url),'utf8');
  const page=fs.readFileSync(new URL('../app/promo-board/page.tsx',import.meta.url),'utf8');
- for(const selector of ['.pb-page .pb-package','.pb-page .pb-breakdown>div','.pb-page .pb-quote-total>strong','.pb-page .pb-installments']){
+ for(const selector of ['.pb-page .pb-stock-total','.pb-page .pb-package','.pb-page .pb-breakdown>div','.pb-page .pb-quote-total>strong','.pb-page .pb-installments']){
   assert.ok(css.includes(selector),`missing ${selector}`);
  }
  assert.ok(!page.includes('promo-board-soft.module.css'));
+ assert.ok(source.includes('Total Stok Type'));
+ assert.ok(source.includes('totalStock.value'));
 });
