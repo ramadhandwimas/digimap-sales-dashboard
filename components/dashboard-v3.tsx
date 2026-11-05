@@ -1255,7 +1255,7 @@ function DailySales() {
       <section className="rounded-2xl border bg-white shadow-sm dark:bg-slate-950">
         <SectionTitle
           title="Daily Sales Staff"
-          sub="Staff in-charge sesuai schedule hari berjalan"
+          sub="Staff sesuai schedule dan staff libur/training yang memiliki penjualan"
         />
         <Table>
           <TableHeader>
