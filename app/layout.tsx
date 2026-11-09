@@ -8,6 +8,7 @@ import IdleLogout from "@/components/idle-logout";
 import MobileTabScrollReset from "@/components/mobile-tab-scroll-reset";
 import MobileInvoiceTapFix from "@/components/mobile-invoice-tap-fix";
 import DashboardAccessTracker from "@/components/dashboard-access-tracker";
+import DashboardPresenceTracker from "@/components/dashboard-presence-tracker";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -56,7 +57,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
-      <body className="m238-apple-ui antialiased"><IdleLogout/><MobileTabScrollReset/><MobileInvoiceTapFix/><DashboardAccessTracker/>{children}</body>
+      <body className="m238-apple-ui antialiased"><IdleLogout/><MobileTabScrollReset/><MobileInvoiceTapFix/><DashboardAccessTracker/><DashboardPresenceTracker/>{children}</body>
     </html>
   );
 }
