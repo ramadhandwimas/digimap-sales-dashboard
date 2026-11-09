@@ -13,7 +13,7 @@ import {cachedJson,swrJson,peekJsonCache,prefetchJson,abortCacheScope,clearExpir
 const ReportScreen=dynamic(()=>import("@/components/mobile-dashboard-report"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton hero"/><div className="m238m-skeleton list"/></div>});
 const MoreScreen=dynamic(()=>import("@/components/mobile-dashboard-more"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton list"/><div className="m238m-skeleton list"/></div>});
 const MobileOperations=dynamic(()=>import("@/components/mobile-operations"),{ssr:false,loading:()=> <div className="m238m-card">Memuat menu operasional…</div>});
-const QoalaStaffShare=dynamic(()=>import("@/components/qoala-staff-share"),{ssr:false,loading:()=> <div className="m238m-card">Memuat report Qoala…</div>});
+const QoalaStaffShare=dynamic(()=>import("@/components/qoala-staff-share"),{ssr:false,loading:()=> <div className="m238m-card">Memuat report VAS…</div>});
 
 type Tab="home"|"sales"|"team"|"report"|"admin"|"more";
 type SalesMode="daily"|"summary"|"lob";
@@ -923,7 +923,7 @@ function FocusProductView({summary,period,periodMode,selectedWeek,activeRange}:{
   </Sheet>
 
   <Sheet open={!!selectedVas} onClose={()=>setSelectedVas(null)} title={selectedVas?`${selectedVas} • Detail Staff & AR`:"Detail VAS"}>
-   {selectedVas==="Qoala"&&qoalaRange?<QoalaStaffShare key={`${qoalaRange.from}-${qoalaRange.to}`} from={qoalaRange.from} to={qoalaRange.to} label={periodMode==="week"?selectedWeek:monthLabel(period)}/>:null}
+   {selectedVasKey&&qoalaRange?<QoalaStaffShare key={`${selectedVasKey}-${qoalaRange.from}-${qoalaRange.to}`} provider={selectedVasKey} from={qoalaRange.from} to={qoalaRange.to} label={periodMode==="week"?selectedWeek:monthLabel(period)}/>:null}
    {selectedVas&&selectedVasRow?<div className="m238m-stack"><Card className="m238m-detail-sales"><span>{selectedVas}</span><strong>{money.format(Number(selectedVasRow[2]))}</strong><small>{num.format(Number(selectedVasRow[3]))} qty • Target {money.format(vasTarget)}</small></Card><div className="m238m-section-head"><h2>Breakdown Target & Actual</h2><span>%T Staff</span></div><div className="m238m-list">{selectedVasStaff.map((r,i)=><Card key={r.id} className="m238m-vas-staff-row"><div className="m238m-vas-staff-head"><span>#{i+1}</span><strong>{shortStaffName(r.name)}</strong><b className={r.target&&r.ar>=100?"positive":""}>{r.target?pct(r.ar):"AR —"}</b></div><div className="m238m-vas-staff-meta"><span>Actual <b>{money.format(r.actual)}</b> • {num.format(r.qty)} qty</span><span>Target <b>{money.format(r.target)}</b> • %T {pct(r.share*100)}</span></div><Progress value={r.ar}/></Card>)}</div></div>:null}
   </Sheet>
   <Sheet open={!!selectedThird} onClose={()=>setSelectedThird(null)} title={selectedThird?`${selectedThird} • Detail 3PP`:"Third Party"}>

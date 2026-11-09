@@ -22,3 +22,9 @@ test('Qoala with no device uses an undefined AR and report honors week boundarie
  const d=buildQoalaStaffReport(config,[row('1',1,'VAS','Qoala'),row('1',3,'DEVICES','iPhone','2026-11-08')],'2026-11-01','2026-11-07');
  assert.equal(d.staff.find(p=>p.id==='1').qoalaQty,1);assert.equal(d.total.ar,null);
 });
+for(const provider of ['telkomsel','xl','indosat'])test(`${provider} report keeps quantities and value isolated from other providers`,()=>{
+ const providerRow=(name,qty,amount)=>({...row('1',qty,'VAS',name),brand:name.toUpperCase(),amount});
+ const data=buildQoalaStaffReport(config,[row('1',10),providerRow('Qoala',7,700),providerRow('Telkomsel',2,200),providerRow('XL',3,300),providerRow('Indosat',4,400)],'2026-11-01','2026-11-30',provider);
+ const qty={telkomsel:2,xl:3,indosat:4}[provider];
+ assert.deepEqual(data.total,{deviceQty:10,qoalaQty:qty,qoalaValue:qty*100,ar:qty*10});assert.equal(data.staff.length,3);
+});
