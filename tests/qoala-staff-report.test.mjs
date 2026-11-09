@@ -11,7 +11,12 @@ test('report includes zero-share and zero-sales staff, excludes SPV and other st
  const data=buildQoalaStaffReport(config,[row('1',10),row('1',2,'VAS','Qoala'),row('2',2,'DEVICES','Mac mini'),row('2',1,'VAS','Qoala'),row('4',50),row('4',20,'VAS','Qoala'),row('1',9,'ACCESSORIES','AirPods'),row('1',100,'DEVICES','iPhone','2026-10-05'),row('1',100,'DEVICES','iPhone','2026-11-05','M996')],'2026-11-01','2026-11-30');
  assert.equal(data.staff.length,3);assert.ok(data.staff.some(p=>p.id==='3'&&p.deviceQty===0&&p.ar===null));
  assert.equal(data.staff.find(p=>p.id==='1').ar,20);assert.equal(data.staff.find(p=>p.id==='2').ar,50);
- assert.deepEqual(data.total,{deviceQty:12,qoalaQty:3,ar:25});
+ assert.deepEqual(data.total,{deviceQty:12,qoalaQty:3,qoalaValue:200,ar:25});
+ assert.equal(data.staff.find(p=>p.id==='3').qoalaValue,0);
+});
+test('Qoala value sums line amounts, including corrections, without multiplying by qty',()=>{
+ const data=buildQoalaStaffReport(config,[{...row('1',2,'VAS','Qoala'),amount:2645000},{...row('1',-1,'VAS','Qoala'),amount:-700000},{...row('1',2,'VAS','Telkomsel'),brand:'TELKOMSEL'}],'2026-11-01','2026-11-30');
+ assert.equal(data.total.qoalaValue,1945000);assert.equal(data.total.qoalaQty,1);
 });
 test('Qoala with no device uses an undefined AR and report honors week boundaries',()=>{
  const d=buildQoalaStaffReport(config,[row('1',1,'VAS','Qoala'),row('1',3,'DEVICES','iPhone','2026-11-08')],'2026-11-01','2026-11-07');
