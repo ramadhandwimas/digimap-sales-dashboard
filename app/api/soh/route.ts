@@ -1,5 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {appendSheetValues,ensureSheet,getGoogleSheetRequestCount,getSheetRanges} from "@/lib/google-sheets";
+import {missingMacMiniStock} from "@/lib/m238-fast-soh";
 
 const SOURCE_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const HISTORY_SHEET="SOH History";
@@ -32,7 +33,7 @@ export async function GET(req:NextRequest){
     await ensureSheet(SOURCE_ID,HISTORY_SHEET,["Date","Article","Description","LOB","SOH","Captured At"],e,k);
     const ranges=[
       "'SOH'!D6:D6",
-      "'RAW StockPosition'!F1:N40",
+      "'RAW StockPosition'!F1:N10000",
       "'SOH'!C10:E200",
       "'SOH'!J10:L200",
       "'SOH'!Q10:S200",
@@ -72,7 +73,8 @@ export async function GET(req:NextRequest){
       }
     }
 
-    const rawDates=rawHead.flat().map(isoDate).filter(Boolean).sort();
+    for(const row of missingMacMiniStock(rawHead,allRows))allRows.push({...row,soldQty:soldByArticle.get(row.article.toUpperCase())||0});
+    const rawDates=rawHead.slice(0,40).flat().map(isoDate).filter(Boolean).sort();
     const sheetDate=isoDate(dateRange?.[0]?.[0]);
     const snapshotDate=sheetDate||rawDates.at(-1)||new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Jakarta",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
     const existing=new Set((historyRows||[]).filter(r=>isoDate(r[0])===snapshotDate).map(r=>s(r[1]).toUpperCase()));

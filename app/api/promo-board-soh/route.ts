@@ -1,5 +1,6 @@
 import {NextResponse} from "next/server";
 import {getSheetRanges} from "@/lib/google-sheets";
+import {missingMacMiniStock} from "@/lib/m238-fast-soh";
 
 const SOURCE_ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const s=(v:unknown)=>String(v??"").trim();
@@ -22,7 +23,7 @@ export async function GET(){
   try{
     const ranges=[
       "'SOH'!D6:D6",
-      "'RAW StockPosition'!F1:N40",
+      "'RAW StockPosition'!F1:N10000",
       "'SOH'!C10:E200",
       "'SOH'!J10:L200",
       "'SOH'!Q10:S200",
@@ -42,7 +43,8 @@ export async function GET(){
         rows.push({article,description,qty,soldQty:0,category});
       }
     }
-    const rawDates=rawHead.flat().map(isoDate).filter(Boolean).sort();
+    for(const row of missingMacMiniStock(rawHead,rows))rows.push({...row,soldQty:0});
+    const rawDates=rawHead.slice(0,40).flat().map(isoDate).filter(Boolean).sort();
     const sheetDate=isoDate(dateRange?.[0]?.[0]);
     const updated=displayDate(rawDates.at(-1)||sheetDate);
     return NextResponse.json({updated,rows,source:"promo-board-soh-readonly"},{headers:{"Cache-Control":"no-store"}});

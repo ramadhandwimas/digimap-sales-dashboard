@@ -8,7 +8,7 @@ function splitArticle(v:string){const p=v.indexOf(" / ");if(p<0)return{article:u
 function categoryFor(brand:string,scheme:string,type:string,description:string){if(brand!=="APPLE"||scheme==="DEMO")return"";if(scheme==="DEVICES"){
   if(type==="PHONE")return"IPHONE";
   if(type==="TABLETS")return"IPAD";
-  if(type==="LAPTOPS"||type==="DESKTOP")return"MACBOOK";
+  if(type==="LAPTOPS"||/^DESKTOPS?$/.test(type)||/\bMAC\s*MINI\b/i.test(description))return"MACBOOK";
   if(type==="WATCH")return"APPLE WATCH";
  }
  if(scheme==="ACCESSORIES"){
@@ -34,3 +34,10 @@ export function parseSohFast(rows:unknown[][]){
 export const sohFastHeaders=["Article","Description","Qty","Category","Updated","Status"];
 export const sohFastValues=(r:FastSohRow)=>[r.article,r.description,r.qty,r.category,r.updated,r.status];
 export const sohFastFromValues=(r:unknown[]):FastSohRow=>({article:up(r[0]),description:s(r[1]),qty:n(r[2]),category:up(r[3]),updated:s(r[4]),status:up(r[5])||"ACTIVE"});
+
+// Older SOH sheet formulas can omit desktop models. Add missing Mac mini SKUs
+// from the same stock report while keeping existing SKU quantities unchanged.
+export function missingMacMiniStock(raw:unknown[][],existing:{article:string}[]){
+ const seen=new Set(existing.map(r=>up(r.article)));
+ return parseSohFast(raw).rows.filter(r=>r.category==="MACBOOK"&&/\bMAC\s*MINI\b/i.test(r.description)&&!seen.has(up(r.article)));
+}
