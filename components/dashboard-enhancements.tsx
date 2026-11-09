@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
 import {createPortal} from "react-dom";
+import LoginActivityPanel from "@/components/login-activity-panel";
 import {Clock3,TrendingDown,TrendingUp,Users} from "lucide-react";
 
 type AnnualRow={period:string;label:string;amount:number};
@@ -34,7 +35,6 @@ export default function DashboardEnhancements(){
  useEffect(()=>{const load=()=>fetch(`/api/daily?date=${today()}&t=${Date.now()}`,{cache:"no-store"}).then(r=>r.json()).then(setDailyDetail).catch(()=>{});void load();const id=setInterval(load,60000);return()=>clearInterval(id)},[]);
  useEffect(()=>{const load=()=>fetch("/api/upload-status",{cache:"no-store"}).then(r=>r.json()).then(j=>setSpwUpload(j.spw||null)).catch(()=>{});void load();const id=setInterval(load,60000);return()=>clearInterval(id)},[]);
  useEffect(()=>{const read=()=>{try{const raw=localStorage.getItem("m238-last-data-activity");if(raw)setDataActivity(JSON.parse(raw))}catch{}};const onActivity=(e:Event)=>{const d=(e as CustomEvent<DataActivity>).detail;if(d)setDataActivity(d)};read();window.addEventListener("m238:data-activity",onActivity);return()=>window.removeEventListener("m238:data-activity",onActivity)},[]);
- useEffect(()=>{const load=()=>fetch(`/api/login-activity?date=${today()}`,{cache:"no-store"}).then(r=>r.json()).then(setLoginData).catch(()=>{});void load();const id=setInterval(load,60000);return()=>clearInterval(id)},[]);
 
  useEffect(()=>{
   const sync=()=>{
@@ -75,6 +75,6 @@ export default function DashboardEnhancements(){
 
   {yearTarget&&createPortal(<div className="space-y-4"><div><h3 className="font-extrabold">2025 vs 2026</h3><p className="mt-1 text-sm text-slate-500">Perbandingan revenue per bulan terhadap periode yang sama tahun sebelumnya.</p></div><div className="overflow-x-auto rounded-xl border"><table className="w-full min-w-[680px] text-sm"><thead className="bg-slate-50 dark:bg-slate-900"><tr><th className="px-3 py-3 text-left">Bulan</th><th className="px-3 py-3 text-right">2025</th><th className="px-3 py-3 text-right">2026</th><th className="px-3 py-3 text-right">Selisih</th><th className="px-3 py-3 text-right">Growth</th></tr></thead><tbody>{pairs.map(r=><tr key={r.label} className="border-t"><td className="px-3 py-3 font-bold">{r.label}</td><td className="px-3 py-3 text-right">{money.format(r.v25)}</td><td className="px-3 py-3 text-right font-bold">{money.format(r.v26)}</td><td className={`px-3 py-3 text-right font-semibold ${r.diff>=0?"text-emerald-600":"text-rose-600"}`}>{r.diff>=0?"+":""}{money.format(r.diff)}</td><td className="px-3 py-3 text-right"><Growth value={r.growth}/></td></tr>)}</tbody><tfoot><tr className="border-t-2 bg-slate-50 font-black dark:bg-slate-900"><td className="px-3 py-3">TOTAL</td><td className="px-3 py-3 text-right">{money.format(annual?.lastYearTotal??0)}</td><td className="px-3 py-3 text-right">{money.format(annual?.thisYearTotal??0)}</td><td className={`px-3 py-3 text-right ${totalDiff>=0?"text-emerald-600":"text-rose-600"}`}>{totalDiff>=0?"+":""}{money.format(totalDiff)}</td><td className="px-3 py-3 text-right"><Growth value={totalGrowth}/></td></tr></tfoot></table></div></div>,yearTarget)}
 
-  {settingsTarget&&createPortal(<section className="mt-5 rounded-2xl border bg-white p-5 shadow-sm dark:bg-slate-950"><div className="flex items-start gap-3"><span className="rounded-xl bg-blue-50 p-3 text-blue-600"><Users className="size-5"/></span><div className="flex-1"><h3 className="font-extrabold">Team Login Activity</h3><p className="mt-1 text-sm text-slate-500">Keaktifan login team M238 hari ini berdasarkan NIK.</p></div><div className="text-right"><b className="text-xl">{loginData?.totalUsers??0}</b><p className="text-xs text-slate-400">staff aktif</p></div></div><div className="mt-4 overflow-x-auto"><table className="w-full min-w-[620px] text-sm"><thead className="bg-slate-50 dark:bg-slate-900"><tr><th className="p-3 text-left">NIK</th><th className="p-3 text-left">Nama</th><th className="p-3 text-right">Login Hari Ini</th><th className="p-3 text-right">Login Terakhir</th></tr></thead><tbody>{(loginData?.rows??[]).map(r=><tr key={r.nik} className="border-t"><td className="p-3 font-semibold">{r.nik}</td><td className="p-3 font-bold">{r.name}</td><td className="p-3 text-right font-black">{r.count}x</td><td className="p-3 text-right">{jakartaDateTime(r.lastLogin)}</td></tr>)}{!(loginData?.rows?.length)&&<tr><td colSpan={4} className="p-6 text-center text-slate-400">Belum ada login tercatat hari ini.</td></tr>}</tbody></table></div></section>,settingsTarget)}
+  {settingsTarget&&createPortal(<LoginActivityPanel/>,settingsTarget)}
  </>;
 }
