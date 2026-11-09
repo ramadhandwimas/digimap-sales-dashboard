@@ -13,6 +13,7 @@ import {cachedJson,swrJson,peekJsonCache,prefetchJson,abortCacheScope,clearExpir
 const ReportScreen=dynamic(()=>import("@/components/mobile-dashboard-report"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton hero"/><div className="m238m-skeleton list"/></div>});
 const MoreScreen=dynamic(()=>import("@/components/mobile-dashboard-more"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton list"/><div className="m238m-skeleton list"/></div>});
 const MobileOperations=dynamic(()=>import("@/components/mobile-operations"),{ssr:false,loading:()=> <div className="m238m-card">Memuat menu operasional…</div>});
+const QoalaStaffShare=dynamic(()=>import("@/components/qoala-staff-share"),{ssr:false,loading:()=> <div className="m238m-card">Memuat report Qoala…</div>});
 
 type Tab="home"|"sales"|"team"|"report"|"admin"|"more";
 type SalesMode="daily"|"summary"|"lob";
@@ -780,6 +781,7 @@ function FocusProductView({summary,period,periodMode,selectedWeek,activeRange}:{
  const vasRows=[["Qoala","qoala",vas.qoalaValue,vas.qoalaQty],["Telkomsel","telkomsel",vas.telkomselValue,vas.telkomselQty],["XL","xl",vas.xlValue,vas.xlQty],["Indosat","indosat",vas.indosatValue,vas.indosatQty]] as const;
 
  const targetScope=periodMode==="week"?"weekly":"monthly",targetPeriod=periodMode==="week"?(selectedWeek||""):period;
+ const qoalaRange=periodMode==="week"?activeRange:{from:`${period}-01`,to:new Date(Date.UTC(Number(period.slice(0,4)),Number(period.slice(5,7)),0)).toISOString().slice(0,10)};
  const focusUrl=periodMode==="week"&&activeRange?`/api/lob-target-focus?mode=range&from=${activeRange.from}&to=${activeRange.to}`:`/api/lob-target-focus?mode=month&month=${period}`;
  const thirdUrl=periodMode==="week"&&selectedWeek?`/api/product-focus-3pp?mode=week&week=${encodeURIComponent(selectedWeek)}`:`/api/product-focus-3pp?mode=month&month=${period}`;
  const staffUrl=periodMode==="week"&&activeRange?`/api/staff-performance-month?period=${activeRange.from.slice(0,7)}&from=${activeRange.from}&to=${activeRange.to}`:`/api/staff-performance-month?period=${period}`;
@@ -921,6 +923,7 @@ function FocusProductView({summary,period,periodMode,selectedWeek,activeRange}:{
   </Sheet>
 
   <Sheet open={!!selectedVas} onClose={()=>setSelectedVas(null)} title={selectedVas?`${selectedVas} • Detail Staff & AR`:"Detail VAS"}>
+   {selectedVas==="Qoala"&&qoalaRange?<QoalaStaffShare key={`${qoalaRange.from}-${qoalaRange.to}`} from={qoalaRange.from} to={qoalaRange.to} label={periodMode==="week"?selectedWeek:monthLabel(period)}/>:null}
    {selectedVas&&selectedVasRow?<div className="m238m-stack"><Card className="m238m-detail-sales"><span>{selectedVas}</span><strong>{money.format(Number(selectedVasRow[2]))}</strong><small>{num.format(Number(selectedVasRow[3]))} qty • Target {money.format(vasTarget)}</small></Card><div className="m238m-section-head"><h2>Breakdown Target & Actual</h2><span>%T Staff</span></div><div className="m238m-list">{selectedVasStaff.map((r,i)=><Card key={r.id} className="m238m-vas-staff-row"><div className="m238m-vas-staff-head"><span>#{i+1}</span><strong>{shortStaffName(r.name)}</strong><b className={r.target&&r.ar>=100?"positive":""}>{r.target?pct(r.ar):"AR —"}</b></div><div className="m238m-vas-staff-meta"><span>Actual <b>{money.format(r.actual)}</b> • {num.format(r.qty)} qty</span><span>Target <b>{money.format(r.target)}</b> • %T {pct(r.share*100)}</span></div><Progress value={r.ar}/></Card>)}</div></div>:null}
   </Sheet>
   <Sheet open={!!selectedThird} onClose={()=>setSelectedThird(null)} title={selectedThird?`${selectedThird} • Detail 3PP`:"Third Party"}>
