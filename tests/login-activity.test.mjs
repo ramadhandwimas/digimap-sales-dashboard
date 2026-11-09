@@ -7,3 +7,12 @@ test('daily login history counts each successful login per NIK and shows timesta
 test('history includes dates beyond the previous 5000-entry cap',()=>{
  const raw=Array.from({length:5001},(_,i)=>['2026-11-09T02:00:00Z',i===5000?'2026-11-09':'2026-11-08','1','Andhea']);assert.equal(mod.exports.summarizeLoginActivity(raw,'2026-11-09').totalLogins,1);assert.equal(mod.exports.summarizeLoginActivity(raw,'2026-11-10').totalLogins,0);
 });
+test('Google Sheets numeric date serials recover historical staff logins',()=>{
+ const serial=(Date.UTC(2026,10,8)-Date.UTC(1899,11,30))/86400000;
+ const d=mod.exports.summarizeLoginActivity([['2026-11-07T20:05:25.669Z',serial,26036994,'Farabi'],['2026-11-08T01:40:51.127Z',serial,26028075,'Astri']],'2026-11-08');
+ assert.equal(d.totalUsers,2);assert.equal(d.totalLogins,2);assert.equal(mod.exports.loginDate(serial),'2026-11-08');
+});
+test('active-session opens are separate from password logins and duplicate event IDs count once',()=>{
+ const d=mod.exports.summarizeLoginActivity([],'2026-11-09',[['2026-11-09T02:00:00Z','2026-11-09','1','Andhea','event-1'],['2026-11-09T02:00:00Z','2026-11-09','1','Andhea','event-1'],['2026-11-09T03:00:00Z','2026-11-09','1','Andhea','event-2']]);
+ assert.equal(d.totalUsers,1);assert.equal(d.totalLogins,0);assert.equal(d.totalOpens,2);assert.equal(d.rows[0].lastOpen,'2026-11-09T03:00:00Z');
+});

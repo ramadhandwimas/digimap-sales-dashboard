@@ -7,6 +7,7 @@ import "./promo-board-refined.css";
 import IdleLogout from "@/components/idle-logout";
 import MobileTabScrollReset from "@/components/mobile-tab-scroll-reset";
 import MobileInvoiceTapFix from "@/components/mobile-invoice-tap-fix";
+import DashboardAccessTracker from "@/components/dashboard-access-tracker";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -55,7 +56,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
-      <body className="m238-apple-ui antialiased"><IdleLogout/><MobileTabScrollReset/><MobileInvoiceTapFix/>{children}</body>
+      <body className="m238-apple-ui antialiased"><IdleLogout/><MobileTabScrollReset/><MobileInvoiceTapFix/><DashboardAccessTracker/>{children}</body>
     </html>
   );
 }

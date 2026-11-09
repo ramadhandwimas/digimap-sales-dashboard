@@ -152,6 +152,7 @@ export async function POST(request: NextRequest) {
       [[timestamp, jakartaDate(), nik, name, ua, ip]],
       email,
       key,
+      "RAW",
     );
   } catch {}
   const response = NextResponse.json({ ok: true, name });
