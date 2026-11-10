@@ -1,0 +1,29 @@
+import {NextRequest,NextResponse} from "next/server";
+import {GET as dailyGET} from "@/app/api/daily-fast/route";
+import {SESSION_COOKIE,verifySessionToken} from "@/lib/auth-session";
+import {getSheetRanges} from "@/lib/google-sheets";
+import {getCachedSalesSource} from "@/lib/m238-sales-source-cache";
+import {buildStaffAchievementReport,type DailyAchievementInput,type AchievementReport} from "@/lib/staff-achievement-report";
+const SOURCE="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
+const cache=new Map<string,{at:number;data:AchievementReport}>();
+const valid=(v:string)=>/^202[56]-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
+export async function GET(req:NextRequest){
+ if(!verifySessionToken(req.cookies.get(SESSION_COOKIE)?.value))return NextResponse.json({error:"Sesi login berakhir."},{status:401});
+ const from=req.nextUrl.searchParams.get("from")||"",to=req.nextUrl.searchParams.get("to")||"",mode=req.nextUrl.searchParams.get("mode")||"daily",today=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Jakarta"}).format(new Date());
+ const count=(Date.parse(to)-Date.parse(from))/86400000+1;
+ if(!valid(from)||!valid(to)||from>to||to>today||!["daily","weekly"].includes(mode)||count>7||(mode==="daily"&&count!==1))return NextResponse.json({error:"Pilih tanggal harian atau periode mingguan maksimal 7 hari, sampai hari ini."},{status:400});
+ const cacheKey=`${mode}:${from}:${to}`,hit=cache.get(cacheKey);if(hit&&Date.now()-hit.at<30000)return NextResponse.json(hit.data,{headers:{"cache-control":"no-store"}});
+ const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)return NextResponse.json({error:"Koneksi data belum tersedia."},{status:503});
+ try{
+  const dates=Array.from({length:count},(_,i)=>new Date(Date.parse(from)+i*86400000).toISOString().slice(0,10));
+  const [[config],source]=await Promise.all([getSheetRanges(SOURCE,["Config!H1:L120"],email,key),mode==="weekly"?getCachedSalesSource(email,key):Promise.resolve(null)]);
+  const roster=config.filter(r=>String(r[0]).trim().toUpperCase()==="M238"&&r[1]&&r[2]).map(r=>({id:String(r[1]).trim(),name:String(r[2]).trim(),position:String(r[3]||"")}));
+  const days:DailyAchievementInput[]=[],warnings:string[]=[];
+  for(let i=0;i<dates.length;i+=3){const batch=await Promise.all(dates.slice(i,i+3).map(async date=>{const url=new URL(req.url);url.pathname="/api/daily-fast";url.search=`?date=${date}`;const response=await dailyGET(new NextRequest(url)),json=await response.json();if(!response.ok)throw Error(`${date}: ${json.error||"Data harian gagal dibaca"}`);if(!Array.isArray(json.staff))throw Error(`${date}: Rincian staff belum tersedia`);if(json.warning||json.fastWarning)warnings.push(`${date}: ${json.warning||json.fastWarning}`);return{date,staff:json.staff}}));days.push(...batch)}
+  const sales=source?.dataCopas.filter(r=>r.date>=from&&r.date<=to)||[];
+  if(source){const compiledDates=new Set(sales.map(r=>r.date));for(const date of dates)if(source.activeDates.includes(date)&&!compiledDates.has(date))warnings.push(`${date}: Data live belum tersedia di Data Copas; belum disertakan dalam penjualan mingguan.`)}
+  const data:AchievementReport={from,to,mode:mode as "daily"|"weekly",...buildStaffAchievementReport(roster,days,mode as "daily"|"weekly",sales),warnings,source:mode==="weekly"?"Penjualan: Data Copas bersih setelah cutoff · Target: akumulasi harian sesuai schedule.":"Penjualan dan target: Daily Sales dashboard · Sesuai schedule.",generatedAt:new Date().toISOString()};
+  cache.set(cacheKey,{at:Date.now(),data});if(cache.size>30)cache.delete(cache.keys().next().value!);
+  return NextResponse.json(data,{headers:{"cache-control":"no-store"}});
+ }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Report belum dapat dimuat."},{status:503})}
+}

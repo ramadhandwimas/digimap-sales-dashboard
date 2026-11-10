@@ -14,6 +14,7 @@ const ReportScreen=dynamic(()=>import("@/components/mobile-dashboard-report"),{s
 const MoreScreen=dynamic(()=>import("@/components/mobile-dashboard-more"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton list"/><div className="m238m-skeleton list"/></div>});
 const MobileOperations=dynamic(()=>import("@/components/mobile-operations"),{ssr:false,loading:()=> <div className="m238m-card">Memuat menu operasional…</div>});
 const QoalaStaffShare=dynamic(()=>import("@/components/qoala-staff-share"),{ssr:false,loading:()=> <div className="m238m-card">Memuat report VAS…</div>});
+const StaffAchievementShare=dynamic(()=>import("@/components/staff-achievement-share"),{ssr:false,loading:()=> <div className="m238m-card">Memuat report pencapaian staff…</div>});
 
 type Tab="home"|"sales"|"team"|"report"|"admin"|"more";
 type SalesMode="daily"|"summary"|"lob";
@@ -26,7 +27,7 @@ type MotionStyle="clean"|"ios-spring"|"glass-flow"|"playful-bounce"|"executive"|
 type FontPreset="system"|"rounded"|"compact"|"modern"|"editorial"|"tech"|"soft"|"bold"|"mono";
 type CompareLob={lob:string;amount2025:number;amount2026:number|null;qty2025:number;qty2026:number|null;diff:number|null;growth:number|null;qtyDiff:number|null;qtyGrowth:number|null};
 type CompareMonth={month:number;period2025:string;period2026:string;amount2025:number;amount2026:number|null;qty2025:number;qty2026:number|null;diff:number|null;growth:number|null;qtyDiff:number|null;qtyGrowth:number|null;device2025:number;device2026:number|null;deviceQty2025:number;deviceQty2026:number|null;deviceDiff:number|null;deviceGrowth:number|null;deviceQtyDiff:number|null;deviceQtyGrowth:number|null;lobs:CompareLob[];started:boolean};
-type SheetName="period"|"share"|"staff"|"day"|"home-sales"|"more"|null;
+type SheetName="period"|"share"|"staff-report"|"staff"|"day"|"home-sales"|"more"|null;
 type ProviderMetric={qty:number;value:number};
 type Staff={
  id:string;name:string;position?:string;status?:string;amount:number;device:number;accessories:number;vas:number;qty:number;invoices:number;upt:number;atv:number;
@@ -429,6 +430,9 @@ export default function MobileDashboardApp(){
       ).map(([key,label,Icon])=><button key={String(key)} disabled={moreTaskBusy} aria-current={(tab===key||(tab==="admin"&&key==="more"))?"page":undefined} onClick={()=>setTab(key as Tab)} className={(tab===key||(tab==="admin"&&key==="more"))?"active":""}><span className="m238m-nav-icon"><Icon size={themePreset==="playful"?22:21}/></span><span className="m238m-nav-label">{String(label)}</span></button>)}
     </nav>
 
+    <Sheet open={sheet==="staff-report"} onClose={()=>setSheet(null)} title="Share Pencapaian Staff">
+     {sheet==="staff-report"?<StaffAchievementShare initialDate={daily?.date||today()} initialWeek={periodMode==="week"?activeRange?.from:undefined}/>:null}
+    </Sheet>
     <Sheet open={sheet==="period"} onClose={()=>setSheet(null)} title="Pilih Periode">
       <div className="m238m-period-sheet-top"><Segmented value={draftPeriodMode} onChange={changeDraftPeriodMode} items={[{value:"month",label:"Month"},{value:"week",label:"Week"}]}/><button className="m238m-primary" disabled={draftPeriodMode==="week"&&!draftWeek} onClick={()=>void applyPeriod()}>Terapkan</button></div>
       {draftPeriodMode==="month"?<div className="m238m-sheet-list">{periodYears.map(year=><div key={year} className="m238m-period-year-group"><div className="m238m-period-year">{year}</div>{monthsByYear[year].map(p=><button key={p} onClick={()=>setDraftPeriod(p)} className={draftPeriod===p?"selected":""}><span>{monthLabel(p)}</span>{draftPeriod===p?<strong>✓</strong>:null}</button>)}</div>)}</div>:<div className="m238m-sheet-list">{(weekly?.availableWeeks||[]).slice().reverse().map(w=><button key={w} onClick={()=>setDraftWeek(w)} className={draftWeek===w?"selected":""}><span>{w}</span>{draftWeek===w?<strong>✓</strong>:null}</button>)}</div>}
@@ -436,6 +440,7 @@ export default function MobileDashboardApp(){
 
     <Sheet open={sheet==="share"} onClose={()=>setSheet(null)} title="Share Report">
       <div className="m238m-action-list">
+        <button onClick={()=>setSheet("staff-report")}><MessageCircle/>Pencapaian Staff · Harian / Mingguan</button>
         {tab==="sales"?<><button onClick={()=>void shareDailyKind("daily")}><MessageCircle/>Daily Sales Staff</button><button onClick={()=>void shareDailyKind("lob")}><Share2/>LOB Daily</button><button onClick={()=>void shareDailyKind("vas")}><Share2/>VAS Daily</button></>:null}
         <button onClick={()=>void doShare("wa")}><MessageCircle/>WhatsApp Summary</button>
         <button onClick={()=>void doShare("copy")}><Copy/>Copy Summary</button>
