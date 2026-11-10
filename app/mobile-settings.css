@@ -105,3 +105,8 @@
 .m238-more-categories .m238m-direct-copy small{font-size:11px;line-height:1.5;white-space:normal;overflow-wrap:anywhere}
 .m238m-more-direct .m238-more-account{margin-top:6px;background:transparent;border:0}
 .m238-more-categories>button:focus-visible,.m238-more-categories>a:focus-visible{outline:2px solid var(--m-blue);outline-offset:3px}
+
+/* Keep menu icons centered despite the older generic More span layout. */
+.m238m-more-direct .m238m-direct-menu :is(button,a.m238-spv-menu)>.m238m-direct-icon{display:grid;place-items:center;gap:0;flex:none;transform:none}
+.m238m-more-direct .m238m-direct-menu .m238m-direct-icon>svg{display:block;width:19px;height:19px;flex:none;transform:none}
+.m238m-more-direct .m238m-direct-menu :is(button,a.m238-spv-menu)>.m238m-direct-copy{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;text-align:left;gap:4px}
