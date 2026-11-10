@@ -39,8 +39,32 @@ const readLoginConfig = unstable_cache(
     );
   },
   ["m238-login-config-v1"],
-  { revalidate: 60 },
+  // Keep this aligned with the 15-minute idle lock so repeat logins do not
+  // wait for Google Sheets again, while roster changes still refresh quickly.
+  { revalidate: 15 * 60 },
 );
+
+let loginConfigInflight: ReturnType<typeof readLoginConfig> | undefined;
+function loadLoginConfig() {
+  if (!loginConfigInflight) {
+    loginConfigInflight = readLoginConfig().finally(() => {
+      loginConfigInflight = undefined;
+    });
+  }
+  return loginConfigInflight;
+}
+
+export async function GET() {
+  try {
+    await loadLoginConfig();
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json(
+      { error: "Koneksi data login belum tersedia." },
+      { status: 503 },
+    );
+  }
+}
 
 function clientIp(request: NextRequest) {
   return text(
@@ -129,7 +153,7 @@ export async function POST(request: NextRequest) {
       { status: 429, headers: { "retry-after": String(WINDOW_MS / 1000) } },
     );
 
-  const [rows, authRows] = await readLoginConfig(),
+  const [rows, authRows] = await loadLoginConfig(),
     storedHash = text(authRows?.[0]?.[0]),
     configuredPassword = process.env.DASHBOARD_LOGIN_PASSWORD?.trim();
 

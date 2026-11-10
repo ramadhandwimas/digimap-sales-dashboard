@@ -68,6 +68,15 @@ export default function LoginPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/auth/login", {
+      cache: "no-store",
+      signal: controller.signal,
+    }).catch(() => {});
+    return () => controller.abort();
+  }, []);
+
   const [nik, setNik] = useState(""),
     [password, setPassword] = useState(""),
     [show, setShow] = useState(false),
