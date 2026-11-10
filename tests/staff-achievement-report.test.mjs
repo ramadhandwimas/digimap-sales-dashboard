@@ -48,3 +48,11 @@ test('MTD API reads config and schedule in two batches instead of invoking ten d
  assert.equal(current.status,200);assert.equal(current.body.recovery.status,'READY');assert.equal(current.body.total.targets.device,700);assert.equal(current.body.total.actual.device,400);assert.equal(current.body.recoveryStaff.length,1);assert.equal(current.body.recoveryStaff[0].base.amount,100);assert.equal(current.body.recoveryStaff[0].target.amount,current.body.recovery.days[0].target.amount);assert.ok(current.body.recoveryStaff[0].target.amount>100);
  }finally{if(oldEmail===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=oldEmail;if(oldKey===undefined)delete process.env.GOOGLE_PRIVATE_KEY;else process.env.GOOGLE_PRIVATE_KEY=oldKey}
 });
+test('achievement and next-target exports remain separate',()=>{
+ const base=report.buildStaffAchievementReport(roster,[],'daily');
+ const totals={amount:100,device:70,accessories:20,vas:10};
+ const data={...base,from:'2026-11-01',to:'2026-11-10',mode:'daily',warnings:[],source:'Data Copas',generatedAt:'',recovery:{status:'READY',cutoff:'2026-11-09',days:[{date:'2026-11-10',base:totals,target:totals,adjustment:{amount:0,device:0,accessories:0,vas:0}}]},recoveryStaff:[{id:'1',name:'Andhea',base:totals,target:totals}]};
+ const achievement=report.staffAchievementText(data,'all'),recovery=report.staffAchievementText(data,'device','recovery');
+ assert.match(achievement,/Pencapaian Staff/);assert.doesNotMatch(achievement,/\*Rencana Pengejaran\*/);
+ assert.match(recovery,/Target Staff Berikutnya/);assert.match(recovery,/Berlaku 2026-11-10/);assert.match(recovery,/Andhea · Target/);assert.doesNotMatch(recovery,/TOTAL STAFF|Ach |ACC toko/);
+});
