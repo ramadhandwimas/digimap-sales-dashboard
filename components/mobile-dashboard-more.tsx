@@ -1,6 +1,7 @@
 "use client";
 import {useCallback,useEffect,useRef,useState} from "react";
 import dynamic from "next/dynamic";
+import SpvMenuLink from "@/components/spv-menu-link";
 import MobileVersionSwitch from "@/components/mobile-version-switch";
 import StockRequestMd from "@/components/stock-request-md";
 const AccessoryPricelistUpload=dynamic(()=>import("@/components/accessory-pricelist-upload"));
@@ -115,6 +116,7 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  return <div className="m238m-more m238m-more-direct">
   <div className="m238-more-heading"><div className="m238m-more-title"><strong>More</strong><span>Menu tambahan M238</span></div><MobileVersionSwitch value="new" compact disabled={busy}/></div>
   <div className="m238m-direct-menu">
+   <SpvMenuLink/>
    {items.map(({label,sub,icon:Icon,action})=><button key={action} onClick={()=>action==="login-history"?navigate("login-history"):action==="settings"?navigate("settings"):action==="stock-request"?navigate("stock-request"):action==="data-health"?navigate("data-health"):action==="activity-history"?navigate("activity-history"):action==="m996-compile"?navigate("m996-compile"):onAction(action)}>
     <span className="m238m-direct-icon"><Icon size={19}/></span>
     <span className="m238m-direct-copy"><strong>{label}</strong><small>{sub}</small></span>

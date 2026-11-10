@@ -1,4 +1,5 @@
 "use client";
+import SpvMenuLink from "@/components/spv-menu-link";
 import {SpwStoreSelect} from "@/components/spw-store-select";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -775,6 +776,7 @@ fileRef = useRef<HTMLInputElement>(null),
                 </div>
               );
             })}
+            <SpvMenuLink desktop/>
           </nav>
         </div>
       </aside>
