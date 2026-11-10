@@ -431,7 +431,7 @@ export default function MobileDashboardApp(){
     </nav>
 
     <Sheet open={sheet==="staff-report"} onClose={()=>setSheet(null)} title="Share Pencapaian Staff">
-     {sheet==="staff-report"?<StaffAchievementShare initialDate={daily?.date||today()} initialWeek={periodMode==="week"?activeRange?.from:undefined}/>:null}
+     {sheet==="staff-report"?<StaffAchievementShare initialDate={today()} initialWeek={periodMode==="week"?activeRange?.from:undefined}/>:null}
     </Sheet>
     <Sheet open={sheet==="period"} onClose={()=>setSheet(null)} title="Pilih Periode">
       <div className="m238m-period-sheet-top"><Segmented value={draftPeriodMode} onChange={changeDraftPeriodMode} items={[{value:"month",label:"Month"},{value:"week",label:"Week"}]}/><button className="m238m-primary" disabled={draftPeriodMode==="week"&&!draftWeek} onClick={()=>void applyPeriod()}>Terapkan</button></div>

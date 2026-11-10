@@ -8,7 +8,7 @@ export type AchievementReport={from:string;to:string;mode:"daily"|"weekly";staff
 export type DailyAchievementInput={date:string;staff:{id:string;name:string;position?:string;amount:number;device?:number;accessories:number;vas:number;targets?:{amount?:number;device?:number;accessories?:number;vas?:number}}[]};
 const empty=():Values=>({device:0,accessories:0,vas:0});
 const excluded=(name:string,position="")=>/SUPERVISOR|\bSPV\b|ONLINE|digimap\.co\.id/i.test(`${name} ${position}`);
-export function buildStaffAchievementReport(roster:{id:string;name:string;position:string}[],days:DailyAchievementInput[],mode:"daily"|"weekly",weeklySales:SalesRow[]=[]){
+export function buildStaffAchievementReport(roster:{id:string;name:string;position:string}[],days:DailyAchievementInput[],mode:"daily"|"weekly",compiledSales?:SalesRow[]){
  const people=new Map<string,AchievementPerson>(),blocked=new Set(roster.filter(p=>excluded(p.name,p.position)).map(p=>p.id));
  const person=(id:string,name:string)=>{let p=people.get(id);if(!p){p={id,name,actual:empty(),targets:empty()};people.set(id,p)}return p};
  for(const p of roster)if(!excluded(p.name,p.position))person(p.id,p.name);
@@ -17,9 +17,9 @@ export function buildStaffAchievementReport(roster:{id:string;name:string;positi
   const p=person(row.id,row.name),t=row.targets;
   p.targets.device+=t?.device??Math.max(0,Number(t?.amount||0)-Number(t?.accessories||0)-Number(t?.vas||0));
   p.targets.accessories+=Number(t?.accessories||0);p.targets.vas+=Number(t?.vas||0);
-  if(mode==="daily"){p.actual.device+=row.device??(row.amount-row.accessories-row.vas);p.actual.accessories+=row.accessories;p.actual.vas+=row.vas}
+  if(mode==="daily"&&!compiledSales){p.actual.device+=row.device??(row.amount-row.accessories-row.vas);p.actual.accessories+=row.accessories;p.actual.vas+=row.vas}
  }
- if(mode==="weekly")for(const row of weeklySales){if(row.store!=="M238"||blocked.has(row.id)||excluded(row.name))continue;const kind=saleKind(row);if(kind==="other")continue;person(row.id,row.name).actual[kind]+=row.amount}
+ for(const row of compiledSales||[]){if(row.store!=="M238"||blocked.has(row.id)||excluded(row.name))continue;const kind=saleKind(row);if(kind==="other")continue;person(row.id,row.name).actual[kind]+=row.amount}
  const staff=[...people.values()].sort((a,b)=>Object.values(b.actual).reduce((s,n)=>s+n,0)-Object.values(a.actual).reduce((s,n)=>s+n,0)||a.name.localeCompare(b.name));
  const total:AchievementPerson={id:"TOTAL",name:"TOTAL STAFF",actual:empty(),targets:empty()};for(const p of staff)for(const key of REPORT_CATEGORIES){total.actual[key]+=p.actual[key];total.targets[key]+=p.targets[key]}
  return {staff,total};
@@ -29,5 +29,5 @@ export function achievementText(p:AchievementPerson,key:ReportCategory){const ta
 export function staffAchievementText(data:AchievementReport,category:ReportCategory|"all"){
  const keys=category==="all"?REPORT_CATEGORIES:[category];
  const person=(p:AchievementPerson)=>`*${p.name}*\n`+keys.map(key=>{const v=achievementText(p,key);return `${REPORT_LABELS[key]}: ${v.actual}\nTarget ${v.target} · Ach ${v.achievement}\nGap ${v.gap}`}).join("\n");
- return [`*M238 · DIGIMAP PIM 2*`,`*Pencapaian Staff ${data.mode==="daily"?"Harian":"Mingguan"}*`,`${data.from} s.d. ${data.to}`,category==="all"?"Device · ACC · VAS":REPORT_LABELS[category],...data.staff.map(person),person(data.total),...data.warnings.map(w=>`Catatan: ${w}`),data.source,"Target device = target value − target ACC − target VAS. Target mingguan = jumlah alokasi harian pada periode laporan."].join("\n\n");
+ return [`*M238 · DIGIMAP PIM 2*`,`*Pencapaian Staff ${data.mode==="daily"?"Harian · Akumulasi MTD":"Mingguan"}*`,`${data.from} s.d. ${data.to}`,category==="all"?"Device · ACC · VAS":REPORT_LABELS[category],...data.staff.map(person),person(data.total),...data.warnings.map(w=>`Catatan: ${w}`),data.source,"Target device = target value − target ACC − target VAS. Target report = jumlah alokasi harian pada periode laporan."].join("\n\n");
 }

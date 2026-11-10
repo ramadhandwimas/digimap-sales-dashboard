@@ -20,3 +20,22 @@ test('achieved target has zero gap and explicit device targets take precedence',
 test('text export uses exact report period and requested category',()=>{
  const base=report.buildStaffAchievementReport(roster,[],'daily'),text=report.staffAchievementText({...base,from:'2026-11-10',to:'2026-11-10',mode:'daily',warnings:[],source:'Daily Sales',generatedAt:''},'accessories');assert.match(text,/2026-11-10 s.d. 2026-11-10/);assert.match(text,/\*Andhea\*/);assert.match(text,/ACC:/);assert.doesNotMatch(text,/Device:/);assert.doesNotMatch(text,/\*Dwimas\*/);
 });
+test('MTD totals use cutoff sales and sum daily staff allocations from the first day',()=>{
+ const days=Array.from({length:10},(_,i)=>({date:`2026-01-${String(i+1).padStart(2,'0')}`,staff:[person('1','Andhea',9999,0,0,{amount:100,accessories:20,vas:10})]}));
+ const out=report.buildStaffAchievementReport(roster,days,'daily',[{id:'1',name:'Andhea',store:'M238',scheme:'DEVICES',amount:250,qty:1,description:'',type:'',category:''}]);
+ assert.deepEqual(out.total.targets,{device:700,accessories:200,vas:100});assert.equal(out.total.actual.device,250);assert.equal(out.total.actual.accessories,0);
+});
+test('API accepts month-to-date and rejects a single day that does not begin on the first',async()=>{
+ const calls=[];class Request{constructor(url){this.url=String(url);this.nextUrl=new URL(url);this.cookies={get:()=>({value:'fixture'})}}}
+ const api=load('../app/api/staff-achievement-report/route.ts',id=>{
+  if(id==='next/server')return{NextRequest:Request,NextResponse:{json:(body,options)=>({body,status:options?.status||200})}};
+  if(id==='@/lib/auth-session')return{SESSION_COOKIE:'fixture',verifySessionToken:()=>({nik:'1'})};
+  if(id==='@/lib/google-sheets')return{getSheetRanges:async()=>[[['M238','1','Andhea','Sales Assistant',1]]]};
+  if(id==='@/lib/m238-sales-source-cache')return{getCachedSalesSource:async()=>({activeDates:[],dataCopas:[]})};
+  if(id==='@/lib/staff-achievement-report')return report;
+  if(id==='@/app/api/daily-fast/route')return{GET:async req=>{calls.push(req.nextUrl.searchParams.get('date'));return{ok:true,json:async()=>({staff:[person('1','Andhea',999,0,0,{amount:100,accessories:20,vas:10})]})}}};
+  throw Error(id);
+ });
+ const oldEmail=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,oldKey=process.env.GOOGLE_PRIVATE_KEY;process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL='fixture';process.env.GOOGLE_PRIVATE_KEY='fixture';
+ try{const result=await api.GET(new Request('https://fixture.test/api/staff-achievement-report?mode=daily&from=2026-01-01&to=2026-01-10'));assert.equal(result.status,200);assert.equal(calls.length,10);assert.equal(calls[0],'2026-01-01');assert.equal(calls.at(-1),'2026-01-10');assert.equal(result.body.total.targets.device,700);assert.equal(result.body.total.actual.device,0);const invalid=await api.GET(new Request('https://fixture.test/api/staff-achievement-report?mode=daily&from=2026-01-10&to=2026-01-10'));assert.equal(invalid.status,400)}finally{if(oldEmail===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=oldEmail;if(oldKey===undefined)delete process.env.GOOGLE_PRIVATE_KEY;else process.env.GOOGLE_PRIVATE_KEY=oldKey}
+});
