@@ -80,7 +80,6 @@ export default function LoginPage() {
 
   const login = async (event: React.FormEvent) => {
     event.preventDefault();
-    const startedAt = performance.now();
     setLoading(true);
     setSuccess(false);
     setStatusText("Signing you in…");
@@ -97,14 +96,10 @@ export default function LoginPage() {
 
       if (!response.ok) throw new Error(result.error || "Login gagal.");
 
-      const elapsed = performance.now() - startedAt;
-      if (elapsed < 1450)
-        await new Promise((resolve) => window.setTimeout(resolve, 1450 - elapsed));
-
       setSuccess(true);
       setLoading(false);
       setStatusText("Welcome back!");
-      window.setTimeout(() => window.location.replace("/"), 900);
+      window.setTimeout(() => window.location.replace("/"), 120);
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Login gagal.";
       setError(

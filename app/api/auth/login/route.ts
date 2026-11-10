@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
+import { after, NextRequest, NextResponse } from "next/server";
 import { appendSheetValues, getSheetRanges } from "@/lib/google-sheets";
 import {
   createSessionToken,
@@ -24,6 +25,22 @@ const WINDOW_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 type Attempt = { count: number; firstAt: number };
 const attempts = new Map<string, Attempt>();
+
+const readLoginConfig = unstable_cache(
+  async () => {
+    const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      key = process.env.GOOGLE_PRIVATE_KEY;
+    if (!email || !key) throw new Error("Login credentials unavailable");
+    return getSheetRanges(
+      SHEET_ID,
+      ["Config!H28:L60", "Config!AG1000"],
+      email,
+      key,
+    );
+  },
+  ["m238-login-config-v1"],
+  { revalidate: 60 },
+);
 
 function clientIp(request: NextRequest) {
   return text(
@@ -112,12 +129,7 @@ export async function POST(request: NextRequest) {
       { status: 429, headers: { "retry-after": String(WINDOW_MS / 1000) } },
     );
 
-  const [rows, authRows] = await getSheetRanges(
-      SHEET_ID,
-      ["Config!H28:L60", "Config!AG1000"],
-      email,
-      key,
-    ),
+  const [rows, authRows] = await readLoginConfig(),
     storedHash = text(authRows?.[0]?.[0]),
     configuredPassword = process.env.DASHBOARD_LOGIN_PASSWORD?.trim();
 
@@ -145,16 +157,18 @@ export async function POST(request: NextRequest) {
   const name = text(member[2]),
     timestamp = new Date().toISOString(),
     ua = text(request.headers.get("user-agent"));
-  try {
-    await appendSheetValues(
-      MASTER_ID,
-      `'${LOGIN_TAB}'!A:F`,
-      [[timestamp, jakartaDate(), nik, name, ua, ip]],
-      email,
-      key,
-      "RAW",
-    );
-  } catch {}
+  after(async () => {
+    try {
+      await appendSheetValues(
+        MASTER_ID,
+        `'${LOGIN_TAB}'!A:F`,
+        [[timestamp, jakartaDate(), nik, name, ua, ip]],
+        email,
+        key,
+        "RAW",
+      );
+    } catch {}
+  });
   const response = NextResponse.json({ ok: true, name });
   response.cookies.set(
     SESSION_COOKIE,
