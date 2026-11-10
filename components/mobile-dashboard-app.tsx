@@ -463,6 +463,12 @@ export default function MobileDashboardApp(){
 
 
 function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fullLoading,onOpenPromo,onOpenSalesDetail,onGoSales,onGoTeam,onGoReport,onShare}:{mode:HomeMode;setMode:(v:HomeMode)=>void;overview:Overview;traffic:Traffic|null;cvr:number;achievement:number;periodMode:"month"|"week";fullLoading:boolean;onOpenPromo:()=>void;onOpenSalesDetail:()=>void;onGoSales:()=>void;onGoTeam:()=>void;onGoReport:()=>void;onShare:()=>void}){
+ const[category,setCategory]=useState<"amount"|"device"|"accessories"|"vas">("amount");
+ const categoryTabs=[{key:"amount",label:"Total Sales"},{key:"device",label:"Device"},{key:"accessories",label:"ACC"},{key:"vas",label:"VAS"}] as const;
+ const categoryLabel=categoryTabs.find(x=>x.key===category)!.label;
+ const categorySales=overview.summary[category],categoryTarget=overview.target[category],hasCategoryTarget=categoryTarget>0;
+ const categoryAchievement=hasCategoryTarget?categorySales/categoryTarget*100:0,categoryGap=Math.max(0,categoryTarget-categorySales);
+ const categoryPoint=category==="amount"?overview.summary.point.total:overview.summary.point[category];
  const salesRows=overview.daily||[],latestDataDate=salesRows.at(-1)?.date||"",latestSales=salesRows.at(-1)?.amount||0,prevSales=salesRows.at(-2)?.amount||0,salesDelta=prevSales?((latestSales-prevSales)/prevSales)*100:null;
  const trafficRows=traffic?.daily||[],latestTraffic=trafficRows.at(-1)?.traffic||0,prevTraffic=trafficRows.at(-2)?.traffic||0,trafficDelta=prevTraffic?((latestTraffic-prevTraffic)/prevTraffic)*100:null;
  const insight=salesDelta==null
@@ -497,11 +503,13 @@ function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fu
   </div>
 
   {fullLoading?<Skeleton/>:mode==="monthly"?<>
-    <button className="m238m-hero-button" onClick={onOpenSalesDetail}>
-      <Card className="m238m-hero m238m-home-hero"><div className="m238m-hero-title"><span>Total Sales</span><ChevronRight size={18}/></div><strong>{money.format(overview.summary.amount)}</strong><p>{pct(achievement)} dari Target</p><Progress value={achievement}/><div className="m238m-hero-meta"><span>Target <b>{money.format(overview.target.amount)}</b></span><span>{periodMode==="month"?"Point Store":"Periode"} <b>{periodMode==="month"?overview.summary.point.total.toFixed(1):overview.label}</b></span></div></Card>
-    </button>
-    <div className="m238m-grid m238m-home-kpis"><Metric label="Achievement" value={pct(achievement)} sub={overview.summary.status}/><Metric label="Gap ke Target" value={money.format(overview.summary.gap)} sub={overview.summary.gap>0?"Sisa ke target":"Target tercapai"}/><Metric label="CVR" value={pct(cvr)} sub="Traffic → transaksi"/><Metric label="UPT" value={overview.summary.upt.toFixed(1)} sub="Unit per transaksi"/></div>
-    <CategoryTargets accessories={overview.summary.accessories} vas={overview.summary.vas} accTarget={overview.target.accessories} vasTarget={overview.target.vas}/>
+    <Card className="m238m-hero m238m-home-hero">
+     <div className="m238m-hero-category-tabs" role="group" aria-label="Kategori penjualan">{categoryTabs.map(tab=><button key={tab.key} type="button" aria-pressed={category===tab.key} className={category===tab.key?"active":""} onClick={()=>setCategory(tab.key)}>{tab.label}</button>)}</div>
+     <div className="m238m-hero-title"><span>{categoryLabel}</span>{category==="amount"?<button type="button" className="m238m-hero-detail" onClick={onOpenSalesDetail} aria-label="Lihat detail Total Sales"><ChevronRight size={18}/></button>:null}</div>
+     <strong>{money.format(categorySales)}</strong><p>{hasCategoryTarget?`${pct(categoryAchievement)} dari Target`:"Target belum diisi"}</p><Progress value={categoryAchievement}/>
+     <div className="m238m-hero-meta"><span>Target <b>{hasCategoryTarget?money.format(categoryTarget):"Belum diisi"}</b></span><span>{periodMode==="month"?(category==="amount"?"Point Store":`Point ${categoryLabel}`):"Periode"} <b>{periodMode==="month"?categoryPoint.toFixed(1):overview.label}</b></span></div>
+    </Card>
+    <div className="m238m-grid m238m-home-kpis"><Metric label={`Achievement${category==="amount"?"":` ${categoryLabel}`}`} value={hasCategoryTarget?pct(categoryAchievement):"—"} sub={!hasCategoryTarget?"Target belum diisi":categoryAchievement>=100?"Target tercapai":"Need Push"}/><Metric label={`Gap${category==="amount"?" ke Target":` ${categoryLabel}`}`} value={hasCategoryTarget?money.format(categoryGap):"—"} sub={!hasCategoryTarget?"Target belum diisi":categoryGap>0?"Sisa ke target":"Target tercapai"}/><Metric label="CVR" value={pct(cvr)} sub="Traffic → transaksi • Total toko"/><Metric label="UPT" value={overview.summary.upt.toFixed(1)} sub="Unit per transaksi • Total toko"/></div>
     <ClosingNeeds overview={overview}/>
     <div className="m238m-section-head"><h2>Notifikasi Penting</h2><span>{homeAlerts.length+categoryAttention.length+(followStaff?1:0)} item</span></div>
     {homeAlerts.length?<div className="m238m-home-alerts">{homeAlerts.map(alert=><Card key={alert.key} className="m238m-home-alert"><Bell size={18}/><div><strong>{alert.title}</strong><small>{alert.detail}</small></div></Card>)}</div>:null}

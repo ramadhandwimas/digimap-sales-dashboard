@@ -224,6 +224,12 @@ export const mobileDashboardCss=`
 .m238m-theme-choice[data-preview="bumblebee"] .m238m-theme-preview{
   background:linear-gradient(145deg,#f6c90e,#232b31)!important;
 }
+.m238m-hero-category-tabs{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:3px;padding:4px;margin-bottom:16px;border-radius:12px;background:rgba(0,0,0,.14)}
+.m238m-hero-category-tabs button{min-width:0;border:0;border-radius:9px;padding:10px 3px;color:#fff;background:transparent;font-size:12px;font-weight:800;cursor:pointer}
+.m238m-hero-category-tabs button.active{background:#fff;color:#1559c6;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+.m238m-hero-category-tabs button:focus-visible,.m238m-hero-detail:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.m238m-hero-detail{border:0;background:transparent;color:inherit;padding:4px;display:grid;place-items:center;cursor:pointer}
+.m238m-home-kpis .m238m-metric>strong{font-size:clamp(13px,3.65vw,20px);letter-spacing:-.04em;white-space:nowrap}
 .m238m-category-targets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .m238m-category-target{min-width:0;padding:14px}
 .m238m-category-target-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px}
