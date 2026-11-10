@@ -1,0 +1,35 @@
+"use client";
+import {useEffect,useRef,useState} from "react";
+import {ArrowDown,ArrowUp,Download,ImagePlus,Trash2} from "lucide-react";
+import {prepareReceipt,exportPettyCashPdf,type ReceiptPhoto} from "@/lib/petty-cash-pdf";
+import type {PettyCash} from "@/lib/petty-cash";
+export default function PettyCashReceipts({data,photos,onChange,onExported,onBusy}:{data:PettyCash;photos:ReceiptPhoto[];onChange:(photos:ReceiptPhoto[])=>void;onExported:()=>void;onBusy:(busy:boolean)=>void}){
+ const[busy,setBusy]=useState(false),[status,setStatus]=useState(""),[error,setError]=useState(""),[result,setResult]=useState<{blob:Blob;url:string;name:string}|null>(null);
+ const resultRef=useRef(result);resultRef.current=result;
+ useEffect(()=>{setResult(previous=>{if(previous)URL.revokeObjectURL(previous.url);return null});setStatus("")},[data,photos]);
+ useEffect(()=>()=>{if(resultRef.current)URL.revokeObjectURL(resultRef.current.url)},[]);
+ const lock=(value:boolean)=>{setBusy(value);onBusy(value)};
+ const clearResult=()=>{if(resultRef.current)URL.revokeObjectURL(resultRef.current.url);setResult(null)};
+ const change=(next:ReceiptPhoto[])=>{clearResult();onChange(next)};
+ const upload=async(files:File[])=>{
+  if(!files.length||busy)return;if(photos.length+files.length>24){setError("Maksimal 24 foto dalam satu PDF. Kurangi foto yang dipilih.");return}
+  lock(true);setError("");clearResult();const added:ReceiptPhoto[]=[],failed:string[]=[];
+  try{for(let i=0;i<files.length;i++){setStatus(`Menyiapkan foto ${i+1}/${files.length}…`);try{const blob=await prepareReceipt(files[i]);added.push({id:crypto.randomUUID(),name:files[i].name,pcv:String(photos.length+added.length+1),blob,url:URL.createObjectURL(blob)})}catch(error){failed.push(error instanceof Error?error.message:"Foto gagal dibaca.")}}
+   onChange([...photos,...added]);setStatus(`${photos.length+added.length} foto siap dilampirkan.`);if(failed.length)setError(failed.join(" "));
+  }finally{lock(false)}
+ };
+ const download=(file:{url:string;name:string})=>{const anchor=document.createElement("a");anchor.href=file.url;anchor.download=file.name;anchor.click();onExported()};
+ const createPdf=async()=>{
+  if(busy)return;lock(true);setError("");clearResult();
+  try{const blob=await exportPettyCashPdf(data,photos,setStatus),name=`PC-M238-${(data.pcrs||data.date||"draft").replace(/[^a-zA-Z0-9_-]/g,"-")}.pdf`,file={blob,url:URL.createObjectURL(blob),name};setResult(file);download(file);setStatus(`PDF gabungan siap · ${(blob.size/1_000_000).toFixed(2)} MB · ${photos.length} foto.`)}catch(error){setStatus("");setError(error instanceof Error?error.message:"PDF belum dapat dibuat.")}finally{lock(false)}
+ };
+ return <section className="pc-receipts pc-no-print" aria-label="Bukti pembelian">
+  <div className="pc-receipt-head"><div><h2>Bukti Pembelian</h2><p>Upload foto, lalu gabungkan ringkasan dan semua bukti menjadi satu PDF maksimal 2 MB.</p></div><span>{photos.length}/24 foto</span></div>
+  <p className="pc-receipt-note">Isi tanggal, deskripsi, dan nominal pada tabel petty cash. Foto menjadi lampiran; periksa nomor PCV agar sesuai baris tabel.</p>
+  <label className={`pc-photo-upload ${busy?"pc-disabled":""}`}><ImagePlus size={22}/><strong>Tambah foto bukti</strong><span>JPG, PNG, WebP, atau HEIC yang didukung perangkat · bisa pilih beberapa foto</span><input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple disabled={busy} aria-label="Upload foto bukti pembelian" onChange={event=>{const files=Array.from(event.target.files||[]);event.target.value="";void upload(files)}}/></label>
+  {photos.length?<ol className="pc-photo-list">{photos.map((photo,index)=><li key={photo.id}><img src={photo.url} alt={`Bukti pembelian ${index+1}`}/><div className="pc-photo-meta"><strong>{photo.name}</strong><label>PCV No.<input value={photo.pcv} aria-label={`PCV foto ${index+1}`} disabled={busy} maxLength={30} onChange={event=>change(photos.map(item=>item.id===photo.id?{...item,pcv:event.target.value}:item))}/></label><small>Halaman bukti {index+1}</small></div><div className="pc-photo-actions"><button aria-label={`Pindahkan foto ${index+1} ke atas`} disabled={busy||index===0} onClick={()=>{const next=[...photos];[next[index-1],next[index]]=[next[index],next[index-1]];change(next)}}><ArrowUp size={15}/></button><button aria-label={`Pindahkan foto ${index+1} ke bawah`} disabled={busy||index===photos.length-1} onClick={()=>{const next=[...photos];[next[index+1],next[index]]=[next[index],next[index+1]];change(next)}}><ArrowDown size={15}/></button><button aria-label={`Hapus foto ${index+1}`} disabled={busy} onClick={()=>{URL.revokeObjectURL(photo.url);change(photos.filter(item=>item.id!==photo.id))}}><Trash2 size={15}/></button></div></li>)}</ol>:null}
+  <div className="pc-receipt-download"><button type="button" className="pc-primary" disabled={busy} onClick={()=>void createPdf()}><Download size={18}/>{busy?"Memproses…":"Unduh PDF Gabungan · Maks. 2 MB"}</button>{result?<a href={result.url} download={result.name} onClick={()=>onExported()}>Unduh lagi ({(result.blob.size/1_000_000).toFixed(2)} MB)</a>:null}</div>
+  {status?<p className="pc-receipt-status" role="status">{status}</p>:null}{error?<p className="pc-notice pc-error" role="alert">{error}</p>:null}
+  <p className="pc-receipt-note">Foto diproses di perangkat dan tidak ikut Simpan Draft. Unduh PDF gabungan sebelum meninggalkan halaman. Jika browser tidak langsung mengunduh, tekan Unduh lagi.</p>
+ </section>;
+}

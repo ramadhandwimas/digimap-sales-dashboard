@@ -1,7 +1,10 @@
 "use client";
+import dynamic from "next/dynamic";
+import type {ReceiptPhoto} from "@/lib/petty-cash-pdf";
 import {useEffect,useRef,useState} from "react";
 import {ArrowLeft,Plus,Printer,Save,Wallet} from "lucide-react";
 import {CASH_CATEGORIES,CASH_LABELS,cashTotals,emptyCashRow,emptyPettyCash,validatePettyCash,type CashRecord,type CashRow,type PettyCash} from "@/lib/petty-cash";
+const PettyCashReceipts=dynamic(()=>import("@/components/petty-cash-receipts"));
 const money=(value:number)=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(value);
 const dateText=(value:string)=>value?new Date(`${value}T00:00:00Z`).toLocaleDateString("id-ID",{timeZone:"UTC",day:"2-digit",month:"long",year:"numeric"}):"";
 function FormInput({label,value,onChange,type="text",numeric=false}:{label:string;value:string;onChange:(value:string)=>void;type?:string;numeric?:boolean}){
@@ -9,14 +12,19 @@ function FormInput({label,value,onChange,type="text",numeric=false}:{label:strin
 }
 export default function PettyCashWorkspace(){
  const[data,setData]=useState<PettyCash>(emptyPettyCash),[records,setRecords]=useState<CashRecord[]>([]),[id,setId]=useState(""),[revision,setRevision]=useState(""),[dirty,setDirty]=useState(false),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[ready,setReady]=useState(false),[error,setError]=useState(""),[note,setNote]=useState("");
+ const[photos,setPhotos]=useState<ReceiptPhoto[]>([]),[photoBusy,setPhotoBusy]=useState(false),[photoUnsaved,setPhotoUnsaved]=useState(false);
+ const photoRef=useRef(photos);photoRef.current=photos;
+ useEffect(()=>()=>photoRef.current.forEach(photo=>URL.revokeObjectURL(photo.url)),[]);
+ const clearPhotos=()=>{photos.forEach(photo=>URL.revokeObjectURL(photo.url));setPhotos([]);setPhotoUnsaved(false)};
+ const working=saving||photoBusy;
  const pending=useRef<{fingerprint:string;revision:string}|null>(null);
  useEffect(()=>{const controller=new AbortController();fetch("/api/spv/petty-cash",{cache:"no-store",signal:controller.signal}).then(async response=>{const json=await response.json();if(!response.ok)throw Error(json.error||"Draft gagal dimuat.");setRecords(json.records);setReady(true);setId(crypto.randomUUID())}).catch(error=>{if(error.name!=="AbortError")setError(error.message)}).finally(()=>{if(!controller.signal.aborted)setLoading(false)});return()=>controller.abort()},[]);
- useEffect(()=>{if(!dirty)return;const prevent=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue=""};window.addEventListener("beforeunload",prevent);return()=>window.removeEventListener("beforeunload",prevent)},[dirty]);
+ useEffect(()=>{if(!dirty&&!photoUnsaved)return;const prevent=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue=""};window.addEventListener("beforeunload",prevent);return()=>window.removeEventListener("beforeunload",prevent)},[dirty,photoUnsaved]);
  const update=(key:keyof Omit<PettyCash,"rows">,value:string)=>{setData(previous=>({...previous,[key]:value}));setDirty(true);setNote("")};
  const updateRow=(index:number,key:keyof CashRow,value:string)=>{setData(previous=>({...previous,rows:previous.rows.map((row,i)=>i===index?{...row,[key]:value}:row)}));setDirty(true);setNote("")};
- const canLeave=()=>!dirty||window.confirm("Ada isian yang belum disimpan. Lanjut tanpa menyimpan perubahan ini?");
- const newDraft=()=>{if(!canLeave())return;setData(emptyPettyCash());setId(crypto.randomUUID());setRevision("");setDirty(false);setNote("");setError("")};
- const open=(value:string)=>{if(!value||!canLeave())return;const record=records.find(row=>row.id===value);if(!record)return;setData(record.data);setId(record.id);setRevision(record.revision);setDirty(false);setError("");setNote(`Draft terakhir disimpan oleh ${record.updatedBy}.`)};
+ const canLeave=()=>!working&&((!dirty&&!photoUnsaved)||window.confirm("Ada isian atau foto yang belum disimpan/diunduh. Lanjut dan tinggalkan perubahan ini?"));
+ const newDraft=()=>{if(!canLeave())return;clearPhotos();setData(emptyPettyCash());setId(crypto.randomUUID());setRevision("");setDirty(false);setNote("");setError("")};
+ const open=(value:string)=>{if(!value||!canLeave())return;const record=records.find(row=>row.id===value);if(!record)return;clearPhotos();setData(record.data);setId(record.id);setRevision(record.revision);setDirty(false);setError("");setNote(`Draft terakhir disimpan oleh ${record.updatedBy}.`)};
  let totals:ReturnType<typeof cashTotals>|null=null,validation="";
  try{totals=cashTotals(data)}catch(error){validation=error instanceof Error?error.message:"Nominal tidak valid."}
  const save=async(asNew=false)=>{
@@ -34,9 +42,10 @@ export default function PettyCashWorkspace(){
   {note?<p role="status" className="pc-notice pc-success">{note}</p>:null}
   {!loading&&!ready?<button className="pc-button pc-no-print" onClick={()=>window.location.reload()}>Coba lagi</button>:null}
   {ready?<>
-   <div className="pc-toolbar pc-no-print"><div><b>Petty Cash Replenishment</b><small>{dirty?"Ada perubahan belum disimpan":revision?"Draft tersimpan":"Form baru · belum ada transaksi"}</small></div><div className="pc-actions"><button disabled={saving} onClick={newDraft}><Plus size={17}/>Form kosong</button><button disabled={saving} onClick={()=>void save()} className="pc-primary"><Save size={17}/>{saving?"Menyimpan…":"Simpan Draft"}</button><button disabled={saving||!!validation} onClick={()=>window.print()}><Printer size={17}/>Cetak / PDF</button></div></div>
-   <div className="pc-drafts pc-no-print"><label>Buka draft tersimpan<select aria-label="Buka draft tersimpan" value={revision?id:""} disabled={saving} onChange={event=>open(event.target.value)}><option value="">Pilih draft…</option>{records.map(record=><option key={record.id} value={record.id}>{record.data.pcrs?`PCRS ${record.data.pcrs}`:"Tanpa nomor PCRS"} · {record.data.date?dateText(record.data.date):"Tanpa tanggal"} · {new Date(record.updatedAt).toLocaleString("id-ID",{timeZone:"Asia/Jakarta"})} WIB</option>)}</select></label>{dirty&&revision?<button disabled={saving} onClick={()=>void save(true)}>Simpan sebagai draft baru</button>:null}</div>
-   <fieldset className="pc-form" disabled={saving}><legend className="pc-sr-only">Form petty cash M238</legend>
+   <div className="pc-toolbar pc-no-print"><div><b>Petty Cash Replenishment</b><small>{dirty?"Ada perubahan belum disimpan":revision?"Draft tersimpan":"Form baru · belum ada transaksi"}</small></div><div className="pc-actions"><button disabled={working} onClick={newDraft}><Plus size={17}/>Form kosong</button><button disabled={working} onClick={()=>void save()} className="pc-primary"><Save size={17}/>{saving?"Menyimpan…":"Simpan Draft"}</button><button disabled={working||!!validation} onClick={()=>window.print()}><Printer size={17}/>Cetak Ringkasan</button></div></div>
+   <div className="pc-drafts pc-no-print"><label>Buka draft tersimpan<select aria-label="Buka draft tersimpan" value={revision?id:""} disabled={working} onChange={event=>open(event.target.value)}><option value="">Pilih draft…</option>{records.map(record=><option key={record.id} value={record.id}>{record.data.pcrs?`PCRS ${record.data.pcrs}`:"Tanpa nomor PCRS"} · {record.data.date?dateText(record.data.date):"Tanpa tanggal"} · {new Date(record.updatedAt).toLocaleString("id-ID",{timeZone:"Asia/Jakarta"})} WIB</option>)}</select></label>{dirty&&revision?<button disabled={working} onClick={()=>void save(true)}>Simpan sebagai draft baru</button>:null}</div>
+   <PettyCashReceipts data={data} photos={photos} onChange={next=>{setPhotos(next);setPhotoUnsaved(next.length>0)}} onExported={()=>setPhotoUnsaved(false)} onBusy={setPhotoBusy}/>
+   <fieldset className="pc-form" disabled={working}><legend className="pc-sr-only">Form petty cash M238</legend>
     <div className="pc-paper">
      <h2>PETTY CASH REPLENISHMENT SUMMARY</h2>
      <div className="pc-form-header"><dl className="pc-store"><div><dt>Store Name</dt><dd>Digimap</dd></div><div><dt>Store Code</dt><dd>M238</dd></div><div><dt>Location</dt><dd>Pondok Indah Mall 2</dd></div></dl><div className="pc-document-meta"><FormInput label="PCRS No." value={data.pcrs} onChange={value=>update("pcrs",value)}/><FormInput label="Date" type="date" value={data.date} onChange={value=>update("date",value)}/><div className="pc-received"><strong>Received by Cash Management</strong><FormInput label="Received Date" type="date" value={data.receivedDate} onChange={value=>update("receivedDate",value)}/></div></div></div>
