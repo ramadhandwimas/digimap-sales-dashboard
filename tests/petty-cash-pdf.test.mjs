@@ -16,8 +16,8 @@ test('oversized PDFs are rejected after bounded compression attempts',async()=>{
 });
 test('summary preserves all expense rows across pages and PDF starts with a landscape cover',()=>{
  const data=cash.emptyPettyCash();data.rows[0].description='Tinta printer';data.rows[0].stationery='181.544';
- const doc=pdf.drawPettyCashPdf(new jsPDF({orientation:'landscape',unit:'mm',format:'a4',compress:true}),data,[]);
- assert.equal(doc.getNumberOfPages(),1);assert.ok(doc.getPageWidth()>doc.getPageHeight());assert.ok(doc.output('arraybuffer').byteLength<2_000_000);
+ const doc=pdf.drawPettyCashPdf(new jsPDF({orientation:'landscape',unit:'mm',format:'a4',compress:false}),data,[]);
+ assert.match(doc.output(),/Rp500.000/);assert.match(doc.output(),/Rp318.456/);assert.equal(doc.getNumberOfPages(),1);assert.ok(doc.getPageWidth()>doc.getPageHeight());assert.ok(doc.output('arraybuffer').byteLength<2_000_000);
  const many={...data,rows:Array.from({length:40},(_,i)=>({...cash.emptyCashRow(),description:`Biaya nomor ${i+1} `+'rincian '.repeat(12),stationery:'10.000'}))};
  const multi=pdf.drawPettyCashPdf(new jsPDF({orientation:'landscape',unit:'mm',format:'a4'}),many,[]),text=multi.output();
  assert.ok(multi.getNumberOfPages()>1);assert.match(text,/Biaya nomor 40/);assert.match(text,/Rp400.000/);

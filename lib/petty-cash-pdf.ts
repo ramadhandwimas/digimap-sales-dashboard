@@ -1,5 +1,5 @@
 import type {jsPDF} from "jspdf";
-import {CASH_CATEGORIES,CASH_LABELS,cashTotals,validatePettyCash,type PettyCash} from "./petty-cash";
+import {PETTY_CASH_FUND,CASH_CATEGORIES,CASH_LABELS,cashTotals,validatePettyCash,type PettyCash} from "./petty-cash";
 export const PETTY_PDF_LIMIT=2_000_000;
 export type ReceiptPhoto={id:string;name:string;pcv:string;blob:Blob;url:string};
 export type PdfPhoto={data:Uint8Array;width:number;height:number;pcv:string;name:string};
@@ -33,7 +33,7 @@ export function drawPettyCashPdf(doc:jsPDF,input:PettyCash,photos:PdfPhoto[]){
  // The fixed footer leaves room for readable signatures on every final summary page.
  const footer=y,leftWidth=105,financeWidth=64,requestWidth=104;
  doc.rect(margin,footer,width,44);doc.line(margin+leftWidth,footer,margin+leftWidth,footer+44);
- const summary=[["Grand Total",money(totals.grandTotal)],["Payment (Round)",money(totals.payment)],["Petty Cash Fund",data.fund?money(Number(data.fund.replace(/\./g,""))):""],["PC in proses",data.inProcess?money(Number(data.inProcess.replace(/\./g,""))):""],["Sisa Saldo",money(totals.balance)]];
+ const summary=[["Grand Total",money(totals.grandTotal)],["Payment (Round)",money(totals.payment)],["Petty Cash Fund",money(PETTY_CASH_FUND)],["PC in Proses",""],["Sisa Saldo",money(totals.balance)]];
  summary.forEach(([label,value],i)=>{text(label,15,footer+4+i*5,7,true);fit(value,114,footer+4+i*5,63,7,true,"right");doc.line(12,footer+6+i*5,117,footer+6+i*5)});
  text("Distribution:",15,footer+32,6,true);text("1. Original: Attached to PCRS",15,footer+37,6);text("2. Copy: file",15,footer+41,6);
  const financeX=margin+leftWidth,requestX=financeX+financeWidth;

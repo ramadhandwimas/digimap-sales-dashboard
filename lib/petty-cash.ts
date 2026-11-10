@@ -1,3 +1,4 @@
+export const PETTY_CASH_FUND = 500_000;
 export const CASH_CATEGORIES = ["transport", "freight", "stationery", "bankCharge", "sundries"] as const;
 export const CASH_LABELS = {transport:"Transport",freight:"Freight",stationery:"Stationery",bankCharge:"Bank Chg",sundries:"Sundries"};
 export type CashCategory = typeof CASH_CATEGORIES[number];
@@ -5,7 +6,7 @@ export type CashRow = {date:string;pcv:string;description:string} & Record<CashC
 export type PettyCash = {pcrs:string;date:string;receivedDate:string;fund:string;inProcess:string;payment:string;preparedBy:string;approvedBy:string;rh:string;rows:CashRow[]};
 export type CashRecord = {id:string;revision:string;updatedAt:string;updatedBy:string;data:PettyCash};
 export const emptyCashRow = ():CashRow => ({date:"",pcv:"",description:"",transport:"",freight:"",stationery:"",bankCharge:"",sundries:""});
-export const emptyPettyCash = ():PettyCash => ({pcrs:"",date:"",receivedDate:"",fund:"",inProcess:"",payment:"",preparedBy:"",approvedBy:"",rh:"",rows:Array.from({length:14},emptyCashRow)});
+export const emptyPettyCash = ():PettyCash => ({pcrs:"",date:"",receivedDate:"",fund:String(PETTY_CASH_FUND),inProcess:"",payment:"",preparedBy:"",approvedBy:"",rh:"",rows:Array.from({length:14},emptyCashRow)});
 export function cashAmount(value:string) {
  if(!value.trim()) return 0;
  if(!/^\d+(?:\.\d{3})*$/.test(value.trim())&&!/^\d+$/.test(value.trim())) throw Error("Nominal harus berupa rupiah bulat, contoh 181544 atau 181.544.");
@@ -21,6 +22,7 @@ export function validatePettyCash(input:unknown):PettyCash {
   if(typeof raw[key]!=="string"||raw[key].length>100)throw Error("Isian header tidak valid.");
   data[key]=raw[key].trim();
  }
+ data.fund=String(PETTY_CASH_FUND);data.inProcess="";
  if(!validDate(data.date)||!validDate(data.receivedDate))throw Error("Tanggal header tidak valid.");
  for(const key of ["fund","inProcess","payment"] as const)cashAmount(data[key]);
  if(!Array.isArray(raw.rows)||raw.rows.length<1||raw.rows.length>100)throw Error("Jumlah baris harus 1–100.");
@@ -38,7 +40,7 @@ export function validatePettyCash(input:unknown):PettyCash {
 export function cashTotals(data:PettyCash){
  const categories=Object.fromEntries(CASH_CATEGORIES.map(key=>[key,data.rows.reduce((sum,row)=>sum+cashAmount(row[key]),0)])) as Record<CashCategory,number>;
  const grandTotal=Object.values(categories).reduce((sum,value)=>sum+value,0),payment=data.payment.trim()?cashAmount(data.payment):grandTotal;
- return {categories,grandTotal,payment,balance:cashAmount(data.fund)-payment-cashAmount(data.inProcess)};
+ return {categories,grandTotal,payment,balance:PETTY_CASH_FUND-payment};
 }
 export function latestCashRecords(rows:unknown[][]):CashRecord[]{
  const records=new Map<string,CashRecord>();
