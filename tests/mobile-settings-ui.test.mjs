@@ -43,16 +43,21 @@ test('Settings opens independent tool pages, locks back while working, and group
  await act(async()=>view.unmount());
 });
 
-test('More exposes data checks and activity as separate lightweight pages',async()=>{
+test('More groups tools and preserves the originating category through nested checks',async()=>{
  let view;await act(async()=>{view=create(React.createElement(More,{theme:'classic',motion:'smooth',motionStyle:'clean',font:'system',onTheme:()=>{},onMotion:()=>{},onMotionStyle:()=>{},onFont:()=>{},onAction:()=>{}}))});
  try{
-  assert.ok(button(view,'Cek Masalah Data'));
-  assert.ok(button(view,'Riwayat Aktivitas'));
+  assert.equal(button(view,'Cek Masalah Data'),undefined);
+  assert.equal(button(view,'Riwayat Aktivitas'),undefined);
+  assert.ok(button(view,'Data Penjualan'));assert.ok(button(view,'Stok Toko'));assert.ok(button(view,'Team & Aktivitas'));
+  await act(async()=>button(view,'Settings').props.onClick());
   await act(async()=>button(view,'Cek Masalah Data').props.onClick());
   assert.equal(text(view.root.findByType('h1')),'Cek Masalah Data');
   assert.equal(view.root.findAllByType('tool-page').length,1);
-  assert.equal(view.root.findByProps({'aria-label':'Kembali ke More'}).props.disabled,false);
-  await act(async()=>view.root.findByProps({'aria-label':'Kembali ke More'}).props.onClick());
+  assert.equal(view.root.findByProps({'aria-label':'Kembali ke Settings'}).props.disabled,false);
+  await act(async()=>view.root.findByType('tool-page').props.onOpen('spw-upload'));
+  assert.equal(text(view.root.findByType('h1')),'Upload SPW');
+  await act(async()=>view.root.findByProps({'aria-label':'Kembali ke Cek Masalah Data'}).props.onClick());
+  await act(async()=>view.root.findByProps({'aria-label':'Kembali ke Settings'}).props.onClick());
   await act(async()=>button(view,'Riwayat Aktivitas').props.onClick());
   assert.equal(text(view.root.findByType('h1')),'Riwayat Aktivitas');
   assert.equal(view.root.findAllByType('tool-page').length,1);
@@ -107,37 +112,50 @@ test('pricelist menus pass separate Device and Accessories/VAS scopes to the che
  }
 });
 
-test('Settings exposes invoice exchange/cancel checking and blocks back navigation while it is running',async()=>{
+test('Data Penjualan exposes invoice exchange/cancel checking and blocks back navigation while it is running',async()=>{
  let view;await act(async()=>{view=create(React.createElement(More,{theme:'classic',motion:'smooth',motionStyle:'clean',font:'system',onTheme:()=>{},onMotion:()=>{},onMotionStyle:()=>{},onFont:()=>{},onAction:()=>{}}))});
  try{
-  await act(async()=>button(view,'Settings').props.onClick());
+  await act(async()=>button(view,'Data Penjualan').props.onClick());
   await act(async()=>button(view,'Cek Invoice Exchange/Cancel').props.onClick());
   assert.equal(view.root.findAllByType('h1')[0].children.join(''),'Cek Invoice Exchange/Cancel');
   await act(async()=>view.root.findByType('tool-page').props.onBusyChange(true));
-  assert.equal(view.root.findByProps({'aria-label':'Kembali ke Settings'}).props.disabled,true);
+  assert.equal(view.root.findByProps({'aria-label':'Kembali ke Data Penjualan'}).props.disabled,true);
   await act(async()=>view.root.findByType('tool-page').props.onBusyChange(false));
-  assert.equal(view.root.findByProps({'aria-label':'Kembali ke Settings'}).props.disabled,false);
+  assert.equal(view.root.findByProps({'aria-label':'Kembali ke Data Penjualan'}).props.disabled,false);
  }finally{await act(async()=>view.unmount())}
 });
 
 
-test('Settings groups all desktop data actions and opens each missing tool as a separate mobile page',async()=>{
- let view;const busy=[];
- await act(async()=>{view=create(React.createElement(More,{theme:'classic',motion:'smooth',motionStyle:'clean',font:'system',onTheme:()=>{},onMotion:()=>{},onMotionStyle:()=>{},onFont:()=>{},onAction:()=>{},onBusyChange:v=>busy.push(v)}))});
+test('category tools return to their category, retain busy locks and preserve external actions',async()=>{
+ let view;const busy=[],actions=[];
+ await act(async()=>{view=create(React.createElement(More,{theme:'classic',motion:'smooth',motionStyle:'clean',font:'system',onTheme:()=>{},onMotion:()=>{},onMotionStyle:()=>{},onFont:()=>{},onAction:v=>actions.push(v),onBusyChange:v=>busy.push(v)}))});
  try{
-  await act(async()=>button(view,'Settings').props.onClick());
-  assert.deepEqual(view.root.findAllByType('h2').map(node=>text(node)),['Data Penjualan','Data Master','Stok Toko','Preferensi','Admin']);
-  for(const [label,tool] of [['Upload SPW','spw-upload'],['No Exchange Invoice',null],['Cut Off Data','cutoff'],['Clear SPW','spw-clear'],['Upload SOH','soh-upload'],['Clear SOH','soh-clear']]){
-   await act(async()=>button(view,label).props.onClick());
-   assert.equal(text(view.root.findByType('h1')),label);const page=view.root.findByType('tool-page');
-   if(tool)assert.equal(page.props.tool,tool);
-   await act(async()=>page.props.onBusyChange(true));assert.equal(view.root.findByProps({'aria-label':'Kembali ke Settings'}).props.disabled,true);
-   await act(async()=>page.props.onBusyChange(false));await act(async()=>view.root.findByProps({'aria-label':'Kembali ke Settings'}).props.onClick());
+  for(const [category,tools] of [
+   ['Data Penjualan',[['Upload SPW','spw-upload'],['No Exchange Invoice',null],['Cut Off Data','cutoff']]],
+   ['Stok Toko',[['Upload SOH','soh-upload']]],
+   ['Settings',[['Clear SPW','spw-clear'],['Clear SOH','soh-clear']]],
+  ]){
+   await act(async()=>button(view,category).props.onClick());
+   if(category==='Settings')assert.deepEqual(view.root.findAllByType('h2').map(text),['Data Master','Pemeriksaan & Riwayat','Preferensi','Admin']);
+   for(const [label,tool] of tools){
+    await act(async()=>button(view,label).props.onClick());
+    assert.equal(text(view.root.findByType('h1')),label);const page=view.root.findByType('tool-page');
+    if(tool)assert.equal(page.props.tool,tool);
+    await act(async()=>page.props.onBusyChange(true));const back=view.root.findByProps({'aria-label':`Kembali ke ${category}`});assert.equal(back.props.disabled,true);
+    await act(async()=>back.props.onClick());assert.equal(text(view.root.findByType('h1')),label);
+    await act(async()=>page.props.onBusyChange(false));await act(async()=>view.root.findByProps({'aria-label':`Kembali ke ${category}`}).props.onClick());
+   }
+   await act(async()=>view.root.findByProps({'aria-label':'Kembali ke More'}).props.onClick());
   }
-  assert.equal(busy.filter(Boolean).length,6);
+  for(const [category,labels] of [['Data Penjualan',['BNPL']],['Stok Toko',['SOH']],['Team & Aktivitas',['Feedback','CX & New Member','Incentive']]]){
+   await act(async()=>button(view,category).props.onClick());
+   for(const label of labels)await act(async()=>button(view,label).props.onClick());
+   assert.equal(text(view.root.findByType('h1')),category);
+   await act(async()=>view.root.findByProps({'aria-label':'Kembali ke More'}).props.onClick());
+  }
+  assert.deepEqual(actions,['bnpl','soh','add-feedback','add-cx','incentive']);assert.equal(busy.filter(Boolean).length,6);
  }finally{await act(async()=>view.unmount())}
 });
-
 
 test('compact version controls sit beside More heading and are absent from Settings and tool pages',async()=>{
  let view;await act(async()=>{view=create(React.createElement(More,{theme:'classic',motion:'smooth',motionStyle:'clean',font:'system',onTheme:()=>{},onMotion:()=>{},onMotionStyle:()=>{},onFont:()=>{},onAction:()=>{}}))});

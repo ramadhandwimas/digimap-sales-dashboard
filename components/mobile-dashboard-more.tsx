@@ -3,7 +3,7 @@ import {useCallback,useEffect,useRef,useState} from "react";
 import dynamic from "next/dynamic";
 import SpvMenuLink from "@/components/spv-menu-link";
 import MobileVersionSwitch from "@/components/mobile-version-switch";
-import StockRequestMd from "@/components/stock-request-md";
+const StockRequestMd=dynamic(()=>import("@/components/stock-request-md"));
 const AccessoryPricelistUpload=dynamic(()=>import("@/components/accessory-pricelist-upload"));
 const CopasInvoiceCheck=dynamic(()=>import("@/components/copas-invoice-check"));
 const DailySalesTools=dynamic(()=>import("@/components/m238-data-actions").then(module=>module.DailySalesDataActions));
@@ -21,17 +21,21 @@ type MotionPreset="instant"|"minimal"|"smooth"|"dynamic"|"cinematic";
 type MotionStyle="clean"|"ios-spring"|"glass-flow"|"playful-bounce"|"executive"|"stagger"|"blur"|"elastic"|"fade-up"|"zoom-soft"|"slide-flow"|"float";
 type FontPreset="system"|"rounded"|"compact"|"modern"|"editorial"|"tech"|"soft"|"bold"|"mono";
 
-type Screen="menu"|"settings"|"data-health"|"activity-history"|"login-history"|"m996-compile"|"stock-request"|"pricelist"|"device-pricelist"|"copas-repair"|"appearance"|"copas-invoices"|"exchange"|"spw-upload"|"cutoff"|"spw-clear"|"soh-upload"|"soh-clear";
+type Screen="sales-tools"|"stock-tools"|"team-tools"|"menu"|"settings"|"data-health"|"activity-history"|"login-history"|"m996-compile"|"stock-request"|"pricelist"|"device-pricelist"|"copas-repair"|"appearance"|"copas-invoices"|"exchange"|"spw-upload"|"cutoff"|"spw-clear"|"soh-upload"|"soh-clear";
 
 export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMotion,onMotionStyle,onFont,onAction,onBusyChange,onChanged}:{theme:ThemePreset;motion:MotionPreset;motionStyle:MotionStyle;font:FontPreset;onTheme:(v:ThemePreset)=>void;onMotion:(v:MotionPreset)=>void;onMotionStyle:(v:MotionStyle)=>void;onFont:(v:FontPreset)=>void;onAction:(action:string)=>void;onBusyChange?:(busy:boolean)=>void;onChanged?:()=>void|Promise<void>}){
  const[screen,setScreen]=useState<Screen>("menu"),[busy,setBusy]=useState(false);
+ const[trail,setTrail]=useState<Screen[]>([]);
  const headingRef=useRef<HTMLHeadingElement>(null);
  const changeBusy=useCallback((value:boolean)=>{setBusy(value);onBusyChange?.(value)},[onBusyChange]);
  useEffect(()=>{window.scrollTo({top:0,behavior:"instant"});headingRef.current?.focus({preventScroll:true})},[screen]);
- const navigate=(next:Screen)=>{if(!busy)setScreen(next)};
- const titles:Record<Screen,string>={"login-history":"Riwayat Login",menu:"More",settings:"Settings","data-health":"Cek Masalah Data","activity-history":"Riwayat Aktivitas","m996-compile":"Compile Data M996","stock-request":"Stock Request MD",pricelist:"Pricelist Aksesoris","device-pricelist":"Pricelist Device","copas-repair":"Perbaiki Data Copas",appearance:"Tampilan","copas-invoices":"Cek Invoice Exchange/Cancel",exchange:"No Exchange Invoice","spw-upload":"Upload SPW",cutoff:"Cut Off Data","spw-clear":"Clear SPW","soh-upload":"Upload SOH","soh-clear":"Clear SOH"};
- const subheading:Record<Screen,string>={"login-history":"Jumlah login staff per tanggal",menu:"Menu tambahan M238",settings:"Data master dan pengaturan dashboard","data-health":"Cari penyebab data kosong, N/A atau belum update","activity-history":"Upload dan perubahan data terbaru","m996-compile":"Detail penjualan khusus M996, tanpa M238","stock-request":"SOH, penjualan dan kebutuhan stok",pricelist:"Data Master / Accessories & VAS","device-pricelist":"Data Master / Apple Device","copas-repair":"Data Master / Perbaikan klasifikasi",appearance:"Tema, font dan animasi","copas-invoices":"Cek transaksi dan rapikan baris kosong",exchange:"Simpan nomor exchange, termasuk transaksi pending","spw-upload":"Penjualan M238 dan M996",cutoff:"Periksa dan simpan transaksi ke Data Copas","spw-clear":"Bersihkan data penjualan aktif","soh-upload":"Perbarui data stok toko","soh-clear":"Bersihkan data SOH aktif"};
- const pageHeader=(back:Screen)=><header className="m238-settings-heading"><button type="button" disabled={busy} onClick={()=>navigate(back)} aria-label={back==="settings"?"Kembali ke Settings":"Kembali ke More"}><ChevronLeft size={20}/></button><div><h1 ref={headingRef} tabIndex={-1}>{titles[screen]}</h1><p>{subheading[screen]}</p></div></header>;
+ const navigate=(next:Screen)=>{if(!busy){setTrail(previous=>[...previous,screen]);setScreen(next)}};
+ const goBack=(fallback:Screen)=>{if(!busy){setScreen(trail.at(-1)||fallback);setTrail(previous=>previous.slice(0,-1))}};
+ const titles:Record<Screen,string>={"sales-tools":"Data Penjualan","stock-tools":"Stok Toko","team-tools":"Team & Aktivitas","login-history":"Riwayat Login",menu:"More",settings:"Settings","data-health":"Cek Masalah Data","activity-history":"Riwayat Aktivitas","m996-compile":"Compile Data M996","stock-request":"Stock Request MD",pricelist:"Pricelist Aksesoris","device-pricelist":"Pricelist Device","copas-repair":"Perbaiki Data Copas",appearance:"Tampilan","copas-invoices":"Cek Invoice Exchange/Cancel",exchange:"No Exchange Invoice","spw-upload":"Upload SPW",cutoff:"Cut Off Data","spw-clear":"Clear SPW","soh-upload":"Upload SOH","soh-clear":"Clear SOH"};
+ const subheading:Record<Screen,string>={"sales-tools":"Upload, cutoff dan pengelolaan transaksi","stock-tools":"Stok tersedia, upload dan permintaan barang","team-tools":"Feedback, incentive dan akses staff","login-history":"Jumlah login staff per tanggal",menu:"Menu tambahan M238",settings:"Data master dan pengaturan dashboard","data-health":"Cari penyebab data kosong, N/A atau belum update","activity-history":"Upload dan perubahan data terbaru","m996-compile":"Detail penjualan khusus M996, tanpa M238","stock-request":"SOH, penjualan dan kebutuhan stok",pricelist:"Data Master / Accessories & VAS","device-pricelist":"Data Master / Apple Device","copas-repair":"Data Master / Perbaikan klasifikasi",appearance:"Tema, font dan animasi","copas-invoices":"Cek transaksi dan rapikan baris kosong",exchange:"Simpan nomor exchange, termasuk transaksi pending","spw-upload":"Penjualan M238 dan M996",cutoff:"Periksa dan simpan transaksi ke Data Copas","spw-clear":"Bersihkan data penjualan aktif","soh-upload":"Perbarui data stok toko","soh-clear":"Bersihkan data SOH aktif"};
+ const pageHeader=(fallback:Screen)=>{const back=trail.at(-1)||fallback;return <header className="m238-settings-heading"><button type="button" disabled={busy} onClick={()=>goBack(fallback)} aria-label={`Kembali ke ${titles[back]}`}><ChevronLeft size={20}/></button><div><h1 ref={headingRef} tabIndex={-1}>{titles[screen]}</h1><p>{subheading[screen]}</p></div></header>};
+ const openAction=(action:string)=>{if(Object.hasOwn(titles,action))navigate(action as Screen);else onAction(action)};
+
 
  const themes:{id:ThemePreset;name:string;desc:string}[]=[
   {id:"classic",name:"Classic iOS",desc:"Clean, ringan, familiar"},
@@ -52,19 +56,34 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  const activeTheme=themes.find(t=>t.id===theme);
 
 
- const items=[
-  {label:"Cek Masalah Data",sub:"Cari data kosong, N/A atau belum update",icon:Activity,action:"data-health"},
-  {label:"Riwayat Aktivitas",sub:"Lihat upload dan perubahan data terbaru",icon:History,action:"activity-history"},
-  {label:"Riwayat Login",sub:"Nama staff, jumlah login dan filter tanggal",icon:Users,action:"login-history"},
-  {label:"Compile Data M996",sub:"Ringkasan dan detail penjualan khusus M996",icon:Building2,action:"m996-compile"},
-  {label:"SOH",sub:"Cek stock on hand",icon:Box,action:"soh"},
-  {label:"Stock Request MD",sub:"Compile SOH, sales week & lost ke email",icon:Mail,action:"stock-request"},
-  {label:"BNPL",sub:"BNPL & Trade-In",icon:CreditCard,action:"bnpl"},
-  {label:"Feedback",sub:"Input feedback staff",icon:MessageCircle,action:"add-feedback"},
-  {label:"CX & New Member",sub:"Input CX dan member",icon:Users,action:"add-cx"},
-  {label:"Incentive",sub:"Estimasi incentive staff",icon:WalletCards,action:"incentive"},
-  {label:"Settings",sub:"Pricelist, perbaikan data dan tampilan",icon:Settings,action:"settings"},
+ const categories=[
+  {label:"Data Penjualan",sub:"SPW, cutoff, exchange dan BNPL",icon:ReceiptText,action:"sales-tools"},
+  {label:"Stok Toko",sub:"SOH dan permintaan stok MD",icon:Box,action:"stock-tools"},
+  {label:"Team & Aktivitas",sub:"Feedback, member, incentive dan login",icon:Users,action:"team-tools"},
+  {label:"Settings",sub:"Data master, pemeriksaan dan tampilan",icon:Settings,action:"settings"},
  ] as const;
+ const categoryItems={
+  "sales-tools":[
+   ["spw-upload","Upload SPW","Penjualan M238 dan M996",Upload],
+   ["cutoff","Cut Off Data","Periksa sebelum disimpan ke Data Copas",CalendarCheck],
+   ["exchange","No Exchange Invoice","Nomor exchange atau transaksi pending",ReceiptText],
+   ["copas-invoices","Cek Invoice Exchange/Cancel","Periksa transaksi dan rapikan baris",FileSpreadsheet],
+   ["m996-compile","Compile Data M996","Ringkasan penjualan khusus M996",Building2],
+   ["bnpl","BNPL","BNPL & Trade-In",CreditCard],
+  ],
+  "stock-tools":[
+   ["soh","SOH","Cek stock on hand",Box],
+   ["soh-upload","Upload SOH","Perbarui data stok toko",Upload],
+   ["stock-request","Stock Request MD","Compile SOH, sales week & lost ke email",Mail],
+  ],
+  "team-tools":[
+   ["add-feedback","Feedback","Input feedback staff",MessageCircle],
+   ["add-cx","CX & New Member","Input CX dan member",Users],
+   ["incentive","Incentive","Estimasi incentive staff",WalletCards],
+   ["login-history","Riwayat Login","Aktivitas akses staff dan filter tanggal",History],
+  ],
+ } as const;
+ if(screen==="sales-tools"||screen==="stock-tools"||screen==="team-tools")return <div className="m238-settings">{pageHeader("menu")}<div className="m238-settings-list">{categoryItems[screen].map(([action,title,description,Icon])=><button type="button" key={action} onClick={()=>openAction(action)}><span className="m238-settings-icon"><Icon size={19}/></span><span className="m238-settings-copy"><strong>{title}</strong><small>{description}</small></span><ChevronRight size={18}/></button>)}</div></div>;
 
  if(screen==="stock-request")return <div className="m238-settings">{pageHeader("menu")}<StockRequestMd/></div>;
  if(screen==="data-health")return <div className="m238-settings m238-settings-tool">{pageHeader("menu")}<DataHealthCenter onOpen={action=>navigate(action as Screen)}/></div>;
@@ -95,18 +114,12 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
 
  if(screen==="settings")return <div className="m238-settings">{pageHeader("menu")}
   {([
-   ["Data Penjualan",[
-    ["spw-upload","Upload SPW","Pilih M238 atau M996, hasil digabung",Upload],
-    ["exchange","No Exchange Invoice","Simpan nomor exchange atau transaksi pending",ReceiptText],
-    ["copas-invoices","Cek Invoice Exchange/Cancel","Cek kolom Y, hapus transaksi dan rapikan baris",ReceiptText],
-    ["cutoff","Cut Off Data","Cek transaksi sebelum disimpan ke Data Copas",CalendarCheck],
-   ]],
    ["Data Master",[
     ["pricelist","Pricelist Aksesoris","Tambah Accessories dan VAS ke Master",FileSpreadsheet],
     ["device-pricelist","Pricelist Device","Tambah unit baru dan klasifikasi",Smartphone],
     ["copas-repair","Perbaiki Data Copas","Cek dan perbaiki N/A dari Master",WandSparkles],
    ]],
-   ["Stok Toko",[["soh-upload","Upload SOH","Perbarui stock on hand",Box]]],
+   ["Pemeriksaan & Riwayat",[["data-health","Cek Masalah Data","Cari data kosong, N/A atau belum update",Activity],["activity-history","Riwayat Aktivitas","Upload dan perubahan data terbaru",History]]],
   ] as const).map(([group,rows])=><section className="m238-settings-group" key={group}><h2>{group}</h2><div className="m238-settings-list">{rows.map(([next,title,description,Icon])=><button type="button" key={next} onClick={()=>navigate(next)}><span className="m238-settings-icon"><Icon size={19}/></span><span className="m238-settings-copy"><strong>{title}</strong><small>{description}</small></span><ChevronRight size={18}/></button>)}</div></section>)}
   <section className="m238-settings-group"><h2>Preferensi</h2><div className="m238-settings-list"><button type="button" onClick={()=>navigate("appearance")}><span className="m238-settings-icon"><Palette size={19}/></span><span className="m238-settings-copy"><strong>Tampilan</strong><small>{activeTheme?.name||theme} · {fontLabels[font]} · {motionLabels[motion]}</small></span><ChevronRight size={18}/></button></div></section>
   <section className="m238-settings-group m238-settings-admin"><h2>Admin</h2><p className="m238-settings-hint">Memerlukan passcode admin dan konfirmasi.</p><div className="m238-settings-list">{([["spw-clear","Clear SPW","Kosongkan SPW aktif"],["soh-clear","Clear SOH","Kosongkan stok aktif"]] as const).map(([next,title,description])=><button type="button" key={next} onClick={()=>navigate(next)}><span className="m238-settings-icon"><Trash2 size={19}/></span><span className="m238-settings-copy"><strong>{title}</strong><small>{description}</small></span><ChevronRight size={18}/></button>)}</div></section>
@@ -114,15 +127,16 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
  </div>;
 
  return <div className="m238m-more m238m-more-direct">
-  <div className="m238-more-heading"><div className="m238m-more-title"><strong>More</strong><span>Menu tambahan M238</span></div><MobileVersionSwitch value="new" compact disabled={busy}/></div>
-  <div className="m238m-direct-menu">
-   <SpvMenuLink/>
-   {items.map(({label,sub,icon:Icon,action})=><button key={action} onClick={()=>action==="login-history"?navigate("login-history"):action==="settings"?navigate("settings"):action==="stock-request"?navigate("stock-request"):action==="data-health"?navigate("data-health"):action==="activity-history"?navigate("activity-history"):action==="m996-compile"?navigate("m996-compile"):onAction(action)}>
+  <div className="m238-more-heading"><div className="m238m-more-title"><strong>More</strong><span>Pilih kategori menu</span></div><MobileVersionSwitch value="new" compact disabled={busy}/></div>
+  <div className="m238m-direct-menu m238-more-categories">
+   {categories.map(({label,sub,icon:Icon,action})=><button type="button" key={action} onClick={()=>navigate(action)}>
     <span className="m238m-direct-icon"><Icon size={19}/></span>
     <span className="m238m-direct-copy"><strong>{label}</strong><small>{sub}</small></span>
     <ChevronRight size={18}/>
    </button>)}
-   <button className="m238m-logout-row" onClick={()=>void fetch("/api/auth/logout",{method:"POST"}).finally(()=>{window.location.href="/login"})}>
+   <SpvMenuLink/>
+  </div>
+  <div className="m238m-direct-menu m238-more-account"><button type="button" className="m238m-logout-row" onClick={()=>void fetch("/api/auth/logout",{method:"POST"}).finally(()=>{window.location.href="/login"})}>
     <span className="m238m-direct-icon"><LogOut size={19}/></span>
     <span className="m238m-direct-copy"><strong>Logout</strong><small>Keluar dari dashboard</small></span>
     <ChevronRight size={18}/>
