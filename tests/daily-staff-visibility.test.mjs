@@ -5,6 +5,7 @@ import ts from 'typescript';
 
 const source=fs.readFileSync(new URL('../app/api/daily-fast/route.ts',import.meta.url),'utf8');
 const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const planModule={exports:{}};new Function('module','exports',ts.transpileModule(fs.readFileSync(new URL('../lib/daily-target-plan.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(planModule,planModule.exports);
 const date='2026-11-05';
 const schedule=[['NOVEMBER','','',1,2,3,4,5,6,7],['NIK','NAME','POSITION'],
  ['100001','Active','Sales Assistant','D047','D047','D047','D047','D047'],
@@ -19,6 +20,7 @@ async function run({fresh=false,weekly=schedule}={}){
  const fixed=fast.map(r=>({...r,position:'Sales Assistant',status:'EXTRA',share:0,targets:{amount:0,accessories:0,vas:0}}));
  const next={NextRequest:class{constructor(url){this.nextUrl=url}},NextResponse:{json:(body,init={})=>({body,status:init.status||200,json:async()=>body})}};
  const loaded={exports:{}},mocks={
+  '@/lib/daily-target-plan':planModule.exports,
   'next/server':next,
   '@/lib/exchange-detail-store':{readExchangeState:async()=>({details:[],legacy:[]})},
   '@/lib/google-sheets':{getSheetRanges:async(_id,ranges)=>ranges[0].includes('Schedule weekly')?[weekly]:ranges[0].includes('Config!')?[config]:[fast]},

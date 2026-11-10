@@ -1,3 +1,4 @@
+import {dailyTargetFromConfig} from "@/lib/daily-target-plan";
 import {NextRequest,NextResponse} from "next/server";
 import {getGoogleSheetRequestCount,getSheetRanges} from "@/lib/google-sheets";
 import {getDailySummaryFocus} from "@/lib/m238-daily-summary-focus";
@@ -43,7 +44,7 @@ export async function GET(req:NextRequest){
   const parsed:Row[]=[...archiveParsed,...liveParsed].filter(r=>r.date>=prevStart&&r.date<=to);
   const trafficMap=new Map<string,number>();for(const r of trafficRows||[]){const d=iso(r[0]);if(d)trafficMap.set(d,n(r[1]))}
   const dates=[...new Set(parsed.filter(r=>r.date>=from&&r.date<=to).map(r=>r.date))].sort();
-  const rows=dates.map(date=>{const targetRow=config.find(r=>s(r[22]).toLowerCase()===weekday(date));return aggregate(parsed,date,n(targetRow?.[23]),trafficMap.get(date)||0)});
+  const rows=dates.map(date=>aggregate(parsed,date,dailyTargetFromConfig(config,date).amount,trafficMap.get(date)||0));
   const previousTotal=parsed.filter(r=>r.date>=prevStart&&r.date<=prevEnd).reduce((a,r)=>a+r.amount,0);
   const totals=rows.reduce((a,r)=>({amount:a.amount+r.amount,target:a.target+r.target,device:a.device+r.device,accessories:a.accessories+r.accessories,vas:a.vas+r.vas,invoices:a.invoices+r.invoices,qty:a.qty+r.qty,traffic:a.traffic+r.traffic,mac:a.mac+r.mac,ipad:a.ipad+r.ipad,iphone:a.iphone+r.iphone,watch:a.watch+r.watch,airpods:a.airpods+r.airpods}),{amount:0,target:0,device:0,accessories:0,vas:0,invoices:0,qty:0,traffic:0,mac:0,ipad:0,iphone:0,watch:0,airpods:0});
   const upt=totals.invoices?totals.qty/totals.invoices:0,atv=totals.invoices?totals.amount/totals.invoices:0,cvr=totals.traffic?totals.invoices/totals.traffic*100:0,growthPct=previousTotal?(totals.amount-previousTotal)/previousTotal*100:null;

@@ -1,3 +1,4 @@
+import {dailyTargetFromConfig} from "@/lib/daily-target-plan";
 import {NextRequest,NextResponse} from "next/server";
 import {getSheetRanges} from "@/lib/google-sheets";
 import {getCachedSalesSource} from "@/lib/m238-sales-source-cache";
@@ -46,9 +47,9 @@ export async function GET(req:NextRequest){
   const currentRows=scoped(rows2026),archiveRows=archiveScoped(rows2025),selectedSource=period.startsWith("2025-")?archiveRows:currentRows;
   const periodRows=rangeMode?[...archiveRows,...currentRows].filter(r=>{const d=iso(r[0]);return d>=from&&d<=to}):selectedSource.filter(r=>iso(r[0]).startsWith(period)),all2026=lite?[]:currentRows,all2025=lite?[]:archiveRows;
   const label=monthLabel(period).toLowerCase(),targetRow=(config||[]).find(r=>s(r[16]).toLowerCase()===label);
-  const rangeDates=rangeMode?[...new Set(periodRows.map(r=>iso(r[0])).filter(Boolean))]:[];
-  const rangeTarget=rangeDates.reduce((sum,date)=>{const row=(config||[]).find(r=>s(r[22]).toLowerCase()===weekday(date));return sum+n(row?.[23])},0);
-  const target={amount:rangeMode?rangeTarget:n(targetRow?.[17]),device:rangeMode?0:n(targetRow?.[18]),accessories:rangeMode?0:n(targetRow?.[19]),vas:rangeMode?0:n(targetRow?.[20])};
+  const rangeDates=rangeMode?Array.from({length:Math.floor((Date.parse(to)-Date.parse(from))/86400000)+1},(_,i)=>new Date(Date.parse(from)+i*86400000).toISOString().slice(0,10)):[];
+  const rangeTarget=rangeDates.reduce((sum,date)=>{const d=dailyTargetFromConfig(config,date);return{amount:sum.amount+d.amount,device:sum.device+d.device,accessories:sum.accessories+d.accessories,vas:sum.vas+d.vas}},{amount:0,device:0,accessories:0,vas:0});
+  const target=rangeMode?rangeTarget:{amount:n(targetRow?.[17]),device:n(targetRow?.[18]),accessories:n(targetRow?.[19]),vas:n(targetRow?.[20])};
   const shareById=new Map<string,number>();for(const r of (config||[]).slice(27,55)){const id=s(r[8]);if(id)shareById.set(id,n(r[11]))}
   const byStaff=new Map<string,unknown[][]>();for(const r of periodRows){const id=s(r[1]);if(!id)continue;const arr=byStaff.get(id)||[];arr.push(r);byStaff.set(id,arr)}
   const staff=[...byStaff.entries()].map(([id,rr])=>{const names=rr.map(r=>s(r[2])).filter(Boolean),name=names.at(-1)||id,invoices=new Set(rr.map(r=>s(r[3])).filter(Boolean)),qty=sumQty(rr),amount=sumAmount(rr),device=sumByKind(rr,"device"),accessories=sumByKind(rr,"accessories"),vas=sumByKind(rr,"vas"),share=Math.max(0,shareById.get(id)||0),staffTarget=target.amount*share,achievement=staffTarget?amount/staffTarget*100:null,lob={iphone:0,mac:0,ipad:0,watch:0,airpods:0};for(const row of rr){if(kind(row)!=="device")continue;const q=n(row[7]),dl=deviceLob(row);if(dl==="iPhone")lob.iphone+=q;else if(dl==="Mac")lob.mac+=q;else if(dl==="iPad")lob.ipad+=q;else if(dl==="Apple Watch")lob.watch+=q;else if(dl==="AirPods")lob.airpods+=q}let status="Productive";if(achievement!==null)status=achievement>=100?"Productive":achievement>=80?"Need Push":"Low Activity";return{id,name,amount,device,accessories,vas,qty,invoices:invoices.size,upt:invoices.size?qty/invoices.size:0,atv:invoices.size?amount/invoices.size:0,target:staffTarget,achievement,gap:staffTarget?Math.max(0,staffTarget-amount):0,status,lob}}).sort((a,b)=>b.amount-a.amount);

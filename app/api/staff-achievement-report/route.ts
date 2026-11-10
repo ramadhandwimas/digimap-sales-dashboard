@@ -1,9 +1,9 @@
 import {NextRequest,NextResponse} from "next/server";
-import {GET as dailyGET} from "@/app/api/daily-fast/route";
 import {SESSION_COOKIE,verifySessionToken} from "@/lib/auth-session";
 import {getSheetRanges} from "@/lib/google-sheets";
 import {getCachedSalesSource} from "@/lib/m238-sales-source-cache";
-import {buildStaffAchievementReport,type DailyAchievementInput,type AchievementReport} from "@/lib/staff-achievement-report";
+import {buildStaffAchievementReport,type AchievementReport} from "@/lib/staff-achievement-report";
+import {allocatedReportTargets} from "@/lib/staff-report-targets";
 const SOURCE="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const cache=new Map<string,{at:number;data:AchievementReport}>();
 const valid=(v:string)=>/^202[56]-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
@@ -16,14 +16,12 @@ export async function GET(req:NextRequest){
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;if(!email||!key)return NextResponse.json({error:"Koneksi data belum tersedia."},{status:503});
  try{
   const dates=Array.from({length:count},(_,i)=>new Date(Date.parse(from)+i*86400000).toISOString().slice(0,10));
-  const [[config],source]=await Promise.all([getSheetRanges(SOURCE,["Config!H1:L120"],email,key),getCachedSalesSource(email,key)]);
-  const roster=config.filter(r=>String(r[0]).trim().toUpperCase()==="M238"&&r[1]&&r[2]).map(r=>({id:String(r[1]).trim(),name:String(r[2]).trim(),position:String(r[3]||"")}));
-  const days:DailyAchievementInput[]=[],warnings:string[]=[];
-  for(let i=0;i<dates.length;i+=3){const batch=await Promise.all(dates.slice(i,i+3).map(async date=>{const url=new URL(req.url);url.pathname="/api/daily-fast";url.search=`?date=${date}`;const response=await dailyGET(new NextRequest(url)),json=await response.json();if(!response.ok)throw Error(`${date}: ${json.error||"Data harian gagal dibaca"}`);if(!Array.isArray(json.staff))throw Error(`${date}: Rincian staff belum tersedia`);if(json.warning||json.fastWarning)warnings.push(`${date}: ${json.warning||json.fastWarning}`);return{date,staff:json.staff}}));days.push(...batch)}
+  const [[config],[weekly,snapshots],source]=await Promise.all([getSheetRanges(SOURCE,["Config!A1:AG120"],email,key),getSheetRanges("1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk",["'Schedule weekly'!A1:J3000","'Dashboard Schedule Snapshot'!A2:G5000"],email,key),getCachedSalesSource(email,key)]);
+  const {roster,days,warnings}=allocatedReportTargets(config,weekly,snapshots,dates);
   const sales=source?.dataCopas.filter(r=>r.date>=from&&r.date<=to)||[];
   if(source){const compiledDates=new Set(sales.map(r=>r.date));for(const date of dates)if(source.activeDates.includes(date)&&!compiledDates.has(date))warnings.push(`${date}: Data live belum tersedia di Data Copas; belum disertakan dalam penjualan report.`)}
-  const data:AchievementReport={from,to,mode:mode as "daily"|"weekly",...buildStaffAchievementReport(roster,days,mode as "daily"|"weekly",sales),warnings,source:"Penjualan: Data Copas bersih setelah cutoff · Target: akumulasi alokasi harian sesuai schedule pada periode laporan.",generatedAt:new Date().toISOString()};
+  const data:AchievementReport={from,to,mode:mode as "daily"|"weekly",...buildStaffAchievementReport(roster,days,mode as "daily"|"weekly",sales),warnings,source:"Penjualan: Data Copas bersih setelah cutoff · Target: rencana harian dari target bulanan Config, dibagi sesuai bobot dan schedule staff.",generatedAt:new Date().toISOString()};
   cache.set(cacheKey,{at:Date.now(),data});if(cache.size>30)cache.delete(cache.keys().next().value!);
   return NextResponse.json(data,{headers:{"cache-control":"no-store"}});
- }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Report belum dapat dimuat."},{status:503})}
+ }catch(e){console.warn("staff-achievement-report",e instanceof Error?e.message:"Report gagal");return NextResponse.json({error:e instanceof Error?e.message:"Report belum dapat dimuat."},{status:503})}
 }

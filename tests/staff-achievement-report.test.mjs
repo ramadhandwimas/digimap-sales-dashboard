@@ -25,17 +25,20 @@ test('MTD totals use cutoff sales and sum daily staff allocations from the first
  const out=report.buildStaffAchievementReport(roster,days,'daily',[{id:'1',name:'Andhea',store:'M238',scheme:'DEVICES',amount:250,qty:1,description:'',type:'',category:''}]);
  assert.deepEqual(out.total.targets,{device:700,accessories:200,vas:100});assert.equal(out.total.actual.device,250);assert.equal(out.total.actual.accessories,0);
 });
-test('API accepts month-to-date and rejects a single day that does not begin on the first',async()=>{
+test('MTD API reads config and schedule in two batches instead of invoking ten daily routes',async()=>{
+ const plan=load('../lib/daily-target-plan.ts',()=>{}),schedule=load('../lib/weekly-schedule-reader.ts',()=>{}),allocated=load('../lib/staff-report-targets.ts',id=>id==='./daily-target-plan'?plan:id==='./weekly-schedule-reader'?schedule:sales);
+ const config=Array.from({length:55},()=>[]);config[1][16]='Januari 2026';config[1][17]=3100;config[1][18]=2170;config[1][19]=620;config[1][20]=310;['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'].forEach((day,i)=>{config[i+2][22]=day;config[i+2][23]=100;config[i+2][24]=20;config[i+2][25]=10});config[27][7]='M238';config[27][8]='1';config[27][9]='Andhea';config[27][10]='Sales Assistant';config[27][11]=1;
+ const weekly=[['Desember','','',29,30,31,1,2,3,4],['NIK','Name','Rank'],['1','Andhea','Sales Assistant',...Array(7).fill('D047')],['FULL'],['Januari','','',5,6,7,8,9,10,11],['NIK','Name','Rank'],['1','Andhea','Sales Assistant',...Array(7).fill('D047')]];
  const calls=[];class Request{constructor(url){this.url=String(url);this.nextUrl=new URL(url);this.cookies={get:()=>({value:'fixture'})}}}
  const api=load('../app/api/staff-achievement-report/route.ts',id=>{
   if(id==='next/server')return{NextRequest:Request,NextResponse:{json:(body,options)=>({body,status:options?.status||200})}};
   if(id==='@/lib/auth-session')return{SESSION_COOKIE:'fixture',verifySessionToken:()=>({nik:'1'})};
-  if(id==='@/lib/google-sheets')return{getSheetRanges:async()=>[[['M238','1','Andhea','Sales Assistant',1]]]};
+  if(id==='@/lib/google-sheets')return{getSheetRanges:async(id,ranges)=>{calls.push(ranges);return ranges.length===1?[config]:[weekly,[]]}};
   if(id==='@/lib/m238-sales-source-cache')return{getCachedSalesSource:async()=>({activeDates:[],dataCopas:[]})};
   if(id==='@/lib/staff-achievement-report')return report;
-  if(id==='@/app/api/daily-fast/route')return{GET:async req=>{calls.push(req.nextUrl.searchParams.get('date'));return{ok:true,json:async()=>({staff:[person('1','Andhea',999,0,0,{amount:100,accessories:20,vas:10})]})}}};
-  throw Error(id);
+  if(id==='@/lib/staff-report-targets')return allocated;
+  throw Error('Unexpected dependency '+id);
  });
  const oldEmail=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,oldKey=process.env.GOOGLE_PRIVATE_KEY;process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL='fixture';process.env.GOOGLE_PRIVATE_KEY='fixture';
- try{const result=await api.GET(new Request('https://fixture.test/api/staff-achievement-report?mode=daily&from=2026-01-01&to=2026-01-10'));assert.equal(result.status,200);assert.equal(calls.length,10);assert.equal(calls[0],'2026-01-01');assert.equal(calls.at(-1),'2026-01-10');assert.equal(result.body.total.targets.device,700);assert.equal(result.body.total.actual.device,0);const invalid=await api.GET(new Request('https://fixture.test/api/staff-achievement-report?mode=daily&from=2026-01-10&to=2026-01-10'));assert.equal(invalid.status,400)}finally{if(oldEmail===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=oldEmail;if(oldKey===undefined)delete process.env.GOOGLE_PRIVATE_KEY;else process.env.GOOGLE_PRIVATE_KEY=oldKey}
+ try{const result=await api.GET(new Request('https://fixture.test/api/staff-achievement-report?mode=daily&from=2026-01-01&to=2026-01-10'));assert.equal(result.status,200);assert.equal(calls.length,2);assert.equal(result.body.total.targets.device,700);assert.equal(result.body.total.actual.device,0);assert.deepEqual(result.body.warnings,[]);const invalid=await api.GET(new Request('https://fixture.test/api/staff-achievement-report?mode=daily&from=2026-01-10&to=2026-01-10'));assert.equal(invalid.status,400)}finally{if(oldEmail===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=oldEmail;if(oldKey===undefined)delete process.env.GOOGLE_PRIVATE_KEY;else process.env.GOOGLE_PRIVATE_KEY=oldKey}
 });
