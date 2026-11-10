@@ -42,9 +42,9 @@ export function drawPettyCashPdf(doc:jsPDF,input:PettyCash,photos:PdfPhoto[]){
  ["Checked & Coded","Approved"].forEach((label,i)=>{const start=financeX+i*financeWidth/2;if(i)doc.line(start,footer+6,start,footer+44);fit(label,start+2,footer+11,28,6,true);text("Finance Department",start+2,footer+41,5.5)});
  [["Prepared by",data.preparedBy,"PIC"],["Approved by",data.approvedBy,"OIC"],["Approved by",data.rh,"RH"]].forEach(([label,name,role],i)=>{const start=requestX+i*requestWidth/3;if(i)doc.line(start,footer+6,start,footer+44);text(label,start+2,footer+11,6.5,true);fit(name,start+2,footer+34,30,6.5);text(role,start+13,footer+41,6,true)});
  for(const photo of photos){
-  doc.addPage("a4","portrait");text(`M238 - BUKTI PEMBELIAN${photo.pcv?` - PCV ${photo.pcv}`:""}`,12,12,9,true);
-  fit(photo.name,12,18,186,7);const scale=Math.min(186/photo.width,258/photo.height),w=photo.width*scale,h=photo.height*scale;
-  doc.addImage(photo.data,"JPEG",(210-w)/2,25+(258-h)/2,w,h,undefined,"FAST");
+  const landscape=photo.width>photo.height,pageWidth=landscape?297:210,pageHeight=landscape?210:297;doc.addPage("a4",landscape?"landscape":"portrait");text(`M238 - BUKTI PEMBELIAN${photo.pcv?` - PCV ${photo.pcv}`:""}`,12,12,9,true);
+  fit(photo.name,12,18,pageWidth-24,7);const scale=Math.min((pageWidth-24)/photo.width,(pageHeight-39)/photo.height),w=photo.width*scale,h=photo.height*scale;
+  doc.addImage(photo.data,"JPEG",(pageWidth-w)/2,25+(pageHeight-39-h)/2,w,h,undefined,"FAST");
  }
  const total=doc.getNumberOfPages();for(let i=1;i<=total;i++){doc.setPage(i);text(`${i} / ${total}`,doc.internal.pageSize.getWidth()-23,doc.internal.pageSize.getHeight()-5,6)}
  return doc;

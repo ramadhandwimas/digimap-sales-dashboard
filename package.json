@@ -16,7 +16,10 @@
     "db:generate": "drizzle-kit generate",
     "cloudflare:check": "vinext check",
     "cloudflare:build": "vinext build",
-    "cloudflare:deploy": "vinext deploy"
+    "cloudflare:deploy": "vinext deploy",
+    "prebuild": "node scripts/prepare-pdf-assets.mjs",
+    "prebuild:vercel": "node scripts/prepare-pdf-assets.mjs",
+    "predev": "node scripts/prepare-pdf-assets.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -34,6 +37,7 @@
     "lucide-react": "^1.31.0",
     "next": "16.2.6",
     "next-themes": "^0.4.6",
+    "pdfjs-dist": "6.5.438",
     "pptxgenjs": "^4.0.1",
     "radix-ui": "^1.6.7",
     "react": "19.2.6",

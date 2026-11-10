@@ -1,0 +1,10 @@
+import {cp,mkdir,readFile} from "node:fs/promises";
+import {createRequire} from "node:module";
+import {dirname,join} from "node:path";
+const require=createRequire(import.meta.url),root=dirname(require.resolve("pdfjs-dist/package.json"));
+const {version}=JSON.parse(await readFile(join(root,"package.json"),"utf8"));
+const output=new URL(`../public/pdf-assets/${version}/`,import.meta.url);
+await mkdir(output,{recursive:true});
+for(const name of ["pdf.worker.min.mjs","pdf.renderer.min.mjs"])await cp(join(root,"legacy/build",name),new URL(name,output));
+for(const name of ["cmaps","standard_fonts","wasm","iccs"])await cp(join(root,name),new URL(name,output),{recursive:true});
+console.log(`Prepared local PDF assets ${version}`);
