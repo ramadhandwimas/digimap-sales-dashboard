@@ -4,7 +4,7 @@ import {ArrowDown,ArrowUp,Download,FileText,ImagePlus,Share2,Trash2} from "lucid
 import {exportPettyCashPdf,type ReceiptPhoto} from "@/lib/petty-cash-pdf";
 import {MAX_RECEIPT_PAGES,prepareReceiptFile} from "@/lib/petty-cash-import";
 import type {PettyCash} from "@/lib/petty-cash";
-import {sharePettyCashFile} from "@/lib/petty-cash-share";
+import {pettyCashFilename,sharePettyCashFile} from "@/lib/petty-cash-share";
 export default function PettyCashReceipts({data,photos,onChange,onExported,onBusy}:{data:PettyCash;photos:ReceiptPhoto[];onChange:(photos:ReceiptPhoto[])=>void;onExported:()=>void;onBusy:(busy:boolean)=>void}){
  const[busy,setBusy]=useState(false),[status,setStatus]=useState(""),[error,setError]=useState(""),[result,setResult]=useState<{blob:Blob;file:File;url:string;name:string}|null>(null);
  const resultRef=useRef(result);resultRef.current=result;
@@ -28,7 +28,7 @@ export default function PettyCashReceipts({data,photos,onChange,onExported,onBus
  };
  const createPdf=async()=>{
   if(busy)return;lock(true);setError("");clearResult();
-  try{const blob=await exportPettyCashPdf(data,photos,setStatus),name=`PC-M238-${(data.pcrs||data.date||"draft").replace(/[^a-zA-Z0-9_-]/g,"-")}.pdf`,file={blob,file:new File([blob],name,{type:"application/pdf"}),url:URL.createObjectURL(blob),name};setResult(file);setStatus(`PDF gabungan siap · ${(blob.size/1_000_000).toFixed(2)} MB · ${photos.length} halaman bukti. Pilih Bagikan / Simpan PDF atau Unduh PDF di bawah.`)}catch(error){setStatus("");setError(error instanceof Error?error.message:"PDF belum dapat dibuat.")}finally{lock(false)}
+  try{const blob=await exportPettyCashPdf(data,photos,setStatus),name=pettyCashFilename(data.date),file={blob,file:new File([blob],name,{type:"application/pdf"}),url:URL.createObjectURL(blob),name};setResult(file);setStatus(`PDF gabungan siap · ${(blob.size/1_000_000).toFixed(2)} MB · ${photos.length} halaman bukti. Pilih Bagikan / Simpan PDF atau Unduh PDF di bawah.`)}catch(error){setStatus("");setError(error instanceof Error?error.message:"PDF belum dapat dibuat.")}finally{lock(false)}
  };
  return <section className="pc-receipts pc-no-print" aria-label="Bukti pembelian">
   <div className="pc-receipt-head"><div><h2>Bukti Pembelian</h2><p>Upload foto atau PDF, lalu gabungkan ringkasan dan semua bukti menjadi satu PDF maksimal 2 MB.</p></div><span>{photos.length}/24 halaman</span></div>
