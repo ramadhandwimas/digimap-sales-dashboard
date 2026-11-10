@@ -4,6 +4,7 @@ import {getSheetRanges} from "@/lib/google-sheets";
 import {getCachedSalesSource} from "@/lib/m238-sales-source-cache";
 import {buildStaffAchievementReport,type AchievementReport} from "@/lib/staff-achievement-report";
 import {allocatedReportTargets} from "@/lib/staff-report-targets";
+import {buildTargetRecovery} from "@/lib/target-recovery";
 const SOURCE="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const cache=new Map<string,{at:number;data:AchievementReport}>();
 const valid=(v:string)=>/^202[56]-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
@@ -21,6 +22,16 @@ export async function GET(req:NextRequest){
   const sales=source?.dataCopas.filter(r=>r.date>=from&&r.date<=to)||[];
   if(source){const compiledDates=new Set(sales.map(r=>r.date));for(const date of dates)if(source.activeDates.includes(date)&&!compiledDates.has(date))warnings.push(`${date}: Data live belum tersedia di Data Copas; belum disertakan dalam penjualan report.`)}
   const data:AchievementReport={from,to,mode:mode as "daily"|"weekly",...buildStaffAchievementReport(roster,days,mode as "daily"|"weekly",sales),warnings,source:"Penjualan: Data Copas bersih setelah cutoff · Target: rencana harian dari target bulanan Config, dibagi sesuai bobot dan schedule staff.",generatedAt:new Date().toISOString()};
+  if(to.slice(0,7)===today.slice(0,7)){
+   data.recovery=buildTargetRecovery(config,source.dataCopas,today);
+   const next=data.recovery.days[0];
+   if(data.recovery.status==="READY"&&next){
+    const base=allocatedReportTargets(config,weekly,snapshots,[next.date]),revised=allocatedReportTargets(config,weekly,snapshots,[next.date],new Map([[next.date,next.target]]));
+    const revisedById=new Map(revised.days[0].staff.map(p=>[p.id,p]));
+    data.recoveryStaff=base.days[0].staff.map(p=>({id:p.id,name:p.name,base:{amount:p.targets!.amount||0,device:p.targets!.device||0,accessories:p.targets!.accessories||0,vas:p.targets!.vas||0},target:{amount:revisedById.get(p.id)?.targets?.amount||0,device:revisedById.get(p.id)?.targets?.device||0,accessories:revisedById.get(p.id)?.targets?.accessories||0,vas:revisedById.get(p.id)?.targets?.vas||0}}));
+    data.warnings.push(...revised.warnings);
+   }
+  }
   cache.set(cacheKey,{at:Date.now(),data});if(cache.size>30)cache.delete(cache.keys().next().value!);
   return NextResponse.json(data,{headers:{"cache-control":"no-store"}});
  }catch(e){console.warn("staff-achievement-report",e instanceof Error?e.message:"Report gagal");return NextResponse.json({error:e instanceof Error?e.message:"Report belum dapat dimuat."},{status:503})}

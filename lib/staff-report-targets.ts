@@ -1,14 +1,14 @@
-import {allocateRupiah,monthlyDailyTargets} from "./daily-target-plan";
+import {allocateRupiah,monthlyDailyTargets,type PlannedTarget} from "./daily-target-plan";
 import {readWeeklySchedule,scheduleUnavailable} from "./weekly-schedule-reader";
 import {isoDate} from "./m238-sales-sanitize";
 import type {DailyAchievementInput} from "./staff-achievement-report";
 type Roster={id:string;name:string;position:string;share:number};
-export function allocatedReportTargets(config:unknown[][],weekly:unknown[][],snapshots:unknown[][],dates:string[]){
+export function allocatedReportTargets(config:unknown[][],weekly:unknown[][],snapshots:unknown[][],dates:string[],overrides?:Map<string,PlannedTarget>){
  const roster:Roster[]=config.slice(27,55).filter(r=>String(r[7]).trim().toUpperCase()==="M238"&&r[8]&&r[9]).map(r=>{const v=Number(r[11])||0;return{id:String(r[8]).trim(),name:String(r[9]).trim(),position:String(r[10]||""),share:v>1?v/100:Math.max(0,v)}});
  const shares=new Map(roster.map(p=>[p.id,p.share])),plans=new Map<string,ReturnType<typeof monthlyDailyTargets>>(),warnings:string[]=[],days:DailyAchievementInput[]=[];
  for(const date of dates){
   const period=date.slice(0,7);if(!plans.has(period)){const plan=monthlyDailyTargets(config,period);plans.set(period,plan);if(!plan.configured)warnings.push(`Target bulanan ${period} belum diisi; target sementara mengikuti nominal harian Config.`)}
-  const target=plans.get(period)!.days.find(p=>p.date===date)!;
+  const target=overrides?.get(date)||plans.get(period)!.days.find(p=>p.date===date)!;
   let scheduled=readWeeklySchedule(weekly,date,roster);if(!scheduled.length)scheduled=snapshots.filter(r=>isoDate(r[0])===date).map(r=>({id:String(r[1]),name:String(r[2]),position:String(r[3]),status:String(r[5]||"IN")}));
   const active=scheduled.filter(p=>!scheduleUnavailable(p.status)&&!/SUPERVISOR|\bSPV\b|ONLINE/i.test(p.position));
   if(!active.length){warnings.push(`${date}: Jadwal staff aktif belum tersedia; target staff tanggal ini belum dialokasikan.`);days.push({date,staff:[]});continue}

@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import {exportReportPdf,exportReportPng,exportReportXlsx} from "@/lib/dashboard-export";
 import {cachedJson,swrJson,peekJsonCache,prefetchJson,abortCacheScope,clearExpiredLocalCache,getM238PerfStats} from "@/lib/m238-client-cache";
+import TargetRecoveryPanel from "@/components/target-recovery-panel";
+import type {TargetRecovery} from "@/lib/target-recovery";
 
 const ReportScreen=dynamic(()=>import("@/components/mobile-dashboard-report"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton hero"/><div className="m238m-skeleton list"/></div>});
 const MoreScreen=dynamic(()=>import("@/components/mobile-dashboard-more"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton list"/><div className="m238m-skeleton list"/></div>});
@@ -40,6 +42,7 @@ type Staff={
 };
 type Overview={
  period:string;label:string;
+ targetRecovery?:TargetRecovery;
  categoryDetails?:Partial<Record<"device"|"accessories"|"vas",{qty:number;invoices:number;items:{label:string;qty:number;value:number}[]}>>;
  target:{amount:number;device:number;accessories:number;vas:number};
  summary:{amount:number;device:number;accessories:number;vas:number;invoices:number;qty:number;upt:number;atv:number;achievement:number;gap:number;pace:number;status:string;estimate:{amount:number;device:number;accessories:number;vas:number};point:{total:number;device:number;accessories:number;vas:number}};
@@ -50,7 +53,7 @@ type Overview={
  ytd?:{amount2025:number;amount2026:number;growth:number;qty2025:number;qty2026:number;qtyGrowth:number;diff?:number;qtyDiff?:number;device2025?:number;device2026?:number;deviceQty2025?:number;deviceQty2026?:number;deviceDiff?:number;deviceGrowth?:number;deviceQtyDiff?:number;deviceQtyGrowth?:number;lobs?:CompareLob[];throughMonth?:number};
 };
 type Traffic={total:number;daily?:{date:string;traffic:number}[]};
-type Daily={date:string;staff:Staff[];total:{amount:number;target:number;accessories:number;accTarget:number;vas:number;vasTarget:number;qty:number;invoices:number;upt:number};fastUpdatedAt?:string;fastSource?:string;fastWarning?:string};
+type Daily={date:string;staff:Staff[];total:{amount:number;target:number;accessories:number;accTarget:number;vas:number;vasTarget:number;qty:number;invoices:number;upt:number};fastUpdatedAt?:string;fastSource?:string;fastWarning?:string;targetRecovery?:TargetRecovery;targetRecoveryWarning?:string};
 type DailyRow={
  date:string;day?:string;totalSales:number;target:number;achievementPct:number;traffic:number;cvr:number;upt:number;atv:number;transaction:number;invoice:number;qty:number;
  breakdown:{device:number;accessories:number;vas:number};
@@ -123,7 +126,7 @@ function ClosingNeeds({overview}:{overview:Overview}){
  const perStaff=activeIds.length?Math.ceil(dailyNeed/activeIds.length):0;
  const toggle=(id:string)=>setSelected(currentIds=>(currentIds??[]).includes(id)?(currentIds??[]).filter(x=>x!==id):[...(currentIds??[]),id]);
  return <Card className="m238m-closing">
-  <div className="m238m-closing-head"><div><span>Kebutuhan Closing</span><strong>{gap>0?money.format(dailyNeed):"Target tercapai"}</strong><small>{gap>0?`per hari selama ${daysRemaining} hari tersisa`:"Tidak ada gap ke target bulan ini"}</small></div><Target size={20}/></div>
+  <div className="m238m-closing-head"><div><span>Kebutuhan Closing</span><strong>{gap>0?money.format(dailyNeed):"Target tercapai"}</strong><small>{gap>0?`Rata-rata per hari selama ${daysRemaining} hari tersisa`:"Tidak ada gap ke target bulan ini"}</small></div><Target size={20}/></div>
   {gap>0?<><div className="m238m-closing-stats"><div><span>Proyeksi</span><b>{money.format(overview.summary.estimate.amount)}</b></div><div><span>Per staff aktif</span><b>{activeIds.length?money.format(perStaff):"Pilih staff"}</b></div></div>
   <details className="m238m-closing-staff"><summary><Users size={16}/> Staff aktif manual <b>{activeIds.length}/{staff.length}</b></summary><div>{staff.map(person=>{const id=String(person.id||person.name);return <label key={id}><input type="checkbox" checked={activeIds.includes(id)} onChange={()=>toggle(id)}/><span>{shortStaffName(person.name)}<small>{person.position||person.status||"Staff"}</small></span></label>})}</div></details></>:null}
  </Card>
@@ -519,6 +522,7 @@ function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fu
      <div className="m238m-hero-meta"><span>Target <b>{hasCategoryTarget?money.format(categoryTarget):"Belum diisi"}</b></span><span>{periodMode==="month"?(category==="amount"?"Point Store":`Point ${categoryLabel}`):"Periode"} <b>{periodMode==="month"?categoryPoint.toFixed(1):overview.label}</b></span></div>
     </Card>
     <div className="m238m-grid m238m-home-kpis"><Metric label={`Achievement${category==="amount"?"":` ${categoryLabel}`}`} value={hasCategoryTarget?pct(categoryAchievement):"—"} sub={!hasCategoryTarget?"Target belum diisi":categoryAchievement>=100?"Target tercapai":"Need Push"}/><Metric label={`Gap${category==="amount"?" ke Target":` ${categoryLabel}`}`} value={hasCategoryTarget?money.format(categoryGap):"—"} sub={!hasCategoryTarget?"Target belum diisi":categoryGap>0?"Sisa ke target":"Target tercapai"}/>{category==="amount"?<><Metric label="CVR" value={pct(cvr)} sub="Traffic → transaksi"/><Metric label="UPT" value={overview.summary.upt.toFixed(1)} sub="Unit per transaksi"/></>:<><Metric label={`Qty ${categoryLabel}`} value={categoryDetail?num.format(categoryDetail.qty):"—"} sub={category==="device"?"Unit device terjual":"Qty terjual"}/><Metric label={`Invoice ${categoryLabel}`} value={categoryDetail?num.format(categoryDetail.invoices):"—"} sub="Invoice berisi kategori ini"/></>}</div>
+    <TargetRecoveryPanel plan={overview.targetRecovery} category={category}/>
     {category!=="amount"?<>
      <div className="m238m-section-head"><h2>{category==="device"?"Penjualan per Device":category==="accessories"?"Rincian Accessories":"Qoala & Provider"}</h2><span>{overview.label}</span></div>
      {categoryDetail?<div className="m238m-list">{categoryDetail.items.map(item=><Card key={item.label} className="m238m-product-detail-row"><div><strong>{item.label}</strong><span>{num.format(item.qty)} {category==="device"?"unit":"qty"}</span></div><div><b>{money.format(item.value)}</b><small>{categorySales?pct(item.value/categorySales*100):"0%"} dari {categoryLabel}</small></div></Card>)}{!categoryDetail.items.length?<Card className="m238m-empty">Belum ada penjualan {categoryLabel} pada periode ini.</Card>:null}</div>:<Card className="m238m-empty">Rincian belum tersedia. Perbarui dashboard untuk memuat data terbaru.</Card>}
@@ -725,6 +729,8 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
     </div>
 
     <CategoryTargets accessories={daily.total.accessories} vas={daily.total.vas} accTarget={daily.total.accTarget} vasTarget={daily.total.vasTarget}/>
+    <TargetRecoveryPanel plan={daily.targetRecovery}/>
+    {daily.targetRecoveryWarning?<Card className="m238m-warning-card">{daily.targetRecoveryWarning}</Card>:null}
 
     <div className="m238m-sales-ops-grid">
       <button className="m238m-metric-button" onClick={()=>void openMetricDetail("upt")}><Card className="m238m-metric m238m-drill-card"><span>UPT</span><strong>{daily.total.upt.toFixed(1)}</strong><small>Tap detail per staff</small></Card></button>

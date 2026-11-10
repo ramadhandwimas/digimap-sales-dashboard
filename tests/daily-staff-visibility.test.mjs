@@ -21,6 +21,8 @@ async function run({fresh=false,weekly=schedule}={}){
  const next={NextRequest:class{constructor(url){this.nextUrl=url}},NextResponse:{json:(body,init={})=>({body,status:init.status||200,json:async()=>body})}};
  const loaded={exports:{}},mocks={
   '@/lib/daily-target-plan':planModule.exports,
+  '@/lib/target-recovery':{},
+  '@/lib/m238-sales-source-cache':{},
   'next/server':next,
   '@/lib/exchange-detail-store':{readExchangeState:async()=>({details:[],legacy:[]})},
   '@/lib/google-sheets':{getSheetRanges:async(_id,ranges)=>ranges[0].includes('Schedule weekly')?[weekly]:ranges[0].includes('Config!')?[config]:[fast]},

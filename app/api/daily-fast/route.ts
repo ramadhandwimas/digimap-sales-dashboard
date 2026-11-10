@@ -1,4 +1,7 @@
 import {dailyTargetFromConfig} from "@/lib/daily-target-plan";
+import {allocateRupiah} from "@/lib/daily-target-plan";
+import {buildTargetRecovery} from "@/lib/target-recovery";
+import {getCachedSalesSource} from "@/lib/m238-sales-source-cache";
 import {readExchangeState} from "@/lib/exchange-detail-store";
 import {NextRequest,NextResponse} from "next/server";
 import {getSheetRanges} from "@/lib/google-sheets";
@@ -27,7 +30,7 @@ function carry(r:unknown[],idx:number){const value=up(r[3+idx]);if(value)return 
 async function scheduleFor(date:string,email:string,key:string,cacheRows:ReturnType<typeof cacheFromValues>[]):Promise<{staff:StaffBase[];found:boolean}>{const[weekly]=await getSheetRanges(MASTER_ID,["'Schedule weekly'!A1:Q600"],email,key);const nameToId=new Map(cacheRows.map(r=>[up(r.name),r.id]));for(let r=0;r<weekly.length-2;r++){const month=monthFromRow(weekly[r]);if(!month)continue;const days=weekly[r].slice(3,10).map(v=>n(v)).filter(v=>v>0&&v<=31);if(days.length!==7)continue;const di=scheduleIndex(date,month,days);if(di<0)continue;let h=r+1;if(up(weekly[h]?.[1])!=="NAME"&&up(weekly[h]?.[0])!=="NIK")h=r+2;if(up(weekly[h]?.[1])!=="NAME"&&up(weekly[h]?.[0])!=="NIK")continue;const staff:StaffBase[]=[];for(let i=h+1;i<Math.min(weekly.length,h+24);i++){const row=weekly[i],name=s(row?.[1]);if(!name)continue;const first=up(row?.[0]);if(/^D0\d{2}|FULL|OFF|CUTI/.test(first)||/^D0\d{2}|FULL|OFF|CUTI/.test(up(name)))break;const position=s(row?.[2])||"Sales Assistant";let id=s(row?.[0]);if(!/^\d{6,10}$/.test(id))id=nameToId.get(up(name))||"";if(id)staff.push({id,name,position,share:0,status:carry(row,di)})}if(staff.length)return{staff,found:true}}return{staff:[],found:false}}
 async function filterFallbackToSchedule(staff:unknown,date:string,email:string,key:string,cacheRows:ReturnType<typeof cacheFromValues>[]=[]){if(!Array.isArray(staff))return[];const schedule=await scheduleFor(date,email,key,cacheRows),byId=new Map(schedule.staff.map(p=>[p.id,p])),byName=new Map(schedule.staff.map(p=>[up(p.name),p]));return staff.filter((entry)=>{if(typeof entry!=="object"||entry===null)return false;const p=entry as VisibilityStaff,scheduled=byId.get(s(p.id))||byName.get(up(p.name));return !isSupervisor(s(scheduled?.position||p.position))&&Boolean((scheduled&&!unavailable(scheduled.status))||hasSales(p))}).map((entry)=>{const p=entry as VisibilityStaff,scheduled=byId.get(s(p.id))||byName.get(up(p.name)),status=scheduled?.status||p.status,off=!scheduled||unavailable(s(status));return{...entry,status,position:scheduled?.position||p.position,...(off?{share:0,targets:{amount:0,accessories:0,vas:0}}:{}),...liveMeta(date,s(status),n(p.amount),off?0:n((entry as {targets?:{amount?:unknown}}).targets?.amount))}})}
 
-export async function GET(req:NextRequest){
+async function baseGET(req:NextRequest){
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
  if(!email||!key)return NextResponse.json({error:"Koneksi Google Sheets belum tersedia"},{status:503});
  const date=req.nextUrl.searchParams.get("date")||today(),fresh=req.nextUrl.searchParams.get("fresh")==="1";
@@ -51,4 +54,26 @@ export async function GET(req:NextRequest){
   const reconciliation={balanced:Math.abs(total.amount-(visibleStaffTotal.amount+unassignedTotal.amount))<1&&total.qty===visibleStaffTotal.qty+unassignedTotal.qty,store:total,visibleStaff:visibleStaffTotal,unassigned:{...unassignedTotal,staffCount:unassignedStaff.length,staff:unassignedStaff},formula:"store = visibleStaff + unassigned",source:"DAILY SALES CACHE + Schedule weekly visible roster"};
   return NextResponse.json({date,staff,total:{...total,target:target.amount,accTarget:target.accessories,vasTarget:target.vas,upt:total.invoices?total.qty/total.invoices:0},reconciliation,snapshotLocked:date<=today(),targetSnapshotLocked:date<=today(),salesSnapshotLocked:!cleared,scheduleSource:scheduleResult.found?"MASTER DATA M238 → Schedule weekly":"MASTER DATA M238 → Schedule weekly (not found)",scheduleRemark:scheduleResult.found?"Staff in-charge hanya berasal dari roster Schedule weekly tanggal terpilih.":"Schedule weekly tanggal ini belum ditemukan; roster staff tidak memakai fallback lama.",targetSource:"Config Q:U monthly target × Config W:Z weekday weights + Config L28:L staff share",storage:"MASTER DATA M238 → DAILY SALES CACHE",fastSource:cleared?"cleared":"primary",fastWarning:warning||undefined,validationStatus,dataSource:cleared?"cleared":"DAILY SALES CACHE",warning,fastUpdatedAt:fast[0]?.updatedAt},{headers:{"cache-control":"no-store"}})
  }catch(e){console.error("daily-fast",e);const fallback=await fixedDailyGET(req),json=await fallback.json();try{const staff=await filterFallbackToSchedule(json.staff,date,email,key);return NextResponse.json({...json,staff,fastSource:"fixed-error-schedule",validationStatus:"CACHE_ERROR",dataSource:"daily-fixed",scheduleSource:"MASTER DATA M238 → Schedule weekly",warning:"Daily Sales cache gagal dibaca; live fallback tetap memakai roster Schedule weekly."},{status:fallback.status,headers:{"cache-control":"no-store"}})}catch(scheduleError){console.error("daily-fast schedule fallback",scheduleError);return NextResponse.json({...json,staff:[],fastSource:"fixed-error-no-roster",validationStatus:"CACHE_ERROR",dataSource:"daily-fixed",warning:"Roster Schedule weekly gagal dibaca; daftar staff disembunyikan agar tidak menampilkan staff yang salah."},{status:fallback.status,headers:{"cache-control":"no-store"}})}}
+}
+export async function GET(req:NextRequest){
+ const response=await baseGET(req),date=req.nextUrl.searchParams.get("date")||today();
+ if(date!==today()||!response.ok)return response;
+ const data=await response.json(),email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
+ if(!email||!key)return NextResponse.json(data,{headers:{"cache-control":"no-store"}});
+ try{
+  const [[config],source]=await Promise.all([getSheetRanges(SOURCE_ID,["Config!A1:AZ120"],email,key),getCachedSalesSource(email,key)]);
+  const recovery=buildTargetRecovery(config,source.dataCopas,today());data.targetRecovery=recovery;
+  const day=recovery.days.find(p=>p.date===date);
+  if(recovery.status==="READY"&&day){
+   const active=(data.staff||[]).filter((p:any)=>!unavailable(s(p.status))&&!/SUPERVISOR|\bSPV\b|ONLINE/i.test(s(p.position))&&Number(p.share)>0),weights=active.map((p:any)=>Number(p.share));
+   if(active.length){
+    const device=allocateRupiah(day.target.device,weights),acc=allocateRupiah(day.target.accessories,weights),vas=allocateRupiah(day.target.vas,weights),allocated=new Map<string,{device:number;accessories:number;vas:number;amount:number}>(active.map((p:any,i:number)=>[s(p.id),{device:device[i],accessories:acc[i],vas:vas[i],amount:device[i]+acc[i]+vas[i]}]));
+    data.staff=data.staff.map((p:any)=>{const targets=allocated.get(s(p.id));return targets?{...p,targets,...liveMeta(date,s(p.status),n(p.amount),targets.amount)}:p});
+   }
+   data.baselineTarget=day.base;data.total={...data.total,target:day.target.amount,accTarget:day.target.accessories,vasTarget:day.target.vas};
+   data.targetSource="Target bulanan Config + gap setelah cutoff, dibagi ke sisa hari sesuai bobot dan schedule staff";
+   if(data.targetAllocation){const allocated=(data.staff||[]).reduce((sum:number,p:any)=>sum+n(p.targets?.amount),0);data.targetAllocation={...data.targetAllocation,allocated,balance:day.target.amount-allocated}}
+  }
+ }catch{data.targetRecoveryWarning="Rencana pengejaran belum tersedia. Target awal tetap ditampilkan."}
+ return NextResponse.json(data,{headers:{"cache-control":"no-store"}});
 }
