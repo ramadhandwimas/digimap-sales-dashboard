@@ -88,6 +88,21 @@ function salesDateLabel(date:string){
 function Card({children,className=""}:{children:ReactNode;className?:string}){return <section className={`m238m-card ${className}`}>{children}</section>}
 function Progress({value}:{value:number}){return <div className="m238m-progress"><i style={{width:`${Math.max(0,Math.min(100,value))}%`}}/></div>}
 function Metric({label,value,sub}:{label:string;value:string;sub?:string}){return <Card className="m238m-metric"><span>{label}</span><strong>{value}</strong>{sub?<small>{sub}</small>:null}</Card>}
+function CategoryTargets({accessories,vas,accTarget,vasTarget}:{accessories:number;vas:number;accTarget:number;vasTarget:number}){
+ return <div className="m238m-category-targets">{[
+  {label:"Accessories",actual:accessories,target:accTarget},
+  {label:"VAS",actual:vas,target:vasTarget}
+ ].map(({label,actual,target})=>{
+  const configured=target>0,gap=Math.max(0,target-actual),achievement=configured?actual/target*100:0;
+  return <Card key={label} className="m238m-category-target">
+   <div className="m238m-category-target-head"><strong>{label}</strong><b>{configured?pct(achievement):"—"}</b></div>
+   <dl><div><dt>Target</dt><dd>{configured?money.format(target):"Belum diisi"}</dd></div><div><dt>Penjualan</dt><dd>{money.format(actual)}</dd></div></dl>
+   {configured?<Progress value={achievement}/>:null}
+   <div className="m238m-category-target-gap"><span>Gap ke Target</span><strong>{configured?money.format(gap):"—"}</strong></div>
+   <small>{!configured?"Target belum diisi":gap>0?"Sisa penjualan menuju target":"Target tercapai"}</small>
+  </Card>;
+ })}</div>;
+}
 function Segmented<T extends string>({value,onChange,items}:{value:T;onChange:(v:T)=>void;items:{value:T;label:string}[]}){return <div className="m238m-segment">{items.map(x=><button key={x.value} onClick={()=>onChange(x.value)} className={value===x.value?"active":""}>{x.label}</button>)}</div>}
 function Skeleton(){return <div className="m238m-stack m238m-fade"><div className="m238m-skeleton hero"/><div className="m238m-grid">{Array.from({length:4},(_,i)=><div key={i} className="m238m-skeleton tile"/>)}</div><div className="m238m-skeleton list"/><div className="m238m-skeleton list"/></div>}
 
@@ -486,6 +501,7 @@ function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fu
       <Card className="m238m-hero m238m-home-hero"><div className="m238m-hero-title"><span>Total Sales</span><ChevronRight size={18}/></div><strong>{money.format(overview.summary.amount)}</strong><p>{pct(achievement)} dari Target</p><Progress value={achievement}/><div className="m238m-hero-meta"><span>Target <b>{money.format(overview.target.amount)}</b></span><span>{periodMode==="month"?"Point Store":"Periode"} <b>{periodMode==="month"?overview.summary.point.total.toFixed(1):overview.label}</b></span></div></Card>
     </button>
     <div className="m238m-grid m238m-home-kpis"><Metric label="Achievement" value={pct(achievement)} sub={overview.summary.status}/><Metric label="Gap ke Target" value={money.format(overview.summary.gap)} sub={overview.summary.gap>0?"Sisa ke target":"Target tercapai"}/><Metric label="CVR" value={pct(cvr)} sub="Traffic → transaksi"/><Metric label="UPT" value={overview.summary.upt.toFixed(1)} sub="Unit per transaksi"/></div>
+    <CategoryTargets accessories={overview.summary.accessories} vas={overview.summary.vas} accTarget={overview.target.accessories} vasTarget={overview.target.vas}/>
     <ClosingNeeds overview={overview}/>
     <div className="m238m-section-head"><h2>Notifikasi Penting</h2><span>{homeAlerts.length+categoryAttention.length+(followStaff?1:0)} item</span></div>
     {homeAlerts.length?<div className="m238m-home-alerts">{homeAlerts.map(alert=><Card key={alert.key} className="m238m-home-alert"><Bell size={18}/><div><strong>{alert.title}</strong><small>{alert.detail}</small></div></Card>)}</div>:null}
@@ -682,6 +698,8 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
       <button className="m238m-click-card" onClick={()=>setCategoryPick("accessories")}><Card className="m238m-sales-breakdown-card m238m-tappable-card"><span>ACC</span><strong>{money.format(daily.total.accessories)}</strong><small>{pct(accAch)} • Tap detail</small></Card></button>
       <button className="m238m-click-card" onClick={()=>setCategoryPick("vas")}><Card className="m238m-sales-breakdown-card m238m-tappable-card"><span>VAS</span><strong>{money.format(daily.total.vas)}</strong><small>{pct(vasAch)} • Tap detail</small></Card></button>
     </div>
+
+    <CategoryTargets accessories={daily.total.accessories} vas={daily.total.vas} accTarget={daily.total.accTarget} vasTarget={daily.total.vasTarget}/>
 
     <div className="m238m-sales-ops-grid">
       <button className="m238m-metric-button" onClick={()=>void openMetricDetail("upt")}><Card className="m238m-metric m238m-drill-card"><span>UPT</span><strong>{daily.total.upt.toFixed(1)}</strong><small>Tap detail per staff</small></Card></button>
