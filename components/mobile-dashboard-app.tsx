@@ -39,6 +39,7 @@ type Staff={
 };
 type Overview={
  period:string;label:string;
+ categoryDetails?:Partial<Record<"device"|"accessories"|"vas",{qty:number;invoices:number;items:{label:string;qty:number;value:number}[]}>>;
  target:{amount:number;device:number;accessories:number;vas:number};
  summary:{amount:number;device:number;accessories:number;vas:number;invoices:number;qty:number;upt:number;atv:number;achievement:number;gap:number;pace:number;status:string;estimate:{amount:number;device:number;accessories:number;vas:number};point:{total:number;device:number;accessories:number;vas:number}};
  staff:Staff[];daily:{date:string;amount:number}[];
@@ -469,6 +470,8 @@ function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fu
  const categorySales=overview.summary[category],categoryTarget=overview.target[category],hasCategoryTarget=categoryTarget>0;
  const categoryAchievement=hasCategoryTarget?categorySales/categoryTarget*100:0,categoryGap=Math.max(0,categoryTarget-categorySales);
  const categoryPoint=category==="amount"?overview.summary.point.total:overview.summary.point[category];
+ const categoryDetail=category==="amount"?null:overview.categoryDetails?.[category];
+ const categoryStaff=category==="amount"?[]:[...overview.staff].filter(person=>person[category]!==0).sort((a,b)=>b[category]-a[category]);
  const salesRows=overview.daily||[],latestDataDate=salesRows.at(-1)?.date||"",latestSales=salesRows.at(-1)?.amount||0,prevSales=salesRows.at(-2)?.amount||0,salesDelta=prevSales?((latestSales-prevSales)/prevSales)*100:null;
  const trafficRows=traffic?.daily||[],latestTraffic=trafficRows.at(-1)?.traffic||0,prevTraffic=trafficRows.at(-2)?.traffic||0,trafficDelta=prevTraffic?((latestTraffic-prevTraffic)/prevTraffic)*100:null;
  const insight=salesDelta==null
@@ -503,13 +506,20 @@ function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fu
   </div>
 
   {fullLoading?<Skeleton/>:mode==="monthly"?<>
-    <Card className="m238m-hero m238m-home-hero">
-     <div className="m238m-hero-category-tabs" role="group" aria-label="Kategori penjualan">{categoryTabs.map(tab=><button key={tab.key} type="button" aria-pressed={category===tab.key} className={category===tab.key?"active":""} onClick={()=>setCategory(tab.key)}>{tab.label}</button>)}</div>
+    <div className="m238m-category-menu" role="group" aria-label="Menu overview penjualan">{categoryTabs.map(tab=><button key={tab.key} type="button" aria-pressed={category===tab.key} className={category===tab.key?"active":""} onClick={()=>setCategory(tab.key)}>{tab.label}</button>)}</div>
+    <div className="m238m-stack" key={category}>
+    <Card className={`m238m-hero m238m-home-hero m238m-category-hero-${category}`}>
      <div className="m238m-hero-title"><span>{categoryLabel}</span>{category==="amount"?<button type="button" className="m238m-hero-detail" onClick={onOpenSalesDetail} aria-label="Lihat detail Total Sales"><ChevronRight size={18}/></button>:null}</div>
      <strong>{money.format(categorySales)}</strong><p>{hasCategoryTarget?`${pct(categoryAchievement)} dari Target`:"Target belum diisi"}</p><Progress value={categoryAchievement}/>
      <div className="m238m-hero-meta"><span>Target <b>{hasCategoryTarget?money.format(categoryTarget):"Belum diisi"}</b></span><span>{periodMode==="month"?(category==="amount"?"Point Store":`Point ${categoryLabel}`):"Periode"} <b>{periodMode==="month"?categoryPoint.toFixed(1):overview.label}</b></span></div>
     </Card>
-    <div className="m238m-grid m238m-home-kpis"><Metric label={`Achievement${category==="amount"?"":` ${categoryLabel}`}`} value={hasCategoryTarget?pct(categoryAchievement):"—"} sub={!hasCategoryTarget?"Target belum diisi":categoryAchievement>=100?"Target tercapai":"Need Push"}/><Metric label={`Gap${category==="amount"?" ke Target":` ${categoryLabel}`}`} value={hasCategoryTarget?money.format(categoryGap):"—"} sub={!hasCategoryTarget?"Target belum diisi":categoryGap>0?"Sisa ke target":"Target tercapai"}/><Metric label="CVR" value={pct(cvr)} sub="Traffic → transaksi • Total toko"/><Metric label="UPT" value={overview.summary.upt.toFixed(1)} sub="Unit per transaksi • Total toko"/></div>
+    <div className="m238m-grid m238m-home-kpis"><Metric label={`Achievement${category==="amount"?"":` ${categoryLabel}`}`} value={hasCategoryTarget?pct(categoryAchievement):"—"} sub={!hasCategoryTarget?"Target belum diisi":categoryAchievement>=100?"Target tercapai":"Need Push"}/><Metric label={`Gap${category==="amount"?" ke Target":` ${categoryLabel}`}`} value={hasCategoryTarget?money.format(categoryGap):"—"} sub={!hasCategoryTarget?"Target belum diisi":categoryGap>0?"Sisa ke target":"Target tercapai"}/>{category==="amount"?<><Metric label="CVR" value={pct(cvr)} sub="Traffic → transaksi"/><Metric label="UPT" value={overview.summary.upt.toFixed(1)} sub="Unit per transaksi"/></>:<><Metric label={`Qty ${categoryLabel}`} value={categoryDetail?num.format(categoryDetail.qty):"—"} sub={category==="device"?"Unit device terjual":"Qty terjual"}/><Metric label={`Invoice ${categoryLabel}`} value={categoryDetail?num.format(categoryDetail.invoices):"—"} sub="Invoice berisi kategori ini"/></>}</div>
+    {category!=="amount"?<>
+     <div className="m238m-section-head"><h2>{category==="device"?"Penjualan per Device":category==="accessories"?"Rincian Accessories":"Qoala & Provider"}</h2><span>{overview.label}</span></div>
+     {categoryDetail?<div className="m238m-list">{categoryDetail.items.map(item=><Card key={item.label} className="m238m-product-detail-row"><div><strong>{item.label}</strong><span>{num.format(item.qty)} {category==="device"?"unit":"qty"}</span></div><div><b>{money.format(item.value)}</b><small>{categorySales?pct(item.value/categorySales*100):"0%"} dari {categoryLabel}</small></div></Card>)}{!categoryDetail.items.length?<Card className="m238m-empty">Belum ada penjualan {categoryLabel} pada periode ini.</Card>:null}</div>:<Card className="m238m-empty">Rincian belum tersedia. Perbarui dashboard untuk memuat data terbaru.</Card>}
+     <div className="m238m-section-head"><h2>Penjualan {categoryLabel} per Staff</h2><span>{categoryStaff.length} staff</span></div>
+     <div className="m238m-list">{categoryStaff.map(person=><Card key={person.id} className="m238m-product-detail-row"><div><strong>{person.name}</strong></div><b>{money.format(person[category])}</b></Card>)}{!categoryStaff.length?<Card className="m238m-empty">Belum ada penjualan {categoryLabel} staff.</Card>:null}</div>
+    </>:<>
     <ClosingNeeds overview={overview}/>
     <div className="m238m-section-head"><h2>Notifikasi Penting</h2><span>{homeAlerts.length+categoryAttention.length+(followStaff?1:0)} item</span></div>
     {homeAlerts.length?<div className="m238m-home-alerts">{homeAlerts.map(alert=><Card key={alert.key} className="m238m-home-alert"><Bell size={18}/><div><strong>{alert.title}</strong><small>{alert.detail}</small></div></Card>)}</div>:null}
@@ -537,6 +547,8 @@ function HomeScreen({mode,setMode,overview,traffic,cvr,achievement,periodMode,fu
     </div>
 
     <Card className="m238m-insight"><Lightbulb size={18}/><div><span>Insight Hari Ini</span><p>{insight}</p></div></Card>
+    </>}
+    </div>
   </>:mode==="ytd"?<YtdOverview overview={overview}/>:<CompareOverview overview={overview} compare={selectedCompare as CompareMonth|undefined}/>}
  </div>
 }

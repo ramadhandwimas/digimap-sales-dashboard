@@ -1,7 +1,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getSheetRanges} from "@/lib/google-sheets";
 import {getCachedSalesSource} from "@/lib/m238-sales-source-cache";
-import {type SalesRow} from "@/lib/m238-sales-sanitize";
+import {parseSalesRow,vasKey,type SalesRow} from "@/lib/m238-sales-sanitize";
 
 const ID="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const STORE="M238";
@@ -58,7 +58,16 @@ export async function GET(req:NextRequest){
   const projectionFactor=rangeMode?1:(elapsed>0?dim/elapsed:0);
   const estimate={amount:rangeMode?amount:period<current?amount:period>current?0:amount*projectionFactor,device:rangeMode?device:period<current?device:period>current?0:device*projectionFactor,accessories:rangeMode?accessories:period<current?accessories:period>current?0:accessories*projectionFactor,vas:rangeMode?vas:period<current?vas:period>current?0:vas*projectionFactor};
   const pointDevice=Math.min(target.device?device/target.device*60:0,60),pointAccessories=Math.min(target.accessories?accessories/target.accessories*30:0,30),pointVas=Math.min(target.vas?vas/target.vas*10:0,10),point={total:pointDevice+pointAccessories+pointVas,device:pointDevice,accessories:pointAccessories,vas:pointVas};
-  const base={period,label:rangeMode?(rangeLabel||`${from} – ${to}`):monthLabel(period),target,summary:{amount,device,accessories,vas,invoices:invoices.size,qty,upt:invoices.size?qty/invoices.size:0,atv:invoices.size?amount/invoices.size:0,achievement,gap,pace,status,estimate,point},staff,daily,team:{total:staff.length,productive:staff.filter(x=>x.status==="Productive").length,needPush:staff.filter(x=>x.status!=="Productive").length,totalTransactions:invoices.size,avgUpt:invoices.size?qty/invoices.size:0,avgAtv:invoices.size?amount/invoices.size:0}};
+  const categoryDetails=Object.fromEntries(["device","accessories","vas"].map(category=>{
+   const selected=periodRows.filter(r=>kind(r)===category),groups=new Map<string,{label:string;qty:number;value:number}>();
+   if(category==="vas")for(const label of ["Qoala","Telkomsel","XL","Indosat"])groups.set(label,{label,qty:0,value:0});
+   for(const row of selected){
+    const provider=category==="vas"?vasKey(parseSalesRow(row)):"",label=category==="device"?deviceLob(row):category==="accessories"?(s(row[6])||s(row[9])||"Accessories lainnya"):provider==="qoala"?"Qoala":provider==="telkomsel"?"Telkomsel":provider==="indosat"?"Indosat":provider==="xl"?"XL":"VAS lainnya";
+    const item=groups.get(label)||{label,qty:0,value:0};item.qty+=n(row[7]);item.value+=n(row[8]);groups.set(label,item);
+   }
+   return [category,{qty:sumQty(selected),invoices:new Set(selected.map(r=>s(r[3])).filter(Boolean)).size,items:[...groups.values()].sort((a,b)=>b.value-a.value)}];
+  }));
+  const base={period,label:rangeMode?(rangeLabel||`${from} – ${to}`):monthLabel(period),target,categoryDetails,summary:{amount,device,accessories,vas,invoices:invoices.size,qty,upt:invoices.size?qty/invoices.size:0,atv:invoices.size?amount/invoices.size:0,achievement,gap,pace,status,estimate,point},staff,daily,team:{total:staff.length,productive:staff.filter(x=>x.status==="Productive").length,needPush:staff.filter(x=>x.status!=="Productive").length,totalTransactions:invoices.size,avgUpt:invoices.size?qty/invoices.size:0,avgAtv:invoices.size?amount/invoices.size:0}};
   if(lite)return NextResponse.json(saveOverview(cacheKey,base),{headers:{"cache-control":"private, max-age=60, stale-while-revalidate=120","x-m238-cache":"MISS"}});
   const series2025=monthSeries(all2025,2025),series2026=monthSeries(all2026,2026),currentMonth=Number(current.slice(5,7));
   const compare=series2025.map((x,i)=>{const y=series2026[i],started=i+1<=currentMonth||y.amount>0,diff=started?y.amount-x.amount:null,growth=started&&x.amount?((y.amount-x.amount)/x.amount)*100:null,qtyDiff=started?y.qty-x.qty:null,qtyGrowth=started&&x.qty?((y.qty-x.qty)/x.qty)*100:null,deviceDiff=started?y.device-x.device:null,deviceGrowth=started&&x.device?((y.device-x.device)/x.device)*100:null,deviceQtyDiff=started?y.deviceQty-x.deviceQty:null,deviceQtyGrowth=started&&x.deviceQty?((y.deviceQty-x.deviceQty)/x.deviceQty)*100:null;const lobs=Object.keys({...x.lobs,...y.lobs}).map(lob=>{const a=x.lobs[lob]||{amount:0,qty:0},b=y.lobs[lob]||{amount:0,qty:0},amount2026=started?b.amount:null,qty2026=started?b.qty:null,lobDiff=started?(amount2026||0)-a.amount:null,lobGrowth=started&&a.amount?(((amount2026||0)-a.amount)/a.amount)*100:null,lobQtyDiff=started?(qty2026||0)-a.qty:null,lobQtyGrowth=started&&a.qty?(((qty2026||0)-a.qty)/a.qty)*100:null;return{lob,amount2025:a.amount,amount2026,qty2025:a.qty,qty2026,diff:lobDiff,growth:lobGrowth,qtyDiff:lobQtyDiff,qtyGrowth:lobQtyGrowth}});return{month:i+1,period2025:x.period,period2026:y.period,amount2025:x.amount,amount2026:started?y.amount:null,qty2025:x.qty,qty2026:started?y.qty:null,diff,growth,qtyDiff,qtyGrowth,device2025:x.device,device2026:started?y.device:null,deviceQty2025:x.deviceQty,deviceQty2026:started?y.deviceQty:null,deviceDiff,deviceGrowth,deviceQtyDiff,deviceQtyGrowth,lobs,started}});
