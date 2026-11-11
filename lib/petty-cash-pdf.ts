@@ -7,7 +7,7 @@ const money=(value:number)=>`Rp${new Intl.NumberFormat("id-ID",{maximumFractionD
 const shortDate=(value:string)=>value?value.split("-").reverse().join("/"):"";
 const paperDate=(value:string)=>value?new Date(`${value}T00:00:00Z`).toLocaleDateString("id-ID",{timeZone:"UTC",day:"2-digit",month:"long",year:"numeric"}):"";
 export function drawPettyCashPdf(doc:jsPDF,input:PettyCash,photos:PdfPhoto[]){
- const data=validatePettyCash(input),totals=cashTotals(data),margin=12,width=273,columns=[22,14,82,31,31,31,31,31],x=[margin];
+ const data=validatePettyCash(input),totals=cashTotals(data),margin=12,width=273,columns=[22,14,82,31,31,31,31,31],x=[margin],compact=data.rows.length<=20,tableTop=compact?52:55,tableHead=compact?7:8,footerHeight=compact?35:44;
  for(const size of columns)x.push(x[x.length-1]+size);
  doc.setDrawColor(30);doc.setLineWidth(.2);doc.setTextColor(20);doc.setFont("helvetica","normal");
  const text=(value:string,left:number,top:number,size=8,bold=false)=>{doc.setFont("helvetica",bold?"bold":"normal");doc.setFontSize(size);doc.text(value,left,top)};
@@ -17,30 +17,30 @@ export function drawPettyCashPdf(doc:jsPDF,input:PettyCash,photos:PdfPhoto[]){
   text("Store Name :",15,28);text("Digimap",69,28,8,true);text("Store Code :",15,37);text("M238",69,37,8,true);text("Location :",15,46);text("Pondok Indah Mall 2",69,46,8,true);
   text("PCRS No. :",188,27);fit(data.pcrs,221,27,60,8,true);text("Date :",188,35);fit(paperDate(data.date),221,35,60,8,true);
   doc.rect(185,39,100,13);text("Received by Cash Management",188,43,7,true);text(`Date : ${paperDate(data.receivedDate)}`,188,49,7);
-  if(page>1)text(`Lanjutan ${page}`,15,53,6);
+  if(page>1)text(`Lanjutan ${page}`,15,tableTop-2,6);
   const labels=["Date","PCV No.","Description",...CASH_CATEGORIES.map(key=>CASH_LABELS[key])];
-  labels.forEach((label,i)=>{doc.rect(x[i],55,columns[i],8);fit(label,x[i]+2,60,columns[i]-4,7,true,"left");});
+  labels.forEach((label,i)=>{doc.rect(x[i],tableTop,columns[i],tableHead);fit(label,x[i]+2,tableTop+(compact?4.5:5),columns[i]-4,compact?6.5:7,true,"left");});
  };
- let page=1,y=63;header(page);
+ let page=1,y=tableTop+tableHead;header(page);
  for(const row of data.rows){
-  doc.setFontSize(7);doc.setFont("helvetica","normal");const lines=doc.splitTextToSize(row.description,78) as string[],rowH=Math.max(6,lines.length*3+2);
-  if(y+rowH>147){doc.addPage("a4","landscape");page++;header(page);y=63}
+  const fontSize=compact?6.5:7;doc.setFontSize(fontSize);doc.setFont("helvetica","normal");const lines=doc.splitTextToSize(row.description,78) as string[],rowH=Math.max(compact?4.7:6,lines.length*(compact?2.5:3)+(compact?1.5:2));
+  if(y+rowH+(compact?6:7)>197-footerHeight){doc.addPage("a4","landscape");page++;header(page);y=tableTop+tableHead}
   columns.forEach((size,i)=>doc.rect(x[i],y,size,rowH));
-  fit(shortDate(row.date),x[0]+1,y+4,20,7);fit(row.pcv,x[1]+1,y+4,12,7);doc.setFontSize(7);doc.text(lines,x[2]+2,y+4);
-  CASH_CATEGORIES.forEach((key,i)=>{if(row[key])fit(money(Number(row[key].replace(/\./g,""))),x[i+4]-1,y+4,29,7,false,"right")});y+=rowH;
+  const baseline=y+(compact?3.35:4);fit(shortDate(row.date),x[0]+1,baseline,20,fontSize);fit(row.pcv,x[1]+1,baseline,12,fontSize);doc.setFontSize(fontSize);doc.text(lines,x[2]+2,baseline);
+  CASH_CATEGORIES.forEach((key,i)=>{if(row[key])fit(money(Number(row[key].replace(/\./g,""))),x[i+4]-1,baseline,29,fontSize,false,"right")});y+=rowH;
  }
- columns.forEach((size,i)=>doc.rect(x[i],y,size,7));text("Total per kategori",15,y+4.5,7,true);CASH_CATEGORIES.forEach((key,i)=>fit(money(totals.categories[key]),x[i+4]-1,y+4.5,29,7,true,"right"));y+=7;
+ const totalHeight=compact?6:7,totalBaseline=compact?4:4.5;columns.forEach((size,i)=>doc.rect(x[i],y,size,totalHeight));text("Total per kategori",15,y+totalBaseline,compact?6.5:7,true);CASH_CATEGORIES.forEach((key,i)=>fit(money(totals.categories[key]),x[i+4]-1,y+totalBaseline,29,compact?6.5:7,true,"right"));y+=totalHeight;
  // The fixed footer leaves room for readable signatures on every final summary page.
  const footer=y,leftWidth=105,financeWidth=64,requestWidth=104;
- doc.rect(margin,footer,width,44);doc.line(margin+leftWidth,footer,margin+leftWidth,footer+44);
+ doc.rect(margin,footer,width,footerHeight);doc.line(margin+leftWidth,footer,margin+leftWidth,footer+footerHeight);
  const summary=[["Grand Total",money(totals.grandTotal)],["Payment (Round)",money(totals.payment)],["Petty Cash Fund",money(PETTY_CASH_FUND)],["PC in Proses",""],["Sisa Saldo",money(totals.balance)]];
- summary.forEach(([label,value],i)=>{text(label,15,footer+4+i*5,7,true);fit(value,114,footer+4+i*5,63,7,true,"right");doc.line(12,footer+6+i*5,117,footer+6+i*5)});
- text("Distribution:",15,footer+32,6,true);text("1. Original: Attached to PCRS",15,footer+37,6);text("2. Copy: file",15,footer+41,6);
+ const summaryStep=compact?4:5,summaryTop=compact?3.5:4;summary.forEach(([label,value],i)=>{text(label,15,footer+summaryTop+i*summaryStep,compact?6.5:7,true);fit(value,114,footer+summaryTop+i*summaryStep,63,compact?6.5:7,true,"right");doc.line(12,footer+(compact?5:6)+i*summaryStep,117,footer+(compact?5:6)+i*summaryStep)});
+ text("Distribution:",15,footer+(compact?25:32),compact?5.5:6,true);text("1. Original: Attached to PCRS",15,footer+(compact?29:37),compact?5.5:6);text("2. Copy: file",15,footer+(compact?33:41),compact?5.5:6);
  const financeX=margin+leftWidth,requestX=financeX+financeWidth;
- doc.line(requestX,footer,requestX,footer+44);doc.line(financeX,footer+6,285,footer+6);doc.line(financeX,footer+35,285,footer+35);
- text("Cash Management Dept",financeX+7,footer+4,7,true);text("Requestor",requestX+36,footer+4,7,true);
- ["Checked & Coded","Approved"].forEach((label,i)=>{const start=financeX+i*financeWidth/2;if(i)doc.line(start,footer+6,start,footer+44);fit(label,start+2,footer+11,28,6,true);text("Finance Department",start+2,footer+41,5.5)});
- [["Prepared by",data.preparedBy,"PIC"],["Approved by",data.approvedBy,"OIC"],["Approved by",data.rh,"RH"]].forEach(([label,name,role],i)=>{const start=requestX+i*requestWidth/3;if(i)doc.line(start,footer+6,start,footer+44);text(label,start+2,footer+11,6.5,true);fit(name,start+2,footer+34,30,6.5);text(role,start+13,footer+41,6,true)});
+ const band=compact?5:6,roleLine=compact?28:35,labelY=compact?9:11,nameY=compact?26:34,roleY=compact?33:41;doc.line(requestX,footer,requestX,footer+footerHeight);doc.line(financeX,footer+band,285,footer+band);doc.line(financeX,footer+roleLine,285,footer+roleLine);
+ text("Cash Management Dept",financeX+7,footer+(compact?3.5:4),compact?6.5:7,true);text("Requestor",requestX+36,footer+(compact?3.5:4),compact?6.5:7,true);
+ ["Checked & Coded","Approved"].forEach((label,i)=>{const start=financeX+i*financeWidth/2;if(i)doc.line(start,footer+band,start,footer+footerHeight);fit(label,start+2,footer+labelY,28,compact?5.5:6,true);text("Finance Department",start+2,footer+roleY,compact?5:5.5)});
+ [["Prepared by",data.preparedBy,"PIC"],["Approved by",data.approvedBy,"OIC"],["Approved by",data.rh,"RH"]].forEach(([label,name,role],i)=>{const start=requestX+i*requestWidth/3;if(i)doc.line(start,footer+band,start,footer+footerHeight);text(label,start+2,footer+labelY,compact?6:6.5,true);fit(name,start+2,footer+nameY,30,compact?6:6.5);text(role,start+13,footer+roleY,compact?5.5:6,true)});
  for(const photo of photos){
   const landscape=photo.width>photo.height,pageWidth=landscape?297:210,pageHeight=landscape?210:297;doc.addPage("a4",landscape?"landscape":"portrait");text(`M238 - BUKTI PEMBELIAN${photo.pcv?` - PCV ${photo.pcv}`:""}`,12,12,9,true);
   fit(photo.name,12,18,pageWidth-24,7);const scale=Math.min((pageWidth-24)/photo.width,(pageHeight-39)/photo.height),w=photo.width*scale,h=photo.height*scale;
