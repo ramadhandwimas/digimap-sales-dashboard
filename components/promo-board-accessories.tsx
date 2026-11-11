@@ -17,8 +17,9 @@ const money=new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maxim
 const norm=(v:unknown)=>String(v??"").trim().toLowerCase();
 const barcodeKey=(v:unknown)=>String(v??"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
 const barcodeArticleAliases:Record<string,string>={
- "8998075699040":"TORX00RP137E000002",
- "8992765524148":"TORRIPH1863PBK1",
+ "8998075699040":"T0RX00RP137E000002",
+ "8998075699262":"T0RX00RP135A000070",
+ "8992765524148":"T0RRIPH1863PBK1",
  "050036398282":"JBL50036398282",
  "1200130008214":"JBL50036398282",
  "JBLXTREME4BLKAS":"JBL50036398282",
