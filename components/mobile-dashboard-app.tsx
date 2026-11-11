@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 35969)
+Total output lines: 1170
+
 "use client";
 
 import {useCallback,useEffect,useMemo,useRef,useState,type CSSProperties,type ReactNode} from "react";
@@ -401,7 +404,7 @@ export default function MobileDashboardApp(){
       {loading&&!overview?<Skeleton/>:null}
       {overview&&tab==="home"?<HomeScreen mode={homeMode} setMode={setHomeMode} overview={homeMode==="monthly"?overview:(fullOverview||overview)} traffic={traffic} cvr={cvr} achievement={achievement} periodMode={periodMode} fullLoading={homeMode!=="monthly"&&!fullOverview} onOpenPromo={()=>window.dispatchEvent(new CustomEvent("m238:promo-open"))} onOpenSalesDetail={()=>void openHomeSalesDetail()} onGoSales={()=>setTab("sales")} onGoTeam={()=>setTab("team")} onGoReport={()=>setTab("report")} onShare={()=>setSheet("share")}/>:null}
       {tab==="sales"?<SalesScreen mode={salesMode} setMode={setSalesMode} daily={daily} summary={summary} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange} onStaff={s=>void openStaff(s,"daily")} onDay={row=>{setDayDetail(row);setSheet("day")}} onShare={()=>setSheet("share")}/>:null}
-      {tab==="team"?<TeamScreen rows={team} allRows={teamAll} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")}/>:null}
+      {tab==="team"?<TeamScreen rows={team} allRows={teamAll} filter={teamFilter} setFilter={setTeamFilter} onStaff={s=>void openStaff(s,"monthly")} period={period}/>:null}
       {tab==="report"?<ReportScreen mode={reportMode} setMode={setReportMode} weekly={weekly} weeklySummary={weeklySummary} feedback={feedback} cx={cx} staff={overview?.staff||[]} period={period} periodMode={periodMode} activeRange={activeRange}/>:null}
       {tab==="admin"?<AdminScreen initialTab={adminStart} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>:null}
       {tab==="more"?<MoreScreen theme={themePreset} motion={motionPreset} motionStyle={motionStyle} font={fontPreset} onTheme={applyTheme} onMotion={applyMotion} onMotionStyle={applyMotionStyle} onFont={applyFont} onAction={handleMore} onBusyChange={setMoreTaskBusy} onChanged={refreshSettingsData}/>:null}
@@ -581,169 +584,7 @@ function YtdOverview({overview}:{overview:Overview}){
       <div><span>Value 2026</span><b>{money.format(selectedLob.amount2026||0)}</b></div>
       <div><span>Value 2025</span><b>{money.format(selectedLob.amount2025||0)}</b></div>
       <div><span>Variance Value</span><b className={(selectedLob.diff||0)>=0?"positive":"negative"}>{selectedLob.diff==null?"—":`${selectedLob.diff>=0?"+":""}${money.format(selectedLob.diff)}`}</b></div>
-      <div><span>Growth Value</span><b className={(selectedLob.growth||0)>=0?"positive":"negative"}>{selectedLob.growth==null?"—":`${selectedLob.growth>=0?"+":""}${pct(selectedLob.growth)}`}</b></div>
-      <div><span>Qty 2026</span><b>{num.format(selectedLob.qty2026||0)} unit</b></div>
-      <div><span>Qty 2025</span><b>{num.format(selectedLob.qty2025||0)} unit</b></div>
-      <div><span>Variance Qty</span><b className={(selectedLob.qtyDiff||0)>=0?"positive":"negative"}>{selectedLob.qtyDiff==null?"—":`${selectedLob.qtyDiff>=0?"+":""}${num.format(selectedLob.qtyDiff)} unit`}</b></div>
-      <div><span>Growth Qty</span><b className={(selectedLob.qtyGrowth||0)>=0?"positive":"negative"}>{selectedLob.qtyGrowth==null?"—":`${selectedLob.qtyGrowth>=0?"+":""}${pct(selectedLob.qtyGrowth)}`}</b></div>
-      <div><span>Kontribusi ke Sales YTD 2026</span><b>{pct(contribution)}</b></div>
-    </div>
-    <Card className="m238m-lob-compare-bar"><div><span>2025</span><b>{money.format(selectedLob.amount2025||0)}</b></div><div className="m238m-dual-bar"><i style={{width:`${Math.min(100,selectedLob.amount2025?100:0)}%`}}/><em style={{width:`${Math.min(100,selectedLob.amount2025?((selectedLob.amount2026||0)/selectedLob.amount2025)*100:100)}%`}}/></div><div><span>2026</span><b>{money.format(selectedLob.amount2026||0)}</b></div></Card>
-   </div>:null}
-  </Sheet>
- </>
-}
-
-function CompareOverview({overview,compare}:{overview:Overview;compare?:CompareMonth}){
- const[showMonthly,setShowMonthly]=useState(false);
- if(!compare)return <Card className="m238m-empty">Data compare belum tersedia.</Card>;
- const rows=(overview.compare||[]).filter(r=>r.started);
- return <>
-  <button className="m238m-click-card" onClick={()=>setShowMonthly(true)}>
-   <Card className="m238m-ytd-hero m238m-tappable-card"><div className="m238m-section-head compact"><h2>Total Sales</h2><span>{overview.label} <ChevronRight size={15}/></span></div><div className="m238m-compare-pair"><div><span>2025</span><strong>{money.format(compare.amount2025||0)}</strong></div><div><span>2026</span><strong>{compare.amount2026==null?"—":money.format(compare.amount2026)}</strong></div></div><div className={"m238m-growth-pill "+((compare.growth||0)>=0?"positive":"negative")}>{compare.diff==null?"Belum ada data":`${compare.diff>=0?"+":""}${money.format(compare.diff)} • ${(compare.growth||0)>=0?"+":""}${pct(compare.growth||0)}`}</div><small className="m238m-tap-hint">Tap untuk lihat compare per bulan</small></Card>
-  </button>
-  <div className="m238m-section-head"><h2>Qty</h2></div>
-  <div className="m238m-grid"><Metric label="2025" value={num.format(compare.qty2025||0)}/><Metric label="2026" value={compare.qty2026==null?"—":num.format(compare.qty2026)} sub={compare.qtyGrowth==null?undefined:`${compare.qtyGrowth>=0?"+":""}${pct(compare.qtyGrowth)}`}/></div>
-  <div className="m238m-section-head"><h2>Device</h2><span>Value & Qty</span></div>
-  <div className="m238m-grid"><Metric label="Device 2025" value={money.format(compare.device2025||0)} sub={`${num.format(compare.deviceQty2025||0)} unit`}/><Metric label="Device 2026" value={compare.device2026==null?"—":money.format(compare.device2026)} sub={compare.deviceQty2026==null?undefined:`${num.format(compare.deviceQty2026)} unit`}/></div>
-  {compare.lobs?.length?<><div className="m238m-section-head"><h2>Perbandingan LOB</h2><span>2025 → 2026</span></div><div className="m238m-list">{compare.lobs.map(r=><Card key={r.lob} className="m238m-compare-row"><div><strong>{r.lob}</strong><span>{money.format(r.amount2025)} → {r.amount2026==null?"—":money.format(r.amount2026)}</span></div><div><b>{r.qty2025} → {r.qty2026??"—"}</b><small className={(r.growth||0)>=0?"positive":"negative"}>{r.growth==null?"—":`${r.growth>=0?"+":""}${pct(r.growth)}`}</small></div></Card>)}</div></>:null}
-  <Sheet open={showMonthly} onClose={()=>setShowMonthly(false)} title="Compare Total Sales 2025 vs 2026">
-   <div className="m238m-stack">
-    {overview.ytd?<Card className="m238m-compare-total-head">
-      <div className="m238m-section-head compact"><h2>Total s.d. ${new Intl.DateTimeFormat("id-ID",{month:"long",timeZone:"UTC"}).format(new Date(Date.UTC(2026,(overview.ytd.throughMonth||Number(overview.period.slice(5,7)))-1,1)))} 2026</h2><span>2025 vs 2026</span></div>
-      <div className="m238m-compare-pair"><div><span>2025</span><strong>{money.format(overview.ytd.amount2025)}</strong></div><div><span>2026</span><strong>{money.format(overview.ytd.amount2026)}</strong></div></div>
-      <div className="m238m-total-variance"><div><span>Variance Total</span><b className={(overview.ytd.diff||0)>=0?"positive":"negative"}>{(overview.ytd.diff||0)>=0?"+":""}{money.format(overview.ytd.diff||0)}</b></div><div><span>Growth Total</span><b className={overview.ytd.growth>=0?"positive":"negative"}>{overview.ytd.growth>=0?"+":""}{pct(overview.ytd.growth)}</b></div></div>
-    </Card>:null}
-    <Card className="m238m-copy-card"><strong>Monthly Comparison</strong><p>Perbandingan Total Sales per bulan. Nominal ditampilkan penuh sesuai data existing.</p></Card>
-    <div className="m238m-monthly-compare-list">{rows.map(r=><Card key={r.month} className="m238m-month-compare-card"><div className="m238m-month-compare-head"><strong>{new Intl.DateTimeFormat("id-ID",{month:"long",timeZone:"UTC"}).format(new Date(Date.UTC(2026,r.month-1,1)))}</strong><small className={(r.growth||0)>=0?"positive":"negative"}>{r.growth==null?"—":`${r.growth>=0?"+":""}${pct(r.growth)}`}</small></div><div className="m238m-month-values"><div><span>2025</span><b>{money.format(r.amount2025||0)}</b></div><div><span>2026</span><b>{r.amount2026==null?"—":money.format(r.amount2026)}</b></div></div><div className="m238m-month-variance"><span>Variance</span><b className={(r.diff||0)>=0?"positive":"negative"}>{r.diff==null?"—":`${r.diff>=0?"+":""}${money.format(r.diff)}`}</b></div></Card>)}</div>
-   </div>
-  </Sheet>
- </>
-}
-function HomeSalesDetail({overview,traffic,summary}:{overview:Overview;traffic:Traffic|null;summary:DailySummary|null}){
- const ach=overview.target.amount?overview.summary.amount/overview.target.amount*100:0;
- const cvr=summary?.summary.cvr??((traffic?.total||0)?overview.summary.invoices/(traffic?.total||1)*100:0);
- return <div className="m238m-stack">
-  <Card className="m238m-detail-sales"><span>Total Sales</span><strong>{money.format(overview.summary.amount)}</strong><small>{overview.label}</small></Card>
-  <div className="m238m-detail-list">
-   {[
-    ["Target",money.format(overview.target.amount)],
-    ["Achievement",pct(ach)],
-    ["Gap / Variance",money.format(overview.summary.gap)],
-    ["Estimate",money.format(overview.summary.estimate.amount)],
-    ["Point Store",overview.summary.point.total.toFixed(1)],
-    ["Device",money.format(overview.summary.device)],
-    ["Accessories",money.format(overview.summary.accessories)],
-    ["VAS",money.format(overview.summary.vas)],
-    ["Transaction",num.format(overview.summary.invoices)],
-    ["Qty",num.format(overview.summary.qty)],
-    ["UPT",overview.summary.upt.toFixed(1)],
-    ["ATV",money.format(overview.summary.atv)],
-    ["Traffic",num.format(summary?.summary.traffic??traffic?.total??0)],
-    ["CVR",pct(cvr)],
-    ["Best Day",summary?.summary.bestDay?`${summary.summary.bestDay.date} • ${money.format(summary.summary.bestDay.amount)}`:"—"],
-    ["Lowest Day",summary?.summary.lowestDay?`${summary.summary.lowestDay.date} • ${money.format(summary.summary.lowestDay.amount)}`:"—"],
-    ["Growth vs Previous",summary?.summary.growthPct==null?"—":`${summary.summary.growthPct>=0?"+":""}${pct(summary.summary.growthPct)}`]
-   ].map(([label,value])=><div key={label}><span>{label}</span><b>{value}</b></div>)}
-  </div>
- </div>
-}
-
-function DailyCategorySheet({date,kind,open,onClose}:{date:string;kind:"device"|"accessories"|"vas"|null;open:boolean;onClose:()=>void}){
- const[data,setData]=useState<any>(null),[busy,setBusy]=useState(false),[vasTab,setVasTab]=useState<"qoala"|"telkomsel"|"xl"|"indosat">("qoala");
- useEffect(()=>{
-  if(!open||!kind||!date)return;
-  let alive=true;setBusy(true);setData(null);
-  cachedJson<any>(`/api/daily-staff-detail?date=${date}&detail=1`,30000).then(d=>{if(alive)setData(d.detail||null)}).catch(()=>alive&&setData(null)).finally(()=>alive&&setBusy(false));
-  return()=>{alive=false};
- },[open,kind,date]);
- useEffect(()=>{if(open&&kind==="vas")setVasTab("qoala")},[open,kind,date]);
- const title=kind==="device"?"Device Terjual":kind==="accessories"?"Accessories Terjual":"VAS Terjual";
- const products=(data?.products||[]) as any[],vasItems=(data?.vasItems||[]) as any[],items=kind==="vas"?vasItems.filter((item:any)=>item.provider===vasTab):products.filter((p:any)=>p.kind===kind);
- const vasTabs=[{value:"qoala",label:"Qoala"},{value:"telkomsel",label:"Telkomsel"},{value:"xl",label:"XL"},{value:"indosat",label:"Indosat"}] as const;
- const selectedVas=vasTabs.find(tab=>tab.value===vasTab)!,selectedVasValue=items.reduce((sum:number,item:any)=>sum+Number(item.value||0),0),selectedVasQty=items.reduce((sum:number,item:any)=>sum+Number(item.qty||0),0);
- return <Sheet open={open} onClose={onClose} title={`${title} • ${date}`}>
-  {busy?<Skeleton/>:data?<div className="m238m-stack">
-   {kind==="vas"?<Segmented value={vasTab} onChange={setVasTab} items={vasTabs.map(tab=>({...tab}))}/>:null}
-   <Card className="m238m-detail-sales"><span>{kind==="vas"?`${selectedVas.label} Terjual`:title}</span><strong>{kind==="device"?money.format(Number(data.device||0)):kind==="accessories"?money.format(Number(data.accessories||0)):money.format(selectedVasValue)}</strong><small>{kind==="vas"?`${num.format(selectedVasQty)} qty • ${salesDateLabel(date)}`:salesDateLabel(date)}</small></Card>
-   <div className="m238m-list">
-    {kind==="vas"?(items.length?items.map((v:any,i:number)=><Card key={v.provider+"-"+v.name+"-"+i} className="m238m-product-detail-row"><div><strong>{v.name}</strong><span>{selectedVas.label} • {num.format(Number(v.qty||0))} qty</span></div><b>{money.format(Number(v.value||0))}</b></Card>):<Card className="m238m-empty">Belum ada penjualan {selectedVas.label} pada tanggal ini.</Card>):(items.length?items.map((p:any,i:number)=><Card key={(p.article||p.name)+"-"+i} className="m238m-product-detail-row"><div><strong>{p.name}</strong><span>{kind==="device"?<>{p.focus?<b className="m238m-focus-badge">Focus</b>:null}{p.lob?<> {p.lob}</>:null}</>:<>{p.supplier?<b className="m238m-focus-badge">{p.supplier}</b>:null}{p.brandName?` ${p.brandName}`:""}{p.article?` • ${p.article}`:""}</>}</span></div><div><b>{num.format(Number(p.qty||0))} {kind==="device"?"unit":"qty"}</b><small>{money.format(Number(p.value||0))}</small></div></Card>):<Card className="m238m-empty">Tidak ada {kind==="device"?"device":"accessories"} yang terjual.</Card>)}
-   </div>
-  </div>:<Card className="m238m-empty">Detail penjualan belum tersedia.</Card>}
- </Sheet>
-}
-
-function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,activeRange,onStaff,onDay,onShare}:{mode:SalesMode;setMode:(v:SalesMode)=>void;daily:Daily|null;summary:DailySummary|null;period:string;periodMode:"month"|"week";selectedWeek:string;activeRange:{from:string;to:string}|null;onStaff:(s:Staff)=>void;onDay:(r:DailyRow)=>void;onShare:()=>void}){
- const[showTodayDetail,setShowTodayDetail]=useState(false),[metricPick,setMetricPick]=useState<"upt"|"invoice"|"qty"|null>(null),[metricDetail,setMetricDetail]=useState<any>(null),[metricBusy,setMetricBusy]=useState(false),[invoiceDetail,setInvoiceDetail]=useState<any>(null),[categoryPick,setCategoryPick]=useState<"device"|"accessories"|"vas"|null>(null),[dailyLobPick,setDailyLobPick]=useState<{label:string;key:"iphone"|"mac"|"ipad"|"watch"|"airpods"}|null>(null),[dailyVasPick,setDailyVasPick]=useState<{label:string;key:"qoala"|"telkomsel"|"xl"|"indosat"}|null>(null),[dailyDrillStaff,setDailyDrillStaff]=useState<Staff|null>(null),[dailyProductDetail,setDailyProductDetail]=useState<any>(null),[dailyVasDetail,setDailyVasDetail]=useState<any>(null),[dailyProductBusy,setDailyProductBusy]=useState(false),[dailyVasBusy,setDailyVasBusy]=useState(false);
- const ach=daily?.total.target?daily.total.amount/daily.total.target*100:0,device=daily?Math.max(0,daily.total.amount-daily.total.accessories-daily.total.vas):0,dailyGap=daily?Math.max(0,daily.total.target-daily.total.amount):0,accAch=daily?.total.accTarget?daily.total.accessories/daily.total.accTarget*100:0,vasAch=daily?.total.vasTarget?daily.total.vas/daily.total.vasTarget*100:0;
- const dailyLob=daily?.staff.reduce((a,s)=>({iphone:a.iphone+Number(s.lob?.iphone||0),mac:a.mac+Number(s.lob?.mac||0),ipad:a.ipad+Number(s.lob?.ipad||0),watch:a.watch+Number(s.lob?.watch||0),airpods:a.airpods+Number(s.lob?.airpods||0)}),{iphone:0,mac:0,ipad:0,watch:0,airpods:0})||{iphone:0,mac:0,ipad:0,watch:0,airpods:0};
- const dailyVas=daily?.staff.reduce((a,s)=>({qoalaQty:a.qoalaQty+Number(s.vasDetail?.qoala?.qty||0),qoalaValue:a.qoalaValue+Number(s.vasDetail?.qoala?.value||0),telkomselQty:a.telkomselQty+Number(s.vasDetail?.telkomsel?.qty||0),telkomselValue:a.telkomselValue+Number(s.vasDetail?.telkomsel?.value||0),xlQty:a.xlQty+Number(s.vasDetail?.xl?.qty||0),xlValue:a.xlValue+Number(s.vasDetail?.xl?.value||0),indosatQty:a.indosatQty+Number(s.vasDetail?.indosat?.qty||0),indosatValue:a.indosatValue+Number(s.vasDetail?.indosat?.value||0)}),{qoalaQty:0,qoalaValue:0,telkomselQty:0,telkomselValue:0,xlQty:0,xlValue:0,indosatQty:0,indosatValue:0})||{qoalaQty:0,qoalaValue:0,telkomselQty:0,telkomselValue:0,xlQty:0,xlValue:0,indosatQty:0,indosatValue:0};
- const dailyRows=[...(summary?.dailyRows||[])].sort((a,b)=>a.date.localeCompare(b.date));
- const lobMeta=[["iPhone","iphone",dailyLob.iphone],["MacBook","mac",dailyLob.mac],["iPad","ipad",dailyLob.ipad],["Apple Watch","watch",dailyLob.watch],["AirPods","airpods",dailyLob.airpods]] as const;
- const vasMeta=[["Qoala","qoala",dailyVas.qoalaValue,dailyVas.qoalaQty],["Telkomsel","telkomsel",dailyVas.telkomselValue,dailyVas.telkomselQty],["XL","xl",dailyVas.xlValue,dailyVas.xlQty],["Indosat","indosat",dailyVas.indosatValue,dailyVas.indosatQty]] as const;
- const openMetricDetail=async(kind:"upt"|"invoice"|"qty")=>{
-   setMetricPick(kind);setMetricBusy(true);
-   try{const d=await cachedJson<any>(`/api/daily-staff-detail?date=${daily?.date||today()}&detail=1`,15000,true);setMetricDetail(d||null)}
-   catch{setMetricDetail(null)}finally{setMetricBusy(false)}
- };
- const openDailyLob=async(label:string,key:"iphone"|"mac"|"ipad"|"watch"|"airpods")=>{
-   setDailyLobPick({label,key});setDailyDrillStaff(null);
-   if(dailyProductDetail)return;
-   setDailyProductBusy(true);
-   try{setDailyProductDetail(await cachedJson<any>(`/api/daily-lob-detail?date=${daily?.date||today()}`,30000,true))}
-   catch{setDailyProductDetail(null)}finally{setDailyProductBusy(false)}
- };
-
- const openDailyVas=async(label:string,key:"qoala"|"telkomsel"|"xl"|"indosat")=>{
-   setDailyVasPick({label,key});setDailyDrillStaff(null);
-   if(dailyVasDetail)return;
-   setDailyVasBusy(true);
-   try{setDailyVasDetail(await cachedJson<any>(`/api/daily-vas-detail?date=${daily?.date||today()}`,30000,true))}
-   catch{setDailyVasDetail(null)}finally{setDailyVasBusy(false)}
- };
- const dailyLobKey=dailyLobPick?.key,dailyVasKey=dailyVasPick?.key;
- const lobStaff=dailyLobKey&&daily?daily.staff.filter(st=>Number(st.lob?.[dailyLobKey]||0)>0).sort((a,b)=>Number(b.lob?.[dailyLobKey]||0)-Number(a.lob?.[dailyLobKey]||0)):[];
- const vasStaff=dailyVasKey&&daily?daily.staff.filter(st=>Number(st.vasDetail?.[dailyVasKey]?.qty||0)>0||Number(st.vasDetail?.[dailyVasKey]?.value||0)>0).sort((a,b)=>Number(b.vasDetail?.[dailyVasKey]?.value||0)-Number(a.vasDetail?.[dailyVasKey]?.value||0)):[];
- const productPrefix=(key:string)=>key==="iphone"?"iPhone":key==="mac"?"MacBook":key==="ipad"?"iPad":key==="watch"?"Apple Watch":"AirPods";
- const dailyGroupProducts=dailyLobKey?((dailyProductDetail?.lob?.products||[]) as Array<{name:string;qty:number;value:number}>).filter(p=>Number(p.qty||0)>0&&(dailyLobKey==="iphone"?p.name.startsWith("iPhone"):dailyLobKey==="mac"?p.name.startsWith("MacBook"):dailyLobKey==="ipad"?p.name.startsWith("iPad"):dailyLobKey==="watch"?p.name.startsWith("Apple Watch"):p.name.startsWith("AirPods"))).sort((a,b)=>Number(b.qty||0)-Number(a.qty||0)):[];
- const selectedProductStaff=dailyDrillStaff&&dailyLobKey?(dailyProductDetail?.lob?.staff||[]).find((x:any)=>String(x.id)===String(dailyDrillStaff.id)):undefined;
- const selectedProducts=dailyDrillStaff&&dailyLobKey?Object.entries(selectedProductStaff?.products||{}).filter(([name,v]:any)=>name.startsWith(productPrefix(dailyLobKey))&&Number(v?.qty||0)>0).map(([name,v]:any)=>({name,qty:Number(v.qty||0),value:Number(v.value||0)})).sort((a,b)=>b.qty-a.qty):[];
- const selectedVasStaff=dailyDrillStaff&&dailyVasKey?(dailyVasDetail?.staff||[]).find((x:any)=>String(x.id)===String(dailyDrillStaff.id)):undefined;
- const selectedVasProducts=dailyDrillStaff&&dailyVasKey?((selectedVasStaff?.providers?.[dailyVasKey]?.products||[]) as Array<{label:string;article:string;description:string;qty:number;value:number;invoices:string[]}>):[];
- return <div className="m238m-stack m238m-enter">
-  <Segmented value={mode} onChange={setMode} items={[{value:"daily",label:"Daily"},{value:"summary",label:"Summary"},{value:"lob",label:"Fokus Product"}]}/>
-  {mode==="daily"?(daily?<>
-    {daily.fastUpdatedAt?<div className="m238m-data-freshness"><span>Data terakhir {new Intl.DateTimeFormat("id-ID",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jakarta"}).format(new Date(daily.fastUpdatedAt))} WIB</span>{daily.fastSource==="live-refresh"?<b className="live">Live Refresh</b>:Date.now()-new Date(daily.fastUpdatedAt).getTime()>30*60*1000?<b>Perlu Refresh</b>:null}</div>:null}
-    <button className="m238m-click-card" onClick={()=>setShowTodayDetail(true)}><Card className="m238m-hero compact m238m-sales-hero m238m-tappable-card"><div className="m238m-weekly-hero-title"><span>Sales Today</span><ChevronRight size={18}/></div><strong>{money.format(daily.total.amount)}</strong><p>Target {money.format(daily.total.target)} • {pct(ach)}</p><Progress value={ach}/><small className="m238m-tap-hint">Tap untuk lihat detail penjualan hari ini</small></Card></button>
-
-    <div className="m238m-sales-status-grid">
-      <Card className="m238m-sales-status"><span>Achievement</span><strong>{pct(ach)}</strong><small>{ach>=100?"Target tercapai":"Masih perlu closing"}</small></Card>
-      <Card className="m238m-sales-status"><span>Gap Hari Ini</span><strong>{money.format(dailyGap)}</strong><small>{dailyGap>0?"Sisa ke target":"Sudah achieve"}</small></Card>
-    </div>
-
-    <div className="m238m-section-head"><h2>Breakdown Hari Ini</h2><span>Value</span></div>
-    <div className="m238m-sales-breakdown">
-      <button className="m238m-click-card" onClick={()=>setCategoryPick("device")}><Card className="m238m-sales-breakdown-card m238m-tappable-card"><span>Device</span><strong>{money.format(device)}</strong><small>Tap untuk detail</small></Card></button>
-      <button className="m238m-click-card" onClick={()=>setCategoryPick("accessories")}><Card className="m238m-sales-breakdown-card m238m-tappable-card"><span>ACC</span><strong>{money.format(daily.total.accessories)}</strong><small>{pct(accAch)} • Tap detail</small></Card></button>
-      <button className="m238m-click-card" onClick={()=>setCategoryPick("vas")}><Card className="m238m-sales-breakdown-card m238m-tappable-card"><span>VAS</span><strong>{money.format(daily.total.vas)}</strong><small>{pct(vasAch)} • Tap detail</small></Card></button>
-    </div>
-
-    <CategoryTargets accessories={daily.total.accessories} vas={daily.total.vas} accTarget={daily.total.accTarget} vasTarget={daily.total.vasTarget}/>
-    <TargetRecoveryPanel plan={daily.targetRecovery}/>
-    {daily.targetRecoveryWarning?<Card className="m238m-warning-card">{daily.targetRecoveryWarning}</Card>:null}
-
-    <div className="m238m-sales-ops-grid">
-      <button className="m238m-metric-button" onClick={()=>void openMetricDetail("upt")}><Card className="m238m-metric m238m-drill-card"><span>UPT</span><strong>{daily.total.upt.toFixed(1)}</strong><small>Tap detail per staff</small></Card></button>
-      <button className="m238m-metric-button" onClick={()=>void openMetricDetail("invoice")}><Card className="m238m-metric m238m-drill-card"><span>Invoice</span><strong>{num.format(daily.total.invoices)}</strong><small>Tap nomor invoice</small></Card></button>
-      <button className="m238m-metric-button" onClick={()=>void openMetricDetail("qty")}><Card className="m238m-metric m238m-drill-card"><span>Qty</span><strong>{num.format(daily.total.qty)}</strong><small>Tap detail per staff</small></Card></button>
-      <button className="m238m-share-sales" onClick={onShare}><Share2 size={18}/><span>Share Daily</span><small>Staff · LOB · VAS</small></button>
-    </div>
-
-    <div className="m238m-section-head"><h2>Staff Hari Ini</h2><span>{daily.staff.length} staff</span></div>
-    <div className="m238m-list">{daily.staff.map(s=><StaffRow key={s.id} staff={s} onClick={()=>onStaff(s)} shortName fullMoney/>)}</div>
-
-    <Sheet open={!!metricPick} onClose={()=>{if(invoiceDetail){setInvoiceDetail(null)}else{setMetricPick(null);setMetricDetail(null)}}} title={invoiceDetail?"Detail Invoice":metricPick==="upt"?"UPT • Hari Ini":metricPick==="invoice"?"Invoice • Hari Ini":"Qty • Hari Ini"}>
-      {invoiceDetail?<div className="m238m-stack"><button className="m238m-sheet-back" onClick={()=>setInvoiceDetail(null)}>← Kembali ke Invoice</button><Card className="m238m-detail-sales"><span>{invoiceDetail.invoice}</span><strong>{money.format(Number(invoiceDetail.value||0))}</strong><small>{invoiceDetail.name} • {num.format(Number(invoiceDetail.qty||0))} qty • UPT {Number(invoiceDetail.upt??invoiceDetail.qty??0).toFixed(1)}</small></Card><div className="m238m-section-head"><h2>Item dalam Invoice</h2><span>{num.format(Number(invoiceDetail.qty||0))} qty</span></div>{Array.isArray(invoiceDetail.items)&&invoiceDetail.items.length?<div className="m238m-list">{invoiceDetail.items.map((it:any,i:number)=><Card key={`${it.article||it.product}-${i}`} className="m238m-product-detail-row"><div><strong>{it.product||it.description||"Produk"}</strong><span>{it.article?`SAP ${it.article}`:"SAP tidak tersedia"}</span><small>{num.format(Number(it.qty||0))} × {money.format(Number(it.qty||0)?Number(it.value||0)/Number(it.qty||1):0)}</small></div><b>{money.format(Number(it.value||0))}</b></Card>)}</div>:<Card className="m238m-empty">Detail produk belum tersedia dari sumber data.</Card>}<Card className="m238m-detail-sales"><span>TOTAL</span><strong>{money.format(Number(invoiceDetail.value||0))}</strong><small>{num.format(Number(invoiceDetail.qty||0))} item • UPT {Number(invoiceDetail.upt??invoiceDetail.qty??0).toFixed(1)}</small></Card></div>:metricBusy?<Skeleton/>:metricPick==="upt"?<div className="m238m-stack"><Card className="m238m-detail-sales"><span>UPT Store</span><strong>{daily.total.upt.toFixed(1)}</strong><small>{num.format(daily.total.qty)} unit / {num.format(daily.total.invoices)} transaksi</small></Card><div className="m238m-list">{(Array.isArray(metricDetail?.staff)?metricDetail.staff:daily.staff).map((st:Staff)=><Card key={st.id} className="m238m-product-detail-row"><div><strong>{st.name}</strong><span>{num.format(Number(st.qty||0))} unit • {num.format(Number(st.invoices||0))} invoice</span></div><b>{Number(st.upt||0).toFixed(1)}</b></Card>)}</div></div>:metricPick==="qty"?<div className="m238m-stack"><Card className="m238m-detail-sales"><span>Total Qty</span><strong>{num.format(daily.total.qty)}</strong><small>Total unit hari ini</small></Card><div className="m238m-list">{(Array.isArray(metricDetail?.staff)?metricDetail.staff:daily.staff).map((st:Staff)=><Card key={st.id} className="m238m-product-detail-row"><div><strong>{st.name}</strong><span>{num.format(Number(st.invoices||0))} invoice • UPT {Number(st.upt||0).toFixed(1)}</span></div><b>{num.format(Number(st.qty||0))} unit</b></Card>)}</div></div>:<div className="m238m-stack"><Card className="m238m-detail-sales"><span>Invoice Hari Ini</span><strong>{num.format(daily.total.invoices)}</strong><small>{num.format(daily.total.qty)} qty • UPT {daily.total.upt.toFixed(1)}</small></Card>{Array.isArray(metricDetail?.detail?.invoiceRows)&&metricDetail.detail.invoiceRows.length?<div className="m238m-list">{metricDetail.detail.invoiceRows.map((r:any,i:number)=><button type="button" key={`${r.invoice}-${r.staffId}-${i}`} className="m238m-click-card m238m-invoice-card-button" onClick={e=>{e.preventDefault();e.stopPropagation();setInvoiceDetail(r)}}><Card className="m238m-product-detail-row m238m-tappable-card"><div><strong>{r.invoice}</strong><span>{r.name} • {num.format(Number(r.qty||0))} qty • UPT {Number(r.upt??r.qty??0).toFixed(1)}</span></div><div><b>{money.format(Number(r.value||0))}</b><ChevronRight size={16}/></div></Card></button>)}</div>:<Card className="m238m-empty">Nomor invoice belum tersedia dari source hari ini.</Card>}</div>}
+      <div><span>Growth Value</span><b className={(selectedLob.growth||0…5969 tokens truncated…trong><span>{num.format(Number(st.invoices||0))} invoice • UPT {Number(st.upt||0).toFixed(1)}</span></div><b>{num.format(Number(st.qty||0))} unit</b></Card>)}</div></div>:<div className="m238m-stack"><Card className="m238m-detail-sales"><span>Invoice Hari Ini</span><strong>{num.format(daily.total.invoices)}</strong><small>{num.format(daily.total.qty)} qty • UPT {daily.total.upt.toFixed(1)}</small></Card>{Array.isArray(metricDetail?.detail?.invoiceRows)&&metricDetail.detail.invoiceRows.length?<div className="m238m-list">{metricDetail.detail.invoiceRows.map((r:any,i:number)=><button type="button" key={`${r.invoice}-${r.staffId}-${i}`} className="m238m-click-card m238m-invoice-card-button" onClick={e=>{e.preventDefault();e.stopPropagation();setInvoiceDetail(r)}}><Card className="m238m-product-detail-row m238m-tappable-card"><div><strong>{r.invoice}</strong><span>{r.name} • {num.format(Number(r.qty||0))} qty • UPT {Number(r.upt??r.qty??0).toFixed(1)}</span></div><div><b>{money.format(Number(r.value||0))}</b><ChevronRight size={16}/></div></Card></button>)}</div>:<Card className="m238m-empty">Nomor invoice belum tersedia dari source hari ini.</Card>}</div>}
     </Sheet>
 
     <div className="m238m-sales-drill-actions">
@@ -1054,14 +895,29 @@ function StaffRow({staff,onClick,shortName=false}:{staff:Staff;onClick:()=>void;
  const target=staff.targets?.amount||staff.target||0,a=target?staff.amount/target*100:staff.achievement||0,gap=target?Math.max(0,target-staff.amount):staff.gap||0;
  return <button className="m238m-staff-row" onClick={onClick}><div className="m238m-avatar">{initials(staff.name)}</div><div className="m238m-staff-main"><div><strong>{shortName?dailyStaffListName(staff.name):staff.name}</strong><b>{money.format(staff.amount)}</b></div><Progress value={a}/><small>{pct(a)} • Gap {money.format(gap)} • UPT {(staff.upt||0).toFixed(1)}</small></div><ChevronRight size={17}/></button>
 }
-function TeamScreen({rows,allRows,filter,setFilter,onStaff}:{rows:Staff[];allRows:Staff[];filter:string;setFilter:(v:string)=>void;onStaff:(s:Staff)=>void}){
+function TeamScreen({rows,allRows,filter,setFilter,onStaff,period}:{rows:Staff[];allRows:Staff[];filter:string;setFilter:(v:string)=>void;onStaff:(s:Staff)=>void;period:string}){
+ const[view,setView]=useState<"achievement"|"target">("achievement"),[targetKind,setTargetKind]=useState<"amount"|"device"|"accessories"|"vas">("amount");
  const label=filter==="top"?"3 staff penjualan tertinggi":filter==="low"?"Staff dengan AR di bawah 100%":"Semua staff store";
  const scored=rows.map((s,i)=>{const target=s.targets?.amount||s.target||0,ar=target?s.amount/target*100:(s.achievement||0);return{...s,rank:i+1,ar,target}});
  const allScored=allRows.map(s=>{const target=s.targets?.amount||s.target||0,ar=target?s.amount/target*100:(s.achievement||0);return{...s,ar,target}});
  const achieved=allScored.filter(s=>s.ar>=100).length;
  const follow=allScored.filter(s=>s.ar<100).length;
  const avgUpt=allScored.length?allScored.reduce((a,s)=>a+Number(s.upt||0),0)/allScored.length:0;
+ const targetRows=allRows.map(s=>{
+  const target=targetKind==="amount"?Number(s.targets?.amount||s.target||0):Number(s.targets?.[targetKind]||0);
+  const actual=targetKind==="amount"?Number(s.amount||0):targetKind==="device"?Number(s.device||Math.max(0,Number(s.amount||0)-Number(s.accessories||0)-Number(s.vas||0))):targetKind==="accessories"?Number(s.accessories||0):Number(s.vas||0);
+  return{...s,target,actual,achievement:target?actual/target*100:0,gap:Math.max(0,target-actual)};
+ }).sort((a,b)=>b.target-a.target||a.name.localeCompare(b.name));
+ const targetTotal=targetRows.reduce((a,s)=>({target:a.target+s.target,actual:a.actual+s.actual,gap:a.gap+s.gap}),{target:0,actual:0,gap:0}),targetAchievement=targetTotal.target?targetTotal.actual/targetTotal.target*100:0;
+ const periodLabel=new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(`${period}-01T00:00:00+07:00`));
  return <div className="m238m-stack m238m-enter">
+  <Segmented value={view} onChange={setView} items={[{value:"achievement",label:"Pencapaian"},{value:"target",label:"Target Bulanan"}]}/>
+  {view==="target"?<>
+   <Card className="m238m-monthly-target-intro"><div><span>Target Bulanan Staff</span><strong>{periodLabel}</strong><small>Mengikuti bulan yang dipilih di bagian atas dashboard.</small></div><Target size={22}/></Card>
+   <div className="m238m-chips m238m-target-kind">{[["amount","Total Sales"],["device","Device"],["accessories","ACC"],["vas","VAS"]].map(([k,l])=><button key={k} className={targetKind===k?"active":""} onClick={()=>setTargetKind(k as typeof targetKind)}>{l}</button>)}</div>
+   <div className="m238m-monthly-target-table-wrap"><table className="m238m-monthly-target-table"><thead><tr><th>Staff</th><th>Target</th><th>Aktual</th><th>Ach</th><th>Gap</th></tr></thead><tbody>{targetRows.map(s=><tr key={s.id}><td><strong>{shortStaffName(s.name)}</strong><small>{s.position||"Staff M238"}</small></td><td>{s.target?money.format(s.target):"—"}</td><td>{money.format(s.actual)}</td><td><b className={s.achievement>=100?"positive":"warning"}>{s.target?pct(s.achievement):"—"}</b></td><td>{s.target?money.format(s.gap):"—"}</td></tr>)}</tbody><tfoot><tr><td>TOTAL</td><td>{money.format(targetTotal.target)}</td><td>{money.format(targetTotal.actual)}</td><td>{targetTotal.target?pct(targetAchievement):"—"}</td><td>{money.format(targetTotal.gap)}</td></tr></tfoot></table></div>
+   <Card className="m238m-team-disclaimer"><strong>Sumber Target</strong><p>Target bulanan dari Config dibagi ke staff sesuai persentase target masing-masing. Staff libur atau training tetap dapat melihat target bulanannya.</p></Card>
+  </>:<>
   <div className="m238m-team-summary">
     <Card><span>Achieve</span><strong>{num.format(achieved)}</strong><small>staff ≥ 100%</small></Card>
     <Card><span>Follow-up</span><strong>{num.format(follow)}</strong><small>staff &lt; 100%</small></Card>
@@ -1089,6 +945,7 @@ function TeamScreen({rows,allRows,filter,setFilter,onStaff}:{rows:Staff[];allRow
     </Card>
   </button>)}</div>
   <Card className="m238m-team-disclaimer"><strong>Catatan Ranking Staff</strong><p>Penjualan digimap.co.id / channel online tidak masuk ranking staff store.</p></Card>
+  </>}
  </div>
 }
 function StaffDetail({staff,mode}:{staff:Staff;mode:"daily"|"monthly"}){
