@@ -19,11 +19,24 @@ const barcodeKey=(v:unknown)=>String(v??"").trim().toUpperCase().replace(/[^A-Z0
 const barcodeArticleAliases:Record<string,string>={
  "8998075699040":"TORX00RP137E000002",
  "8992765524148":"TORRIPH1863PBK1",
- "050036398282":"JBLXTREME4BLKAS",
- "1200130008214":"JBLXTREME4BLKAS",
+ "050036398282":"JBL50036398282",
+ "1200130008214":"JBL50036398282",
+ "JBLXTREME4BLKAS":"JBL50036398282",
 };
 const barcodeVariants=(value:unknown)=>{const raw=barcodeKey(value),variants=new Set<string>();if(!raw)return variants;variants.add(raw);if(/^\d+$/.test(raw)){const plain=raw.replace(/^0+(?=\d)/,"");variants.add(plain);if(raw.length===14)variants.add(raw.slice(1));if(raw.length===13&&raw.startsWith("0"))variants.add(raw.slice(1));if(raw.length===12)variants.add(`0${raw}`)}return variants};
-const barcodeProduct=(products:Product[],value:unknown)=>{const scanned=barcodeVariants(value),linked=new Set(scanned);for(const code of scanned){const alias=barcodeArticleAliases[code];if(alias)for(const variant of barcodeVariants(alias))linked.add(variant)}return products.find(product=>[product.sapArticle,product.articleMapemall].some(field=>[...barcodeVariants(field)].some(code=>linked.has(code))))};
+const barcodeProduct=(products:Product[],value:unknown)=>{
+ const scanned=barcodeVariants(value),linked=new Set(scanned);
+ for(const code of scanned){const alias=barcodeArticleAliases[code];if(alias)for(const variant of barcodeVariants(alias))linked.add(variant)}
+ const exact=products.find(product=>[product.sapArticle,product.articleMapemall].some(field=>[...barcodeVariants(field)].some(code=>linked.has(code))));
+ if(exact)return exact;
+ // Pricelist articles can contain a brand prefix plus UPC/EAN, with leading
+ // zeros removed by the source workbook. Never use partial numeric matches.
+ const matches=products.filter(product=>[product.sapArticle,product.articleMapemall].some(field=>{
+  const parts=barcodeKey(field).match(/^[A-Z]+(\d{8,14})$/);
+  return parts&&[...barcodeVariants(parts[1])].some(code=>scanned.has(code));
+ }));
+ return matches.length===1?matches[0]:undefined;
+};
 const dateLabel=(v:string|null|undefined)=>{if(!v)return"-";const d=new Date(`${v}T00:00:00+07:00`);return Number.isNaN(d.getTime())?v:new Intl.DateTimeFormat("id-ID",{day:"2-digit",month:"short",year:"numeric"}).format(d)};
 const priceMeta=(p:Product)=>{const candidates=[p.referenceSrp,p.currentSrpCash].filter(v=>Number.isFinite(v)&&v>0);const normal=candidates.length?Math.max(...candidates):p.activePrice;const promo=p.repricingCash>0&&normal>0&&p.repricingCash<normal?p.repricingCash:0;const active=promo||p.activePrice||normal;const saving=promo?normal-promo:0;const discount=promo&&normal?Math.round((saving/normal)*100):0;return{normal,promo,active,saving,discount,hasPromo:Boolean(promo&&saving>0)}};
 const changeLabel=(type:string)=>({NEW_SKU:"PRODUK BARU",REMOVED_SKU:"PRODUK DIHAPUS",PRICE_DOWN:"HARGA TURUN",PRICE_UP:"HARGA NAIK",REMARKS_CHANGED:"REMARKS BERUBAH",BR_ZOUT_CHANGED:"BR / ZOUT BERUBAH"}[type]||type);
