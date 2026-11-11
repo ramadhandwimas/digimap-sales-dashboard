@@ -18,6 +18,7 @@ const norm=(v:unknown)=>String(v??"").trim().toLowerCase();
 const barcodeKey=(v:unknown)=>String(v??"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
 const barcodeArticleAliases:Record<string,string>={
  "8998075699040":"TORX00RP137E000002",
+ "8992765524148":"TORRIPH1863PBK1",
 };
 const barcodeVariants=(value:unknown)=>{const raw=barcodeKey(value),variants=new Set<string>();if(!raw)return variants;variants.add(raw);if(/^\d+$/.test(raw)){const plain=raw.replace(/^0+(?=\d)/,"");variants.add(plain);if(raw.length===14)variants.add(raw.slice(1));if(raw.length===13&&raw.startsWith("0"))variants.add(raw.slice(1));if(raw.length===12)variants.add(`0${raw}`)}return variants};
 const barcodeProduct=(products:Product[],value:unknown)=>{const scanned=barcodeVariants(value),linked=new Set(scanned);for(const code of scanned){const alias=barcodeArticleAliases[code];if(alias)for(const variant of barcodeVariants(alias))linked.add(variant)}return products.find(product=>[product.sapArticle,product.articleMapemall].some(field=>[...barcodeVariants(field)].some(code=>linked.has(code))))};
