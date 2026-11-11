@@ -21,6 +21,7 @@ const barcodeArticleAliases:Record<string,string>={
  "8998075699262":"T0RX00RP135A000070",
  "8992765524148":"T0RRIPH1863PBK1",
  "050036398282":"JBL50036398282",
+ "840171753325":"KTSKS057336",
  "1200130008214":"JBL50036398282",
  "JBLXTREME4BLKAS":"JBL50036398282",
 };
@@ -76,22 +77,25 @@ function BarcodeScanner({products,onFound,onClose,onSearch}:{products:Product[];
   const video=videoRef.current;if(!video||video.readyState<2)return;
   ocrBusyRef.current=true;ocrLastRef.current=Date.now();
   try{
-   if(!ocrRef.current){setStatus("Barcode terbaca · menyiapkan pembacaan kode label…");const{createWorker,PSM}=await import("tesseract.js");const worker=await createWorker("eng");if(!ocrAliveRef.current){await worker.terminate();return}ocrRef.current=worker;await worker.setParameters({tessedit_pageseg_mode:PSM.SPARSE_TEXT,tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789- "})}
+   if(!ocrRef.current){setStatus("Barcode terbaca · menyiapkan pembacaan kode label…");const{createWorker,PSM}=await import("tesseract.js");const worker=await createWorker("eng");if(!ocrAliveRef.current){await worker.terminate();return}ocrRef.current=worker;await worker.setParameters({tessedit_pageseg_mode:PSM.SINGLE_LINE,tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789- "})}
    if(foundRef.current||!ocrAliveRef.current)return;
    const w=bounds.width,cx=bounds.x+w/2,cy=bounds.y+bounds.height/2;
-   // Recognize the printed article above the decoded barcode, not its bars.
-   const left=Math.max(0,cx-w*.7),top=Math.max(0,cy-w*.45);
-   const width=Math.min(video.videoWidth-left,w*1.4),height=Math.min(video.videoHeight-top,w*.33);
-   if(width<30||height<10)return;
-   const canvas=document.createElement("canvas");canvas.width=1280;canvas.height=Math.round(1280*height/width);
-   const context=canvas.getContext("2d");if(!context)return;
-   context.drawImage(video,left,top,width,height,0,0,canvas.width,canvas.height);
+   // Try narrow text strips above the decoded bars; the scanline can vary.
    setStatus("Barcode terbaca · membaca kode tulisan di atas barcode…");
-   const result=await ocrRef.current.recognize(canvas);
-   if(!ocrAliveRef.current||foundRef.current||ocrRawRef.current!==raw)return;
-   const product=labelArticleProduct(productsRef.current,result.data.text);
-   if(product){foundRef.current=true;setFound({product,barcode:raw});setSuggestions([]);setStatus("Produk ditemukan dari kode label.");navigator.vibrate?.(80)}
-   else setStatus("UPC belum cocok. Tahan label agar kode tulisan di atas barcode terlihat jelas.");
+   for(const offset of [.32,.20,.44]){
+    if(!ocrAliveRef.current||foundRef.current||ocrRawRef.current!==raw)return;
+    const left=Math.max(0,cx-w*.6),top=Math.max(0,cy-w*offset);
+    const width=Math.min(video.videoWidth-left,w*1.2),height=Math.min(video.videoHeight-top,w*.20);
+    if(width<30||height<10)continue;
+    const canvas=document.createElement("canvas");canvas.width=1280;canvas.height=Math.round(1280*height/width);
+    const context=canvas.getContext("2d");if(!context)continue;
+    context.drawImage(video,left,top,width,height,0,0,canvas.width,canvas.height);
+    const result=await ocrRef.current.recognize(canvas);
+    if(!ocrAliveRef.current||foundRef.current||ocrRawRef.current!==raw)return;
+    const product=labelArticleProduct(productsRef.current,result.data.text);
+    if(product){foundRef.current=true;setFound({product,barcode:raw});setSuggestions([]);setStatus("Produk ditemukan dari kode label.");navigator.vibrate?.(80);return}
+   }
+   setStatus("UPC belum cocok. Tahan label agar kode tulisan di atas barcode terlihat jelas.");
   }catch{if(ocrAliveRef.current&&!foundRef.current)setStatus("Pembacaan kode label belum berhasil. Arahkan juga ke barcode artikel jika tersedia.")}
   finally{ocrBusyRef.current=false}
  };
