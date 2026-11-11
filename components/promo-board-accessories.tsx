@@ -15,7 +15,8 @@ type SortKind="name-asc"|"name-desc"|"price-asc"|"price-desc"|"brand";
 
 const money=new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0});
 const norm=(v:unknown)=>String(v??"").trim().toLowerCase();
-const barcodeKey=(v:unknown)=>String(v??"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");\nconst BARCODE_ARTICLE_ALIASES:Record<string,string>={"8998075699040":"TORX00RP137E000002"};
+const barcodeKey=(v:unknown)=>String(v??"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
+const BARCODE_ARTICLE_ALIASES:Record<string,string>={"8998075699040":"TORX00RP137E000002"};
 const dateLabel=(v:string|null|undefined)=>{if(!v)return"-";const d=new Date(`${v}T00:00:00+07:00`);return Number.isNaN(d.getTime())?v:new Intl.DateTimeFormat("id-ID",{day:"2-digit",month:"short",year:"numeric"}).format(d)};
 const priceMeta=(p:Product)=>{const candidates=[p.referenceSrp,p.currentSrpCash].filter(v=>Number.isFinite(v)&&v>0);const normal=candidates.length?Math.max(...candidates):p.activePrice;const promo=p.repricingCash>0&&normal>0&&p.repricingCash<normal?p.repricingCash:0;const active=promo||p.activePrice||normal;const saving=promo?normal-promo:0;const discount=promo&&normal?Math.round((saving/normal)*100):0;return{normal,promo,active,saving,discount,hasPromo:Boolean(promo&&saving>0)}};
 const changeLabel=(type:string)=>({NEW_SKU:"PRODUK BARU",REMOVED_SKU:"PRODUK DIHAPUS",PRICE_DOWN:"HARGA TURUN",PRICE_UP:"HARGA NAIK",REMARKS_CHANGED:"REMARKS BERUBAH",BR_ZOUT_CHANGED:"BR / ZOUT BERUBAH"}[type]||type);
