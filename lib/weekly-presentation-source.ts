@@ -1,3 +1,4 @@
+import {referenceContext} from "./presentation-reference-source";
 import {getSheetRanges} from "@/lib/google-sheets";
 import {readExchangeState} from "@/lib/exchange-detail-store";
 import {adjustExchangeSales} from "@/lib/exchange-detail";
@@ -11,7 +12,7 @@ export function presentationMetrics(rows:SalesRow[],traffic:number|null):Present
  const invoices=new Set(rows.map(r=>r.invoice).filter(Boolean)),sales=rows.reduce((s,r)=>s+r.amount,0),qty=rows.reduce((s,r)=>s+r.qty,0),transactions=invoices.size;
  return {sales,qty,transactions,traffic,cvr:traffic&&traffic>0?transactions/traffic*100:null,upt:transactions?qty/transactions:null,atv:transactions?sales/transactions:null};
 }
-export async function enrichWeeklyPresentation(data:WeeklyPresentationData):Promise<WeeklyPresentationData>{
+export async function enrichWeeklyPresentation(data:WeeklyPresentationData,options?:{period?:string}):Promise<WeeklyPresentationData>{
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
  if(!email||!key)throw new Error("Google Sheets belum dikonfigurasi.");
  const now=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Jakarta"}).format(new Date());
@@ -27,11 +28,13 @@ export async function enrichWeeklyPresentation(data:WeeklyPresentationData):Prom
  for(const [rows,side] of [[a,data.a],[b,data.b]] as const){const expected=Object.values(side.scheme).reduce((s,r)=>s+r.amount,0),actual=rows.reduce((s,r)=>s+r.amount,0);if(Math.abs(expected-actual)>1)throw new Error("Total sumber weekly berubah. Perbarui report lalu unduh kembali.")}
  const staff=[...new Set([...a,...b].map(r=>r.id))].map(id=>{const aa=a.filter(r=>r.id===id),bb=b.filter(r=>r.id===id),current=bb.length?bb:aa;return{id,name:current[0]?.name||id,previous:presentationMetrics(aa,null),current:presentationMetrics(bb,null),device:bb.filter(r=>saleKind(r)==="device").reduce((s,r)=>s+r.amount,0),accessories:bb.filter(r=>saleKind(r)==="accessories").reduce((s,r)=>s+r.amount,0),vas:bb.filter(r=>saleKind(r)==="vas").reduce((s,r)=>s+r.amount,0)}}).sort((a,b)=>b.current.sales-a.current.sales);
  const daily=[...new Set(b.map(r=>r.date))].sort().map(date=>({date,...presentationMetrics(b.filter(r=>r.date===date),traffic(date,date))}));
+ const dailyA=[...new Set(a.map(r=>r.date))].sort().map(date=>({date,...presentationMetrics(a.filter(r=>r.date===date),traffic(date,date))}));
  const feedbackRows=feedback.filter(r=>isoDate(r[1])>=data.periodB.start&&isoDate(r[1])<=cutoff).map(r=>text(r[5])).filter(Boolean);
- const currentPeriod=cutoff.slice(0,7),[year,month]=currentPeriod.split("-").map(Number),prior=new Date(Date.UTC(year,month-2,1)).toISOString().slice(0,7),lflPeriod=`${year-1}-${String(month).padStart(2,"0")}`,day=Number(cutoff.slice(8));
+ const selectedPeriod=options?.period||cutoff.slice(0,7),[selectedYear,selectedMonth]=selectedPeriod.split("-").map(Number),selectedEnd=new Date(Date.UTC(selectedYear,selectedMonth,0)).toISOString().slice(0,10),monthlyCutoff=cutoff<`${selectedPeriod}-01`?`${selectedPeriod}-01`:cutoff>selectedEnd?selectedEnd:cutoff;
+ const currentPeriod=monthlyCutoff.slice(0,7),[year,month]=currentPeriod.split("-").map(Number),prior=new Date(Date.UTC(year,month-2,1)).toISOString().slice(0,7),lflPeriod=`${year-1}-${String(month).padStart(2,"0")}`,day=Number(monthlyCutoff.slice(8));
  const monthEnd=(period:string)=>{const[y,m]=period.split("-").map(Number);return `${period}-${String(Math.min(day,new Date(Date.UTC(y,m,0)).getUTCDate())).padStart(2,"0")}`};
  let archive:SalesRow[]|null=null;
  if(lflPeriod.startsWith("2025"))try{const [saved]=await getSheetRanges(ID,["'Data Copas Archive 2025'!A2:S32755"],email,key);const hasStore=saved.some(r=>text(r[15])==="M238");archive=saved.map(r=>{const row=parseSalesRow(r);return hasStore?row:{...row,store:"M238"}}).filter(known)}catch{archive=null}
  const monthly=(period:string,rows:SalesRow[])=>{const matched=rows.filter(r=>r.date>=`${period}-01`&&r.date<=monthEnd(period));return {period,device:matched.filter(r=>saleKind(r)==="device").reduce((s,r)=>s+r.amount,0),accessories:matched.filter(r=>saleKind(r)==="accessories").reduce((s,r)=>s+r.amount,0),vas:matched.filter(r=>saleKind(r)==="vas").reduce((s,r)=>s+r.amount,0)}};
- return {...data,report:{cutoff,generatedAt:new Date().toISOString(),metricsA:presentationMetrics(a,traffic(data.periodA.start,data.periodA.end)),metricsB:presentationMetrics(b,traffic(data.periodB.start,cutoff)),staff,daily,feedback:[...new Set(feedbackRows)],monthly:{cutoff,current:monthly(currentPeriod,all),mtm:monthly(prior,all),lfl:archive?.some(r=>r.date.startsWith(lflPeriod))?monthly(lflPeriod,archive):null}}};
+ return {...data,reference:referenceContext(all,archive,monthlyCutoff),report:{cutoff,generatedAt:new Date().toISOString(),metricsA:presentationMetrics(a,traffic(data.periodA.start,data.periodA.end)),metricsB:presentationMetrics(b,traffic(data.periodB.start,cutoff)),staff,daily,dailyA,feedback:[...new Set(feedbackRows)],monthly:{cutoff:monthlyCutoff,current:monthly(currentPeriod,all),mtm:monthly(prior,all),lfl:archive?.some(r=>r.date.startsWith(lflPeriod))?monthly(lflPeriod,archive):null}}};
 }

@@ -10,6 +10,7 @@ test("presentation source reconciles clean sales, staff and invoices and leaves 
  const row=(date,invoice,amount,store="M238")=>[date,"001","Dwimas",invoice,"ART","iPhone","iPhone",1,amount,"IPHONE","APPLE","","DEVICES","",date.startsWith("2020-01")?"Week 1 Q1":"Week 2 Q1",store];
  const raw=[row("2020-01-05","A",1000),row("2020-01-12","B",500),row("2020-01-13","B",1500),row("2020-01-12","EX",900),row("2020-01-12","OTHER",900,"M996")];
  const source=load("lib/weekly-presentation-source.ts",name=>{
+  if(name==="./presentation-reference-source")return load("lib/presentation-reference-source.ts",moduleName=>moduleName==="./m238-sales-sanitize"?sanitize:require(moduleName));
   if(name==="@/lib/google-sheets")return {getSheetRanges:async(id,ranges)=>ranges[0].includes("Traffic")?[[["2020-01-05",100],["2020-01-12",100]]]:[raw,[["","2020-01-12","","","","Customer mencari iPhone"]]]};
   if(name==="@/lib/exchange-detail-store")return {readExchangeState:async()=>({})};
   if(name==="@/lib/exchange-detail")return {adjustExchangeSales:rows=>rows.filter(r=>r.invoice!=="EX")};

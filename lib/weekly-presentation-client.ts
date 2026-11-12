@@ -1,8 +1,8 @@
 "use client";
 import type { WeeklyPresentationData } from "@/lib/weekly-presentation";
 
-export async function exportWeeklyPresentation(data: WeeklyPresentationData, filename: string) {
-  const response = await fetch("/api/weekly-presentation", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data, filename }) });
+export async function exportWeeklyPresentation(data: WeeklyPresentationData, filename: string, format:"complete"|"m238"="complete") {
+  const response = await fetch("/api/weekly-presentation", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data, filename, format, notes:data.notes, presentationMonth:data.presentationMonth }) });
   if (!response.ok) { const message = await response.json().catch(() => null) as { error?: string } | null; throw new Error(message?.error || "PowerPoint gagal dibuat."); }
   const blob = await response.blob();
   if (blob.size < 1000) throw new Error("File PowerPoint tidak lengkap. Silakan coba lagi.");

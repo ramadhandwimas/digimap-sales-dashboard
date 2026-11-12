@@ -10,7 +10,7 @@ const dateText=(value:string)=>value?new Date(`${value}T00:00:00Z`).toLocaleDate
 function FormInput({label,value,onChange,type="text",numeric=false}:{label:string;value:string;onChange:(value:string)=>void;type?:string;numeric?:boolean}){
  return <label className="pc-field"><span>{label}</span><input type={type} aria-label={label} value={value} inputMode={numeric?"numeric":undefined} maxLength={100} autoComplete="off" onChange={event=>onChange(event.target.value)}/><span className="pc-print-value">{type==="date"?dateText(value):value||"\u00a0"}</span></label>;
 }
-export default function PettyCashWorkspace(){
+export default function PettyCashWorkspace({embedded=false}:{embedded?:boolean}){
  const[data,setData]=useState<PettyCash>(emptyPettyCash),[records,setRecords]=useState<CashRecord[]>([]),[id,setId]=useState(""),[revision,setRevision]=useState(""),[dirty,setDirty]=useState(false),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[ready,setReady]=useState(false),[error,setError]=useState(""),[note,setNote]=useState("");
  const[photos,setPhotos]=useState<ReceiptPhoto[]>([]),[photoBusy,setPhotoBusy]=useState(false),[photoUnsaved,setPhotoUnsaved]=useState(false);
  const photoRef=useRef(photos);photoRef.current=photos;
@@ -35,7 +35,7 @@ export default function PettyCashWorkspace(){
   try{const response=await fetch("/api/spv/petty-cash",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:nextId,baseRevision,revision:nextRevision,data:clean})}),json=await response.json();if(!response.ok)throw Error(json.error||"Draft gagal disimpan.");const record=json.record as CashRecord;setRecords(previous=>[record,...previous.filter(row=>row.id!==record.id)]);setData(record.data);setId(record.id);setRevision(record.revision);setDirty(false);pending.current=null;setNote("Draft tersimpan. Bisa dibuka kembali dari daftar draft.")}catch(error){setError(error instanceof Error?error.message:"Penyimpanan belum dapat dikonfirmasi. Coba Simpan Draft lagi.")}finally{setSaving(false)}
  };
  return <main className="pc-workspace">
-  <header className="pc-page-header pc-no-print"><a href="/" onClick={event=>{if(!canLeave())event.preventDefault()}}><ArrowLeft size={18}/>Dashboard</a><span>M238 / SPV</span></header>
+  {!embedded?<header className="pc-page-header pc-no-print"><a href="/" onClick={event=>{if(!canLeave())event.preventDefault()}}><ArrowLeft size={18}/>Dashboard</a><span>M238 / SPV</span></header>:null}
   <section className="pc-heading pc-no-print"><div className="pc-badge"><Wallet size={20}/></div><div><p>MENU SPV</p><h1>Petty Cash</h1><span>Catat pengeluaran toko dan siapkan replenishment.</span></div></section>
   {loading?<p role="status" className="pc-notice">Memuat daftar draft…</p>:null}
   {error?<p role="alert" className="pc-notice pc-error">{error}</p>:null}

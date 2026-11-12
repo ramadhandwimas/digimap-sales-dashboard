@@ -1,3 +1,4 @@
-import PettyCashWorkspace from "@/components/petty-cash-workspace";
+import SpvWorkspace from "@/components/spv-workspace";
 import "./petty-cash.css";
-export default function SpvPage(){return <PettyCashWorkspace/>}
+import "./spv.css";
+export default function SpvPage(){return <SpvWorkspace/>}
