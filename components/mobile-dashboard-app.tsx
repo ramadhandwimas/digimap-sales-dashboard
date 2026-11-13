@@ -650,24 +650,28 @@ function HomeSalesDetail({overview,traffic,summary}:{overview:Overview;traffic:T
 }
 
 function DailyCategorySheet({date,kind,open,onClose}:{date:string;kind:"device"|"accessories"|"vas"|null;open:boolean;onClose:()=>void}){
- const[data,setData]=useState<any>(null),[busy,setBusy]=useState(false),[vasTab,setVasTab]=useState<"qoala"|"telkomsel"|"xl"|"indosat">("qoala");
+ const[data,setData]=useState<any>(null),[busy,setBusy]=useState(false),[vasTab,setVasTab]=useState<"qoala"|"telkomsel"|"xl"|"indosat">("qoala"),[deviceTab,setDeviceTab]=useState("all");
  useEffect(()=>{
   if(!open||!kind||!date)return;
   let alive=true;setBusy(true);setData(null);
   cachedJson<any>(`/api/daily-staff-detail?date=${date}&detail=1`,30000).then(d=>{if(alive)setData(d.detail||null)}).catch(()=>alive&&setData(null)).finally(()=>alive&&setBusy(false));
   return()=>{alive=false};
  },[open,kind,date]);
- useEffect(()=>{if(open&&kind==="vas")setVasTab("qoala")},[open,kind,date]);
+ useEffect(()=>{if(open){if(kind==="vas")setVasTab("qoala");if(kind==="device")setDeviceTab("all")}},[open,kind,date]);
  const title=kind==="device"?"Device Terjual":kind==="accessories"?"Accessories Terjual":"VAS Terjual";
- const products=(data?.products||[]) as any[],vasItems=(data?.vasItems||[]) as any[],items=kind==="vas"?vasItems.filter((item:any)=>item.provider===vasTab):products.filter((p:any)=>p.kind===kind);
+ const deviceTabs=[{value:"all",label:"Semua"},{value:"iPhone",label:"iPhone"},{value:"iPad",label:"iPad"},{value:"MacBook",label:"Mac"},{value:"Apple Watch",label:"Apple Watch"},{value:"AirPods",label:"AirPods"}];
+ const deviceLob=(product:any)=>{const raw=String(product.lob||"").trim(),name=String(product.name||"");if(raw==="Mac"||raw==="MacBook"||/^(?:MacBook|Mac mini|Mac Studio|Mac Pro|iMac)\b/i.test(name))return "MacBook";return raw};
+ const products=(data?.products||[]) as any[],vasItems=(data?.vasItems||[]) as any[],items=kind==="vas"?vasItems.filter((item:any)=>item.provider===vasTab):products.filter((p:any)=>p.kind===kind&&(kind!=="device"||deviceTab==="all"||deviceLob(p)===deviceTab));
+ const selectedDeviceLabel=deviceTabs.find(tab=>tab.value===deviceTab)?.label||"Semua",selectedDeviceValue=items.reduce((sum:number,item:any)=>sum+Number(item.value||0),0),selectedDeviceQty=items.reduce((sum:number,item:any)=>sum+Number(item.qty||0),0);
  const vasTabs=[{value:"qoala",label:"Qoala"},{value:"telkomsel",label:"Telkomsel"},{value:"xl",label:"XL"},{value:"indosat",label:"Indosat"}] as const;
  const selectedVas=vasTabs.find(tab=>tab.value===vasTab)!,selectedVasValue=items.reduce((sum:number,item:any)=>sum+Number(item.value||0),0),selectedVasQty=items.reduce((sum:number,item:any)=>sum+Number(item.qty||0),0);
  return <Sheet open={open} onClose={onClose} title={`${title} • ${date}`}>
   {busy?<Skeleton/>:data?<div className="m238m-stack">
+   {kind==="device"?<div className="m238m-device-lob-tabs" role="group" aria-label="Filter LOB device">{deviceTabs.map(tab=><button type="button" key={tab.value} aria-pressed={deviceTab===tab.value} className={deviceTab===tab.value?"active":""} onClick={()=>setDeviceTab(tab.value)}>{tab.label}</button>)}</div>:null}
    {kind==="vas"?<Segmented value={vasTab} onChange={setVasTab} items={vasTabs.map(tab=>({...tab}))}/>:null}
-   <Card className="m238m-detail-sales"><span>{kind==="vas"?`${selectedVas.label} Terjual`:title}</span><strong>{kind==="device"?money.format(Number(data.device||0)):kind==="accessories"?money.format(Number(data.accessories||0)):money.format(selectedVasValue)}</strong><small>{kind==="vas"?`${num.format(selectedVasQty)} qty • ${salesDateLabel(date)}`:salesDateLabel(date)}</small></Card>
+   <Card className="m238m-detail-sales"><span>{kind==="vas"?`${selectedVas.label} Terjual`:kind==="device"&&deviceTab!=="all"?`${selectedDeviceLabel} Terjual`:title}</span><strong>{kind==="device"?money.format(deviceTab==="all"?Number(data.device||0):selectedDeviceValue):kind==="accessories"?money.format(Number(data.accessories||0)):money.format(selectedVasValue)}</strong><small>{kind==="vas"?`${num.format(selectedVasQty)} qty • ${salesDateLabel(date)}`:kind==="device"?`${num.format(selectedDeviceQty)} unit • ${salesDateLabel(date)}`:salesDateLabel(date)}</small></Card>
    <div className="m238m-list">
-    {kind==="vas"?(items.length?items.map((v:any,i:number)=><Card key={v.provider+"-"+v.name+"-"+i} className="m238m-product-detail-row"><div><strong>{v.name}</strong><span>{selectedVas.label} • {num.format(Number(v.qty||0))} qty</span></div><b>{money.format(Number(v.value||0))}</b></Card>):<Card className="m238m-empty">Belum ada penjualan {selectedVas.label} pada tanggal ini.</Card>):(items.length?items.map((p:any,i:number)=><Card key={(p.article||p.name)+"-"+i} className="m238m-product-detail-row"><div><strong>{p.name}</strong><span>{kind==="device"?<>{p.focus?<b className="m238m-focus-badge">Focus</b>:null}{p.lob?<> {p.lob}</>:null}</>:<>{p.supplier?<b className="m238m-focus-badge">{p.supplier}</b>:null}{p.brandName?` ${p.brandName}`:""}{p.article?` • ${p.article}`:""}</>}</span></div><div><b>{num.format(Number(p.qty||0))} {kind==="device"?"unit":"qty"}</b><small>{money.format(Number(p.value||0))}</small></div></Card>):<Card className="m238m-empty">Tidak ada {kind==="device"?"device":"accessories"} yang terjual.</Card>)}
+    {kind==="vas"?(items.length?items.map((v:any,i:number)=><Card key={v.provider+"-"+v.name+"-"+i} className="m238m-product-detail-row"><div><strong>{v.name}</strong><span>{selectedVas.label} • {num.format(Number(v.qty||0))} qty</span></div><b>{money.format(Number(v.value||0))}</b></Card>):<Card className="m238m-empty">Belum ada penjualan {selectedVas.label} pada tanggal ini.</Card>):(items.length?items.map((p:any,i:number)=><Card key={(p.article||p.name)+"-"+i} className="m238m-product-detail-row"><div><strong>{p.name}</strong><span>{kind==="device"?<>{p.focus?<b className="m238m-focus-badge">Focus</b>:null}{p.lob?<> {p.lob}</>:null}</>:<>{p.supplier?<b className="m238m-focus-badge">{p.supplier}</b>:null}{p.brandName?` ${p.brandName}`:""}{p.article?` • ${p.article}`:""}</>}</span></div><div><b>{num.format(Number(p.qty||0))} {kind==="device"?"unit":"qty"}</b><small>{money.format(Number(p.value||0))}</small></div></Card>):<Card className="m238m-empty">{kind==="device"&&deviceTab!=="all"?`Belum ada penjualan ${selectedDeviceLabel} pada tanggal ini.`:`Tidak ada ${kind==="device"?"device":"accessories"} yang terjual.`}</Card>)}
    </div>
   </div>:<Card className="m238m-empty">Detail penjualan belum tersedia.</Card>}
  </Sheet>
