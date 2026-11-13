@@ -11,7 +11,7 @@ test("presentation source reconciles clean sales, staff and invoices and leaves 
  const raw=[row("2020-01-05","A",1000),row("2020-01-12","B",500),row("2020-01-13","B",1500),row("2020-01-12","EX",900),row("2020-01-12","OTHER",900,"M996")];
  const source=load("lib/weekly-presentation-source.ts",name=>{
   if(name==="./presentation-reference-source")return load("lib/presentation-reference-source.ts",moduleName=>moduleName==="./m238-sales-sanitize"?sanitize:require(moduleName));
-  if(name==="@/lib/google-sheets")return {getSheetRanges:async(id,ranges)=>ranges[0].includes("Traffic")?[[["2020-01-05",100],["2020-01-12",100]]]:[raw,[["","2020-01-12","","","","Customer mencari iPhone"]]]};
+  if(name==="@/lib/google-sheets")return {getSheetRanges:async(id,ranges)=>ranges[0].includes("Traffic")?[[["2020-01-05",100],["2020-01-12",100]]]:[raw,[["","2020-01-12","","","","Customer mencari iPhone"]],[["M238","001","Dwimas","SPV"]]]};
   if(name==="@/lib/exchange-detail-store")return {readExchangeState:async()=>({})};
   if(name==="@/lib/exchange-detail")return {adjustExchangeSales:rows=>rows.filter(r=>r.invoice!=="EX")};
   if(name==="@/lib/m238-sales-sanitize")return sanitize;
@@ -22,7 +22,8 @@ test("presentation source reconciles clean sales, staff and invoices and leaves 
  const side=amount=>({scheme:{DEVICE:{qty:1,amount}},vas:{},lob:{}});
  const data={labelA:"Week 1 Q1",labelB:"Week 2 Q1",periodA:{start:"2020-01-05",end:"2020-01-11"},periodB:{start:"2020-01-12",end:"2020-01-18"},a:side(1000),b:side(2000)};
  try{
-  const {report}=await source.enrichWeeklyPresentation(data);
+  const {report,reference}=await source.enrichWeeklyPresentation(data);
+  assert.equal(reference.staff[0].job,"SPV");
   assert.equal(report.metricsB.sales,2000);assert.equal(report.metricsB.transactions,1);assert.equal(report.metricsB.qty,2);assert.equal(report.metricsB.traffic,null);assert.equal(report.metricsB.cvr,null);
   assert.equal(report.staff.reduce((s,r)=>s+r.current.sales,0),2000);assert.equal(report.daily.reduce((s,r)=>s+r.sales,0),2000);assert.equal(report.feedback.length,1);
   await assert.rejects(source.enrichWeeklyPresentation({...data,b:side(9999)}),/Total sumber weekly berubah/);

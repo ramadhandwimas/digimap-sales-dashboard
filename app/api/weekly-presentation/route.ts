@@ -1,4 +1,4 @@
-import {m238ReviewPresentationBytes} from "@/lib/m238-review-presentation";
+import {m238ReviewPresentationBytes} from "@/lib/m238-template-presentation";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { weeklyPresentationBytes } from "@/lib/weekly-presentation";

@@ -17,8 +17,8 @@ export async function enrichWeeklyPresentation(data:WeeklyPresentationData,optio
  if(!email||!key)throw new Error("Google Sheets belum dikonfigurasi.");
  const now=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Jakarta"}).format(new Date());
  const cutoff=data.periodB.end<now?data.periodB.end:now;
- const [[raw,feedback],trafficResult,exchange]=await Promise.all([
-  getSheetRanges(ID,["'Data Copas'!A2:S50000","'Dashboard Feedback'!A2:G5000"],email,key),
+ const [[raw,feedback,positions=[]],trafficResult,exchange]=await Promise.all([
+  getSheetRanges(ID,["'Data Copas'!A2:S50000","'Dashboard Feedback'!A2:G5000","Config!H28:L60"],email,key),
   getSheetRanges(MASTER,["'Traffic'!A2:B1000"],email,key).catch(()=>null),readExchangeState({email,key})
  ]);
  const all=adjustExchangeSales(raw.map(parseSalesRow),exchange).filter(known);
@@ -36,5 +36,7 @@ export async function enrichWeeklyPresentation(data:WeeklyPresentationData,optio
  let archive:SalesRow[]|null=null;
  if(lflPeriod.startsWith("2025"))try{const [saved]=await getSheetRanges(ID,["'Data Copas Archive 2025'!A2:S32755"],email,key);const hasStore=saved.some(r=>text(r[15])==="M238");archive=saved.map(r=>{const row=parseSalesRow(r);return hasStore?row:{...row,store:"M238"}}).filter(known)}catch{archive=null}
  const monthly=(period:string,rows:SalesRow[])=>{const matched=rows.filter(r=>r.date>=`${period}-01`&&r.date<=monthEnd(period));return {period,device:matched.filter(r=>saleKind(r)==="device").reduce((s,r)=>s+r.amount,0),accessories:matched.filter(r=>saleKind(r)==="accessories").reduce((s,r)=>s+r.amount,0),vas:matched.filter(r=>saleKind(r)==="vas").reduce((s,r)=>s+r.amount,0)}};
- return {...data,reference:referenceContext(all,archive,monthlyCutoff),report:{cutoff,generatedAt:new Date().toISOString(),metricsA:presentationMetrics(a,traffic(data.periodA.start,data.periodA.end)),metricsB:presentationMetrics(b,traffic(data.periodB.start,cutoff)),staff,daily,dailyA,feedback:[...new Set(feedbackRows)],monthly:{cutoff:monthlyCutoff,current:monthly(currentPeriod,all),mtm:monthly(prior,all),lfl:archive?.some(r=>r.date.startsWith(lflPeriod))?monthly(lflPeriod,archive):null}}};
+ const reference=referenceContext(all,archive,monthlyCutoff),jobs=new Map(positions.filter(r=>text(r[0]).toUpperCase()==="M238").map(r=>[text(r[1]),text(r[3])]));
+ reference.staff=reference.staff.map(person=>({...person,job:jobs.get(person.id)||""}));
+ return {...data,reference,report:{cutoff,generatedAt:new Date().toISOString(),metricsA:presentationMetrics(a,traffic(data.periodA.start,data.periodA.end)),metricsB:presentationMetrics(b,traffic(data.periodB.start,cutoff)),staff,daily,dailyA,feedback:[...new Set(feedbackRows)],monthly:{cutoff:monthlyCutoff,current:monthly(currentPeriod,all),mtm:monthly(prior,all),lfl:archive?.some(r=>r.date.startsWith(lflPeriod))?monthly(lflPeriod,archive):null}}};
 }

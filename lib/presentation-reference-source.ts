@@ -1,7 +1,7 @@
 import {productKey,saleKind,vasKey,type SalesRow} from "./m238-sales-sanitize";
 export type ReferenceTotals={device:number;accessories:number;vas:number;total:number;lob:Record<string,number>;lobAmount:Record<string,number>;vasDetail:Record<string,{qty:number;amount:number}>};
 export type ReferencePeriod={period:string;start:string;end:string;available:boolean;totals:ReferenceTotals};
-export type ReferenceStaff={id:string;name:string;device:number;accessories:number;vas:number;total:number;lob:Record<string,number>};
+export type ReferenceStaff={id:string;name:string;job?:string;device:number;accessories:number;vas:number;total:number;lob:Record<string,number>};
 export type ReferenceContext={cutoff:string;history:ReferencePeriod[];annual:ReferencePeriod[];staff:ReferenceStaff[];current:ReferencePeriod;mtm:ReferencePeriod;lfl:ReferencePeriod|null};
 export function referenceTotals(rows:SalesRow[]):ReferenceTotals{
  const out:ReferenceTotals={device:0,accessories:0,vas:0,total:0,lob:{iphone:0,mac:0,ipad:0,watch:0,airpods:0},lobAmount:{iphone:0,mac:0,ipad:0,watch:0,airpods:0},vasDetail:{QOALA:{qty:0,amount:0},TELKOMSEL:{qty:0,amount:0},XL:{qty:0,amount:0},INDOSAT:{qty:0,amount:0}}};
