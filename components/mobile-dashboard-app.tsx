@@ -12,6 +12,7 @@ import {cachedJson,swrJson,peekJsonCache,prefetchJson,abortCacheScope,clearExpir
 import TargetRecoveryPanel from "@/components/target-recovery-panel";
 import type {TargetRecovery} from "@/lib/target-recovery";
 
+const LobChampion=dynamic(()=>import("@/components/lob-champion"),{ssr:false,loading:()=> <div className="m238m-card">Memuat LOB Champion…</div>});
 const ReportScreen=dynamic(()=>import("@/components/mobile-dashboard-report"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton hero"/><div className="m238m-skeleton list"/></div>});
 const MoreScreen=dynamic(()=>import("@/components/mobile-dashboard-more"),{ssr:false,loading:()=> <div className="m238m-stack m238m-fade"><div className="m238m-skeleton list"/><div className="m238m-skeleton list"/></div>});
 const MobileOperations=dynamic(()=>import("@/components/mobile-operations"),{ssr:false,loading:()=> <div className="m238m-card">Memuat menu operasional…</div>});
@@ -19,7 +20,7 @@ const QoalaStaffShare=dynamic(()=>import("@/components/qoala-staff-share"),{ssr:
 const StaffAchievementShare=dynamic(()=>import("@/components/staff-achievement-share"),{ssr:false,loading:()=> <div className="m238m-card">Memuat report pencapaian staff…</div>});
 
 type Tab="home"|"sales"|"team"|"report"|"admin"|"more";
-type SalesMode="daily"|"summary"|"lob";
+type SalesMode="daily"|"summary"|"lob"|"champion";
 type FocusMode="lob"|"vas"|"third";
 type ReportMode="weekly"|"feedback"|"cx";
 type HomeMode="monthly"|"ytd"|"compare";
@@ -278,7 +279,7 @@ export default function MobileDashboardApp(){
     setRefreshing(true);
     try{
       if(tab==="home")await loadOverview(true);
-      else if(tab==="sales")await (salesMode==="daily"?loadDaily(true):loadSummary(true));
+      else if(tab==="sales"){if(salesMode==="champion")window.dispatchEvent(new CustomEvent("m238:lob-champion-refresh"));else await (salesMode==="daily"?loadDaily(true):loadSummary(true))}
       else if(tab==="report")await (reportMode==="weekly"?loadWeekly(true):reportMode==="feedback"?loadFeedback(true):loadCx(true));
       else if(tab==="team")await loadOverview(true);
     }finally{setRefreshing(false)}
@@ -395,7 +396,7 @@ export default function MobileDashboardApp(){
       <div className="m238m-header-actions"><button onClick={()=>setSheet("share")} aria-label="Share"><Share2 size={19}/></button><button onClick={()=>void refresh()} aria-label="Refresh"><RefreshCw size={19} className={refreshing?"spin":""}/></button></div>
     </header>
     <main className="m238m-content">
-      <button className="m238m-period" onClick={openPeriodSheet}><CalendarDays size={15}/><span>{periodMode==="week"?(selectedWeek||weekly?.labelB||"Pilih Week"):monthLabel(period)}</span><small>{periodMode==="week"?"Weekly":(weekly?.labelB||"Week berjalan")}</small><ChevronRight size={15}/></button>
+      {tab==="sales"&&salesMode==="champion"?null:<button className="m238m-period" onClick={openPeriodSheet}><CalendarDays size={15}/><span>{periodMode==="week"?(selectedWeek||weekly?.labelB||"Pilih Week"):monthLabel(period)}</span><small>{periodMode==="week"?"Weekly":(weekly?.labelB||"Week berjalan")}</small><ChevronRight size={15}/></button>}
       {refreshing?<div className="m238m-refreshing"><RefreshCw size={14} className="spin"/> Memperbarui data…</div>:null}
       {error?<Card className="m238m-error">{error}</Card>:null}
       {loading&&!overview?<Skeleton/>:null}
@@ -717,7 +718,7 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
  const selectedVasStaff=dailyDrillStaff&&dailyVasKey?(dailyVasDetail?.staff||[]).find((x:any)=>String(x.id)===String(dailyDrillStaff.id)):undefined;
  const selectedVasProducts=dailyDrillStaff&&dailyVasKey?((selectedVasStaff?.providers?.[dailyVasKey]?.products||[]) as Array<{label:string;article:string;description:string;qty:number;value:number;invoices:string[]}>):[];
  return <div className="m238m-stack m238m-enter">
-  <Segmented value={mode} onChange={setMode} items={[{value:"daily",label:"Daily"},{value:"summary",label:"Summary"},{value:"lob",label:"Fokus Product"}]}/>
+  <Segmented value={mode} onChange={setMode} items={[{value:"daily",label:"Daily"},{value:"summary",label:"Summary"},{value:"lob",label:"Fokus Product"},{value:"champion",label:"LOB Champion"}]}/>
   {mode==="daily"?(daily?<>
     {daily.fastUpdatedAt?<div className="m238m-data-freshness"><span>Data terakhir {new Intl.DateTimeFormat("id-ID",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jakarta"}).format(new Date(daily.fastUpdatedAt))} WIB</span>{daily.fastSource==="live-refresh"?<b className="live">Live Refresh</b>:Date.now()-new Date(daily.fastUpdatedAt).getTime()>30*60*1000?<b>Perlu Refresh</b>:null}</div>:null}
     <div className="m238m-focus-tabs">{[["overall","Overall"],["device","Device"],["accessories","ACC"],["vas","VAS"]].map(([value,label])=><button key={value} className={dailyCard===value?"active":""} onClick={()=>setDailyCard(value as typeof dailyCard)}>{label}</button>)}</div>
@@ -764,7 +765,7 @@ function SalesScreen({mode,setMode,daily,summary,period,periodMode,selectedWeek,
     <div className="m238m-grid"><Metric label="Device" value={money.format(summary.breakdown.device)}/><Metric label="ACC" value={money.format(summary.breakdown.accessories)}/><Metric label="VAS" value={money.format(summary.breakdown.vas)}/></div>
     <div className="m238m-section-head"><h2>Per Hari</h2><span>Urut dari tanggal 1</span></div>
     <div className="m238m-list">{dailyRows.map(r=><button key={r.date} className="m238m-day-row" onClick={()=>onDay(r)}><div className="m238m-day-main"><strong>{salesDateLabel(r.date)}</strong><b>{money.format(r.totalSales)}</b><small>Achievement {pct(r.achievementPct)} • CVR {pct(r.cvr)} • UPT {r.upt.toFixed(1)}</small></div><ChevronRight size={17}/></button>)}</div>
-  </>:<Skeleton/>):(summary?<FocusProductView summary={summary} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>:<Skeleton/>)}
+  </>:<Skeleton/>):mode==="champion"?<LobChampion/>:(summary?<FocusProductView summary={summary} period={period} periodMode={periodMode} selectedWeek={selectedWeek} activeRange={activeRange}/>:<Skeleton/>)}
 
   <Sheet open={showTodayDetail} onClose={()=>setShowTodayDetail(false)} title="Detail Sales Today">
    {daily?<div className="m238m-stack">

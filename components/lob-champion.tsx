@@ -1,0 +1,37 @@
+"use client";
+import {useEffect,useRef,useState} from "react";
+import {ChevronDown,Copy,RefreshCw,Trophy} from "lucide-react";
+import {CHAMPION_LOBS,championRange,championReportText,validChampionDate,type ChampionKey,type ChampionMode,type ChampionReport} from "@/lib/lob-champion";
+import "@/app/lob-champion.css";
+const money=(value:number)=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(value),num=(value:number)=>new Intl.NumberFormat("id-ID").format(value);
+const dateLabel=(value:string)=>new Intl.DateTimeFormat("id-ID",{day:"numeric",month:"short",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date(`${value}T00:00:00Z`));
+export default function LobChampion(){
+ const today=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Jakarta"}).format(new Date()),[mode,setMode]=useState<ChampionMode>("daily"),[date,setDate]=useState(today),[start,setStart]=useState(`${today.slice(0,7)}-01`),[end,setEnd]=useState(today),[selected,setSelected]=useState<ChampionKey>("iphone"),[report,setReport]=useState<ChampionReport|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(""),[notice,setNotice]=useState(""),[revision,setRevision]=useState(0),fresh=useRef(false);
+ const range=championRange(mode,date,start,end,today),valid=validChampionDate(range.from)&&validChampionDate(range.to)&&range.from<=range.to&&range.to<=today&&(Date.parse(range.to)-Date.parse(range.from))/86400000<=365;
+ const refresh=()=>{fresh.current=true;setRevision(value=>value+1)};
+ useEffect(()=>{const onRefresh=()=>{fresh.current=true;setRevision(value=>value+1)};window.addEventListener("m238:lob-champion-refresh",onRefresh);return()=>window.removeEventListener("m238:lob-champion-refresh",onRefresh)},[]);
+ useEffect(()=>{
+  setReport(null);setError("");setNotice("");if(!valid){setLoading(false);return}
+  const controller=new AbortController(),query=new URLSearchParams({from:range.from,to:range.to});if(fresh.current)query.set("refresh","1");fresh.current=false;setLoading(true);
+  fetch(`/api/lob-champion?${query}`,{cache:"no-store",signal:controller.signal}).then(async response=>{const body=await response.json();if(!response.ok)throw Error(body.error||"Report belum dapat dimuat.");if(!controller.signal.aborted)setReport(body)}).catch(error=>{if(!controller.signal.aborted)setError(error instanceof Error?error.message:"Report belum dapat dimuat.")}).finally(()=>{if(!controller.signal.aborted)setLoading(false)});
+  return()=>controller.abort();
+ },[range.from,range.to,valid,revision]);
+ const currentReport=report?.from===range.from&&report?.to===range.to?report:null;
+ const lob=currentReport?.lobs.find(lob=>lob.key===selected),label=CHAMPION_LOBS.find(lob=>lob.key===selected)!.label;
+ const copy=async()=>{if(!currentReport)return;try{await navigator.clipboard.writeText(championReportText(currentReport,selected));setNotice(`Report ${label} sudah disalin. Tinggal tempel ke WhatsApp.`)}catch{setNotice("Belum bisa menyalin otomatis. Tekan lama teks report di bawah untuk menyalin.")}};
+ return <section className="lc-workspace" aria-label="LOB Champion">
+  <header className="lc-heading"><div><span><Trophy size={17}/>Report penjualan per LOB</span><h2>LOB Champion</h2></div><button type="button" className="lc-refresh" disabled={loading||!valid} onClick={refresh} aria-label="Perbarui LOB Champion"><RefreshCw size={19}/></button></header>
+  <div className="lc-modes" role="group" aria-label="Periode LOB Champion">{([{key:"daily",label:"Harian"},{key:"weekly",label:"Weekly"},{key:"mtd",label:"Tanggal 1–berjalan"},{key:"range",label:"Rentang"}] as const).map(item=><button key={item.key} type="button" className={mode===item.key?"active":""} aria-pressed={mode===item.key} onClick={()=>setMode(item.key)}>{item.label}</button>)}</div>
+  <div className="lc-filters">{mode==="range"?<><label>Dari tanggal<input aria-label="Dari tanggal" type="date" value={start} max={end||today} onChange={event=>setStart(event.target.value)}/></label><label>Sampai tanggal<input aria-label="Sampai tanggal" type="date" value={end} min={start} max={today} onChange={event=>setEnd(event.target.value)}/></label></>:<label>{mode==="weekly"?"Pilih tanggal dalam week":mode==="mtd"?"Tanggal terakhir bulan laporan":"Tanggal penjualan"}<input aria-label="Tanggal penjualan" type="date" value={date} max={today} onChange={event=>setDate(event.target.value)}/></label>}</div>
+  {!valid?<p className="lc-error" role="alert">Pilih tanggal yang valid, maksimal 366 hari dan tidak melewati hari ini.</p>:<p className="lc-period">{dateLabel(range.from)}{range.from!==range.to?` s.d. ${dateLabel(range.to)}`:""}{mode==="weekly"?" · Minggu–Sabtu, sampai hari berjalan":""}</p>}
+  <nav className="lc-lobs" aria-label="Pilih LOB">{CHAMPION_LOBS.map(item=><button type="button" key={item.key} className={selected===item.key?"active":""} aria-pressed={selected===item.key} onClick={()=>{setSelected(item.key);setNotice("")}}><span>{item.label}</span><b>{currentReport?`${num(currentReport.lobs.find(lob=>lob.key===item.key)?.qty||0)} unit`:"—"}</b></button>)}</nav>
+  {loading?<p className="lc-status" role="status">Memuat penjualan LOB…</p>:error?<div className="lc-error" role="alert"><p>{error}</p><button type="button" onClick={refresh}>Coba lagi</button></div>:lob&&currentReport?<>
+   <div className="lc-total"><span>{label} · M238</span><strong>{num(lob.qty)} unit</strong><b>{money(lob.amount)}</b><small>{lob.staff.length} staff yang menjual</small></div>
+   <div className="lc-staff-heading"><h3>Staff yang Menjual {label}</h3><small>Tap nama untuk detail</small></div>
+   {lob.staff.length?<div className="lc-staff-list">{lob.staff.map((person,index)=><details key={`${range.from}:${range.to}:${selected}:${person.id}`} className="lc-staff"><summary><span className="lc-rank">{index+1}</span><div><strong>{person.name}</strong><small>{person.id}</small></div><div className="lc-staff-total"><b>{num(person.qty)} unit</b><small>{money(person.amount)}</small></div><ChevronDown size={17}/></summary><div className="lc-staff-body"><h4>Model Terjual</h4>{person.products.map((product,index)=><div className="lc-product" key={`${product.article}:${index}`}><div><strong>{product.name}</strong>{product.article?<small>{product.article}</small>:null}{product.description!==product.name?<small>{product.description}</small>:null}</div><div><b>{num(product.qty)} unit</b><small>{money(product.amount)}</small></div></div>)}{range.from!==range.to?<><h4>Penjualan per Hari</h4>{person.days.map(day=><div className="lc-day" key={day.date}><span>{dateLabel(day.date)}</span><b>{num(day.qty)} unit</b><small>{money(day.amount)}</small></div>)}</>:null}</div></details>)}</div>:<div className="lc-empty">Belum ada penjualan {label} pada periode ini.</div>}
+   <button className="lc-copy" type="button" onClick={()=>void copy()}><Copy size={18}/>Salin Report {label}</button>{notice?<p role="status" className="lc-notice">{notice}</p>:null}
+   <details className="lc-report-text"><summary>Lihat teks report</summary><pre>{championReportText(currentReport,selected)}</pre></details>
+   <p className="lc-footnote">{currentReport.source}<br/>Data dimuat {new Intl.DateTimeFormat("id-ID",{dateStyle:"short",timeStyle:"short",timeZone:"Asia/Jakarta"}).format(new Date(currentReport.loadedAt))} WIB.{currentReport.liveDates.length?` Termasuk data live ${currentReport.liveDates.map(dateLabel).join(", ")}.`:""}</p>
+  </>:null}
+ </section>;
+}
