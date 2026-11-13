@@ -1,12 +1,16 @@
 import {randomInt} from "node:crypto";
-import {getSheetRangesFresh,sheetRequestOnce} from "./google-sheets";
+import {getSheetRangesFresh,sheetRequestOnce,sheetReadRequest} from "./google-sheets";
 import {COPAS_ID,CopasInvoiceError,type CopasCredentials} from "./copas-invoice-store";
 import {EXCHANGE_ARCHIVE,EXCHANGE_HEADERS,planExchangeArchive} from "./exchange-archive";
 type Sheet={sheetId:number;title:string;gridProperties:{rowCount:number;columnCount:number}};
 const MASTER="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk";
 export async function readExchangeHistory(c:CopasCredentials){
- const response=await sheetRequestOnce(COPAS_ID,"?fields=sheets.properties",c.email,c.key);
- if(!response.ok)throw new Error("Arsip exchange gagal dibaca.");
+ const response=await sheetReadRequest(COPAS_ID,"?fields=sheets.properties",c.email,c.key);
+ if(!response.ok){
+  console.warn("exchange-archive-read",{status:response.status});
+  const message=response.status===429||response.status>=500?"Sumber data exchange sedang sibuk. Tekan Coba lagi.":response.status===401||response.status===403?"Akses sumber data exchange ditolak. Hubungi pengelola dashboard.":"Arsip exchange gagal dibaca.";
+  throw new CopasInvoiceError(`${message} (Google Sheets ${response.status})`,503);
+ }
  const sheets=((await response.json()) as {sheets:Array<{properties:Sheet}>}).sheets.map(s=>s.properties),archive=sheets.find(s=>s.title===EXCHANGE_ARCHIVE);
  if(!archive)return{sheets,archive,history:[] as unknown[][]};
  const [values]=await getSheetRangesFresh(COPAS_ID,[`'${EXCHANGE_ARCHIVE}'!A1:D${archive.gridProperties.rowCount}`],c.email,c.key);

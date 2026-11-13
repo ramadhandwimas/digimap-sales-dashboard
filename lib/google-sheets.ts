@@ -61,3 +61,16 @@ export async function sheetRequestOnce(id:string,suffix:string,email:string,priv
  if(init.method&&init.method!=="GET")clearReadCacheForSheet(id);
  return response;
 }
+
+// Metadata reads are safe to retry; mutation callers keep sheetRequestOnce.
+const sheetReadsInflight=new Map<string,Promise<Response>>();
+export async function sheetReadRequest(id:string,suffix:string,email:string,privateKey:string){
+ const key=`${email}::${id}::${suffix}`;
+ let active=sheetReadsInflight.get(key);
+ if(!active){
+  active=(async()=>{const access=await token(email,privateKey);return requestWithRetry(`https://sheets.googleapis.com/v4/spreadsheets/${id}${suffix}`,{headers:{authorization:`Bearer ${access}`},cache:"no-store"})})();
+  sheetReadsInflight.set(key,active);
+  void active.finally(()=>{if(sheetReadsInflight.get(key)===active)sheetReadsInflight.delete(key)}).catch(()=>{});
+ }
+ return (await active).clone();
+}
