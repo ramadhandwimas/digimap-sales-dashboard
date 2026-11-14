@@ -46,6 +46,9 @@ type WeeklyTargets = {
   grandTotal: number;
 };
 type WeeklyPayload = {
+  yearA?:string;
+  yearB?:string;
+  availableWeekEntries?:Array<{label:string;year:string;firstDate:string}>;
   weekA: number;
   weekB: number;
   labelA: string;
@@ -62,18 +65,21 @@ type WeeklyPayload = {
 };
 export default function OperationsPage({
   mode,
+  embedded=false,
 }: {
   mode: "bnpl" | "soh" | "weekly";
+  embedded?:boolean;
 }) {
+  const Container=embedded?"section":"main";
   return (
-    <main
-      className={`min-h-screen bg-slate-50 p-4 text-slate-950 dark:bg-slate-900 dark:text-slate-100 sm:p-7 ${mode === "weekly" ? "weekly-report-page" : ""}`}
+    <Container
+      className={`${embedded?"":"min-h-screen bg-slate-50 p-4 dark:bg-slate-900 sm:p-7"} text-slate-950 dark:text-slate-100 ${mode === "weekly" ? "weekly-report-page" : ""}`}
     >
-      <a href="/" className="no-print text-sm font-bold text-blue-600">
+      {embedded?null:<a href="/" className="no-print text-sm font-bold text-blue-600">
         ← Kembali ke Dashboard
-      </a>
+      </a>}
       {mode === "bnpl" ? <Bnpl /> : mode === "soh" ? <Soh /> : <Weekly />}
-    </main>
+    </Container>
   );
 }
 function Bnpl() {
@@ -287,30 +293,30 @@ function Weekly() {
     [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
     [manual, setManual] = useState(false);
+  const [loading,setLoading]=useState(true),[error,setError]=useState(""),[revision,setRevision]=useState(0);
+  const requestedFrom=manual?from:"",requestedTo=manual?to:"";
   useEffect(() => {
-    let active = true;
-    const load = async () => {
-      const query =
-          manual && from && to
-            ? `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
-            : "",
-        response = await fetch(`/api/weekly${query}`, { cache: "no-store" }),
-        json: WeeklyPayload = await response.json();
-      if (active) {
-        setData(json);
-        if (!manual) {
-          setFrom(json.labelA);
-          setTo(json.labelB);
-        }
-      }
+    let active=true;
+    const controller=new AbortController();
+    if(manual&&from===to){setError("Pilih dua week yang berbeda.");setLoading(false);return()=>controller.abort()}
+    const load=async()=>{
+      setLoading(true);setError("");
+      try{
+        const query=new URLSearchParams();
+        for(const[name,value]of [["from",requestedFrom],["to",requestedTo]])if(value){const parts=value.split("|");query.set(name,parts.length>1?parts.slice(1).join("|"):value);if(parts.length>1)query.set(`${name}Year`,parts[0])}
+        const response=await fetch(`/api/weekly-stable${query.size?`?${query}`:""}`,{cache:"no-store",signal:controller.signal}),json=await response.json();
+        if(!response.ok||!json.a||!json.b)throw Error(json.error||"Weekly Report belum dapat dimuat.");
+        if(manual&&json.availableWeekEntries?.length&&(requestedFrom!==`${json.yearA}|${json.labelA}`||requestedTo!==`${json.yearB}|${json.labelB}`))throw Error("Periode weekly berubah. Pilih ulang week yang ingin dibandingkan.");
+        if(active){setData(json);if(!manual){setFrom(json.yearA?`${json.yearA}|${json.labelA}`:json.labelA);setTo(json.yearB?`${json.yearB}|${json.labelB}`:json.labelB)}}
+      }catch(error){if(active)setError(error instanceof Error?error.message:"Weekly Report belum dapat dimuat.")}
+      finally{if(active)setLoading(false)}
     };
-    void load();
-    const timer = setInterval(() => void load(), 300000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [from, to, manual]);
+    void load();const timer=setInterval(()=>void load(),300000);
+    return()=>{active=false;controller.abort();clearInterval(timer)};
+  },[requestedFrom,requestedTo,manual,revision]);
+  const weekOptions=data?.availableWeekEntries?.length?data.availableWeekEntries.map(week=>({value:`${week.year}|${week.label}`,label:`${week.label} / ${week.year} (${week.firstDate})`})):[...new Set(data?.availableWeeks||[])].map(label=>({value:label,label}));
+  const matchesSelection=!manual||!data||(from===(data.yearA?`${data.yearA}|${data.labelA}`:data.labelA)&&to===(data.yearB?`${data.yearB}|${data.labelB}`:data.labelB));
+  const ready=!!data&&!loading&&!error&&matchesSelection;
   const chooseFrom = (value: string) => {
       setManual(true);
       setFrom(value);
@@ -351,8 +357,8 @@ function Weekly() {
       IPAD: "iPad",
       "APPLE WATCH": "Watch",
     },
-    la = (data?.labelA ?? "Week sebelumnya").replace("Week ", "W"),
-    lb = (data?.labelB ?? "Week berjalan").replace("Week ", "W"),
+    la = (data?.labelA ?? "Week sebelumnya").replace("Week ", "W")+(data?.yearA&&data.yearA!==data.yearB?` / ${data.yearA}`:""),
+    lb = (data?.labelB ?? "Week berjalan").replace("Week ", "W")+(data?.yearB&&data.yearA!==data.yearB?` / ${data.yearB}`:""),
     exportName = `M238-Weekly-${la}-vs-${lb}`,
     reportElement = () => {
       if (!reportRef.current) throw new Error("Tampilan weekly belum siap.");
@@ -484,7 +490,7 @@ function Weekly() {
       await exportReportXlsx(sheets, exportName);
     };
   return (
-    <div ref={reportRef} className="mt-6 space-y-5">
+    <div ref={reportRef} className="mt-6 space-y-5" data-weekly-ready={ready}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black">Weekly Report M238</h1>
@@ -493,7 +499,7 @@ function Weekly() {
             dipilih.
           </p>
         </div>
-        <ExportMenu
+        {ready?<ExportMenu
           onXls={downloadXls}
           onPdf={() => exportReportPdf(reportElement(), exportName)}
           onPpt={() => {
@@ -501,7 +507,7 @@ function Weekly() {
             return exportWeeklyPresentation(data, exportName);
           }}
           onPicture={() => exportReportPng(reportElement(), exportName)}
-        />
+        />:null}
       </div>
       <section className={box}>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
@@ -512,11 +518,12 @@ function Weekly() {
             <select
               className={`${input} w-full`}
               value={from}
+              disabled={loading}
               onChange={(event) => chooseFrom(event.target.value)}
             >
-              {data?.availableWeeks?.map((week) => (
-                <option key={week} value={week}>
-                  {week}
+              {weekOptions.map((week) => (
+                <option key={week.value} value={week.value}>
+                  {week.label}
                 </option>
               ))}
             </select>
@@ -529,11 +536,12 @@ function Weekly() {
             <select
               className={`${input} w-full`}
               value={to}
+              disabled={loading}
               onChange={(event) => chooseTo(event.target.value)}
             >
-              {data?.availableWeeks?.map((week) => (
-                <option key={week} value={week}>
-                  {week}
+              {weekOptions.map((week) => (
+                <option key={week.value} value={week.value}>
+                  {week.label}
                 </option>
               ))}
             </select>
@@ -567,6 +575,7 @@ function Weekly() {
           )}
         </div>
       </section>
+      {loading||(!error&&!matchesSelection)?<p role="status" className={box}>Memuat perbandingan week to week…</p>:error?<div role="alert" className={box}><p className="text-red-600">{error}</p><button type="button" onClick={()=>setRevision(value=>value+1)} className="mt-3 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white">Coba lagi</button></div>:<>
       <section className={box}>
         <h2 className="mb-3 font-black">Sales Summary — Device / VAS / ACC</h2>
         <CompareTotal
@@ -703,6 +712,7 @@ function Weekly() {
           </div>
         </div>
       </section>
+      </>}
     </div>
   );
 }
