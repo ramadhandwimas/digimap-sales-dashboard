@@ -30,11 +30,11 @@ test('MTD API reads config and schedule in two batches instead of invoking ten d
  const config=Array.from({length:55},()=>[]);config[1][16]='Januari 2026';config[1][17]=3100;config[1][18]=2170;config[1][19]=620;config[1][20]=310;['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'].forEach((day,i)=>{config[i+2][22]=day;config[i+2][23]=100;config[i+2][24]=20;config[i+2][25]=10});config[27][7]='M238';config[27][8]='1';config[27][9]='Andhea';config[27][10]='Sales Assistant';config[27][11]=1;
  const weekly=[['Desember','','',29,30,31,1,2,3,4],['NIK','Name','Rank'],['1','Andhea','Sales Assistant',...Array(7).fill('D047')],['FULL'],['Januari','','',5,6,7,8,9,10,11],['NIK','Name','Rank'],['1','Andhea','Sales Assistant',...Array(7).fill('D047')]];
  const calls=[];class Request{constructor(url){this.url=String(url);this.nextUrl=new URL(url);this.cookies={get:()=>({value:'fixture'})}}}
- let actualSales=[];const resolve=id=>{
+ let actualSales=[],liveSales=[],activeDates=[];const resolve=id=>{
   if(id==='next/server')return{NextRequest:Request,NextResponse:{json:(body,options)=>({body,status:options?.status||200})}};
   if(id==='@/lib/auth-session')return{SESSION_COOKIE:'fixture',verifySessionToken:()=>({nik:'1'})};
   if(id==='@/lib/google-sheets')return{getSheetRanges:async(id,ranges)=>{calls.push(ranges);return ranges.length===1?[config]:[weekly,[]]}};
-  if(id==='@/lib/m238-sales-source-cache')return{getCachedSalesSource:async()=>({activeDates:[],dataCopas:actualSales})};
+  if(id==='@/lib/m238-sales-source-cache')return{getCachedSalesSource:async()=>({activeDates,dataCopas:actualSales,rawSales:liveSales})};
   if(id==='@/lib/staff-achievement-report')return report;
   if(id==='@/lib/staff-report-targets')return allocated;
   if(id==='@/lib/target-recovery')return load('../lib/target-recovery.ts',key=>key==='./daily-target-plan'?plan:sales);
@@ -44,8 +44,11 @@ test('MTD API reads config and schedule in two batches instead of invoking ten d
  try{const result=await api.GET(new Request('https://fixture.test/api/staff-achievement-report?mode=daily&from=2026-01-01&to=2026-01-10'));assert.equal(result.status,200);assert.equal(calls.length,2);assert.equal(result.body.total.targets.device,700);assert.equal(result.body.total.actual.device,0);assert.deepEqual(result.body.warnings,[]);const invalid=await api.GET(new Request('https://fixture.test/api/staff-achievement-report?mode=daily&from=2026-01-10&to=2026-01-10'));assert.equal(invalid.status,400);
  class Clock extends Date{constructor(...args){super(...(args.length?args:['2026-01-10T04:00:00Z']))}static now(){return Date.parse('2026-01-10T04:00:00Z')}}
  actualSales=[{id:'1',name:'Andhea',date:'2026-01-09',store:'M238',scheme:'DEVICES',amount:400,qty:1,description:'',category:'',type:''}];
+ liveSales=[{...actualSales[0],date:'2026-01-10',amount:125},{...actualSales[0],date:'2026-01-09',amount:9999}];activeDates=['2026-01-10'];
  const currentApi=load('../app/api/staff-achievement-report/route.ts',resolve,Clock),current=await currentApi.GET(new Request('https://fixture.test/api/staff-achievement-report?mode=daily&from=2026-01-01&to=2026-01-10'));
  assert.equal(current.status,200);assert.equal(current.body.recovery.status,'READY');assert.equal(current.body.total.targets.device,700);assert.equal(current.body.total.actual.device,400);assert.equal(current.body.recoveryStaff.length,1);assert.equal(current.body.recoveryStaff[0].base.amount,100);assert.equal(current.body.recoveryStaff[0].target.amount,current.body.recovery.days[0].target.amount);assert.ok(current.body.recoveryStaff[0].target.amount>100);
+ const single=await currentApi.GET(new Request('https://fixture.test/api/staff-achievement-report?mode=day&from=2026-01-10&to=2026-01-10'));assert.equal(single.status,200);assert.equal(single.body.mode,'day');assert.equal(single.body.total.actual.device,125);assert.equal(single.body.total.targets.device,current.body.recovery.days[0].target.device);assert.ok(single.body.source.includes('data live'));assert.deepEqual(single.body.warnings,[]);
+ const prior=await currentApi.GET(new Request('https://fixture.test/api/staff-achievement-report?mode=day&from=2026-01-09&to=2026-01-09'));assert.equal(prior.status,200);assert.equal(prior.body.total.targets.device,70);assert.equal(prior.body.total.actual.device,400);assert.equal((await currentApi.GET(new Request('https://fixture.test/api/staff-achievement-report?mode=day&from=2026-01-09&to=2026-01-10'))).status,400);
  }finally{if(oldEmail===undefined)delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;else process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL=oldEmail;if(oldKey===undefined)delete process.env.GOOGLE_PRIVATE_KEY;else process.env.GOOGLE_PRIVATE_KEY=oldKey}
 });
 test('achievement and next-target exports remain separate',()=>{
@@ -56,3 +59,5 @@ test('achievement and next-target exports remain separate',()=>{
  assert.match(achievement,/Pencapaian Staff/);assert.doesNotMatch(achievement,/\*Rencana Pengejaran\*/);
  assert.match(recovery,/Target Staff Berikutnya/);assert.match(recovery,/Berlaku 2026-11-10/);assert.match(recovery,/Andhea · Target/);assert.doesNotMatch(recovery,/TOTAL STAFF|Ach |ACC toko/);
 });
+
+test('single-day, MTD and weekly selections remain distinct in ranges and exported labels',()=>{assert.deepEqual(report.staffAchievementRange('day','2026-11-14','2026-11-14'),{from:'2026-11-14',to:'2026-11-14'});assert.deepEqual(report.staffAchievementRange('daily','2026-11-14','2026-11-14'),{from:'2026-11-01',to:'2026-11-14'});assert.deepEqual(report.staffAchievementRange('weekly','2026-11-14','2026-11-14'),{from:'2026-11-08',to:'2026-11-14'});const base=report.buildStaffAchievementReport(roster,[],'day'),text=report.staffAchievementText({...base,mode:'day',from:'2026-11-14',to:'2026-11-14',warnings:[],source:'Data harian',generatedAt:''},'vas');assert.match(text,/Pencapaian Staff Harian/);assert.doesNotMatch(text,/MTD|Mingguan/)});

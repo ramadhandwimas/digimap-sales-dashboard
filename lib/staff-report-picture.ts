@@ -1,4 +1,4 @@
-import {achievementText,REPORT_LABELS,type AchievementReport,type ReportCategory} from "./staff-achievement-report";
+import {achievementText,REPORT_LABELS,staffAchievementModeLabel,type AchievementReport,type ReportCategory} from "./staff-achievement-report";
 export type StaffReportContent="achievement"|"recovery";
 const money=(v:number)=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(v);
 export async function staffReportPicture(data:AchievementReport,category:ReportCategory,content:StaffReportContent){
@@ -12,8 +12,8 @@ export async function staffReportPicture(data:AchievementReport,category:ReportC
  x.fillStyle="#0759f9";x.font="800 24px Arial";x.fillText("M238 · DIGIMAP PIM 2",p,62);
  x.fillStyle="#10172b";x.font="800 40px Arial";x.fillText(content==="achievement"?"Pencapaian Staff":"Target Staff Berikutnya",p,118);
  x.fillStyle="#0759f9";x.font="800 36px Arial";x.fillText(REPORT_LABELS[category],p,172);
- x.fillStyle="#64748b";x.font="500 24px Arial";x.fillText(content==="achievement"?`${data.from} s.d. ${data.to} · ${data.mode==="daily"?"Akumulasi MTD":"Mingguan"}`:`Berlaku ${next!.date} · Cutoff ${data.recovery!.cutoff}`,p,216);
- x.font="500 21px Arial";x.fillText(content==="achievement"?"Penjualan setelah cutoff · Target periode laporan · Staff M238 selain SPV":"Target awal + penyesuaian = target baru · Sesuai jadwal staff",p,252);
+ x.fillStyle="#64748b";x.font="500 24px Arial";x.fillText(content==="achievement"?`${data.mode==="day"?data.to:`${data.from} s.d. ${data.to}`} · ${staffAchievementModeLabel(data.mode)}`:`Berlaku ${next!.date} · Cutoff ${data.recovery!.cutoff}`,p,216);
+ x.font="500 21px Arial";x.fillText(content==="achievement"?data.mode==="day"?"Penjualan tanggal pilihan · Target harian · Staff M238 selain SPV":"Penjualan setelah cutoff · Target periode laporan · Staff M238 selain SPV":"Target awal + penyesuaian = target baru · Sesuai jadwal staff",p,252);
  const fit=(text:string,right:number,y:number,width:number,size=30,weight=600)=>{let font=size;x.textAlign="right";x.font=`${weight} ${font}px Arial`;while(x.measureText(text).width>width&&font>21){font--;x.font=`${weight} ${font}px Arial`}x.fillText(text,right,y);x.textAlign="left"};
  const name=(text:string,y:number,bold=false)=>{x.font=`${bold?800:600} 27px Arial`;const words=text.split(/\s+/),lines:string[]=[];let line="";for(const word of words){const candidate=line?`${line} ${word}`:word;if(x.measureText(candidate).width>382&&line){lines.push(line);line=word}else line=candidate}if(line)lines.push(line);const shown=lines.slice(0,2);if(lines.length>2)shown[1]+="…";shown.forEach((value,i)=>{while(x.measureText(value).width>382)value=value.slice(0,-2)+"…";x.fillText(value,p+14,y+(shown.length===1?48:31+i*31))})};
  x.fillStyle="#e9f0ff";x.fillRect(p,tableTop,w-p*2,headerH);x.fillStyle="#10172b";x.font="800 22px Arial";x.fillText("STAFF",p+14,tableTop+36);
