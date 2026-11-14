@@ -1,0 +1,19 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import ts from 'typescript';import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),React=require('react'),renderer=require('react-test-renderer');globalThis.IS_REACT_ACT_ENVIRONMENT=true;
+function load(path,mocks={}){const mod={exports:{}};new Function('require','module','exports',ts.transpileModule(fs.readFileSync(new URL('../'+path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText)(n=>n in mocks?mocks[n]:require(n),mod,mod.exports);return mod.exports}
+const model=load('lib/spv-schedule.ts');
+test('mobile editor retains failed-save input, shares only saved ready version, and closes details initially',async()=>{
+ const originalFetch=globalThis.fetch,originalWindow=globalThis.window,navigatorDescriptor=Object.getOwnPropertyDescriptor(globalThis,'navigator');let root,posts=0,shared=0,pictures=0,lastBody;const file=new File(['png'],'schedule.png',{type:'image/png'});
+ globalThis.window=new EventTarget();Object.defineProperty(globalThis,'navigator',{configurable:true,value:{canShare:()=>true,share:async value=>{assert.equal(value.files[0],file);shared++}}});
+ globalThis.fetch=async(url,init)=>{if(!init?.method){const start=new URL(url,'https://example.test').searchParams.get('week');const initial=model.blankSchedule(start,[{uid:'demo',id:'12345678',name:'Demo Staff',position:'Sales Assistant'}]);return {ok:true,json:async()=>({record:null,initial,previous:initial})}}lastBody=JSON.parse(init.body);posts++;return posts===1?{ok:false,json:async()=>({error:'Simulasi koneksi gagal'})}:{ok:true,json:async()=>({record:{revision:lastBody.revision,updatedAt:'now',updatedBy:'Demo SPV',status:lastBody.status,data:lastBody.data}})}};
+ try{
+  const UI=load('components/spv-schedule.tsx',{'@/lib/spv-schedule':model,'@/lib/spv-schedule-picture':{schedulePicture:async()=>{pictures++;return file}},'@/app/spv/schedule.css':{}}).default;
+  await renderer.act(async()=>{root=renderer.create(React.createElement(UI))});const button=text=>root.root.findAllByType('button').find(n=>n.children.join('')===text);
+  assert.ok(root.root.findAllByType('details').every(n=>n.props.open===undefined));assert.equal(button('Share WhatsApp').props.disabled,true);
+  await renderer.act(async()=>root.root.findByProps({'aria-label':'Isi semua hari Demo Staff'}).props.onChange({target:{value:'D047'}}));assert.equal(root.root.findByProps({'aria-label':'Pilih minggu jadwal'}).props.disabled,true);
+  await renderer.act(async()=>button('Simpan Draft').props.onClick());assert.equal(posts,1);assert.match(root.root.findByProps({role:'alert'}).children.join(''),/koneksi gagal/);assert.equal(root.root.findByProps({'aria-label':'Demo Staff Senin'}).props.value,'D047');
+  await renderer.act(async()=>button('Tandai Jadwal Siap').props.onClick());assert.equal(lastBody.status,'READY');assert.equal(pictures,1);assert.equal(button('Share WhatsApp').props.disabled,false);assert.equal(root.root.findByProps({'aria-label':'Pilih minggu jadwal'}).props.disabled,false);
+  await renderer.act(async()=>button('Share WhatsApp').props.onClick());assert.equal(shared,1);
+  await renderer.act(async()=>root.root.findByProps({'aria-label':'Demo Staff Senin'}).props.onChange({target:{value:'OFF'}}));assert.equal(button('Share WhatsApp').props.disabled,true);assert.equal(button('Download Gambar').props.disabled,true);assert.equal(root.root.findByProps({'aria-label':'Pilih minggu jadwal'}).props.disabled,true);
+ }finally{await renderer.act(async()=>root?.unmount());globalThis.fetch=originalFetch;globalThis.window=originalWindow;if(navigatorDescriptor)Object.defineProperty(globalThis,'navigator',navigatorDescriptor);else delete globalThis.navigator}
+});
