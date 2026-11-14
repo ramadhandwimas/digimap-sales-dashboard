@@ -78,7 +78,7 @@ export default function OperationsPage({
       {embedded?null:<a href="/" className="no-print text-sm font-bold text-blue-600">
         ← Kembali ke Dashboard
       </a>}
-      {mode === "bnpl" ? <Bnpl /> : mode === "soh" ? <Soh /> : <Weekly />}
+      {mode === "bnpl" ? <Bnpl /> : mode === "soh" ? <Soh /> : <Weekly embedded={embedded} />}
     </Container>
   );
 }
@@ -287,7 +287,7 @@ function Soh() {
     </div>
   );
 }
-function Weekly() {
+function Weekly({embedded=false}:{embedded?:boolean}) {
   const reportRef = useRef<HTMLDivElement>(null),
     [data, setData] = useState<WeeklyPayload | null>(null),
     [from, setFrom] = useState(""),
@@ -490,7 +490,13 @@ function Weekly() {
       await exportReportXlsx(sheets, exportName);
     };
   return (
-    <div ref={reportRef} className="mt-6 space-y-5" data-weekly-ready={ready}>
+    <div
+      ref={reportRef}
+      className="mt-6 space-y-5"
+      data-weekly-ready={ready}
+      data-week-a={la}
+      data-week-b={lb}
+    >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black">Weekly Report M238</h1>
@@ -499,7 +505,7 @@ function Weekly() {
             dipilih.
           </p>
         </div>
-        {ready?<ExportMenu
+        {ready&&!embedded?<ExportMenu
           onXls={downloadXls}
           onPdf={() => exportReportPdf(reportElement(), exportName)}
           onPpt={() => {
