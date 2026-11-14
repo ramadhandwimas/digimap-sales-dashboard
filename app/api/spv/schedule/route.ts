@@ -2,7 +2,7 @@ import {NextRequest,NextResponse} from "next/server";
 import {SESSION_COOKIE,verifySessionToken} from "@/lib/auth-session";
 import {ensureSheet,getSheetRangesFresh,sheetReadRequest,sheetRequestOnce} from "@/lib/google-sheets";
 import {isStoreSpv} from "@/lib/spv-access";
-import {addDays,dateValid,importSchedule,latestRecords,monday,validateSchedule,ScheduleRecord} from "@/lib/spv-schedule";
+import {addDays,dateValid,initialSchedule,orderRoster,latestRecords,monday,validateSchedule,ScheduleRecord} from "@/lib/spv-schedule";
 const MASTER="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk",SOURCE="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const TAB=process.env.VERCEL_ENV==="production"?"SPV Schedule Drafts":"SPV Schedule Preview";
 const headers={"cache-control":"no-store"};
@@ -23,7 +23,8 @@ export async function GET(req:NextRequest){try{
  const [records,[config],[weekly]]=await Promise.all([read(auth.email,auth.key),getSheetRangesFresh(SOURCE,["Config!H28:L60"],auth.email,auth.key),getSheetRangesFresh(MASTER,["'Schedule weekly'!A1:J3000"],auth.email,auth.key)]);
  const seen=new Set<string>(),people=config.filter(r=>String(r[0]).trim().toUpperCase()==="M238"&&/^\d{6,10}$/.test(String(r[1]).trim())&&String(r[2]||"").trim()).flatMap(r=>{const id=String(r[1]).trim();if(seen.has(id))return [];seen.add(id);return [{uid:id,id,name:String(r[2]).trim(),position:String(r[3]||"Sales Assistant").trim()}]});
  const previousStart=addDays(start,-7);
- return NextResponse.json({record:records.find(r=>r.data.start===start)||null,initial:importSchedule(weekly,start,people),previous:records.find(r=>r.data.start===previousStart)?.data||importSchedule(weekly,previousStart,people),isolated:true},{headers});
+ const normalized=records.map(r=>({...r,data:{...r.data,people:orderRoster(r.data.people,weekly)}}));
+ return NextResponse.json({record:normalized.find(r=>r.data.start===start)||null,initial:initialSchedule(weekly,start,people,normalized),previous:normalized.find(r=>r.data.start===previousStart)?.data||initialSchedule(weekly,previousStart,people,normalized),isolated:true},{headers});
  }catch{return NextResponse.json({error:"Schedule belum dapat dibaca. Coba muat ulang; isian yang belum disimpan tetap di layar."},{status:503,headers})}}
 export async function POST(req:NextRequest){let release:(()=>Promise<void>)|undefined;try{
  const auth=await authorize(req);if("error"in auth)return NextResponse.json({error:auth.error},{status:auth.status,headers});

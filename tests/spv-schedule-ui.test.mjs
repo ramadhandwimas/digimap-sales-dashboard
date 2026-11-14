@@ -15,5 +15,6 @@ test('mobile editor retains failed-save input, shares only saved ready version, 
   await renderer.act(async()=>button('Tandai Jadwal Siap').props.onClick());assert.equal(lastBody.status,'READY');assert.equal(pictures,1);assert.equal(button('Share WhatsApp').props.disabled,false);assert.equal(root.root.findByProps({'aria-label':'Pilih minggu jadwal'}).props.disabled,false);
   await renderer.act(async()=>button('Share WhatsApp').props.onClick());assert.equal(shared,1);
   await renderer.act(async()=>root.root.findByProps({'aria-label':'Demo Staff Senin'}).props.onChange({target:{value:'OFF'}}));assert.equal(button('Share WhatsApp').props.disabled,true);assert.equal(button('Download Gambar').props.disabled,true);assert.equal(root.root.findByProps({'aria-label':'Pilih minggu jadwal'}).props.disabled,true);
+  await renderer.act(async()=>root.root.findByProps({'aria-label':'Hapus staff Demo Staff'}).props.onClick());assert.equal(root.root.findAllByProps({'aria-label':'Demo Staff Senin'}).length,0);assert.equal(button('Share WhatsApp').props.disabled,true);
  }finally{await renderer.act(async()=>root?.unmount());globalThis.fetch=originalFetch;globalThis.window=originalWindow;if(navigatorDescriptor)Object.defineProperty(globalThis,'navigator',navigatorDescriptor);else delete globalThis.navigator}
 });
