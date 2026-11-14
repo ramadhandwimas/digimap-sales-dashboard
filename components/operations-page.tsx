@@ -8,6 +8,7 @@ import {
   type ExportSheet,
 } from "@/lib/dashboard-export";
 import { exportWeeklyPresentation } from "@/lib/weekly-presentation-client";
+import WeeklyWhatsappShare from "@/components/weekly-whatsapp-share";
 const money = new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
@@ -504,6 +505,7 @@ function Weekly({embedded=false}:{embedded?:boolean}) {
             Default mengikuti dua week terbaru, tetapi histori week tetap dapat
             dipilih.
           </p>
+          {embedded&&ready&&data?<WeeklyWhatsappShare data={data}/>:null}
         </div>
         {ready&&!embedded?<ExportMenu
           onXls={downloadXls}
