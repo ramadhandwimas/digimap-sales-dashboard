@@ -21,7 +21,8 @@ function planDeviceMasterRepairs(master:unknown[][]):RepairPlan{
  for(const item of rows){const article=articleKey(item.data[1]);if(article){const list=duplicates.get(article)||[];list.push(item.row);duplicates.set(article,list)}}
  const categoryByLob:Record<string,string>={iPhone:"IPHONE",iPad:"IPAD",Mac:"MAC",Watch:"APPLE WATCH"};
  const meta=(data:MasterRow)=>parsePromoSku({sapDescription:data[2],category:data[3],section:""} as Parameters<typeof parsePromoSku>[0]);
- const accessoryWords=/AIRPODS|PENCIL|KEYBOARD|CASE|COVER|ADAPTER|CABLE|CHARGER|STRAP|BAND|APPLE\s*CARE|PROTECTION|PROTEKSI|VOUCHER/;
+ const accessoryWords=/AIRPODS|PENCIL|KEYBOARD|CASE|COVER|ADAPTER|CABLE|CHARGER|STRAP|BAND|APPLE\s*CARE|PROTECTION|PROTEKSI|VOUCHER|MAGSAFE|POWER\s*BANK|POWERBANK|BATTERY|WALLET|HOLDER|MOUNT|TEMPERED|SCREEN\s*PROTECTOR/;
+ const accessoryCategories=new Set(["ACCESSORIES","ACCESSORY","AIRPODS","PENCIL","KEYBOARD","CASE","COVER","ADAPTER","CABLE","CHARGER","STRAP","BAND","PROTECTION","PROTEKSI","POWERBANK","POWER BANK","BATTERY","MAGSAFE"]);
  const knownTypes=new Map<string,Set<string>>();
  for(const {data} of rows){
   const parsed=meta(data),category=categoryByLob[parsed.lob];
@@ -32,12 +33,19 @@ function planDeviceMasterRepairs(master:unknown[][]):RepairPlan{
  for(const {row,raw,data} of rows){
   if(data.every(value=>!value))continue;
   const parsed=meta(data),category=categoryByLob[parsed.lob],text=key(data.join(" ")),article=articleKey(data[1]);
+  const currentCategory=key(data[3]),currentGroup=key(data[5]);
+  // Existing accessory classification is authoritative. Product names may
+  // mention the compatible device (for example "iPhone Air MagSafe Battery")
+  // but that must never turn the accessory itself into a Device.
+  if(currentGroup==="ACCESSORIES"||accessoryCategories.has(currentCategory)||accessoryWords.test(text))continue;
   // Words such as WATCH or MAC are not enough evidence of an Apple product.
   // Only rows already branded APP/APPLE or using the established APP SAP prefix
   // may enter the Device repair flow. Other brands remain completely untouched.
   const appleEvidence=["APPLE","APP"].includes(key(data[0]))||article.startsWith("APP");
-  const likelyDevice=appleEvidence&&Boolean(category)&&(key(data[5])==="DEVICES"||["IPHONE","IPAD","MAC","APPLE WATCH"].includes(key(data[3]))||Boolean(category));
-  if(!likelyDevice||accessoryWords.test(text))continue;
+  const deviceCategory=["IPHONE","IPAD","MAC","APPLE WATCH"].includes(currentCategory);
+  const repairableGroup=currentGroup==="DEVICES"||!currentGroup||/^#?N\/?A$/.test(currentGroup);
+  const likelyDevice=appleEvidence&&Boolean(category)&&repairableGroup&&(currentGroup==="DEVICES"||deviceCategory||Boolean(parsed.model));
+  if(!likelyDevice)continue;
   plan.checked++;
   const description=data[2];scopedArticles.add(article);
   if(!article){plan.review.push({row,article:"",description,reason:"SAP Article kosong; baris tidak dapat diperbaiki otomatis."});continue}
