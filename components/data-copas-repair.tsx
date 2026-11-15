@@ -11,6 +11,9 @@ type Preview={
  scope?:Scope;
  checkedRows:number;
  rowsWithNA:number;
+ totalRowsWithNA:number;
+ totalNACells:number;
+ outOfScopeNARows:number;
  naRepairRows:number;
  vendorRows:number;
  typeRows?:number;
@@ -43,7 +46,7 @@ export default function DataCopasRepair({onBusyChange,scope="all"}:{onBusyChange
    const result=await response.json();
    if(!response.ok)throw new Error(result.error||"Pengecekan Data Copas gagal");
    setPreview(result);
-   if(!Number(result.repairRows||0)&&!Number(result.unresolvedNARows||0))setNotice({kind:"success",text:"Data Copas sudah sesuai. Tidak ada Type kosong atau klasifikasi N/A yang perlu diperbaiki."});
+   if(!Number(result.repairRows||0)&&!Number(result.unresolvedNARows||0))setNotice(result.outOfScopeNARows?{kind:"error",text:`Pada ${scopeLabel} tidak ditemukan N/A yang bisa diperbaiki, tetapi seluruh Data Copas masih memiliki ${result.totalRowsWithNA} baris N/A (${result.totalNACells} sel). Sebanyak ${result.outOfScopeNARows} baris berada di luar kategori ${scopeLabel} atau kategorinya belum terbaca.`}:{kind:"success",text:`Data Copas kategori ${scopeLabel} sudah sesuai. Tidak ada Type kosong atau klasifikasi N/A yang perlu diperbaiki.`});
   }catch(error){setNotice({kind:"error",text:error instanceof Error?error.message:"Pengecekan Data Copas gagal"})}
   finally{active.current=false;setBusy(null);onBusyChange?.(false)}
  };
@@ -77,7 +80,7 @@ export default function DataCopasRepair({onBusyChange,scope="all"}:{onBusyChange
     <Summary value={preview.recommendationRows||0} label="Rekomendasi pola lama" tone={preview.recommendationRows?"blue":"slate"}/>
     <Summary value={preview.unresolvedNARows} label="Perlu diperiksa" tone={preview.unresolvedNARows?"amber":"slate"}/>
    </div>
-   <p className="text-xs text-slate-500">Diperiksa {preview.checkedRows} baris · {scopeLabel}. Ditemukan {preview.rowsWithNA} baris N/A{scope!=="accessory-vas"?` dan ${preview.rowsWithBlankType||0} baris Type kosong`:""}. Periksa daftar perubahan sebelum menyimpan.</p>
+   <p className="text-xs text-slate-500">Diperiksa {preview.checkedRows} baris · {scopeLabel}. Ditemukan {preview.rowsWithNA} baris N/A pada kategori ini{scope!=="accessory-vas"?` dan ${preview.rowsWithBlankType||0} baris Type kosong`:""}. Total seluruh Data Copas: {preview.totalRowsWithNA||0} baris N/A ({preview.totalNACells||0} sel){preview.outOfScopeNARows?`; ${preview.outOfScopeNARows} baris berada di luar kategori ini atau belum terklasifikasi`:""}. Periksa daftar perubahan sebelum menyimpan.</p>
 
    {preview.repairItems.length?<details open className="rounded-xl border border-blue-100 bg-blue-50/40 p-3 dark:border-blue-900 dark:bg-blue-950/20">
     <summary className="cursor-pointer text-sm font-black text-blue-800 dark:text-blue-200">Daftar yang akan diperbaiki ({preview.repairItemsTotal})</summary>

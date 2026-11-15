@@ -31,6 +31,9 @@ export type CopasRepairIssue = {
 export type CopasRepairPlan = {
   checkedRows: number;
   rowsWithNA: number;
+  totalRowsWithNA: number;
+  totalNACells: number;
+  outOfScopeNARows: number;
   naRepairRows: number;
   vendorRows: number;
   typeRows: number;
@@ -55,7 +58,10 @@ const value = (input: unknown) => String(input ?? "")
   .trim();
 
 const key = (input: unknown) => value(input).toUpperCase();
-const isNA = (input: unknown) => /^(?:#?N\/?A|NOT AVAILABLE)$/i.test(value(input));
+const isNA = (input: unknown) => {
+  const normalized=key(input).replace(/[^A-Z]/g,"");
+  return normalized==="NA"||normalized==="NOTAVAILABLE";
+};
 const same = (left: unknown, right: unknown) => key(left) === key(right);
 // XL Apple is the XL/XXL VAS family; Vendor still comes from Master PT Name.
 const isXlSupplier = (input:unknown) => ["XL","XXL","XLAPPLE","XXLAPPLE"].includes(key(input).replace(/[^A-Z0-9]/g,""));
@@ -130,6 +136,9 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
   const issues: CopasRepairIssue[] = [];
   let checkedRows = 0;
   let rowsWithNA = 0;
+  let totalRowsWithNA = 0;
+  let totalNACells = 0;
+  let outOfScopeNARows = 0;
   let naRepairRows = 0;
   let vendorRows = 0;
   let typeRows = 0;
@@ -141,13 +150,15 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     const current = Array.from({length:17}, (_, column) => copasRows[index]?.[column] ?? "");
     const article = key(current[4]);
     if (!article) continue;
+    const allNAColumns=[6,9,10,11,12,13].filter(column=>isNA(current[column]));
+    if(allNAColumns.length){totalRowsWithNA+=1;totalNACells+=allNAColumns.length}
     const matches = articleRows.get(article)??[];
     const suggestion=!matches.length?historySuggestion(current[4]):null;
     const knownGroups=matches.map(row=>key(row[5])).filter(group=>["DEVICES","ACCESSORIES","VAS"].includes(group));
     if(suggestion)knownGroups.push(suggestion.scheme);
     const groups=knownGroups.length?knownGroups:[key(current[12])];
-    if(scope==="device"&&!groups.includes("DEVICES"))continue;
-    if(scope==="accessory-vas"&&!groups.some(group=>group==="ACCESSORIES"||group==="VAS"))continue;
+    if(scope==="device"&&!groups.includes("DEVICES")){if(allNAColumns.length)outOfScopeNARows+=1;continue}
+    if(scope==="accessory-vas"&&!groups.some(group=>group==="ACCESSORIES"||group==="VAS")){if(allNAColumns.length)outOfScopeNARows+=1;continue}
     checkedRows += 1;
     const naColumns = [6,9,10,11,12,13].filter(column => isNA(current[column]));
     // A missing Vendor is optional until Master provides a usable reference.
@@ -239,6 +250,9 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
   return {
     checkedRows,
     rowsWithNA,
+    totalRowsWithNA,
+    totalNACells,
+    outOfScopeNARows,
     naRepairRows,
     vendorRows,
     typeRows,

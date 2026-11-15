@@ -147,8 +147,19 @@ const scopedRows=()=>[copas("XXLAPPLE-PLT24",{9:"PROTECTION",10:"XL",11:"APPLE",
 test("device checks exclude VAS missing Vendor and keep original sheet row addresses",()=>{
  const plan=planDataCopasRepair(scopedMaster,scopedRows(),"device");
  assert.equal(plan.checkedRows,1);assert.equal(plan.issues.length,0);assert.equal(plan.vendorRows,0);
+ assert.equal(plan.totalRowsWithNA,1);assert.equal(plan.outOfScopeNARows,1);
  assert.deepEqual(plan.candidates.map(r=>r.row),[3]);
  assert.deepEqual(buildDataCopasRepairWrites(plan.candidates),[{range:"'Data Copas'!G3:G3",values:[["IPHONE 18 PRO"]]}]);
+});
+
+test("reports N/A outside Device scope instead of declaring all Data Copas clean",()=>{
+ const rows=[deviceRow(),copas("SDXE10-500G-G25"),copas("UNKNOWN",{9:"N / A",10:"N.A.",11:"#N/A!",12:"NOT AVAILABLE"})];
+ rows[0][6]="IPHONE 18 PRO";
+ const plan=planDataCopasRepair(scopedMaster,rows,"device");
+ assert.equal(plan.rowsWithNA,0);
+ assert.equal(plan.totalRowsWithNA,2);
+ assert.equal(plan.outOfScopeNARows,2);
+ assert.equal(plan.totalNACells,8);
 });
 
 test("accessory and VAS checks ignore absent XL Vendor and exclude device Type",()=>{

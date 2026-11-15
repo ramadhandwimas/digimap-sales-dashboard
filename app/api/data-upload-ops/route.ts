@@ -105,11 +105,11 @@ export async function POST(req:NextRequest){
    if(body.dryRun!==true){await acquireCopasLock({email,key});copasLocked=true}
    const[master,copas]=await getSheetRangesFresh(DASHBOARD_ID,["'Master'!A1:L100000",`'${COPAS_SHEET}'!A2:Q50000`],email,key);
    const plan=planDataCopasRepair(master||[],copas||[],scope),planId=repairPlanId(plan.candidates,scope),dryRun=body.dryRun===true;
-   const summary={scope,checkedRows:plan.checkedRows,rowsWithNA:plan.rowsWithNA,naRepairRows:plan.naRepairRows,vendorRows:plan.vendorRows,typeRows:plan.typeRows,rowsWithBlankType:plan.rowsWithBlankType,recommendationRows:plan.recommendationRows,repairRows:plan.candidates.length,changedCells:plan.changedCells,unresolvedNARows:plan.unresolvedNARows,repairItems:plan.candidates.slice(0,300),repairItemsTotal:plan.candidates.length,issues:plan.issues,planId};
+   const summary={scope,checkedRows:plan.checkedRows,rowsWithNA:plan.rowsWithNA,totalRowsWithNA:plan.totalRowsWithNA,totalNACells:plan.totalNACells,outOfScopeNARows:plan.outOfScopeNARows,naRepairRows:plan.naRepairRows,vendorRows:plan.vendorRows,typeRows:plan.typeRows,rowsWithBlankType:plan.rowsWithBlankType,recommendationRows:plan.recommendationRows,repairRows:plan.candidates.length,changedCells:plan.changedCells,unresolvedNARows:plan.unresolvedNARows,repairItems:plan.candidates.slice(0,300),repairItemsTotal:plan.candidates.length,issues:plan.issues,planId};
    if(dryRun||!plan.candidates.length){
     const message=plan.candidates.length
      ?`Ditemukan ${plan.candidates.length} baris yang aman diperbaiki: ${plan.typeRows} baris Type/model, ${plan.vendorRows} baris Vendor, dan ${plan.recommendationRows} rekomendasi dari pola artikel lama.${plan.unresolvedNARows?` ${plan.unresolvedNARows} baris perlu diperiksa manual.`:""}`
-     :plan.unresolvedNARows?`Belum ada data yang aman diperbaiki. ${plan.unresolvedNARows} baris N/A perlu diperiksa manual.`:"Data Copas sudah sesuai dengan Master terbaru.";
+     :plan.unresolvedNARows?`Belum ada data yang aman diperbaiki. ${plan.unresolvedNARows} baris N/A perlu diperiksa manual.`:plan.outOfScopeNARows?`Tidak ada N/A pada kategori ${scope==="device"?"Device":"Aksesoris & VAS"} yang dapat diperbaiki di menu ini. Masih ada ${plan.outOfScopeNARows} baris N/A di luar kategori tersebut.`:"Data Copas pada kategori ini sudah sesuai dengan Master terbaru.";
     return NextResponse.json({ok:true,dryRun,...summary,message},{headers:{"cache-control":"no-store"}});
    }
    if(text(body.planId)!==planId)return NextResponse.json({error:"Data Master atau Data Copas berubah setelah pengecekan. Silakan cek ulang sebelum memperbaiki."},{status:409});
