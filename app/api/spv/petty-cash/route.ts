@@ -1,5 +1,5 @@
 import {NextRequest,NextResponse} from "next/server";
-import {SESSION_COOKIE,verifySessionToken} from "@/lib/auth-session";
+import {createSessionToken,SESSION_COOKIE,sessionCookieOptions,verifySessionToken} from "@/lib/auth-session";
 import {ensureSheet,getSheetRangesFresh,sheetRequestOnce} from "@/lib/google-sheets";
 import {isStoreSpv} from "@/lib/spv-access";
 import {latestCashRecords,validatePettyCash} from "@/lib/petty-cash";
@@ -10,9 +10,11 @@ async function authorize(req:NextRequest){
  if(!session)return {error:"Sesi login berakhir.",status:401} as const;
  const email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY;
  if(!email||!key)return {error:"Koneksi penyimpanan belum tersedia.",status:503} as const;
+ if(session.isSpv)return {session,email,key,upgrade:false};
  if(!await isStoreSpv(session.nik,email,key))return {error:"Menu ini khusus SPV M238.",status:403} as const;
- return {session,email,key};
+ return {session,email,key,upgrade:true};
 }
+function upgraded(response:NextResponse,auth:{session:{nik:string;name:string};upgrade:boolean}){if(auth.upgrade)response.cookies.set(SESSION_COOKIE,createSessionToken(auth.session.nik,auth.session.name,true),sessionCookieOptions);return response}
 async function readRecords(email:string,key:string){
  await ensureSheet(MASTER,TAB,["ID","Revision","Updated At","Updated By","Form JSON"],email,key);
  const [rows]=await getSheetRangesFresh(MASTER,[`'${TAB}'!A2:E`],email,key);
@@ -20,8 +22,8 @@ async function readRecords(email:string,key:string){
 }
 export async function GET(req:NextRequest){try{
  const auth=await authorize(req);if("error"in auth)return NextResponse.json({error:auth.error},{status:auth.status,headers});
- if(req.nextUrl.searchParams.get("access")==="1")return NextResponse.json({allowed:true},{headers});
- return NextResponse.json({records:await readRecords(auth.email,auth.key)},{headers});
+ if(req.nextUrl.searchParams.get("access")==="1")return upgraded(NextResponse.json({allowed:true},{headers}),auth);
+ return upgraded(NextResponse.json({records:await readRecords(auth.email,auth.key)},{headers}),auth);
  }catch{return NextResponse.json({error:"Draft belum dapat dibaca. Coba kembali; jangan tutup form yang belum disimpan."},{status:503,headers})}
 }
 export async function POST(req:NextRequest){try{

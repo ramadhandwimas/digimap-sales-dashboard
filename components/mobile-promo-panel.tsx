@@ -3,7 +3,8 @@
 import dynamic from "next/dynamic";
 import {useEffect,useState,type MouseEvent} from "react";
 
-const PromoBoardV9=dynamic(()=>import("@/components/promo-board-v9"),{
+const loadPromoBoard=()=>import("@/components/promo-board-v9");
+const PromoBoardV9=dynamic(loadPromoBoard,{
   ssr:false,
   loading:()=> <div className="min-h-[100dvh] bg-slate-50 px-6 py-10 text-sm font-semibold text-slate-500 dark:bg-slate-900 dark:text-slate-400">Memuat Promo Board…</div>
 });
@@ -24,6 +25,16 @@ export default function MobilePromoPanel(){
       window.removeEventListener(OPEN_EVENT,onOpen);
       window.removeEventListener(CLOSE_EVENT,onClose);
     };
+  },[]);
+
+  useEffect(()=>{
+    const warm=()=>{void loadPromoBoard()};
+    if(typeof window.requestIdleCallback==="function"){
+      const id=window.requestIdleCallback(warm,{timeout:2500});
+      return()=>window.cancelIdleCallback(id);
+    }
+    const id=setTimeout(warm,1800);
+    return()=>clearTimeout(id);
   },[]);
 
   useEffect(()=>{

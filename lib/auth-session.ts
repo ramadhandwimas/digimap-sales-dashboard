@@ -3,9 +3,10 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 export const SESSION_COOKIE = "m238_session";
 const MAX_AGE_SECONDS = 60 * 60 * 12;
 
-type SessionPayload = {
+export type SessionPayload = {
   nik: string;
   name: string;
+  isSpv?: boolean;
   exp: number;
 };
 
@@ -34,10 +35,11 @@ function signature(value: string) {
   return createHmac("sha256", secret()).update(value).digest("base64url");
 }
 
-export function createSessionToken(nik: string, name: string) {
+export function createSessionToken(nik: string, name: string, isSpv = false) {
   const payload: SessionPayload = {
       nik,
       name,
+      isSpv,
       exp: Math.floor(Date.now() / 1000) + MAX_AGE_SECONDS,
     },
     encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");

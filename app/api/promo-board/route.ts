@@ -1,4 +1,5 @@
 import {NextRequest,NextResponse} from "next/server";
+import {revalidateTag,unstable_cache} from "next/cache";
 import {SESSION_COOKIE,verifySessionToken} from "@/lib/auth-session";
 import {parsePromoWorkbook} from "@/lib/promo-board-parser";
 import {comparePromoPriceLists,samePromoPriceList} from "@/lib/promo-board-insights";
@@ -7,6 +8,7 @@ import {readPromoSnapshots,savePromoSnapshot} from "@/lib/promo-board-store";
 export const runtime="nodejs";
 export const maxDuration=60;
 const MAX_BYTES=8*1024*1024;
+const CATALOG_TAG="promo-board-catalog-v1";
 const json=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"cache-control":"no-store"}});
 
 function credentials(){
@@ -29,16 +31,23 @@ function displaySnapshot<T extends {products?:Array<{normalPrice:number;promotio
   } as T;
 }
 
+const readCachedCatalog=unstable_cache(async()=>{
+  const auth=credentials();
+  if(!auth)throw new Error("Koneksi Google Sheets belum dikonfigurasi.");
+  const snapshots=await readPromoSnapshots(auth,1,{fresh:false});
+  return displaySnapshot(snapshots[0]??null);
+},[CATALOG_TAG],{revalidate:120,tags:[CATALOG_TAG]});
+
 export async function GET(request:NextRequest){
   if(!authorized(request))return json({error:"Sesi login berakhir. Silakan login kembali."},401);
   const auth=credentials();
   if(!auth)return json({error:"Koneksi Google Sheets belum dikonfigurasi."},503);
   try{
     const compact=request.nextUrl?.searchParams?.get("view")==="catalog";
+    if(compact)return json({ok:true,active:await readCachedCatalog()});
     const snapshots=await readPromoSnapshots(auth,compact?1:6,{fresh:!compact});
     const rawActive=snapshots[0]??null,previous=snapshots[1]??null;
     const active=displaySnapshot(rawActive);
-    if(compact)return json({ok:true,active});
     const history=snapshots.slice(1).map(snapshot=>({id:snapshot.id,uploadedAt:snapshot.uploadedAt,fileName:snapshot.fileName,priceListDate:snapshot.priceListDate,totalRows:snapshot.totalRows,totalSku:snapshot.totalSku,warnings:snapshot.warnings}));
     return json({ok:true,active,history,comparison:comparePromoPriceLists(previous,rawActive)});
   }catch(error){
@@ -75,6 +84,7 @@ export async function POST(request:NextRequest){
     if(identicalToActive)return json({ok:true,noChange:true,message:"Pricelist ini sama dengan data aktif. Tidak ada perubahan yang disimpan.",active:displaySnapshot(active)});
 
     const saved=await savePromoSnapshot(auth,parsed);
+    revalidateTag(CATALOG_TAG,{expire:0});
     return json({ok:true,message:`Pricelist ${parsed.fileName} berhasil dijadikan aktif.`,saved,active:displaySnapshot({...parsed,...saved}),previous:active,comparison});
   }catch(error){
     console.error("Promo Board upload failed",error);

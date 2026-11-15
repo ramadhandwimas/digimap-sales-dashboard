@@ -196,7 +196,11 @@ export async function POST(request: NextRequest) {
   const response = NextResponse.json({ ok: true, name });
   response.cookies.set(
     SESSION_COOKIE,
-    createSessionToken(nik, name),
+    createSessionToken(
+      nik,
+      name,
+      /\bSPV\b|SUPERVISOR/i.test(text(member[3])),
+    ),
     sessionCookieOptions,
   );
   return response;
