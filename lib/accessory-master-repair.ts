@@ -31,11 +31,15 @@ function planDeviceMasterRepairs(master:unknown[][]):RepairPlan{
  const scopedArticles=new Set<string>(),plan:RepairPlan={checked:0,duplicateArticles:0,candidates:[],review:[]};
  for(const {row,raw,data} of rows){
   if(data.every(value=>!value))continue;
-  const parsed=meta(data),category=categoryByLob[parsed.lob],text=key(data.join(" "));
-  const likelyDevice=key(data[5])==="DEVICES"||["IPHONE","IPAD","MAC","APPLE WATCH"].includes(key(data[3]))||(["APPLE","APP"].includes(key(data[0]))&&Boolean(category));
+  const parsed=meta(data),category=categoryByLob[parsed.lob],text=key(data.join(" ")),article=articleKey(data[1]);
+  // Words such as WATCH or MAC are not enough evidence of an Apple product.
+  // Only rows already branded APP/APPLE or using the established APP SAP prefix
+  // may enter the Device repair flow. Other brands remain completely untouched.
+  const appleEvidence=["APPLE","APP"].includes(key(data[0]))||article.startsWith("APP");
+  const likelyDevice=appleEvidence&&Boolean(category)&&(key(data[5])==="DEVICES"||["IPHONE","IPAD","MAC","APPLE WATCH"].includes(key(data[3]))||Boolean(category));
   if(!likelyDevice||accessoryWords.test(text))continue;
   plan.checked++;
-  const article=articleKey(data[1]),description=data[2];scopedArticles.add(article);
+  const description=data[2];scopedArticles.add(article);
   if(!article){plan.review.push({row,article:"",description,reason:"SAP Article kosong; baris tidak dapat diperbaiki otomatis."});continue}
   if((duplicates.get(article)||[]).length>1)continue;
   if(!category||!parsed.model||/UNKNOWN/i.test(parsed.model)){plan.review.push({row,article,description,reason:"LOB atau model Device belum dapat dikenali dengan pasti dari deskripsi."});continue}
