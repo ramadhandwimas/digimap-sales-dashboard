@@ -116,15 +116,17 @@ test("Master repair preserves the four providers as VAS and normalizes their Mas
 });
 test("Device Master repair checks Apple Device fields without touching AirPods or accessories",()=>{
  const source=[header,
-  ["APP","APPIP18PM","iPhone 18 Pro Max 256GB Black","N/A","N/A","ACCESSORIES",""],
+  ["APP","APPIP18PM","iPhone 18 Pro Max 256GB Black","N/A","N/A","N/A",""],
   ["APPLE","APPAIR4","AirPods 4","AIRPODS","AIRPODS 4","ACCESSORIES","APPLE"],
   ["A.ELEMENTS","AMNCASE","iPhone 18 Case","CASE","","ACCESSORIES","APPLE"],
+  ["APPLE","APPMGPG4ID/A","IPHONE AIR MAGSAFE BATTERY","Powerbank","","ACCESSORIES","APPLE"],
   ["HUAWEI","HWIB19WBLU","HUAWEI WATCH GT 5 46MM BLUE","WATCH","","DEVICES","ANDROID"],
  ];
  const plan=repair.planMasterRepairs(source,suppliers,"device");
  assert.equal(plan.checked,1);assert.equal(plan.candidates.length,1);
  assert.deepEqual(plan.candidates[0].proposed,["APPLE","APPIP18PM","iPhone 18 Pro Max 256GB Black","IPHONE","IPHONE 18 PRO MAX","DEVICES","APPLE"]);
- assert.ok(plan.candidates.every(item=>!["APPAIR4","AMNCASE","HWIB19WBLU"].includes(item.article)));
+ assert.ok(plan.candidates.every(item=>!["APPAIR4","AMNCASE","APPMGPG4IDA","HWIB19WBLU"].includes(item.article)));
+ assert.ok(plan.review.every(item=>item.article!=="APPMGPG4IDA"));
  assert.ok(plan.review.every(item=>item.article!=="HWIB19WBLU"));
 });
 test("parser reads the supplied Excel, including its row-5 header and empty tabs",{skip:!process.env.PRICELIST_FIXTURE},()=>{
