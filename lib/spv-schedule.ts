@@ -72,6 +72,27 @@ export function latestRecords(rows:unknown[][]):ScheduleRecord[]{
 /** Store/channel accounts are not people and never belong in staffing. */
 export function isScheduleStaff(name:string){return !/(DIGIMAP|MAPEMALL)/.test(name.toUpperCase().replace(/[^A-Z0-9]/g,""))}
 export const SUMMARY_SHIFTS=SHIFTS.slice(0,8);
+export function scheduleWeeklyBlock(s:Schedule):unknown[][]{
+ const width=16,blank=()=>Array(width).fill("");
+ const notes=blank();s.dayNotes.forEach((note,index)=>{notes[index+3]=note});
+ const header=blank(),first=new Date(s.start+"T12:00:00Z");header[0]=months[first.getUTCMonth()][0]+months[first.getUTCMonth()].slice(1).toLowerCase();dates(s.start).forEach((date,index)=>{header[index+3]=Number(date.slice(8))});
+ const columns=["NIK","Name","Rank","Mon","Tue","Wed","Thu","Fri","Sat","Sun","D047","D103","D083","X&C","MT & TR",""];
+ const people=s.people.map(p=>{const row=blank(),counts=personCounts(p);row[0]=p.id;row[1]=p.name;row[2]=p.position;p.shifts.forEach((shift,index)=>{row[index+3]=shift==="NONE"?"":shift});counts.forEach((count,index)=>{row[index+10]=count});return row});
+ const totals=SUMMARY_SHIFTS.map(([code,label],index)=>{const row=blank();row[0]=/^D\d{3}$/.test(code)?`${code} (${label.replace("–"," - ")})`:code;shiftCounts(s,code).forEach((count,day)=>{row[day+3]=count});if(index===0){row[11]="";row[12]="Training Iphone for You"}else if(index===1){row[11]="";row[12]="TRAINING"}return row});
+ return[notes,header,columns,...people,...totals];
+}
+export function findScheduleWeeklyBlock(rows:unknown[][],start:string){
+ const wanted=dates(start).map(date=>Number(date.slice(8))),month=months[new Date(start+"T12:00:00Z").getUTCMonth()];
+ for(let header=0;header<rows.length;header++){
+  if(String(rows[header]?.[0]??"").trim().toUpperCase()!==month)continue;
+  if(!wanted.every((day,index)=>Number(rows[header]?.[index+3])===day))continue;
+  const hasNoteRow=header>0&&rows[header-1]?.slice(0,3).every(value=>!String(value??"").trim())&&!/^CUTI$/i.test(String(rows[header-1]?.[0]??""));
+  const blockStart=hasNoteRow?header-1:header;
+  let end=header+1;for(;end<rows.length;end++){if(/^CUTI$/i.test(String(rows[end]?.[0]??"").trim())){end+=1;break}}
+  return{startRow:blockStart,endRow:Math.max(end,blockStart+1),headerRow:header};
+ }
+ return null;
+}
 export function orderRoster<T extends {id:string;name:string;position:string}>(people:T[],rows:unknown[][]):T[]{
  const sourceOrder=new Map<string,number>();
  for(const row of rows){const id=String(row[0]??"").trim(),name=String(row[1]??"").trim();if((/^\d{6,10}$/.test(id)||!id)&&name&&isScheduleStaff(name)){const key=id||name.toUpperCase();if(!sourceOrder.has(key))sourceOrder.set(key,sourceOrder.size)}}
