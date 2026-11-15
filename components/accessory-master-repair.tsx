@@ -6,7 +6,8 @@ import type {RepairCandidate,RepairReview} from "@/lib/accessory-master-repair";
 
 type Result={checked:number;duplicateArticles:number;fixableCount:number;reviewCount:number;candidates:RepairCandidate[];review:RepairReview[];hasMore:boolean;planId:string};
 
-export default function AccessoryMasterRepair({onBusyChange}:{onBusyChange?:(busy:boolean)=>void}={}){
+export default function AccessoryMasterRepair({scope="accessory",onBusyChange}:{scope?:"accessory"|"device";onBusyChange?:(busy:boolean)=>void}={}){
+ const device=scope==="device";
  const[result,setResult]=useState<Result|null>(null),[selected,setSelected]=useState<Set<string>>(new Set());
  const[busy,setBusy]=useState<"preview"|"apply"|null>(null),[error,setError]=useState(""),[success,setSuccess]=useState("");
  const active=useRef(false);
@@ -19,7 +20,7 @@ export default function AccessoryMasterRepair({onBusyChange}:{onBusyChange?:(bus
  async function preview(preserveSuccess=false){
   if(active.current)return;
   active.current=true;setBusy("preview");onBusyChange?.(true);setError("");if(!preserveSuccess)setSuccess("");
-  try{const payload=await call({mode:"preview"});setResult(payload);setSelected(new Set())}
+  try{const payload=await call({mode:"preview",scope});setResult(payload);setSelected(new Set())}
   catch(e){setError(e instanceof Error?e.message:"Master gagal diperiksa.")}
   finally{active.current=false;setBusy(null);onBusyChange?.(false)}
  }
@@ -27,7 +28,7 @@ export default function AccessoryMasterRepair({onBusyChange}:{onBusyChange?:(bus
   if(!result||!selected.size||active.current)return;
   active.current=true;setBusy("apply");onBusyChange?.(true);setError("");setSuccess("");
   try{
-   const payload=await call({mode:"apply",planId:result.planId,selected:[...selected]});
+   const payload=await call({mode:"apply",scope,planId:result.planId,selected:[...selected]});
    setSuccess(payload.message||"Perbaikan berhasil disimpan.");
    active.current=false;setBusy(null);await preview(true);return;
   }catch(e){
@@ -38,11 +39,11 @@ export default function AccessoryMasterRepair({onBusyChange}:{onBusyChange?:(bus
  }
  const toggle=(id:string)=>setSelected(current=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next});
  return <div className="acc-repair">
-  <div className="acc-heading"><WandSparkles size={22}/><div><h3>Cek &amp; Perbaiki Master</h3><p>Periksa hanya Accessories dan VAS pada Master A–G dan tampilkan saran sebelum data diperbarui.</p></div></div>
+  <div className="acc-heading"><WandSparkles size={22}/><div><h3>Cek &amp; Perbaiki Master{device?" · Device":""}</h3><p>{device?"Periksa hanya Apple Device pada Master A–G dan tampilkan saran sebelum data diperbarui.":"Periksa hanya Accessories dan VAS pada Master A–G dan tampilkan saran sebelum data diperbarui."}</p></div></div>
   <div className="acc-actions"><button type="button" disabled={!!busy} onClick={()=>void preview()}>
    {busy==="preview"?<LoaderCircle className="animate-spin" size={17}/>:<WandSparkles size={17}/>}{busy==="preview"?"Memeriksa Master…":"Cek & Perbaiki Master"}
   </button></div>
-  <p className="acc-note">SAP Article menjadi kunci. AppleCare diperiksa sebagai Accessories; Qoala, Telkomsel, XL, dan Indosat diperiksa sebagai VAS. Temuan ambigu tidak akan diubah.</p>
+  <p className="acc-note">{device?"SAP Article menjadi kunci. Brand, Product Category, Type/model, Product Group, dan Core diperiksa khusus Device. AirPods dan aksesori tidak ikut diubah.":"SAP Article menjadi kunci. AppleCare diperiksa sebagai Accessories; Qoala, Telkomsel, XL, dan Indosat diperiksa sebagai VAS. Temuan ambigu tidak akan diubah."}</p>
   {error?<p role="alert" className="acc-error">{error}</p>:null}
   {success?<p className="acc-success"><CheckCircle2 size={16}/>{success}</p>:null}
   {result?<div aria-live="polite" className="acc-results">

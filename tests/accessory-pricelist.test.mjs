@@ -13,7 +13,8 @@ function load(file,overrides={}){
  return module.exports;
 }
 const parser=load("lib/accessory-pricelist.ts");
-const repair=load("lib/accessory-master-repair.ts",{"./accessory-pricelist":parser});
+const catalog=load("lib/promo-board-catalog.ts");
+const repair=load("lib/accessory-master-repair.ts",{"./accessory-pricelist":parser,"./promo-board-catalog":catalog});
 const header=["Brand","SAP Article","SAP Description","Product Category","Type","Product Group","Core"];
 const suppliers=[["Vendor Code","PT Name","Brand Code","Brand Name"],["1","Supplier","AMN","A.ELEMENTS"]];
 const sample=["A.ELEMENTS","AMN0001","Charger","CHARGER","","ACCESSORIES","APPLE"];
@@ -112,6 +113,17 @@ test("Master repair preserves the four providers as VAS and normalizes their Mas
   ["XXL","XXL001","MyPrio","PROVIDER","","VAS","APPLE"],
   ["INDOSAT","IDT001","Platinum","PROVIDER","","VAS","APPLE"],
  ]);
+});
+test("Device Master repair checks Apple Device fields without touching AirPods or accessories",()=>{
+ const source=[header,
+  ["APP","APPIP18PM","iPhone 18 Pro Max 256GB Black","N/A","N/A","ACCESSORIES",""],
+  ["APPLE","APPAIR4","AirPods 4","AIRPODS","AIRPODS 4","ACCESSORIES","APPLE"],
+  ["A.ELEMENTS","AMNCASE","iPhone 18 Case","CASE","","ACCESSORIES","APPLE"],
+ ];
+ const plan=repair.planMasterRepairs(source,suppliers,"device");
+ assert.equal(plan.checked,1);assert.equal(plan.candidates.length,1);
+ assert.deepEqual(plan.candidates[0].proposed,["APPLE","APPIP18PM","iPhone 18 Pro Max 256GB Black","IPHONE","IPHONE 18 PRO MAX","DEVICES","APPLE"]);
+ assert.ok(plan.candidates.every(item=>item.article!=="APPAIR4"&&item.article!=="AMNCASE"));
 });
 test("parser reads the supplied Excel, including its row-5 header and empty tabs",{skip:!process.env.PRICELIST_FIXTURE},()=>{
  const buffer=fs.readFileSync(process.env.PRICELIST_FIXTURE);

@@ -1,4 +1,5 @@
 import {articleKey,classifyVasProduct,cleanText,isAppleCareProduct,type MasterRow} from "./accessory-pricelist";
+import {parsePromoSku} from "./promo-board-catalog";
 
 const key=(value:unknown)=>cleanText(value).toUpperCase();
 const FIELDS=["Brand","SAP Article","SAP Description","Product Category","Type","Product Group","Core"] as const;
@@ -10,8 +11,55 @@ export type RepairReview={row:number;article:string;description:string;reason:st
 export type RepairPlan={checked:number;duplicateArticles:number;candidates:RepairCandidate[];review:RepairReview[]};
 
 type SupplierMatch={matched:boolean;brand:string;ambiguous:boolean};
+export type MasterRepairScope="accessory"|"device";
 
-export function planMasterRepairs(master:unknown[][],suppliers:unknown[][]):RepairPlan{
+function planDeviceMasterRepairs(master:unknown[][]):RepairPlan{
+ const expected=["BRAND","SAP ARTICLE","SAP DESCRIPTION","PRODUCT CATEGORY","TYPE","PRODUCT GROUP","CORE"];
+ if(!expected.every((v,i)=>key(master[0]?.[i])===v))throw new Error("Format Master A–G berubah. Pengecekan dihentikan agar kolom tidak tertukar.");
+ const rows=master.slice(1).map((source,index)=>{const raw=Array.from({length:7},(_,i)=>String(source[i]??"")) as MasterRow;return{row:index+2,raw,data:raw.map(cleanText) as MasterRow}});
+ const duplicates=new Map<string,number[]>();
+ for(const item of rows){const article=articleKey(item.data[1]);if(article){const list=duplicates.get(article)||[];list.push(item.row);duplicates.set(article,list)}}
+ const categoryByLob:Record<string,string>={iPhone:"IPHONE",iPad:"IPAD",Mac:"MAC",Watch:"APPLE WATCH"};
+ const meta=(data:MasterRow)=>parsePromoSku({sapDescription:data[2],category:data[3],section:""} as Parameters<typeof parsePromoSku>[0]);
+ const accessoryWords=/AIRPODS|PENCIL|KEYBOARD|CASE|COVER|ADAPTER|CABLE|CHARGER|STRAP|BAND|APPLE\s*CARE|PROTECTION|PROTEKSI|VOUCHER/;
+ const knownTypes=new Map<string,Set<string>>();
+ for(const {data} of rows){
+  const parsed=meta(data),category=categoryByLob[parsed.lob];
+  if(!category||key(data[5])!=="DEVICES"||key(data[0])!=="APPLE"||key(data[3])!==category||key(data[6])!=="APPLE"||!data[4]||/^#?N\/?A$/i.test(data[4]))continue;
+  const set=knownTypes.get(key(parsed.model))||new Set<string>();set.add(data[4]);knownTypes.set(key(parsed.model),set);
+ }
+ const scopedArticles=new Set<string>(),plan:RepairPlan={checked:0,duplicateArticles:0,candidates:[],review:[]};
+ for(const {row,raw,data} of rows){
+  if(data.every(value=>!value))continue;
+  const parsed=meta(data),category=categoryByLob[parsed.lob],text=key(data.join(" "));
+  const likelyDevice=key(data[5])==="DEVICES"||["IPHONE","IPAD","MAC","APPLE WATCH"].includes(key(data[3]))||(["APPLE","APP"].includes(key(data[0]))&&Boolean(category));
+  if(!likelyDevice||accessoryWords.test(text))continue;
+  plan.checked++;
+  const article=articleKey(data[1]),description=data[2];scopedArticles.add(article);
+  if(!article){plan.review.push({row,article:"",description,reason:"SAP Article kosong; baris tidak dapat diperbaiki otomatis."});continue}
+  if((duplicates.get(article)||[]).length>1)continue;
+  if(!category||!parsed.model||/UNKNOWN/i.test(parsed.model)){plan.review.push({row,article,description,reason:"LOB atau model Device belum dapat dikenali dengan pasti dari deskripsi."});continue}
+  const proposed=[...data] as MasterRow,reasons:string[]=[];
+  if(raw.some((value,index)=>value!==data[index]))reasons.push("Spasi atau karakter tersembunyi dibersihkan.");
+  proposed[1]=data[1];
+  if(key(proposed[0])!=="APPLE"){proposed[0]="APPLE";reasons.push("Brand Apple Device diseragamkan menjadi APPLE.")}
+  if(key(proposed[3])!==category){proposed[3]=category;reasons.push(`Product Category disesuaikan menjadi ${category}.`)}
+  const templateTypes=[...(knownTypes.get(key(parsed.model))||[])];
+  const currentType=!/^#?N\/?A$/i.test(proposed[4])?proposed[4]:"";
+  const expectedType=templateTypes.length===1?templateTypes[0]:currentType||key(parsed.model);
+  if(proposed[4]!==expectedType){proposed[4]=expectedType;reasons.push(`Type disesuaikan dengan model ${parsed.model}.`)}
+  if(key(proposed[5])!=="DEVICES"){proposed[5]="DEVICES";reasons.push("Product Group Apple Device harus DEVICES.")}
+  if(key(proposed[6])!=="APPLE"){proposed[6]="APPLE";reasons.push("Core Apple Device harus APPLE.")}
+  const changes:RepairChange[]=[];
+  for(let i=0;i<INDEXES.length;i++){const index=INDEXES[i],before=raw[index],after=proposed[index];if(before!==after)changes.push({field:FIELDS[i],before,after})}
+  if(changes.length)plan.candidates.push({id:`${row}:${article}`,row,article,description,current:raw,proposed,changes,reasons:[...new Set(reasons)]});
+ }
+ plan.duplicateArticles=[...duplicates.entries()].filter(([article,found])=>found.length>1&&scopedArticles.has(article)).length;
+ return plan;
+}
+
+export function planMasterRepairs(master:unknown[][],suppliers:unknown[][],scope:MasterRepairScope="accessory"):RepairPlan{
+ if(scope==="device")return planDeviceMasterRepairs(master);
  const expected=["BRAND","SAP ARTICLE","SAP DESCRIPTION","PRODUCT CATEGORY","TYPE","PRODUCT GROUP","CORE"];
  if(!expected.every((v,i)=>key(master[0]?.[i])===v))throw new Error("Format Master A–G berubah. Pengecekan dihentikan agar kolom tidak tertukar.");
  if(!["VENDOR CODE","PT NAME","BRAND CODE","BRAND NAME"].every((v,i)=>key(suppliers[0]?.[i])===v))throw new Error("Referensi supplier I–L tidak sesuai format.");
