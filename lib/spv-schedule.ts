@@ -93,6 +93,17 @@ export function findScheduleWeeklyBlock(rows:unknown[][],start:string){
  }
  return null;
 }
+export function firstScheduleWeeklyBlock(rows:unknown[][]){
+ for(let header=0;header<rows.length;header++){
+  if(!months.includes(String(rows[header]?.[0]??"").trim().toUpperCase()))continue;
+  if(!rows[header]?.slice(3,10).every(value=>Number.isInteger(Number(value))&&Number(value)>=1&&Number(value)<=31))continue;
+  const hasNoteRow=header>0&&rows[header-1]?.slice(0,3).every(value=>!String(value??"").trim())&&!/^CUTI$/i.test(String(rows[header-1]?.[0]??""));
+  const blockStart=hasNoteRow?header-1:header;
+  let end=header+1;for(;end<rows.length;end++){if(/^CUTI$/i.test(String(rows[end]?.[0]??"").trim())){end+=1;break}}
+  return{startRow:blockStart,endRow:Math.max(end,blockStart+1),headerRow:header};
+ }
+ return null;
+}
 export function orderRoster<T extends {id:string;name:string;position:string}>(people:T[],rows:unknown[][]):T[]{
  const sourceOrder=new Map<string,number>();
  for(const row of rows){const id=String(row[0]??"").trim(),name=String(row[1]??"").trim();if((/^\d{6,10}$/.test(id)||!id)&&name&&isScheduleStaff(name)){const key=id||name.toUpperCase();if(!sourceOrder.has(key))sourceOrder.set(key,sourceOrder.size)}}

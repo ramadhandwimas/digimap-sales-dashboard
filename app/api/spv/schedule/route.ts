@@ -2,7 +2,7 @@ import {NextRequest,NextResponse} from "next/server";
 import {SESSION_COOKIE,verifySessionToken} from "@/lib/auth-session";
 import {ensureSheet,getSheetRangesFresh,sheetReadRequest,sheetRequestOnce} from "@/lib/google-sheets";
 import {isStoreSpv} from "@/lib/spv-access";
-import {addDays,dateValid,findScheduleWeeklyBlock,initialSchedule,orderRoster,latestRecords,monday,scheduleWeeklyBlock,validateSchedule,ScheduleRecord} from "@/lib/spv-schedule";
+import {addDays,dateValid,findScheduleWeeklyBlock,firstScheduleWeeklyBlock,initialSchedule,orderRoster,latestRecords,monday,scheduleWeeklyBlock,validateSchedule,ScheduleRecord} from "@/lib/spv-schedule";
 const MASTER="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk",SOURCE="160_eV8tgT_eXH7dm8pHP8Ym2mHPyHhlFpKWf1bpxEP0";
 const TAB=process.env.VERCEL_ENV==="production"?"SPV Schedule Drafts":"SPV Schedule Preview";
 const WEEKLY_TAB=process.env.VERCEL_ENV==="production"?"Schedule weekly":"SPV Schedule Weekly Preview";
@@ -55,12 +55,17 @@ export async function POST(req:NextRequest){let release:(()=>Promise<void>)|unde
  if(body.status==="READY"){
   const weeklySheet=sheets.find((s:{properties:{title:string;sheetId:number;gridProperties?:{rowCount?:number}}})=>s.properties.title===WEEKLY_TAB);if(!weeklySheet)throw Error("Weekly sheet missing");
   const[[targetRows],[templateRows]]=await Promise.all([getSheetRangesFresh(MASTER,[`'${WEEKLY_TAB}'!A1:P3000`],auth.email,auth.key),WEEKLY_TAB==="Schedule weekly"?Promise.resolve([[]] as unknown[][][]):getSheetRangesFresh(MASTER,["'Schedule weekly'!A1:P3000"],auth.email,auth.key)]);
-  const block=scheduleWeeklyBlock(data),found=findScheduleWeeklyBlock(targetRows||[],data.start),used=(targetRows||[]).reduce((last,row,index)=>row.some(value=>String(value??"").trim())?index+1:last,0);
-  const startRow=found?.startRow??(used?used+1:0),capacity=found?found.endRow-found.startRow:block.length;
+  const block=scheduleWeeklyBlock(data),found=findScheduleWeeklyBlock(targetRows||[],data.start),used=(targetRows||[]).reduce((last,row,index)=>row.some(value=>String(value??"").trim())?index+1:last,0),first=firstScheduleWeeklyBlock(targetRows||[]);
+  // A newly-created week is the next working schedule, so it is inserted at
+  // the top and all prior weeks move down. Existing weeks are updated in place.
+  const startRow=found?.startRow??0,capacity=found?found.endRow-found.startRow:block.length;
   if(found&&block.length>capacity)requests.push({insertDimension:{range:{sheetId:weeklySheet.properties.sheetId,dimension:"ROWS",startIndex:found.endRow,endIndex:found.endRow+(block.length-capacity)},inheritFromBefore:true}});
-  if(!found&&WEEKLY_TAB!=="Schedule weekly"){
-   const template=findScheduleWeeklyBlock(templateRows||[],data.start)||findScheduleWeeklyBlock(templateRows||[],"2026-11-09");
-   if(template)requests.push({copyPaste:{source:{sheetId:sheets.find((s:{properties:{title:string}})=>s.properties.title==="Schedule weekly")?.properties.sheetId,startRowIndex:template.startRow,endRowIndex:template.endRow,startColumnIndex:0,endColumnIndex:16},destination:{sheetId:weeklySheet.properties.sheetId,startRowIndex:startRow,endRowIndex:startRow+(template.endRow-template.startRow),startColumnIndex:0,endColumnIndex:16},pasteType:"PASTE_FORMAT",pasteOrientation:"NORMAL"}});
+  if(!found&&used){
+   requests.push({insertDimension:{range:{sheetId:weeklySheet.properties.sheetId,dimension:"ROWS",startIndex:0,endIndex:block.length},inheritFromBefore:false}});
+   if(first)requests.push({copyPaste:{source:{sheetId:weeklySheet.properties.sheetId,startRowIndex:first.startRow+block.length,endRowIndex:first.endRow+block.length,startColumnIndex:0,endColumnIndex:16},destination:{sheetId:weeklySheet.properties.sheetId,startRowIndex:0,endRowIndex:first.endRow-first.startRow,startColumnIndex:0,endColumnIndex:16},pasteType:"PASTE_FORMAT",pasteOrientation:"NORMAL"}});
+  }else if(!found&&WEEKLY_TAB!=="Schedule weekly"){
+   const template=findScheduleWeeklyBlock(templateRows||[],data.start)||firstScheduleWeeklyBlock(templateRows||[]),source=sheets.find((s:{properties:{title:string}})=>s.properties.title==="Schedule weekly");
+   if(template&&source)requests.push({copyPaste:{source:{sheetId:source.properties.sheetId,startRowIndex:template.startRow,endRowIndex:template.endRow,startColumnIndex:0,endColumnIndex:16},destination:{sheetId:weeklySheet.properties.sheetId,startRowIndex:0,endRowIndex:template.endRow-template.startRow,startColumnIndex:0,endColumnIndex:16},pasteType:"PASTE_FORMAT",pasteOrientation:"NORMAL"}});
   }
   const writeRows=Array.from({length:Math.max(capacity,block.length)},(_,row)=>Array.from({length:16},(_,column)=>block[row]?.[column]??""));
   requests.push({updateCells:{range:{sheetId:weeklySheet.properties.sheetId,startRowIndex:startRow,endRowIndex:startRow+writeRows.length,startColumnIndex:0,endColumnIndex:16},rows:writeRows.map(row=>({values:row.map(cell=>typeof cell==="number"?{userEnteredValue:{numberValue:cell}}:{userEnteredValue:{stringValue:String(cell)}})})),fields:"userEnteredValue"}});
