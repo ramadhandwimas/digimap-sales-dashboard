@@ -2,7 +2,6 @@
 import {useCallback,useEffect,useMemo,useRef,useState,type ReactNode} from "react";
 import {ChevronRight,Copy,FileDown,FileSpreadsheet,RefreshCw,Share2,X} from "lucide-react";
 import {exportReportPdf,exportReportPng,exportReportXlsx} from "@/lib/dashboard-export";
-import {exportWeeklyPresentation} from "@/lib/weekly-presentation-client";
 
 type ReportMode="weekly"|"feedback"|"cx";
 type Staff=any;
@@ -80,7 +79,7 @@ function WeeklyView({weekly,summary}:{weekly:Weekly;summary:DailySummary|null}){
   reasonText?`\nReason:\n${reasonText}`:"",
   actionText?`\nAction Plan:\n${actionText}`:""
  ].filter(Boolean).join("\n");
- const doWeeklyExport=async(kind:"share"|"copy"|"png"|"pdf"|"xlsx"|"pptx")=>{
+ const doWeeklyExport=async(kind:"share"|"copy"|"png"|"pdf"|"xlsx")=>{
   if(exportBusy)return;
   setExportBusy(true);
   setExportError("");
@@ -92,7 +91,6 @@ function WeeklyView({weekly,summary}:{weekly:Weekly;summary:DailySummary|null}){
    }else if(kind==="copy")await navigator.clipboard.writeText(text);
    else if(kind==="png"&&reportRef.current)await exportReportPng(reportRef.current,`M238-${weekly.labelB}`);
    else if(kind==="pdf"&&reportRef.current)await exportReportPdf(reportRef.current,`M238-${weekly.labelB}`);
-   else if(kind==="pptx")await exportWeeklyPresentation(weekly,`M238-Weekly-${weekly.labelA}-vs-${weekly.labelB}`);
    else if(kind==="xlsx")await exportReportXlsx([{name:"Weekly",rows:[
     ["Metric",weekly.labelA,weekly.labelB],
     ["Sales",prev.amount,cur.amount],["Qty",prev.qty,cur.qty],["Growth %",growth],
@@ -109,7 +107,7 @@ function WeeklyView({weekly,summary}:{weekly:Weekly;summary:DailySummary|null}){
   const lines=[`*${selectedLob.name} • ${weekly.labelA} vs ${weekly.labelB}*`,...lobDetailRows.map(r=>`${r.type}: ${r.a.qty} → ${r.b.qty} unit (${r.qtyDelta>=0?"+":""}${r.qtyDelta}; ${r.qtyPct>=0?"+":""}${pct(r.qtyPct)}) | ${money.format(r.a.amount)} → ${money.format(r.b.amount)} (${r.amountPct>=0?"+":""}${pct(r.amountPct)})`)];
   try{await navigator.clipboard.writeText(lines.join("\n"));setCopyMsg("Compare berhasil disalin.");setTimeout(()=>setCopyMsg(""),1800)}catch{setCopyMsg("Gagal menyalin.")}
  };
- return <><div className="m238m-weekly-actions"><button disabled={exportBusy} onClick={()=>void doWeeklyExport("pptx")}><FileDown size={17}/><span>{exportBusy?"Menyiapkan file…":"Unduh PowerPoint"}</span></button></div>{exportError?<p role="alert" className="m238m-notice">{exportError}</p>:null}<div ref={reportRef} className="m238m-stack">
+ return <>{exportError?<p role="alert" className="m238m-notice">{exportError}</p>:null}<div ref={reportRef} className="m238m-stack">
   <button className="m238m-click-card" onClick={()=>{setDetailTab("summary");setShowDetail(true)}}><Card className="m238m-hero compact m238m-weekly-hero"><div className="m238m-weekly-hero-title"><span>Weekly Sales • {weekly.labelB}</span><ChevronRight size={18}/></div><strong>{money.format(cur.amount)}</strong><p>{growth>=0?"+":""}{pct(growth)} vs {weekly.labelA} • Qty {num.format(cur.qty)}</p>{summary?.dailyRows?.length?<TouchLineChart rows={summary.dailyRows}/>:null}<small className="m238m-tap-hint">Tap untuk detail compare {weekly.labelA} vs {weekly.labelB}</small></Card></button>
 
   {summary?<><div className="m238m-section-head"><h2>Key Metrics</h2><span>{weekly.labelB}</span></div><div className="m238m-weekly-kpi-grid"><Metric label="Traffic" value={num.format(summary.summary.traffic)}/><Metric label="CVR" value={pct(summary.summary.cvr)}/><Metric label="UPT" value={summary.summary.upt.toFixed(1)}/><Metric label="Transaction" value={num.format(summary.summary.transaction)}/></div></>:null}
@@ -130,7 +128,6 @@ function WeeklyView({weekly,summary}:{weekly:Weekly;summary:DailySummary|null}){
 
   <Sheet open={showExport} onClose={()=>setShowExport(false)} title="Share / Export Weekly">
    <div className="m238m-action-list">
-    <button disabled={exportBusy} onClick={()=>void doWeeklyExport("pptx")}><FileDown/>{exportBusy?"Menyiapkan file…":"PowerPoint (.pptx)"}</button>
     <button disabled={exportBusy} onClick={()=>void doWeeklyExport("share")}><Share2/>Share</button>
     <button disabled={exportBusy} onClick={()=>void doWeeklyExport("copy")}><Copy/>Copy Text</button>
     <button disabled={exportBusy} onClick={()=>void doWeeklyExport("png")}><FileDown/>PNG</button>
