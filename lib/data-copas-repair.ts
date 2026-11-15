@@ -42,10 +42,12 @@ export type CopasRepairPlan = {
   naRows: number;
   correctedRows: number;
   recommendationRows: number;
+  staleRows: number;
   unresolvedNARows: number;
   candidates: CopasRepairCandidate[];
   issues: CopasRepairIssue[];
   unresolvedSamples: Array<{row:number;article:string;description:string}>;
+  outOfScopeSamples: Array<{row:number;article:string;description:string;group:string}>;
 };
 
 export type CopasRepairWrite = {range:string;values:unknown[][]};
@@ -145,6 +147,8 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
   let rowsWithBlankType = 0;
   let changedCells = 0;
   let recommendationRows = 0;
+  let staleRows = 0;
+  const outOfScopeSamples:Array<{row:number;article:string;description:string;group:string}>=[];
 
   for (let index = 0; index < copasRows.length; index += 1) {
     const current = Array.from({length:17}, (_, column) => copasRows[index]?.[column] ?? "");
@@ -157,8 +161,8 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     const knownGroups=matches.map(row=>key(row[5])).filter(group=>["DEVICES","ACCESSORIES","VAS"].includes(group));
     if(suggestion)knownGroups.push(suggestion.scheme);
     const groups=knownGroups.length?knownGroups:[key(current[12])];
-    if(scope==="device"&&!groups.includes("DEVICES")){if(allNAColumns.length)outOfScopeNARows+=1;continue}
-    if(scope==="accessory-vas"&&!groups.some(group=>group==="ACCESSORIES"||group==="VAS")){if(allNAColumns.length)outOfScopeNARows+=1;continue}
+    if(scope==="device"&&!groups.includes("DEVICES")){if(allNAColumns.length){outOfScopeNARows+=1;if(outOfScopeSamples.length<100)outOfScopeSamples.push({row:index+2,article:value(current[4]),description:value(current[5]),group:groups.filter(Boolean).join(" / ")||"BELUM TERKLASIFIKASI"})}continue}
+    if(scope==="accessory-vas"&&!groups.some(group=>group==="ACCESSORIES"||group==="VAS")){if(allNAColumns.length){outOfScopeNARows+=1;if(outOfScopeSamples.length<100)outOfScopeSamples.push({row:index+2,article:value(current[4]),description:value(current[5]),group:groups.filter(Boolean).join(" / ")||"BELUM TERKLASIFIKASI"})}continue}
     checkedRows += 1;
     const naColumns = [6,9,10,11,12,13].filter(column => isNA(current[column]));
     // A missing Vendor is optional until Master provides a usable reference.
@@ -218,7 +222,17 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     // Inapplicable placeholders (3PP Type / first-party Vendor) may be cleared,
     // without making either of them a prerequisite for the other fields.
     const repairColumns=naColumns.filter(column=>column!==13||!usesVendor||suppliers.length===1);
-    if(blankType)repairColumns.push(6);
+    // Data Copas is a transaction snapshot, but its product classification
+    // must follow the current Master. Filled yet stale classifications are
+    // therefore proposed too; sales, Qty, Amount, invoice and date stay intact.
+    for(const column of [9,10,11,12]){
+      const target=desired.get(column);
+      if(column===10&&isXlSupplier(current[column])&&(isXlSupplier(target?.value)||(scheme==="VAS"&&/^X{1,2}LAPPLE/.test(article))))continue;
+      if(target?.value&&!isNA(target.value)&&!same(current[column],target.value)&&!repairColumns.includes(column))repairColumns.push(column);
+    }
+    const typeTarget=desired.get(6);
+    if(usesType&&typeTarget?.value&&!isNA(typeTarget.value)&&!same(current[6],typeTarget.value)&&!repairColumns.includes(6))repairColumns.push(6);
+    if(blankType&&!repairColumns.includes(6))repairColumns.push(6);
     if(usesVendor&&suppliers.length===1&&!value(current[13])&&!repairColumns.includes(13))repairColumns.push(13);
     const missing = repairColumns
       .map(column=>desired.get(column))
@@ -243,6 +257,7 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     if (hasNA) naRepairRows += 1;
     if (changes.some(change=>change.column==="N"&&change.to)) vendorRows += 1;
     if (changes.some(change=>change.column==="G"&&change.to)) typeRows += 1;
+    if(changes.some(change=>change.from&&!isNA(change.from)))staleRows+=1;
     candidates.push({...issueBase,date:value(current[0]),changes});
   }
 
@@ -261,10 +276,12 @@ export function planDataCopasRepair(masterRows: unknown[][], copasRows: unknown[
     naRows:candidates.length,
     correctedRows:0,
     recommendationRows,
+    staleRows,
     unresolvedNARows:issues.length,
     candidates,
     issues,
     unresolvedSamples,
+    outOfScopeSamples,
   };
 }
 

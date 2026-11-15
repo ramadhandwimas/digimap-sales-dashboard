@@ -37,12 +37,23 @@ test("repairs only N/A classification and fills a known blank vendor",()=>{
  ]);
 });
 
-test("updates an outdated Vendor while preserving existing classifications",()=>{
+test("updates outdated Vendor and filled classification from Master",()=>{
  const row=copas("KLA001",{6:"Manual Type",9:"PROTEKSI",10:"Manual Brand",11:"APPLE",12:"VAS",13:"Old Vendor"});
  const plan=planDataCopasRepair(master,[row]);
  assert.equal(plan.rowsWithNA,0);
  assert.equal(plan.vendorRows,1);
- assert.deepEqual(plan.candidates[0].changes,[{column:"N",field:"Vendor",from:"Old Vendor",to:"MITRA JASA PRATAMA PT"}]);
+ assert.deepEqual(plan.candidates[0].changes,[
+  {column:"K",field:"Brand Name",from:"Manual Brand",to:"QOALA"},
+  {column:"N",field:"Vendor",from:"Old Vendor",to:"MITRA JASA PRATAMA PT"},
+ ]);
+});
+
+test("synchronizes filled but outdated Device classifications with Master",()=>{
+ const stale=deviceRow();stale[6]="IPHONE 17";stale[9]="PHONE";stale[10]="APP";stale[11]="ANDROID";stale[12]="DEVICE";
+ const plan=planDataCopasRepair([...master,appleDevice],[stale],"device");
+ assert.equal(plan.staleRows,1);assert.equal(plan.rowsWithNA,0);assert.equal(plan.candidates.length,1);
+ assert.deepEqual(plan.candidates[0].changes.map(change=>change.column),["J","K","L","M","G"]);
+ assert.deepEqual(plan.candidates[0].changes.map(change=>change.to),["IPHONE","APPLE","APPLE","DEVICES","IPHONE 18 PRO"]);
 });
 
 test("lists N/A rows whose SAP Article is absent from Master",()=>{
@@ -160,6 +171,7 @@ test("reports N/A outside Device scope instead of declaring all Data Copas clean
  assert.equal(plan.totalRowsWithNA,2);
  assert.equal(plan.outOfScopeNARows,2);
  assert.equal(plan.totalNACells,8);
+ assert.equal(plan.outOfScopeSamples.length,2);
 });
 
 test("accessory and VAS checks ignore absent XL Vendor and exclude device Type",()=>{

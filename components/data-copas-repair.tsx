@@ -7,6 +7,7 @@ type Notice={kind:"success"|"error";text:string}|null;
 type RepairChange={column:string;field:string;from:string;to:string};
 type RepairItem={row:number;article:string;description:string;changes:RepairChange[];suggested?:boolean;suggestionReason?:string;referenceArticle?:string};
 type RepairIssue={row:number;article:string;description:string;detail:string};
+type ScopeSample={row:number;article:string;description:string;group:string};
 type Preview={
  scope?:Scope;
  checkedRows:number;
@@ -14,10 +15,12 @@ type Preview={
  totalRowsWithNA:number;
  totalNACells:number;
  outOfScopeNARows:number;
+ outOfScopeSamples:ScopeSample[];
  naRepairRows:number;
  vendorRows:number;
  typeRows?:number;
  recommendationRows?:number;
+ staleRows?:number;
  rowsWithBlankType?:number;
  repairRows:number;
  changedCells:number;
@@ -32,7 +35,7 @@ type Preview={
 export default function DataCopasRepair({onBusyChange,scope="all"}:{onBusyChange?:(busy:boolean)=>void;scope?:Scope}={}){
  const scopeLabel=scope==="device"?"Device":scope==="accessory-vas"?"Aksesoris & VAS":"Semua kategori";
  const scopeDescription=scope==="device"?"Hanya Product Group DEVICES yang diperiksa. Aksesori, AirPods, dan VAS tidak termasuk.":scope==="accessory-vas"?"Hanya Product Group ACCESSORIES dan VAS yang diperiksa. Device tidak termasuk.":"Memeriksa semua kategori berdasarkan SAP Article di Master.";
- const rules=scope==="device"?"Type/model kosong atau N/A diisi dari kolom Type pada Master.":scope==="accessory-vas"?"Vendor aksesori 3PP dan VAS mengikuti referensi PT Name pada Master. Type aksesori yang tersedia di Master tetap digunakan.":"Type/model diisi dari Master. Vendor aksesori 3PP dan VAS mengikuti referensi PT Name pada Master.";
+ const rules=scope==="device"?"Type/model dan klasifikasi Device dibandingkan dengan Master terbaru.":scope==="accessory-vas"?"Klasifikasi aksesori/VAS dan Vendor dibandingkan dengan Master terbaru.":"Type/model, klasifikasi, dan Vendor dibandingkan dengan Master terbaru.";
  const active=useRef(false);
  const[busy,setBusy]=useState<"check"|"apply"|null>(null);
  const[notice,setNotice]=useState<Notice>(null);
@@ -78,6 +81,7 @@ export default function DataCopasRepair({onBusyChange,scope="all"}:{onBusyChange
     {scope!=="accessory-vas"?<Summary value={preview.typeRows||0} label="Type/model diisi" tone={preview.typeRows?"blue":"slate"}/>:null}
     {scope!=="device"?<Summary value={preview.vendorRows} label="Vendor di-update" tone={preview.vendorRows?"blue":"slate"}/>:null}
     <Summary value={preview.recommendationRows||0} label="Rekomendasi pola lama" tone={preview.recommendationRows?"blue":"slate"}/>
+    <Summary value={preview.staleRows||0} label="Data lama di-update" tone={preview.staleRows?"blue":"slate"}/>
     <Summary value={preview.unresolvedNARows} label="Perlu diperiksa" tone={preview.unresolvedNARows?"amber":"slate"}/>
    </div>
    <p className="text-xs text-slate-500">Diperiksa {preview.checkedRows} baris · {scopeLabel}. Ditemukan {preview.rowsWithNA} baris N/A pada kategori ini{scope!=="accessory-vas"?` dan ${preview.rowsWithBlankType||0} baris Type kosong`:""}. Total seluruh Data Copas: {preview.totalRowsWithNA||0} baris N/A ({preview.totalNACells||0} sel){preview.outOfScopeNARows?`; ${preview.outOfScopeNARows} baris berada di luar kategori ini atau belum terklasifikasi`:""}. Periksa daftar perubahan sebelum menyimpan.</p>
@@ -100,6 +104,12 @@ export default function DataCopasRepair({onBusyChange,scope="all"}:{onBusyChange
     <div className="mt-3 space-y-2">{preview.issues.map(issue=><article key={`${issue.row}-${issue.article}`} className="rounded-xl border border-amber-100 bg-white p-3 text-xs dark:bg-slate-950">
      <div className="flex gap-2"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600"/><div><div className="font-black">Baris {issue.row} · {issue.article}</div><div className="mt-1 text-slate-500">{issue.description}</div><div className="mt-1 font-bold text-amber-700">{issue.detail}</div></div></div>
     </article>)}</div>
+   </details>:null}
+
+   {preview.outOfScopeSamples?.length?<details open className="rounded-xl border border-rose-200 bg-rose-50/60 p-3 dark:border-rose-900 dark:bg-rose-950/20">
+    <summary className="cursor-pointer text-sm font-black text-rose-800 dark:text-rose-200">N/A di luar kategori {scopeLabel} ({preview.outOfScopeNARows})</summary>
+    <p className="mt-2 text-xs text-rose-700">Baris ini tidak diubah dari menu {scopeLabel} agar kategori lain tidak salah terklasifikasi.</p>
+    <div className="mt-3 max-h-80 space-y-2 overflow-y-auto">{preview.outOfScopeSamples.map(item=><article key={`${item.row}-${item.article}`} className="rounded-xl border border-rose-100 bg-white p-3 text-xs dark:bg-slate-950"><div className="font-black">Baris {item.row} · {item.article}</div><div className="mt-1 text-slate-500">{item.description||"Tanpa deskripsi"}</div><div className="mt-1 font-bold text-rose-700">Kelompok: {item.group}</div></article>)}</div>
    </details>:null}
 
    {preview.repairRows?<button type="button" disabled={Boolean(busy)} onClick={()=>void apply()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white disabled:opacity-50">{busy==="apply"?<LoaderCircle className="size-4 animate-spin"/>:<WandSparkles className="size-4"/>}{busy==="apply"?"Memperbaiki Data…":`Perbaiki ${preview.repairRows} Baris Sekarang`}</button>:null}
