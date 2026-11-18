@@ -18,7 +18,9 @@ function load(){
 const {PRICE_TICKETS,resolvePriceTickets}=load();
 const hashes={
  "apple-watch.docx":"937c18c21d089898c9220b8069aa183b2a69e226e9b53470a4dd42caeeb01494",
+ "apple-watch-se3-series12.docx":"50b9815db154c1f98afec6d31c62ddd10fbf7e7cd265bd7c9060848c64414139",
  "ipad-13.docx":"09d42f389715101c3a3f79528bcccabc84b27b2728f8a17642d272f67988743c",
+ "ipad-11.docx":"1f446ac631039a9cb70b58080776b4d29074a92508eac6fcf027db1b47e49955",
  "iphone-15.docx":"1edfe9da5bc30d68576e8c517f701dcc2dd8813cc37f424aa14b684c47352a13",
  "iphone-17-pro-max.docx":"9e37f94c19cee5cee6c06666be2d5042a88b018e4099fe9674577fbb43ecd267",
  "iphone-17e.docx":"f5b01d50d333978004ef4605531f1191d2db566b27a6850937e01ac43530f585",
@@ -29,8 +31,8 @@ const hashes={
  "macbook-pro-16-m5.docx":"c87340702e99af0cbaa59fb6fb6894d5284179fda2a87a004a5d5f2d015e02c0",
 };
 
-test("all ten original DOCX masters are byte-for-byte preserved",()=>{
- assert.equal(PRICE_TICKETS.length,10);
+test("all twelve original DOCX masters are byte-for-byte preserved",()=>{
+ assert.equal(PRICE_TICKETS.length,12);
  for(const [file,expected] of Object.entries(hashes)){
   const bytes=fs.readFileSync(new URL(`../public/price-tickets/master/${file}`,import.meta.url));
   assert.equal(crypto.createHash("sha256").update(bytes).digest("hex"),expected,file);

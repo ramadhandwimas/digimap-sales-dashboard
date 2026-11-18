@@ -64,6 +64,19 @@ export const PRICE_TICKETS:PriceTicketTemplate[]=[
       ...(Number(cell)>0?[slot(`pro-${id}-cell`,`iPad Pro M5 13 ${String(capacity)} Cellular`,Number(cell),{model:"iPad Pro 13 M5",capacity:String(capacity),connectivity:"Wi‑Fi + Cellular"})]:[]),
     ]),
   ]},
+  {id:"ipad-11",title:"iPad Air M4 11 inci & iPad Gen 11",subtitle:"Wi-Fi dan Cellular",masterFile:"ipad-11.docx",pdfFile:"ipad-11.pdf",previewFile:"ipad-11.png",slots:[
+    ...[["128","128GB",8_699_000,11_699_000],["256","256GB",10_699_000,14_199_000],["512","512GB",15_199_000,18_199_000]].flatMap(([id,capacity,wifi,cell])=>[
+      slot(`ipad-${id}-wifi`,`iPad Gen 11 ${String(capacity)} Wi-Fi`,Number(wifi),{model:"iPad 11 A16",capacity:String(capacity),connectivity:"Wi‑Fi"}),
+      slot(`ipad-${id}-cell`,`iPad Gen 11 ${String(capacity)} Cellular`,Number(cell),{model:"iPad 11 A16",capacity:String(capacity),connectivity:"Wi‑Fi + Cellular"}),
+    ]),
+    ...[["128","128GB",15_249_000,18_249_000],["256","256GB",17_249_000,20_249_000],["512","512GB",21_249_000,24_749_000],["1tb","1TB",27_749_000,30_749_000]].flatMap(([id,capacity,wifi,cell])=>[
+      slot(`air-${id}-wifi`,`iPad Air M4 11 ${String(capacity)} Wi-Fi`,Number(wifi),{model:"iPad Air 11 M4",capacity:String(capacity),connectivity:"Wi‑Fi"}),
+      slot(`air-${id}-cell`,`iPad Air M4 11 ${String(capacity)} Cellular`,Number(cell),{model:"iPad Air 11 M4",capacity:String(capacity),connectivity:"Wi‑Fi + Cellular"}),
+    ]),
+  ]},
+  {id:"apple-watch-se3-series12",title:"Apple Watch Series 12 & SE 3",subtitle:"Master tanpa Ultra 4",masterFile:"apple-watch-se3-series12.docx",pdfFile:"apple-watch-se3-series12.pdf",previewFile:"apple-watch-se3-series12.png",slots:[
+    slot("series-42","Series 12 42 mm",7_199_000,{model:"Apple Watch Series 12",size:"42mm"}),slot("series-46","Series 12 46 mm",8_199_000,{model:"Apple Watch Series 12",size:"46mm"}),slot("se-40","SE 3 40 mm",4_699_000,{model:"Apple Watch SE 3",size:"40mm"}),slot("se-44","SE 3 44 mm",5_299_000,{model:"Apple Watch SE 3",size:"44mm"}),
+  ]},
   {id:"apple-watch",title:"Apple Watch Ultra 4, Series 12 & SE 3",subtitle:"Semua ukuran pada master asli",masterFile:"apple-watch.docx",pdfFile:"apple-watch.pdf",previewFile:"apple-watch.png",slots:[
     slot("ultra-49","Ultra 4 49 mm",16_499_000,{model:"Apple Watch Ultra 4",size:"49mm"}),slot("series-42","Series 12 42 mm",7_199_000,{model:"Apple Watch Series 12",size:"42mm"}),slot("series-46","Series 12 46 mm",8_199_000,{model:"Apple Watch Series 12",size:"46mm"}),slot("se-40","SE 3 40 mm",4_699_000,{model:"Apple Watch SE 3",size:"40mm"}),slot("se-44","SE 3 44 mm",5_299_000,{model:"Apple Watch SE 3",size:"44mm"}),
   ]},
