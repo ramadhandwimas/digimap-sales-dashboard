@@ -3,6 +3,7 @@ import {SESSION_COOKIE,verifySessionToken} from "@/lib/auth-session";
 import {PriceTicketDocxError,renderPriceTicketDocx} from "@/lib/price-ticket-docx";
 import {readPromoSnapshots} from "@/lib/promo-board-store";
 import {resolvePriceTickets,ticketById} from "@/lib/price-ticket";
+import {applyPriceOverrides,parsePriceOverrides} from "@/lib/price-ticket-overrides";
 
 export const runtime="nodejs";
 
@@ -15,7 +16,8 @@ export async function GET(request:NextRequest,{params}:{params:Promise<{id:strin
   try{
     const [active]=await readPromoSnapshots({email,key},1,{fresh:false});
     if(!active)return NextResponse.json({error:"Belum ada Pricelist Device aktif."},{status:409});
-    const resolved=resolvePriceTickets(active.products).find(item=>item.id===id);
+    const sourceResolved=resolvePriceTickets(active.products).find(item=>item.id===id);
+    const resolved=sourceResolved?applyPriceOverrides(ticket,sourceResolved,parsePriceOverrides(request.nextUrl.searchParams.get("prices"))):null;
     if(!resolved)return NextResponse.json({error:"Hasil sinkronisasi Price Ticket tidak ditemukan."},{status:404});
     const bytes=await renderPriceTicketDocx(ticket,resolved);
     return new NextResponse(bytes,{headers:{

@@ -3,8 +3,10 @@ import {SESSION_COOKIE,verifySessionToken} from "@/lib/auth-session";
 import {readPromoSnapshots} from "@/lib/promo-board-store";
 import {resolvePriceTickets,ticketById} from "@/lib/price-ticket";
 import {PriceTicketPdfError,renderPriceTicketPdf} from "@/lib/price-ticket-pdf";
+import {applyPriceOverrides,parsePriceOverrides} from "@/lib/price-ticket-overrides";
 
 export const runtime="nodejs";
+export const maxDuration=180;
 
 export async function GET(request:NextRequest,{params}:{params:Promise<{id:string}>}){
   if(!verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value))return NextResponse.json({error:"Sesi login berakhir."},{status:401});
@@ -15,11 +17,12 @@ export async function GET(request:NextRequest,{params}:{params:Promise<{id:strin
   try{
     const [active]=await readPromoSnapshots({email,key},1,{fresh:false});
     if(!active)return NextResponse.json({error:"Belum ada Pricelist Device aktif."},{status:409});
-    const resolved=resolvePriceTickets(active.products).find(item=>item.id===id);
+    const sourceResolved=resolvePriceTickets(active.products).find(item=>item.id===id);
+    const resolved=sourceResolved?applyPriceOverrides(ticket,sourceResolved,parsePriceOverrides(request.nextUrl.searchParams.get("prices"))):null;
     if(!resolved)return NextResponse.json({error:"Hasil sinkronisasi Price Ticket tidak ditemukan."},{status:404});
     const bytes=await renderPriceTicketPdf(ticket,resolved);
     const disposition=request.nextUrl.searchParams.get("download")==="1"?"attachment":"inline";
-    return new NextResponse(bytes,{headers:{"content-type":"application/pdf","content-disposition":`${disposition}; filename="${ticket.id}${resolved.changedCount?"-update":""}.pdf"`,"cache-control":"no-store"}});
+    return new NextResponse(new Uint8Array(bytes),{headers:{"content-type":"application/pdf","content-disposition":`${disposition}; filename="${ticket.id}${resolved.changedCount?"-update":""}.pdf"`,"cache-control":"no-store"}});
   }catch(error){
     return NextResponse.json({error:error instanceof Error?error.message:"PDF Price Ticket gagal dibuat."},{status:error instanceof PriceTicketPdfError?error.status:500});
   }

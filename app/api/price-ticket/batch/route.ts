@@ -4,12 +4,16 @@ import {SESSION_COOKIE,verifySessionToken} from "@/lib/auth-session";
 import {readPromoSnapshots} from "@/lib/promo-board-store";
 import {PRICE_TICKETS,resolvePriceTickets} from "@/lib/price-ticket";
 import {PriceTicketPdfError,renderPriceTicketPdf} from "@/lib/price-ticket-pdf";
+import {applyPriceOverrides,parsePriceOverrides} from "@/lib/price-ticket-overrides";
 
 export const runtime="nodejs";
+export const maxDuration=300;
 
 export async function GET(request:NextRequest){
   if(!verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value))return NextResponse.json({error:"Sesi login berakhir."},{status:401});
   const ids=[...new Set((request.nextUrl.searchParams.get("ids")||"").split(",").map(item=>item.trim()).filter(Boolean))];
+  let manualByTicket:Record<string,string>={};
+  try{manualByTicket=JSON.parse(request.nextUrl.searchParams.get("prices")||"{}") as Record<string,string>}catch{return NextResponse.json({error:"Harga manual multiple tidak valid."},{status:400})}
   if(!ids.length)return NextResponse.json({error:"Pilih minimal satu Price Ticket."},{status:400});
   if(ids.length>PRICE_TICKETS.length)return NextResponse.json({error:"Jumlah Price Ticket tidak valid."},{status:400});
   const tickets=ids.map(id=>PRICE_TICKETS.find(item=>item.id===id));
@@ -23,8 +27,9 @@ export async function GET(request:NextRequest){
     const merged=await PDFDocument.create();
     for(const ticket of tickets){
       if(!ticket)continue;
-      const resolved=resolvedById.get(ticket.id);
-      if(!resolved)throw new PriceTicketPdfError(`Sinkronisasi ${ticket.title} tidak ditemukan.`,404);
+      const sourceResolved=resolvedById.get(ticket.id);
+      if(!sourceResolved)throw new PriceTicketPdfError(`Sinkronisasi ${ticket.title} tidak ditemukan.`,404);
+      const resolved=applyPriceOverrides(ticket,sourceResolved,parsePriceOverrides(manualByTicket[ticket.id]||null));
       const source=await PDFDocument.load(await renderPriceTicketPdf(ticket,resolved));
       const pages=await merged.copyPages(source,source.getPageIndices());
       for(const page of pages)merged.addPage(page);

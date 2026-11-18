@@ -86,23 +86,25 @@ test("changed price is reported and conflicting prices block publication",()=>{
 test("UI contains no create, template editor, or extra pricelist upload",()=>{
  const source=fs.readFileSync(new URL("../components/price-ticket-workspace.tsx",import.meta.url),"utf8");
  assert.doesNotMatch(source,/Create Price Ticket|Template Editor|Upload Pricelist/i);
- assert.match(source,/Print PDF 100% Actual Size/);
+ assert.match(source,/print tetap 100% Actual Size/);
  assert.match(source,/Print multiple/);
  assert.match(source,/price-ticket\/batch/);
  assert.doesNotMatch(source,/<iframe/);
 });
 
-test("changed prices are written into the original Word, never redrawn onto PDF",()=>{
+test("changed prices update the original Word before PDF conversion, never redraw text",()=>{
  const pdf=fs.readFileSync(new URL("../lib/price-ticket-pdf.ts",import.meta.url),"utf8");
  const docx=fs.readFileSync(new URL("../lib/price-ticket-docx.ts",import.meta.url),"utf8");
  const ui=fs.readFileSync(new URL("../components/price-ticket-workspace.tsx",import.meta.url),"utf8");
  assert.doesNotMatch(pdf,/StandardFonts|drawText|drawRectangle|drawLine/);
- assert.match(pdf,/Gunakan file Word hasil sinkronisasi/);
+ assert.match(pdf,/renderPriceTicketDocx/);
+ assert.match(pdf,/convertDocxToPdf/);
  assert.match(docx,/word\/document\.xml/);
  assert.match(docx,/replaceAcrossTextRuns/);
  assert.match(docx,/panjang berbeda dari master Word/);
- assert.match(ui,/Download Word \(Format Asli\)/);
- assert.match(ui,/status!=="CURRENT"/);
+ assert.match(ui,/Word Format Asli/);
+ assert.match(ui,/Edit harga manual/);
+ assert.match(ui,/Terapkan ke preview/);
 });
 
 test("all print PDFs preserve one A4 page at actual physical size",async()=>{
