@@ -92,6 +92,19 @@ test("UI contains no create, template editor, or extra pricelist upload",()=>{
  assert.doesNotMatch(source,/<iframe/);
 });
 
+test("price replacement restores exact source table rules after clearing text",()=>{
+ const source=fs.readFileSync(new URL("../lib/price-ticket-pdf.ts",import.meta.url),"utf8");
+ const rules=JSON.parse(fs.readFileSync(new URL("../lib/price-ticket-rules.json",import.meta.url),"utf8"));
+ assert.match(source,/rulesSource/);
+ assert.match(source,/page\.drawLine/);
+ for(const ticket of PRICE_TICKETS){
+  assert.ok(Array.isArray(rules[ticket.id])&&rules[ticket.id].length>0,`${ticket.id} source rules`);
+  for(const rule of rules[ticket.id]){
+   assert.ok(rule.x2>rule.x1&&rule.width>0,`${ticket.id} valid rule`);
+  }
+ }
+});
+
 test("all print PDFs preserve one A4 page at actual physical size",async()=>{
  const {PDFDocument}=await import("pdf-lib");
  for(const ticket of PRICE_TICKETS){
