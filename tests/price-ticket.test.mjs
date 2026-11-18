@@ -74,4 +74,19 @@ test("UI contains no create, template editor, or extra pricelist upload",()=>{
  const source=fs.readFileSync(new URL("../components/price-ticket-workspace.tsx",import.meta.url),"utf8");
  assert.doesNotMatch(source,/Create Price Ticket|Template Editor|Upload Pricelist/i);
  assert.match(source,/Print 100% Actual Size/);
+ assert.match(source,/Print multiple/);
+ assert.match(source,/price-ticket\/batch/);
+ assert.doesNotMatch(source,/<iframe/);
+});
+
+test("all print PDFs preserve one A4 page at actual physical size",async()=>{
+ const {PDFDocument}=await import("pdf-lib");
+ for(const ticket of PRICE_TICKETS){
+  const bytes=fs.readFileSync(new URL(`../public/price-tickets/pdf/${ticket.pdfFile}`,import.meta.url));
+  const pdf=await PDFDocument.load(bytes),pages=pdf.getPages();
+  assert.equal(pages.length,1,ticket.pdfFile);
+  const {width,height}=pages[0].getSize();
+  assert.ok(Math.abs(width-595.304)<0.02,`${ticket.pdfFile} width ${width}`);
+  assert.ok(Math.abs(height-841.89)<0.02,`${ticket.pdfFile} height ${height}`);
+ }
 });
