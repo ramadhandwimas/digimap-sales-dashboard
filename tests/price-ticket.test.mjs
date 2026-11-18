@@ -86,23 +86,23 @@ test("changed price is reported and conflicting prices block publication",()=>{
 test("UI contains no create, template editor, or extra pricelist upload",()=>{
  const source=fs.readFileSync(new URL("../components/price-ticket-workspace.tsx",import.meta.url),"utf8");
  assert.doesNotMatch(source,/Create Price Ticket|Template Editor|Upload Pricelist/i);
- assert.match(source,/Print 100% Actual Size/);
+ assert.match(source,/Print PDF 100% Actual Size/);
  assert.match(source,/Print multiple/);
  assert.match(source,/price-ticket\/batch/);
  assert.doesNotMatch(source,/<iframe/);
 });
 
-test("price replacement restores exact source table rules after clearing text",()=>{
- const source=fs.readFileSync(new URL("../lib/price-ticket-pdf.ts",import.meta.url),"utf8");
- const rules=JSON.parse(fs.readFileSync(new URL("../lib/price-ticket-rules.json",import.meta.url),"utf8"));
- assert.match(source,/rulesSource/);
- assert.match(source,/page\.drawLine/);
- for(const ticket of PRICE_TICKETS){
-  assert.ok(Array.isArray(rules[ticket.id])&&rules[ticket.id].length>0,`${ticket.id} source rules`);
-  for(const rule of rules[ticket.id]){
-   assert.ok(rule.x2>rule.x1&&rule.width>0,`${ticket.id} valid rule`);
-  }
- }
+test("changed prices are written into the original Word, never redrawn onto PDF",()=>{
+ const pdf=fs.readFileSync(new URL("../lib/price-ticket-pdf.ts",import.meta.url),"utf8");
+ const docx=fs.readFileSync(new URL("../lib/price-ticket-docx.ts",import.meta.url),"utf8");
+ const ui=fs.readFileSync(new URL("../components/price-ticket-workspace.tsx",import.meta.url),"utf8");
+ assert.doesNotMatch(pdf,/StandardFonts|drawText|drawRectangle|drawLine/);
+ assert.match(pdf,/Gunakan file Word hasil sinkronisasi/);
+ assert.match(docx,/word\/document\.xml/);
+ assert.match(docx,/replaceAcrossTextRuns/);
+ assert.match(docx,/panjang berbeda dari master Word/);
+ assert.match(ui,/Download Word \(Format Asli\)/);
+ assert.match(ui,/status!=="CURRENT"/);
 });
 
 test("all print PDFs preserve one A4 page at actual physical size",async()=>{
