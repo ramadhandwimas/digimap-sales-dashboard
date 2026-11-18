@@ -163,7 +163,7 @@ function inferLob(product:PromoProduct){
     if(/APPLE\s+PENCIL/.test(text))return"Pencil";
     if(/MAGIC\s+KEYBOARD|SMART\s+KEYBOARD|\bKEYBOARD\b/.test(text))return"Keyboard";
     if(/IPAD/.test(text))return"iPad";
-    if(/\bMBA\b|\bMBP\b|\bMBN\b|MACBOOK|IMAC|MAC MINI|MAC STUDIO/.test(text))return"Mac";
+    if(/\bMBA\b|\bMBP\b|\bMBN\b|MACBOOK|IMAC|MAC MINI|MAC STUDIO|STUDIO DISPLAY/.test(text))return"Mac";
     if(/APPLE WATCH|\bWATCH\b|\bAW\s*(?:SE|S?\d|ULTRA)/.test(text))return"Watch";
     return"";
   };
@@ -231,6 +231,7 @@ function parseMacModel(product:PromoProduct){
   if(/\bMBP\b|MACBOOK\s+PRO/.test(text))return{model:clean(`MacBook Pro${size?` ${size}`:""}${chip?` ${chip}`:""}`),generation:chip,chip,size};
   if(/MAC MINI/.test(text))return{model:clean(`Mac mini${chip?` ${chip}`:""}`),generation:chip,chip,size:""};
   if(/MAC STUDIO/.test(text))return{model:clean(`Mac Studio${chip?` ${chip}`:""}`),generation:chip,chip,size:""};
+  if(/STUDIO DISPLAY/.test(text))return{model:"Studio Display",generation:"",chip:"",size:"27"};
   if(/IMAC/.test(text))return{model:clean(`iMac${chip?` ${chip}`:""}`),generation:chip,chip,size:""};
   return{model:"Mac",generation:chip,chip,size};
 }

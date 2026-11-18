@@ -5,7 +5,7 @@ import {PDFDocument,StandardFonts,rgb} from "pdf-lib";
 import placementsSource from "@/lib/price-ticket-placements.json";
 import {SESSION_COOKIE,verifySessionToken} from "@/lib/auth-session";
 import {readPromoSnapshots} from "@/lib/promo-board-store";
-import {monthly,resolvePriceTickets,ticketById} from "@/lib/price-ticket";
+import {monthly,resolvePriceTickets,ticketById,ticketMonthly} from "@/lib/price-ticket";
 
 export const runtime="nodejs";
 type Placement={text:string;x:number;y:number;width:number;height:number};
@@ -33,7 +33,7 @@ export async function GET(request:NextRequest,{params}:{params:Promise<{id:strin
     const replacements=new Map<number,number>();
     for(const item of resolved.slots){
       if(item.status!=="CHANGED"||!item.currentFullPrice)continue;
-      const pairs:[[number,number],[number,number]]=[[item.oldFullPrice,item.currentFullPrice],[monthly(item.oldFullPrice),monthly(item.currentFullPrice)]];
+      const pairs:[[number,number],[number,number]]=[[item.oldFullPrice,item.currentFullPrice],[item.oldMonthlyPrice??monthly(item.oldFullPrice),ticketMonthly(ticket,item.currentFullPrice)]];
       for(const [before,after] of pairs){
         const existing=replacements.get(before);
         if(existing!=null&&existing!==after)return NextResponse.json({error:"Perubahan harga menghasilkan nominal yang ambigu. PDF tidak diterbitkan."},{status:409});

@@ -14,6 +14,7 @@ export type TicketPriceSlot={
   id:string;
   label:string;
   oldFullPrice:number;
+  oldMonthlyPrice?:number;
   match:TicketMatch;
 };
 
@@ -24,14 +25,18 @@ export type PriceTicketTemplate={
   masterFile:string;
   pdfFile:string;
   previewFile:string;
+  installmentMode?:"round"|"floor";
   slots:TicketPriceSlot[];
 };
 
-const slot=(id:string,label:string,oldFullPrice:number,match:TicketMatch):TicketPriceSlot=>({id,label,oldFullPrice,match});
+const slot=(id:string,label:string,oldFullPrice:number,match:TicketMatch,oldMonthlyPrice?:number):TicketPriceSlot=>({id,label,oldFullPrice,match,...(oldMonthlyPrice?{oldMonthlyPrice}:{})});
 
 export const PRICE_TICKETS:PriceTicketTemplate[]=[
   {id:"iphone-18-pro-max",title:"iPhone 18 Pro Max",subtitle:"256 GB sampai 2 TB",masterFile:"iphone-18-pro-max.docx",pdfFile:"iphone-18-pro-max.pdf",previewFile:"iphone-18-pro-max.png",slots:[
     slot("256","256 GB",29_499_000,{model:"iPhone 18 Pro Max",capacity:"256GB"}),slot("512","512 GB",34_499_000,{model:"iPhone 18 Pro Max",capacity:"512GB"}),slot("1tb","1 TB",43_999_000,{model:"iPhone 18 Pro Max",capacity:"1TB"}),slot("2tb","2 TB",57_999_000,{model:"iPhone 18 Pro Max",capacity:"2TB"}),
+  ]},
+  {id:"iphone-18-pro",title:"iPhone 18 Pro",subtitle:"256 GB sampai 2 TB",masterFile:"iphone-18-pro.docx",pdfFile:"iphone-18-pro.pdf",previewFile:"iphone-18-pro.png",installmentMode:"floor",slots:[
+    slot("256","256 GB",27_499_000,{model:"iPhone 18 Pro",capacity:"256GB"},1_145_791),slot("512","512 GB",32_499_000,{model:"iPhone 18 Pro",capacity:"512GB"},1_354_125),slot("1tb","1 TB",41_999_000,{model:"iPhone 18 Pro",capacity:"1TB"},1_749_958),slot("2tb","2 TB",55_999_000,{model:"iPhone 18 Pro",capacity:"2TB"},2_333_291),
   ]},
   {id:"iphone-duo",title:"iPhone Duo",subtitle:"256 GB sampai 2 TB",masterFile:"iphone-duo.docx",pdfFile:"iphone-duo.pdf",previewFile:"iphone-duo.png",slots:[
     slot("256","256 GB",46_499_000,{model:"iPhone Duo",capacity:"256GB"}),slot("512","512 GB",51_499_000,{model:"iPhone Duo",capacity:"512GB"}),slot("1tb","1 TB",60_499_000,{model:"iPhone Duo",capacity:"1TB"}),slot("2tb","2 TB",74_999_000,{model:"iPhone Duo",capacity:"2TB"}),
@@ -39,11 +44,20 @@ export const PRICE_TICKETS:PriceTicketTemplate[]=[
   {id:"iphone-17-pro-max",title:"iPhone 17 Pro Max",subtitle:"256 GB sampai 2 TB",masterFile:"iphone-17-pro-max.docx",pdfFile:"iphone-17-pro-max.pdf",previewFile:"iphone-17-pro-max.png",slots:[
     slot("256","256 GB",24_799_000,{model:"iPhone 17 Pro Max",capacity:"256GB"}),slot("512","512 GB",29_299_000,{model:"iPhone 17 Pro Max",capacity:"512GB"}),slot("1tb","1 TB",34_049_000,{model:"iPhone 17 Pro Max",capacity:"1TB"}),slot("2tb","2 TB",43_049_000,{model:"iPhone 17 Pro Max",capacity:"2TB"}),
   ]},
+  {id:"iphone-17",title:"iPhone 17",subtitle:"256 GB dan 512 GB",masterFile:"iphone-17.docx",pdfFile:"iphone-17.pdf",previewFile:"iphone-17.png",installmentMode:"floor",slots:[
+    slot("256","256 GB",20_499_000,{model:"iPhone 17",capacity:"256GB"},854_125),slot("512","512 GB",24_499_000,{model:"iPhone 17",capacity:"512GB"},1_020_792),
+  ]},
   {id:"iphone-17e",title:"iPhone 17e",subtitle:"256 GB dan 512 GB",masterFile:"iphone-17e.docx",pdfFile:"iphone-17e.pdf",previewFile:"iphone-17e.png",slots:[
     slot("256","256 GB",15_999_000,{model:"iPhone 17e",capacity:"256GB"}),slot("512","512 GB",20_499_000,{model:"iPhone 17e",capacity:"512GB"}),
   ]},
   {id:"iphone-15",title:"iPhone 15",subtitle:"128 GB dan 256 GB",masterFile:"iphone-15.docx",pdfFile:"iphone-15.pdf",previewFile:"iphone-15.png",slots:[
     slot("128","128 GB",14_999_000,{model:"iPhone 15",capacity:"128GB"}),slot("256","256 GB",15_499_000,{model:"iPhone 15",capacity:"256GB"}),
+  ]},
+  {id:"iphone-16",title:"iPhone 16",subtitle:"128 GB sampai 512 GB",masterFile:"iphone-16.docx",pdfFile:"iphone-16.pdf",previewFile:"iphone-16.png",installmentMode:"floor",slots:[
+    slot("128","128 GB",17_999_000,{model:"iPhone 16",capacity:"128GB"},749_958),slot("256","256 GB",18_499_000,{model:"iPhone 16",capacity:"256GB"},770_792),slot("512","512 GB",19_999_000,{model:"iPhone 16",capacity:"512GB"},833_291),
+  ]},
+  {id:"iphone-air",title:"iPhone Air",subtitle:"256 GB sampai 1 TB",masterFile:"iphone-air.docx",pdfFile:"iphone-air.pdf",previewFile:"iphone-air.png",installmentMode:"floor",slots:[
+    slot("256","256 GB",18_249_000,{model:"iPhone Air",capacity:"256GB"},760_375),slot("512","512 GB",22_999_000,{model:"iPhone Air",capacity:"512GB"},958_292),slot("1tb","1 TB",27_249_000,{model:"iPhone Air",capacity:"1TB"},1_135_375),
   ]},
   {id:"macbook-neo",title:"MacBook Neo",subtitle:"256 GB dan 512 GB",masterFile:"macbook-neo.docx",pdfFile:"macbook-neo.pdf",previewFile:"macbook-neo.png",slots:[
     slot("256","256 GB",12_999_000,{model:"MacBook Neo",capacity:"256GB"}),slot("512","512 GB",15_249_000,{model:"MacBook Neo",capacity:"512GB"}),
@@ -51,8 +65,17 @@ export const PRICE_TICKETS:PriceTicketTemplate[]=[
   {id:"macbook-air-15-m5",title:"MacBook Air 15 inci M5",subtitle:"3 konfigurasi",masterFile:"macbook-air-15-m5.docx",pdfFile:"macbook-air-15-m5.pdf",previewFile:"macbook-air-15-m5.png",slots:[
     slot("16-512","16 GB / 512 GB",27_499_000,{model:"MacBook Air 15 M5",ram:"16GB",capacity:"512GB"}),slot("16-1tb","16 GB / 1 TB",33_999_000,{model:"MacBook Air 15 M5",ram:"16GB",capacity:"1TB"}),slot("24-1tb","24 GB / 1 TB",37_999_000,{model:"MacBook Air 15 M5",ram:"24GB",capacity:"1TB"}),
   ]},
+  {id:"macbook-air-13-m5",title:"MacBook Air 13 inci M5",subtitle:"3 konfigurasi",masterFile:"macbook-air-13-m5.docx",pdfFile:"macbook-air-13-m5.pdf",previewFile:"macbook-air-13-m5.png",installmentMode:"floor",slots:[
+    slot("16-512","16 GB / 512 GB",23_499_000,{model:"MacBook Air 13 M5",ram:"16GB",capacity:"512GB"},979_125),slot("16-1tb","16 GB / 1 TB",29_749_000,{model:"MacBook Air 13 M5",ram:"16GB",capacity:"1TB"},1_239_541),slot("24-1tb","24 GB / 1 TB",33_749_000,{model:"MacBook Air 13 M5",ram:"24GB",capacity:"1TB"},1_406_208),
+  ]},
+  {id:"macbook-pro-14-m5",title:"MacBook Pro 14 inci M5",subtitle:"3 konfigurasi",masterFile:"macbook-pro-14-m5.docx",pdfFile:"macbook-pro-14-m5.pdf",previewFile:"macbook-pro-14-m5.png",installmentMode:"floor",slots:[
+    slot("16-512","16 GB / 512 GB",26_999_000,{model:"MacBook Pro 14 M5",ram:"16GB",capacity:"512GB"},1_124_958),slot("16-1tb","16 GB / 1 TB",38_999_000,{model:"MacBook Pro 14 M5",ram:"16GB",capacity:"1TB"},1_624_958),slot("24-1tb","24 GB / 1 TB",43_499_000,{model:"MacBook Pro 14 M5",ram:"24GB",capacity:"1TB"},1_812_458),
+  ]},
   {id:"macbook-pro-16-m5",title:"MacBook Pro 16 inci M5",subtitle:"M5 Pro dan M5 Max",masterFile:"macbook-pro-16-m5.docx",pdfFile:"macbook-pro-16-m5.pdf",previewFile:"macbook-pro-16-m5.png",slots:[
     slot("pro-24","M5 Pro / 24 GB / 1 TB",58_499_000,{model:"MacBook Pro 16 M5 Pro",ram:"24GB",capacity:"1TB"}),slot("pro-48","M5 Pro / 48 GB / 1 TB",70_999_000,{model:"MacBook Pro 16 M5 Pro",ram:"48GB",capacity:"1TB"}),slot("max-36","M5 Max / 36 GB / 2 TB",86_999_000,{model:"MacBook Pro 16 M5 Max",ram:"36GB",capacity:"2TB"}),slot("max-48","M5 Max / 48 GB / 2 TB",98_999_000,{model:"MacBook Pro 16 M5 Max",ram:"48GB",capacity:"2TB"}),
+  ]},
+  {id:"mac-mini-studio-display",title:"Mac mini M6 dan Studio Display",subtitle:"Mac mini, aksesori opsional, dan Studio Display",masterFile:"mac-mini-studio-display.docx",pdfFile:"mac-mini-studio-display.pdf",previewFile:"mac-mini-studio-display.png",installmentMode:"floor",slots:[
+    slot("m6-16-256","Mac mini M6 / 16 GB / 256 GB",17_499_000,{model:"Mac mini M6",ram:"16GB",capacity:"256GB"},729_125),slot("m6-16-512","Mac mini M6 / 16 GB / 512 GB",21_499_000,{model:"Mac mini M6",ram:"16GB",capacity:"512GB"},895_791),slot("m6-24-512","Mac mini M6 / 24 GB / 512 GB",24_999_000,{model:"Mac mini M6",ram:"24GB",capacity:"512GB"},1_041_625),slot("m5pro-24-512","Mac mini M5 Pro / 24 GB / 512 GB",32_999_000,{model:"Mac mini M5 Pro",ram:"24GB",capacity:"512GB"},1_374_958),slot("studio-display","Apple Studio Display",29_499_000,{model:"Studio Display"},1_229_125),
   ]},
   {id:"ipad-13",title:"iPad Air M4 & iPad Pro M5 13 inci",subtitle:"Wi-Fi dan Cellular",masterFile:"ipad-13.docx",pdfFile:"ipad-13.pdf",previewFile:"ipad-13.png",slots:[
     ...[["128","128GB",18_999_000,22_199_000],["256","256GB",21_199_000,24_199_000],["512","512GB",24_999_000,28_199_000],["1tb","1TB",31_499_000,34_699_000]].flatMap(([id,capacity,wifi,cell])=>[
@@ -115,3 +138,4 @@ export function resolvePriceTickets(products:PromoProduct[]):TicketSyncResult[]{
 export const ticketById=(id:string)=>PRICE_TICKETS.find(ticket=>ticket.id===id)??null;
 export const idr=(value:number)=>new Intl.NumberFormat("id-ID",{maximumFractionDigits:0}).format(value);
 export const monthly=(value:number)=>Math.round(value/24);
+export const ticketMonthly=(ticket:PriceTicketTemplate,value:number)=>ticket.installmentMode==="floor"?Math.floor(value/24):monthly(value);
