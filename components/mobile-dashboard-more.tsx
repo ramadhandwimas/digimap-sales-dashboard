@@ -134,6 +134,11 @@ export default function MoreScreen({theme,motion,motionStyle,font,onTheme,onMoti
     <span className="m238m-direct-copy"><strong>{label}</strong><small>{sub}</small></span>
     <ChevronRight size={18}/>
    </button>)}
+   <button type="button" onClick={()=>{window.location.href="/price-ticket"}}>
+    <span className="m238m-direct-icon"><FileSpreadsheet size={19}/></span>
+    <span className="m238m-direct-copy"><strong>Price Ticket</strong><small>Master asli, cek harga, PDF dan print</small></span>
+    <ChevronRight size={18}/>
+   </button>
    <SpvMenuLink/>
   </div>
   <div className="m238m-direct-menu m238-more-account"><button type="button" className="m238m-logout-row" onClick={()=>void fetch("/api/auth/logout",{method:"POST"}).finally(()=>{window.location.href="/login"})}>

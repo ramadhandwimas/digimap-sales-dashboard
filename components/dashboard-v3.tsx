@@ -552,6 +552,12 @@ fileRef = useRef<HTMLInputElement>(null),
             href: "/promo-board",
           },
           {
+            key: "price-ticket",
+            label: "Price Ticket",
+            icon: FileSpreadsheet,
+            href: "/price-ticket",
+          },
+          {
             key: "checklist-spv",
             label: "Checklist Store - SPV",
             icon: ClipboardCheck,

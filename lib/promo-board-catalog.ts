@@ -212,11 +212,11 @@ function parseIpadModel(product:PromoProduct){
 
 function parseWatchModel(product:PromoProduct){
   const d=upper(product.sapDescription),s=upper(product.section),text=`${d} ${s}`;
-  const ultra=d.match(/ULTRA\s*([23])\b/)||s.match(/ULTRA\s*([23])\b/);
+  const ultra=d.match(/ULTRA\s*([234])\b/)||s.match(/ULTRA\s*([234])\b/);
   if(ultra)return{model:`Apple Watch Ultra ${ultra[1]}`,generation:`Ultra ${ultra[1]}`};
   const se=d.match(/APPLE WATCH\s+SE\s*(\d)?\b/)||s.match(/(?:WATCH|AW)\s*SE(?:\s*GEN)?\s*(\d)?\b/);
   if(se){const gen=se[1]||(/GEN\s*2|SE2/.test(s)?"2":"");return{model:clean(`Apple Watch SE${gen?` ${gen}`:""}`),generation:gen?`SE ${gen}`:"SE"};}
-  const series=d.match(/APPLE WATCH\s*(9|10|11)\b/)||s.match(/(?:APPLE WATCH|WATCH|AW)\s*(?:S)?(9|10|11)(?:TH)?\b/);
+  const series=d.match(/APPLE WATCH\s*(9|10|11|12)\b/)||s.match(/(?:APPLE WATCH|WATCH|AW)\s*(?:S)?(9|10|11|12)(?:TH)?\b/);
   if(series)return{model:`Apple Watch Series ${series[1]}`,generation:`Series ${series[1]}`};
   if(/WATCH\s*S9|AW\s*S9/.test(s))return{model:"Apple Watch Series 9",generation:"Series 9"};
   return{model:"Apple Watch",generation:""};
