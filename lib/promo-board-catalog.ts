@@ -212,11 +212,11 @@ function parseIpadModel(product:PromoProduct){
 
 function parseWatchModel(product:PromoProduct){
   const d=upper(product.sapDescription),s=upper(product.section),text=`${d} ${s}`;
-  const ultra=d.match(/ULTRA\s*([234])\b/)||s.match(/ULTRA\s*([234])\b/);
+  const ultra=d.match(/ULTRA\s*(\d{1,2})\b/)||s.match(/ULTRA\s*(\d{1,2})\b/);
   if(ultra)return{model:`Apple Watch Ultra ${ultra[1]}`,generation:`Ultra ${ultra[1]}`};
-  const se=d.match(/APPLE WATCH\s+SE\s*(\d)?\b/)||s.match(/(?:WATCH|AW)\s*SE(?:\s*GEN)?\s*(\d)?\b/);
+  const se=d.match(/APPLE WATCH\s+SE\s*(\d{1,2})?\b/)||s.match(/(?:WATCH|AW)\s*SE(?:\s*GEN)?\s*(\d{1,2})?\b/);
   if(se){const gen=se[1]||(/GEN\s*2|SE2/.test(s)?"2":"");return{model:clean(`Apple Watch SE${gen?` ${gen}`:""}`),generation:gen?`SE ${gen}`:"SE"};}
-  const series=d.match(/APPLE WATCH\s*(9|10|11|12)\b/)||s.match(/(?:APPLE WATCH|WATCH|AW)\s*(?:S)?(9|10|11|12)(?:TH)?\b/);
+  const series=d.match(/APPLE WATCH\s*(\d{1,2})\b/)||s.match(/(?:APPLE WATCH|WATCH|AW)\s*(?:S)?(\d{1,2})(?:TH)?\b/);
   if(series)return{model:`Apple Watch Series ${series[1]}`,generation:`Series ${series[1]}`};
   if(/WATCH\s*S9|AW\s*S9/.test(s))return{model:"Apple Watch Series 9",generation:"Series 9"};
   return{model:"Apple Watch",generation:""};
@@ -226,7 +226,10 @@ function parseMacModel(product:PromoProduct){
   const d=upper(product.sapDescription),s=upper(product.section),text=`${d} ${s}`;
   const size=macSizeOf(d)||macSizeOf(s);
   const chip=chipOf(d)||chipOf(s);
-  if(/\bMBN\b|MACBOOK\s+NEO|\bNEO\b/.test(text))return{model:clean(`MacBook Neo${size?` ${size}`:""}`),generation:"Neo",chip:"",size};
+  // Keep the physical size as metadata. The pricelist writes "MBN 13", while
+  // the master type is MacBook Neo; putting 13 in the model made exact matching
+  // fail even though both rows describe the same product family.
+  if(/\bMBN\b|MACBOOK\s+NEO|\bNEO\b/.test(text))return{model:"MacBook Neo",generation:"Neo",chip:"",size};
   if(/\bMBA\b|MACBOOK\s+AIR/.test(text))return{model:clean(`MacBook Air${size?` ${size}`:""}${chip?` ${chip}`:""}`),generation:chip,chip,size};
   if(/\bMBP\b|MACBOOK\s+PRO/.test(text))return{model:clean(`MacBook Pro${size?` ${size}`:""}${chip?` ${chip}`:""}`),generation:chip,chip,size};
   if(/MAC MINI/.test(text))return{model:clean(`Mac mini${chip?` ${chip}`:""}`),generation:chip,chip,size:""};
@@ -271,12 +274,20 @@ function parseKeyboardModel(product:PromoProduct){
 
 function watchColorOf(value:string){
   const text=upper(value);
-  if(/\b(?:NT\s+TI|N\s*T\s+B\/BB|NATURAL\s+TI|NATURAL TITANIUM)\b/.test(text))return"Natural Titanium";
+  if(/\b(?:NT\s+TI|N\s+T(?:\s+B\/BB)?|NATURAL\s+TI|NATURAL TITANIUM)\b/.test(text))return"Natural Titanium";
   if(/\b(?:BLACK\s+TI|BK\s+TI|BLACK TITANIUM)\b/.test(text))return"Black Titanium";
   const sizeIndex=text.search(/\b(?:40|41|42|44|45|46|49)\b/);
   const tail=sizeIndex>=0?text.slice(sizeIndex).replace(/^\d+\s*/,""):text;
   const token=tail.split(/[\s/]+/).filter(Boolean)[0]||"";
-  const map:Record<string,string>={JB:"Jet Black",SG:"Space Gray",RG:"Rose Gold",SI:"Silver",ST:"Starlight",S:"Starlight",MI:"Midnight",M:"Midnight",BK:"Black",NT:"Natural Titanium",TI:"Titanium"};
+  // The first token after the case size is the case/chassis colour. Tokens
+  // after it belong to the band and must not overwrite the case colour.
+  const map:Record<string,string>={
+    JB:"Jet Black",SG:"Space Gray",RG:"Rose Gold",SI:"Silver",
+    ST:"Starlight",S:"Starlight",MI:"Midnight",M:"Midnight",
+    BK:"Black",BLACK:"Black",LG:"Light Gold",DB:"Deep Blue",
+    PI:"Pink",PINK:"Pink",RD:"Red",RED:"Red",
+    NT:"Natural Titanium",N:"Natural Titanium",TI:"Titanium",
+  };
   return map[token]||"Unknown Color";
 }
 
@@ -364,7 +375,8 @@ export function mergeFirstPartyAccessoryProducts(deviceProducts:PromoProduct[],a
 
 function friendlyName(meta:PromoSkuMeta){
   const config=[meta.capacity,meta.connectivity,meta.ram,meta.configuration].filter(Boolean).join(" • ");
-  return clean(`${meta.model}${config?` • ${config}`:""}`);
+  const displayModel=meta.model==="MacBook Neo"&&meta.size?`${meta.model} ${meta.size}`:meta.model;
+  return clean(`${displayModel}${config?` • ${config}`:""}`);
 }
 
 function makeGroup(key:string,titleText:string,product:PromoProduct):PromoProductGroup{
