@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build:vercel"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22.13.0"
+
+[functions]
+  node_bundler = "esbuild"
