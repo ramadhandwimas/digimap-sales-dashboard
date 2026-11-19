@@ -184,6 +184,37 @@ test("MacBook Neo color codes are not confused with the -IND region suffix",()=>
   const colors=catalogApi.buildPromoCatalog(result.products,[])
     .flatMap(item=>item.stockVariants.map(variant=>variant.color));
   assert.deepEqual(colors,["Silver","Citrus","Indigo","Blush"]);
+  const catalog=catalogApi.buildPromoCatalog(result.products,[]);
+  assert.deepEqual([...new Set(catalog.map(item=>item.model))],["MacBook Neo"]);
+  assert.deepEqual([...new Set(catalog.map(item=>item.size))],["13"]);
+  assert.ok(catalog.every(item=>item.friendlyName.startsWith("MacBook Neo 13")));
+});
+
+test("Apple Watch Series 12 uses the chassis color token instead of the band color",()=>{
+  const result=parse([
+    {sap:"AW12-SG",description:"APPLE WATCH 12 42 SG AL NB SB SM GPS-IND",normal:7999000,promo:7999000},
+    {sap:"AW12-BK",description:"APPLE WATCH 12 42 BK AL BK SB SM GPS-IND",normal:7999000,promo:7999000},
+    {sap:"AW12-LG",description:"APPLE WATCH 12 42 LG AL S SB SM GPS-IND",normal:7999000,promo:7999000},
+    {sap:"AW12-DB",description:"APPLE WATCH 12 42 DB AL OL SB SM GPS-IND",normal:7999000,promo:7999000},
+  ]);
+  const catalog=catalogApi.buildPromoCatalog(result.products,[]);
+  assert.deepEqual([...new Set(catalog.map(item=>item.model))],["Apple Watch Series 12"]);
+  assert.deepEqual(catalog.flatMap(item=>item.stockVariants.map(variant=>variant.color)),[
+    "Space Gray","Black","Light Gold","Deep Blue",
+  ]);
+});
+
+test("new Mac mini M6 rows are parsed as their own type with configuration",()=>{
+  const result=parse([
+    {sap:"APPMHQK4ID/A",description:"MAC MINI/M6/12CCPU/12CGPU/16GB/256GB",normal:10999000,promo:10999000},
+    {sap:"APPMHQL4ID/A",description:"MAC MINI/M6/12CCPU/12CGPU/16GB/512GB",normal:13999000,promo:13999000},
+    {sap:"APPMHQM4ID/A",description:"MAC MINI/M6/12CCPU/12CGPU/24GB/512GB",normal:16999000,promo:16999000},
+  ]);
+  const catalog=catalogApi.buildPromoCatalog(result.products,[]);
+  assert.deepEqual([...new Set(catalog.map(item=>item.model))],["Mac mini M6"]);
+  assert.deepEqual([...new Set(catalog.map(item=>item.chip))],["M6"]);
+  assert.ok(catalog.every(item=>item.configuration==="12C CPU • 12C GPU"));
+  assert.deepEqual(catalog.map(item=>item.ram),["16GB","16GB","24GB"]);
 });
 
 test("iPhone 18 series colors follow the product descriptions",()=>{
