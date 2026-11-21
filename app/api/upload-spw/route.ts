@@ -18,7 +18,7 @@ function signature(rows:ReturnType<typeof aggregateDaily>){return [...rows].sort
 function friendly(e:unknown){const raw=e instanceof Error?e.message:"Fast processing gagal";if(/429|Too Many Requests/i.test(raw))return"Google Sheets sedang membatasi request. Sistem sudah mencoba kembali beberapa kali; silakan ulangi upload setelah beberapa saat.";return raw}
 
 export async function POST(req:NextRequest){
- let locked=false,credentials:{email:string;key:string}|undefined;
+ let locked=false,lockValue:string|undefined,credentials:{email:string;key:string}|undefined;
  const started=Date.now(),apiStart=getGoogleSheetRequestCount();let reportRows=0,fileName="",sheetName="",masterSales=0,report:ReturnType<typeof parseSpwWorkbook>|undefined;
  const timing={parse:0,read:0,clear:0,write:0,cache:0,summary:0,total:0};
  try{
@@ -28,7 +28,7 @@ export async function POST(req:NextRequest){
   if(report.rows.length>65536)return NextResponse.json({error:"File SPW melebihi kapasitas 65.536 baris."},{status:400});
   const dates=report.rows.filter(r=>typeof r[0]==="string"&&/^\d{2}-\d{2}-\d{4}$/.test(String(r[0]))).length,staff=report.rows.filter(r=>typeof r[0]==="string"&&/^\d{6,}\s*\/\s*\S+/.test(String(r[0]))).length;if(!dates||!staff)return NextResponse.json({error:"Pola file SPW tidak valid."},{status:422});
 
-  await acquireSpwLock(credentials);locked=true;
+  lockValue=await acquireSpwLock(credentials);locked=true;
   await ensureSheets(MASTER_ID,[{title:spwSheet("M238"),headers:["Report","Article / Invoice","Amount"]},{title:spwSheet("M996"),headers:["Report","Article / Invoice","Amount"]}],email,key);
   const [saved238,saved996,legacy]=await getSheetRangesFresh(MASTER_ID,["'SPW M238'!A2:C65537","'SPW M996'!A2:C65537","'SPW'!A1:C65536"],email,key);
   const snapshots={M238:saved238.length?saved238:!saved996.length?legacy:[],M996:saved996};
@@ -61,5 +61,5 @@ export async function POST(req:NextRequest){
    if(fastError instanceof SpwWriteError&&!fastError.safeToUnlock)locked=false;
    const message=friendly(fastError);return NextResponse.json({error:message,ok:false,rows:reportRows},{status:fastError instanceof SpwWriteError?fastError.status:500});
   }
- }catch(e){timing.total=Date.now()-started;return NextResponse.json({error:friendly(e),rows:reportRows,file:fileName,sheet:sheetName,masterSales,performance:{...timing,apiRequests:getGoogleSheetRequestCount()-apiStart}},{status:e instanceof SpwWriteError?e.status:500})}finally{if(locked&&credentials)await releaseSpwLock(credentials).catch(error=>console.error("SPW unlock failed",error))}
+ }catch(e){timing.total=Date.now()-started;return NextResponse.json({error:friendly(e),rows:reportRows,file:fileName,sheet:sheetName,masterSales,performance:{...timing,apiRequests:getGoogleSheetRequestCount()-apiStart}},{status:e instanceof SpwWriteError?e.status:500})}finally{if(locked&&credentials&&lockValue)await releaseSpwLock(credentials,lockValue).catch(error=>console.error("SPW unlock failed",error))}
 }
