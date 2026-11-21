@@ -4,13 +4,19 @@ import {acquireSpwLock,releaseSpwLock,replaceSpwRanges,SpwWriteError} from "@/li
 import {cacheHeaders,normalizedHeaders} from "@/lib/m238-fast-sales";
 import {sohFastHeaders} from "@/lib/m238-fast-soh";
 import {clearActiveSpwSummaryRows} from "@/lib/m238-daily-summary-cache";
+import {SESSION_COOKIE,verifySessionToken} from "@/lib/auth-session";
+import {isStoreClearOperator} from "@/lib/spv-access";
 
 const MASTER_ID="1v479QFSArfDb-vt_YRGcw0o4RhYxCzFlNOCH6VMvCSk",NORMALIZED="SALES DASHBOARD DATA",CACHE="DAILY SALES CACHE",SOH_CACHE="SOH FAST CACHE";
 function friendly(e:unknown){const raw=e instanceof Error?e.message:"Operasi gagal";return/429|Too Many Requests/i.test(raw)?"Google Sheets sedang membatasi request. Sistem sudah mencoba kembali; silakan coba beberapa saat lagi.":raw}
 
 export async function POST(req:NextRequest){
  const started=Date.now(),apiStart=getGoogleSheetRequestCount(),e=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,k=process.env.GOOGLE_PRIVATE_KEY;if(!e||!k)return NextResponse.json({error:"Google Sheets belum dikonfigurasi"},{status:503});
- const b=await req.json(),action=String(b.action||"");if(!["clear-spw","clear-soh"].includes(action))return NextResponse.json({error:"Action tidak dikenal"},{status:400});const pin=process.env.ADMIN_PASSCODE;if(!pin)return NextResponse.json({error:"ADMIN_PASSCODE belum dipasang di Vercel"},{status:503});if(String(b.passcode||"")!==pin)return NextResponse.json({error:"Passcode admin salah"},{status:403});
+ const session=verifySessionToken(req.cookies.get(SESSION_COOKIE)?.value);
+ if(!session)return NextResponse.json({error:"Sesi login berakhir. Silakan login kembali."},{status:401});
+ if(req.headers.get("origin")&&req.headers.get("origin")!==req.nextUrl.origin)return NextResponse.json({error:"Permintaan tidak diizinkan."},{status:403});
+ if(!await isStoreClearOperator(session.nik,e,k))return NextResponse.json({error:"Admin Clear hanya untuk SPV, Store Trainer, Cashier, dan MT M238."},{status:403});
+ const b=await req.json().catch(()=>({})),action=String(b.action||"");if(!["clear-spw","clear-soh"].includes(action))return NextResponse.json({error:"Action tidak dikenal"},{status:400});
  const timing={read:0,clear:0,write:0,total:0};
  try{
   if(action==="clear-spw"){

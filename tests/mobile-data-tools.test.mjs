@@ -32,16 +32,16 @@ test('embedded Cut Off uses a reviewed plan, locks inputs, and clears the plan w
  }finally{if(view)await act(async()=>view.unmount());globalThis.fetch=originalFetch;globalThis.window=originalWindow}
 });
 
-for(const [Component,tool] of [[Daily,'spw-clear'],[Soh,'soh-clear']])test(`${tool} remains inline, requires passcode and confirmation, and submits once`,async()=>{
+for(const [Component,tool] of [[Daily,'spw-clear'],[Soh,'soh-clear']])test(`${tool} remains inline, requires confirmation, and submits once without a Vercel passcode`,async()=>{
  const originalFetch=globalThis.fetch,originalConfirm=globalThis.confirm,originalWindow=globalThis.window,calls=[];let view,approved=false,finish;
  globalThis.window={dispatchEvent:()=>true};globalThis.confirm=()=>approved;globalThis.fetch=async(url,options)=>{calls.push({url,body:JSON.parse(options.body)});await new Promise(resolve=>{finish=resolve});return response({message:'Selesai'})};
  try{
   await act(async()=>{view=create(React.createElement(Component,{tool,onChanged:()=>{}}))});
-  assert.equal(view.root.findAllByProps({role:'dialog'}).length,0);assert.equal(button(view,'Ya, Clear').props.disabled,true);
-  await act(async()=>view.root.findByProps({'aria-label':'Passcode Admin'}).props.onChange({target:{value:'test-passcode'}}));
+  assert.equal(view.root.findAllByProps({role:'dialog'}).length,0);assert.equal(button(view,'Ya, Clear').props.disabled,false);
+  assert.equal(view.root.findAllByProps({'aria-label':'Passcode Admin'}).length,0);
   await act(async()=>button(view,'Ya, Clear').props.onClick());assert.equal(calls.length,0);
   approved=true;await act(async()=>{button(view,'Ya, Clear').props.onClick();button(view,'Ya, Clear').props.onClick();await tick()});
-  assert.deepEqual(calls,[{url:'/api/data-tools',body:{action:tool==='spw-clear'?'clear-spw':'clear-soh',passcode:'test-passcode'}}]);assert.equal(view.root.findByType('input').props.disabled,true);
+  assert.deepEqual(calls,[{url:'/api/data-tools',body:{action:tool==='spw-clear'?'clear-spw':'clear-soh'}}]);assert.equal(button(view,'Ya, Clear'),undefined);
   await act(async()=>{finish();await tick()});assert.ok(text(view.toJSON()).includes('Selesai'));
  }finally{if(view)await act(async()=>view.unmount());globalThis.fetch=originalFetch;globalThis.confirm=originalConfirm;globalThis.window=originalWindow}
 });
